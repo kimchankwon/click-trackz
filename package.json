@@ -54,7 +54,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "clock-check": "node --env-file=.env.local scripts/clock-check.mts",
-    "voice-pack": "node --env-file=.env.tts.local scripts/generate-voice-pack.mts"
+    "voice-pack": "node --env-file=.env.tts.local scripts/generate-voice-pack.mts",
+    "deploy:web:dev": "node scripts/deploy-web-dev.mjs"
   },
   "private": true
 }
