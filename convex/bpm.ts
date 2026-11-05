@@ -30,11 +30,11 @@ const isAbort = (error: unknown) => error instanceof Error && (error.name === "A
 
 type SearchBody = { search?: SearchResult[] | { error?: string } };
 
-async function fetchSearch(url: string): Promise<SearchBody> {
+async function fetchSearch(url: string, apiKey: string): Promise<SearchBody> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, headers: { "X-API-KEY": apiKey } });
     if (!response.ok) throw new ConvexError(`BPM lookup failed (${response.status})`);
     return (await response.json()) as SearchBody;
   } catch (error) {
@@ -53,8 +53,8 @@ export const lookup = action({
     if (!apiKey) throw new ConvexError("BPM lookup is not set up");
     const query = title.trim();
     if (query.length === 0 || query.length > 80) throw new ConvexError("Type a Song title to look up");
-    const url = `https://api.getsong.co/search/?api_key=${encodeURIComponent(apiKey)}&type=song&lookup=${encodeURIComponent(query)}`;
-    const body = await fetchSearch(url);
+    const url = `https://api.getsong.co/search/?type=song&lookup=${encodeURIComponent(query)}`;
+    const body = await fetchSearch(url, apiKey);
     const results = Array.isArray(body.search) ? body.search : [];
     return results.slice(0, 5).map((result) => {
       const beats = Number.parseInt(result.time_sig ?? "", 10);
