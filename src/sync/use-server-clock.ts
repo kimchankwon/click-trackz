@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
 import { estimateClockOffset, type ClockEstimate, type ClockSample } from "./clock";
-import { pingDelayMs } from "./ping-schedule";
+import { holdsClockSteady, pingDelayMs } from "./ping-schedule";
 
 const INITIAL_BURST = 8;
 const WAKE_BURST = 4;
@@ -19,36 +19,42 @@ export type ServerClock = {
   serverNow: () => number | null;
 };
 
-export function useServerClock({ fast = false }: { fast?: boolean } = {}): ServerClock {
+export function useServerClock({ playing = false }: { playing?: boolean } = {}): ServerClock {
   const ping = useMutation(api.clock.now);
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
-  const fastRef = useRef(fast);
+  const playingRef = useRef(playing);
   const rescheduleRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    fastRef.current = fast;
+    playingRef.current = playing;
     rescheduleRef.current?.();
-  }, [fast]);
+  }, [playing]);
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const openedAt = clientNow();
     const samples: ClockSample[] = [];
+    let hasEstimate = false;
+    const steady = () => holdsClockSteady({ playing: playingRef.current, hasEstimate });
     const sampleOnce = async () => {
+      if (steady()) return;
       const sentAt = clientNow();
       const serverAt = await ping({});
       const receivedAt = clientNow();
-      if (cancelled) return;
+      if (cancelled || steady()) return;
       samples.push({ sentAt, serverAt, receivedAt });
       if (samples.length > SAMPLE_WINDOW) samples.shift();
-      if (samples.length >= SAMPLES_BEFORE_READY) setEstimate(estimateClockOffset(samples));
+      if (samples.length >= SAMPLES_BEFORE_READY) {
+        hasEstimate = true;
+        setEstimate(estimateClockOffset(samples));
+      }
     };
     const schedule = () => {
       if (timer !== null) clearTimeout(timer);
       timer = null;
       if (cancelled) return;
-      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, fast: fastRef.current, hidden: isHidden() });
+      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, playing: playingRef.current, hidden: isHidden(), hasEstimate });
       if (delay === null) return;
       timer = setTimeout(() => {
         void sampleOnce()

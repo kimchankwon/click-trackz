@@ -121,7 +121,7 @@ export default function GroupRoute() {
 function GroupScreen({ group }: { group: MyGroup }) {
   const groupId = group.groupId;
   const [playing, setPlaying] = useState(false);
-  const { estimate, serverNow } = useServerClock({ fast: playing });
+  const { estimate, serverNow } = useServerClock({ playing });
   const playbackDoc = useQuery(api.playback.current, { groupId });
   const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
