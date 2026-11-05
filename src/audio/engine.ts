@@ -2,11 +2,11 @@ import { AudioContext, type AudioBuffer } from "react-native-audio-api";
 
 import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
 
-import { builtinVoiceClips } from "./builtin-voice-clips";
+import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 import { audioTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
-import { allClipKeys, clipKeyForSpokenCount, clipKeyForVoiceCue } from "./voice-clips";
+import { allClipKeys, clipKeyForSpokenCount, clipKeyForVoiceCue, defaultSpeaker } from "./voice-clips";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -22,7 +22,9 @@ type Plan = { song: Song; playback: Playback | null };
 
 export class CueAudioEngine {
   private context: AudioContext | null = null;
-  private clips = new Map<string, AudioBuffer>();
+  private clips = new Map<BuiltinClipKey, AudioBuffer>();
+  private speaker: SpeakerId = defaultSpeaker;
+  private loadingSpeaker: Promise<void> | null = null;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private voiceBusyUntil = -Infinity;
@@ -35,19 +37,38 @@ export class CueAudioEngine {
     return this.context !== null;
   }
 
-  async enable(serverNow: () => number | null) {
+  async enable(serverNow: () => number | null, speaker: SpeakerId) {
     this.serverNow = serverNow;
     if (this.context === null) {
       this.context = new AudioContext();
       await this.context.resume();
-      const context = this.context;
+    }
+    await this.setSpeaker(speaker, true);
+    this.timer ??= setInterval(() => this.tick(), TICK_MS);
+  }
+
+  async setSpeaker(speaker: SpeakerId, force = false) {
+    if (!force && speaker === this.speaker && this.clips.size > 0) return;
+    this.speaker = speaker;
+    const context = this.context;
+    if (context === null) return;
+    const loading = (async () => {
+      const loaded = new Map<BuiltinClipKey, AudioBuffer>();
       await Promise.all(
         allClipKeys.map(async (key) => {
-          this.clips.set(key, await loadClip(context, builtinVoiceClips[key]));
+          loaded.set(key, await loadClip(context, builtinVoiceClips[speaker][key]));
         }),
       );
-    }
-    this.timer ??= setInterval(() => this.tick(), TICK_MS);
+      if (this.speaker === speaker) this.clips = loaded;
+    })();
+    this.loadingSpeaker = loading;
+    await loading;
+  }
+
+  preview(key: BuiltinClipKey) {
+    const context = this.context;
+    if (context === null) return;
+    void (this.loadingSpeaker ?? Promise.resolve()).then(() => this.play(context, key, context.currentTime));
   }
 
   setServerClock(serverNow: () => number | null) {
@@ -112,7 +133,7 @@ export class CueAudioEngine {
     oscillator.stop(when + CLICK_MS / 1000);
   }
 
-  private play(context: AudioContext, key: string, when: number): number | null {
+  private play(context: AudioContext, key: BuiltinClipKey, when: number): number | null {
     const buffer = this.clips.get(key);
     if (!buffer) return null;
     const source = context.createBufferSource();

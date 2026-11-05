@@ -1,10 +1,14 @@
 import type { VoiceCue } from "@/sync/timeline";
 
-import { builtinVoiceClips, type BuiltinClipKey } from "./builtin-voice-clips";
+import { builtinVoiceClips, speakers, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 
 const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-const isClipKey = (key: string): key is BuiltinClipKey => key in builtinVoiceClips;
+export const defaultSpeaker: SpeakerId = "adam";
+
+export const isSpeakerId = (value: string): value is SpeakerId => speakers.some((speaker) => speaker.id === value);
+
+const isClipKey = (key: string): key is BuiltinClipKey => key in builtinVoiceClips[defaultSpeaker];
 
 export function clipKeyForVoiceCue(cue: VoiceCue): BuiltinClipKey | null {
   const base = slug(cue.sectionType);
@@ -18,4 +22,4 @@ export function clipKeyForSpokenCount(count: number): BuiltinClipKey | null {
   return isClipKey(key) ? key : null;
 }
 
-export const allClipKeys = Object.keys(builtinVoiceClips) as BuiltinClipKey[];
+export const allClipKeys = Object.keys(builtinVoiceClips[defaultSpeaker]) as BuiltinClipKey[];

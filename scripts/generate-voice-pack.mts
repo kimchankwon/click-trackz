@@ -1,10 +1,15 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const apiKey = process.env.ELEVENLABS_API_KEY;
 if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
 
-const voiceId = process.argv[2] ?? "pNInz6obpgDQGcFmaJgB";
+const speakers = [
+  { id: "adam", name: "Adam", voiceId: "pNInz6obpgDQGcFmaJgB" },
+  { id: "alice", name: "Alice", voiceId: "Xb7hH8MSUJpSbSDYk0k2" },
+  { id: "charlie", name: "Charlie", voiceId: "IKne3meq5aSn9XLyUdCD" },
+  { id: "sarah", name: "Sarah", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+];
 const SAMPLE_RATE = 22_050;
 const SILENCE_THRESHOLD = 330;
 const PRE_ROLL_SAMPLES = Math.round(SAMPLE_RATE * 0.004);
@@ -53,7 +58,7 @@ function wav(pcm: Int16Array): Buffer {
   return Buffer.concat([header, data]);
 }
 
-async function synthesize(text: string): Promise<Int16Array> {
+async function synthesize(voiceId: string, text: string): Promise<Int16Array> {
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_${SAMPLE_RATE}`,
     {
@@ -71,21 +76,37 @@ async function synthesize(text: string): Promise<Int16Array> {
   return new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
 }
 
-const outDir = path.resolve("assets/voice");
-await mkdir(outDir, { recursive: true });
-for (const clip of clips) {
-  const pcm = trimSilence(await synthesize(clip.text));
-  await writeFile(path.join(outDir, `${clip.key}.wav`), wav(pcm));
-  console.log(`${clip.key}.wav ${((pcm.length / SAMPLE_RATE) * 1000).toFixed(0)} ms`);
+const exists = (file: string) => access(file).then(() => true, () => false);
+
+for (const speaker of speakers) {
+  const outDir = path.resolve("assets/voice", speaker.id);
+  await mkdir(outDir, { recursive: true });
+  for (const clip of clips) {
+    const file = path.join(outDir, `${clip.key}.wav`);
+    if (await exists(file)) continue;
+    const pcm = trimSilence(await synthesize(speaker.voiceId, clip.text));
+    await writeFile(file, wav(pcm));
+    console.log(`${speaker.id}/${clip.key}.wav ${((pcm.length / SAMPLE_RATE) * 1000).toFixed(0)} ms`);
+  }
 }
 
 const manifest = [
+  "export const speakers = [",
+  ...speakers.map((speaker) => `  { id: "${speaker.id}", name: "${speaker.name}" },`),
+  "] as const;",
+  "",
+  "export type SpeakerId = (typeof speakers)[number][\"id\"];",
+  "",
   "export const builtinVoiceClips = {",
-  ...clips.map((clip) => `  "${clip.key}": require("../../assets/voice/${clip.key}.wav"),`),
+  ...speakers.flatMap((speaker) => [
+    `  ${speaker.id}: {`,
+    ...clips.map((clip) => `    "${clip.key}": require("../../assets/voice/${speaker.id}/${clip.key}.wav"),`),
+    "  },",
+  ]),
   "} as const;",
   "",
-  "export type BuiltinClipKey = keyof typeof builtinVoiceClips;",
+  "export type BuiltinClipKey = keyof (typeof builtinVoiceClips)[SpeakerId];",
   "",
 ].join("\n");
 await writeFile(path.resolve("src/audio/builtin-voice-clips.ts"), manifest);
-console.log(`${clips.length} clips written`);
+console.log(`${speakers.length} Speakers, ${clips.length} clips each`);

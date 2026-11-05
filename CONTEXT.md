@@ -64,12 +64,16 @@ _Avoid_: Metronome, beep
 The spoken Section type, said on the first beat of the bar before that Section, optionally followed by the spoken remaining beats of that bar.
 _Avoid_: Guide, announcement, callout
 
+**Speaker**:
+One of the built-in voices that reads Voice cues and spoken counts; each Member chooses their own Speaker on their device.
+_Avoid_: Voice, narrator, announcer
+
 **Voice pack**:
-The set of recordings a Group uses for Voice cues and spoken counts: the built-in recordings, with any an Admin has uploaded taking their place or adding new words.
+The set of recordings a Group uses for Voice cues and spoken counts: the chosen Speaker's built-in recordings, with any an Admin has uploaded taking their place or adding new words.
 _Avoid_: Samples, voice, sound bank
 
 **Latency nudge**:
-A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite their own speakers or headphones.
+A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite the delay of their own audio output, such as Bluetooth headphones.
 _Avoid_: Delay, offset, calibration
 
 ## Playback

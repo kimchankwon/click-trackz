@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
+import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { demoSong } from "@/sync/demo-song";
 import { beatsBetween, type Beat, type Playback, type Section } from "@/sync/timeline";
+import { useDeviceSetting } from "@/settings/use-device-setting";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../convex/_generated/api";
 
@@ -35,8 +38,8 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
+      role="switch"
+      aria-checked={value}
       onPress={() => onChange(!value)}
       style={[styles.chip, { backgroundColor: value ? theme.backgroundSelected : theme.backgroundElement }]}
     >
@@ -71,6 +74,7 @@ export default function PlaybackScreen() {
   const [soundOn, setSoundOn] = useState(false);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
+  const [speaker, setSpeaker] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
   const [playing, setPlaying] = useState(false);
@@ -88,6 +92,10 @@ export default function PlaybackScreen() {
   useEffect(() => {
     if (engine.current) engine.current.mix = mix;
   }, [mix, soundOn]);
+
+  useEffect(() => {
+    if (soundOn) void engine.current?.setSpeaker(speaker);
+  }, [speaker, soundOn]);
 
   useEffect(() => () => engine.current?.dispose(), []);
 
@@ -120,9 +128,14 @@ export default function PlaybackScreen() {
   const enableSound = () =>
     run(async () => {
       engine.current ??= new CueAudioEngine();
-      await engine.current.enable(serverNow);
+      await engine.current.enable(serverNow, speaker);
       setSoundOn(true);
     });
+
+  const chooseSpeaker = (next: SpeakerId) => {
+    setSpeaker(next);
+    void engine.current?.setSpeaker(next).then(() => engine.current?.preview("chorus"));
+  };
 
   const nextLine = upcoming ? `next: ${labelOf(upcoming)}` : "";
 
@@ -154,6 +167,18 @@ export default function PlaybackScreen() {
           ) : (
             <Button label="Enable sound" testID="enable-sound" onPress={enableSound} />
           )}
+
+          <ThemedText type="smallBold">Speaker</ThemedText>
+          <View style={styles.row} testID="speaker-picker">
+            {speakers.map((option) => (
+              <Toggle
+                key={option.id}
+                label={option.name}
+                value={speaker === option.id}
+                onChange={() => chooseSpeaker(option.id)}
+              />
+            ))}
+          </View>
 
           <View style={styles.row}>
             <Button label="Start" testID="start" onPress={() => run(() => start({}))} />
