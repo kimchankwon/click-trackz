@@ -9,6 +9,7 @@ import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { BeatPulse } from "@/components/playback/beat-pulse";
+import { VoicePackCard } from "@/components/group/voice-pack-card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -317,6 +318,7 @@ export default function GroupScreen() {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
+  const recordings = useQuery(api.recordings.list, { groupId });
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
@@ -349,6 +351,10 @@ export default function GroupScreen() {
   useEffect(() => {
     if (soundOn) void engine.current?.setSpeaker(speaker);
   }, [speaker, soundOn]);
+
+  useEffect(() => {
+    if (soundOn && recordings) void engine.current?.setUploads(recordings);
+  }, [recordings, soundOn]);
 
   useEffect(() => () => engine.current?.dispose(), []);
 
@@ -523,6 +529,7 @@ export default function GroupScreen() {
             onSelect={setSelectedSongId}
             run={run}
           />
+          {isAdmin ? <VoicePackCard groupId={groupId} run={run} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
           <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
           <Pressable
             role="button"

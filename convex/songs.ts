@@ -1,9 +1,9 @@
 import { ConvexError, v } from "convex/values";
 
-import { isBuiltinSectionType } from "../src/sync/cue-vocabulary";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
+import { groupVocabulary } from "./recordings";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
@@ -58,9 +58,9 @@ type Section = Doc<"songs">["sections"][number];
 
 const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
-function checkSection(section: Section, index: number) {
+function checkSection(section: Section, index: number, vocabulary: ReadonlySet<string>) {
   const where = `Section ${index + 1}`;
-  if (!isBuiltinSectionType(section.sectionType)) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
+  if (!vocabulary.has(section.sectionType)) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
   if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
@@ -83,7 +83,10 @@ export const updateSong = mutation({
     if (song === null) throw new ConvexError("That Song no longer exists");
     await requireAdmin(ctx, song.groupId);
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
-    sections?.forEach(checkSection);
+    if (sections !== undefined) {
+      const vocabulary = new Set(await groupVocabulary(ctx, song.groupId));
+      sections.forEach((section, index) => checkSection(section, index, vocabulary));
+    }
     await ctx.db.patch(songId, {
       ...(title !== undefined ? { title: cleanTitle(title) } : {}),
       ...(key !== undefined ? { key: cleanKey(key) } : {}),

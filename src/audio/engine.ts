@@ -6,7 +6,8 @@ import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builti
 import { audioTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
-import { allClipKeys, clipKeyForSpokenCount, clipKeyForVoiceCue, defaultSpeaker } from "./voice-clips";
+import { chooseClip } from "./clip-choice";
+import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -31,6 +32,9 @@ export class CueAudioEngine {
   private voiceBus: GainNode | null = null;
   private volumes: CueVolumes = { click: 0.8, voice: 0.9 };
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
+  private uploads = new Map<string, AudioBuffer>();
+  private uploadUrls = new Map<string, string>();
+  private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
   private loadingSpeaker: Promise<void> | null = null;
   private mapping: ClockMapping | null = null;
@@ -76,6 +80,36 @@ export class CueAudioEngine {
     })();
     this.loadingSpeaker = loading;
     await loading;
+  }
+
+  async setUploads(recordings: readonly { key: string; url: string | null }[]) {
+    const wanted = new Map(recordings.filter((r) => r.url !== null).map((r) => [r.key, r.url as string]));
+    for (const key of [...this.uploads.keys()]) {
+      if (wanted.get(key) !== this.uploadUrls.get(key)) {
+        this.uploads.delete(key);
+        this.uploadUrls.delete(key);
+      }
+    }
+    const context = this.context;
+    if (context === null) return;
+    await Promise.all(
+      [...wanted].map(async ([key, url]) => {
+        if (this.uploadUrls.get(key) === url) return;
+        try {
+          const buffer = await loadClip(context, url);
+          this.uploads.set(key, buffer);
+          this.uploadUrls.set(key, url);
+        } catch {
+          return;
+        }
+      }),
+    );
+  }
+
+  previewUpload(key: string) {
+    const context = this.context;
+    const buffer = this.uploads.get(key);
+    if (context && buffer) this.playBuffer(context, buffer, context.currentTime);
   }
 
   setVolumes(volumes: CueVolumes) {
@@ -132,9 +166,14 @@ export class CueAudioEngine {
   private schedule(context: AudioContext, beat: Beat, when: number) {
     if (this.mix.click) this.click(context, when, beat.accent);
     if (this.mix.voiceCues && beat.voiceCue) {
-      const key = clipKeyForVoiceCue(beat.voiceCue);
-      const ends = key ? this.play(context, key, when) : null;
-      if (ends !== null) this.voiceBusyUntil = beat.at + ends * 1000;
+      const uploadRefs = Object.fromEntries([...this.uploads.keys()].map((key) => [key, key]));
+      const choice = chooseClip(beat.voiceCue, uploadRefs, this.builtinKeys);
+      const buffer =
+        choice?.source === "upload" ? this.uploads.get(choice.ref) : choice ? this.clips.get(choice.ref as BuiltinClipKey) : undefined;
+      if (buffer) {
+        this.playBuffer(context, buffer, when);
+        this.voiceBusyUntil = beat.at + buffer.duration * 1000;
+      }
     }
     if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
@@ -157,10 +196,14 @@ export class CueAudioEngine {
   private play(context: AudioContext, key: BuiltinClipKey, when: number): number | null {
     const buffer = this.clips.get(key);
     if (!buffer) return null;
+    this.playBuffer(context, buffer, when);
+    return buffer.duration;
+  }
+
+  private playBuffer(context: AudioContext, buffer: AudioBuffer, when: number) {
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.voiceBus ?? context.destination);
     source.start(when);
-    return buffer.duration;
   }
 }
