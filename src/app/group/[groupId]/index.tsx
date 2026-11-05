@@ -87,6 +87,8 @@ function TransportButton({
 
 const emptySong: Song = { countIn: false, sections: [] };
 
+const WEAK_PING_MS = 80;
+
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
 export default function GroupRoute() {
@@ -250,7 +252,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
               <View style={[styles.statusDot, { backgroundColor: estimate ? theme.accent : theme.textSecondary }]} />
               <ThemedText type="small" themeColor="textSecondary" testID="clock-status">
-                {estimate ? `clock ±${estimate.uncertaintyMs.toFixed(0)} ms` : "Measuring clock…"}
+                {estimate ? `ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring ping…"}
               </ThemedText>
             </View>
           </View>
@@ -317,12 +319,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
                   />
                 ))}
               </View>
-              <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="Jump at">
+              <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="When I tap a Section, go">
                 <ThemedText type="small" themeColor="textSecondary">
-                  Jump at
+                  When I tap a Section, go
                 </ThemedText>
-                <Chip role="radio" label="End of Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
-                <Chip role="radio" label="Next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
+                <Chip role="radio" label="After this Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
+                <Chip role="radio" label="At the next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
               </View>
             </Card>
           ) : null}

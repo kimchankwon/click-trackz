@@ -7,6 +7,7 @@ export type ClockSample = {
 export type ClockEstimate = {
   offsetMs: number;
   uncertaintyMs: number;
+  roundTripMs: number;
 };
 
 const roundTripOf = (sample: ClockSample) => sample.receivedAt - sample.sentAt;
@@ -18,5 +19,6 @@ export function estimateClockOffset(samples: readonly ClockSample[]): ClockEstim
   return {
     offsetMs: best.serverAt - (best.sentAt + best.receivedAt) / 2,
     uncertaintyMs: roundTripOf(best) / 2,
+    roundTripMs: roundTripOf(best),
   };
 }

@@ -5,7 +5,7 @@ import { estimateClockOffset } from "./clock";
 describe("estimateClockOffset", () => {
   it("places the server reading at the midpoint of a single round trip", () => {
     const estimate = estimateClockOffset([{ sentAt: 1000, serverAt: 5060, receivedAt: 1100 }]);
-    expect(estimate).toEqual({ offsetMs: 4010, uncertaintyMs: 50 });
+    expect(estimate).toEqual({ offsetMs: 4010, uncertaintyMs: 50, roundTripMs: 100 });
   });
 
   it("trusts the sample with the shortest round trip", () => {
@@ -14,7 +14,7 @@ describe("estimateClockOffset", () => {
       { sentAt: 1000, serverAt: 1520, receivedAt: 1040 },
       { sentAt: 2000, serverAt: 2700, receivedAt: 2300 },
     ]);
-    expect(estimate).toEqual({ offsetMs: 500, uncertaintyMs: 20 });
+    expect(estimate).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
   });
 
   it("has no estimate until a usable sample arrives", () => {
