@@ -57,20 +57,21 @@ export function SongRow({
                 <View role="img" aria-label="No Sections yet" style={[styles.dot, { backgroundColor: theme.warning }]} />
               ) : null}
               {meta || (needsSections && !warningAsDot) ? (
-                <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
                   {[needsSections && !warningAsDot ? "No Sections yet" : null, meta].filter(Boolean).join(" · ")}
                 </ThemedText>
               ) : null}
             </View>
           ) : null}
         </View>
-        {songKey ? (
-          <View style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }]}>
-            <ThemedText type="smallBold" aria-label={`Key of ${songKey}`} style={styles.keyText}>
-              {songKey}
-            </ThemedText>
-          </View>
-        ) : null}
+        <View
+          style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }, songKey ? null : styles.keyEmpty]}
+          aria-label={songKey ? `Key of ${songKey}` : "No Key"}
+        >
+          <ThemedText type="smallBold" style={styles.keyText}>
+            {songKey || "–"}
+          </ThemedText>
+        </View>
         {selected && selectable ? <Icon name="check" size={20} color="accent" /> : null}
       </Pressable>
       {trailing}
@@ -83,10 +84,11 @@ const styles = StyleSheet.create({
   main: { flex: 1, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 56, paddingHorizontal: Spacing.two },
   index: { width: 22, textAlign: "right", fontVariant: ["tabular-nums"] },
   text: { flex: 1, minWidth: 0 },
-  title: { fontWeight: 700, fontSize: 17 },
+  title: { fontWeight: 600, fontSize: 17 },
   keyText: { fontSize: 15, lineHeight: 20 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  keyPill: { minWidth: 36, height: 30, paddingHorizontal: Spacing.two, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
+  keyPill: { width: 40, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
+  keyEmpty: { opacity: 0.4 },
 });

@@ -11,6 +11,7 @@ import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Field } from "@/components/ui/field";
+import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -60,16 +61,19 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
                 pressed ? { backgroundColor: theme.backgroundSelected } : null,
               ]}
             >
-              <View style={[styles.groupMark, { backgroundColor: group.role === "admin" ? theme.accentTint : theme.backgroundSelected }]}>
-                <Icon name={group.role === "admin" ? "admin" : "group"} size={20} color={group.role === "admin" ? "accent" : "textSecondary"} />
+              <View style={[styles.groupMark, { backgroundColor: theme.backgroundSelected }]}>
+                <ThemedText style={styles.initial}>{group.name.slice(0, 1).toUpperCase()}</ThemedText>
               </View>
               <View style={styles.grow}>
                 <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
                   {group.name}
                 </ThemedText>
-                <ThemedText type="small" themeColor={group.role === "admin" ? "accent" : "textSecondary"} style={styles.role}>
-                  {group.role === "admin" ? "Admin" : "Member"}
-                </ThemedText>
+                <View style={styles.roleRow}>
+                  {group.role === "admin" ? <Icon name="admin" size={14} color="textSecondary" /> : null}
+                  <ThemedText themeColor="textSecondary" style={styles.role}>
+                    {group.role === "admin" ? "Admin" : "Member"}
+                  </ThemedText>
+                </View>
               </View>
               <Icon name="forward" size={22} color="textTertiary" />
             </Pressable>
@@ -119,7 +123,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
             <ThemedText type="caption" themeColor="textSecondary">
               Guests can join Groups. Sign in to start your own.
             </ThemedText>
-            <ActionButton icon="person" label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
+            <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
           </>
         ) : (
           <View style={styles.inline}>
@@ -208,8 +212,8 @@ export default function HomeScreen() {
               </View>
               <View style={styles.signInButtons}>
                 <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
-                <ActionButton large icon="person" label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-                <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
+                <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
                   Guests can join a Group. Sign in with Google to create one.
                 </ThemedText>
               </View>
@@ -238,7 +242,8 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
-  welcome: { flexGrow: 1, justifyContent: "flex-start", paddingTop: "22%", gap: Spacing.five },
+  welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
+  helper: { maxWidth: 300, alignSelf: "center" },
   brand: { alignItems: "center", gap: Spacing.three },
   logo: { width: 80, height: 80, borderRadius: Radius.lg + 4, alignItems: "center", justifyContent: "center", marginBottom: Spacing.two },
   signInButtons: { gap: Spacing.three },
@@ -249,7 +254,9 @@ const styles = StyleSheet.create({
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
   groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },
-  groupMark: { width: 40, height: 40, borderRadius: Radius.md, alignItems: "center", justifyContent: "center" },
-  groupName: { fontWeight: 700, fontSize: 17 },
-  role: { fontWeight: 600 },
+  groupMark: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
+  groupName: { fontWeight: 600, fontSize: 17 },
+  role: { fontSize: 15, lineHeight: 20, fontWeight: 400 },
+  roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  initial: { fontSize: 17, fontWeight: 600 },
 });

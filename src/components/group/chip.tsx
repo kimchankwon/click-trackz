@@ -43,7 +43,7 @@ export function Chip({
       ]}
     >
       {leading ? <Icon name={leading} size={16} color={selected ? "accent" : "textSecondary"} /> : null}
-      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"}>
+      <ThemedText type="default" themeColor={selected ? "accent" : "text"} style={selected ? styles.selectedLabel : styles.label}>
         {label}
       </ThemedText>
     </Pressable>
@@ -61,4 +61,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pressed: { opacity: 0.7 },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
+  selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
 });

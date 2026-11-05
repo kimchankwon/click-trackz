@@ -21,7 +21,7 @@ export function Switch({
   return (
     <Pressable role="switch" aria-checked={value} aria-label={label} testID={testID} onPress={() => onChange(!value)} style={styles.row}>
       <View style={styles.text}>
-        <ThemedText>{label}</ThemedText>
+        <ThemedText style={styles.label}>{label}</ThemedText>
         {hint ? (
           <ThemedText type="caption" themeColor="textSecondary">
             {hint}
@@ -38,6 +38,7 @@ export function Switch({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   text: { flex: 1 },
+  label: { fontSize: 17, lineHeight: 22, fontWeight: 500 },
   track: { width: 51, height: 31, borderRadius: 16, padding: 2, justifyContent: "center" },
   thumb: { width: 27, height: 27, borderRadius: 14, backgroundColor: "#FFFFFF", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)" },
   thumbOn: { alignSelf: "flex-end" },

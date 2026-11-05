@@ -87,3 +87,42 @@ Skipped or changed:
 - Collapsing "No Sections yet" text behind a tap: the library keeps the text; the Setlist shows the dot with a legend.
 - Moving the attribution footer into scrolling content: GetSongBPM checks for the link in the static HTML, so it stays in `public/index.html`.
 - "B?" Key badge: that is the Key as written in the seeded Setlist, not a rendering bug.
+
+## Round 3
+
+Reviewed: `design-shots/round-2/`. Reviewer: Opus, high effort (stricter than the Sonnet rounds, so scores are not directly comparable).
+
+| App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|
+| **Cue Tracker** | **6** | **7** | **7** | **7** | **6** | **6** |
+| REF-A | 7 | 7 | 6 | 7 | 6 | 7 |
+| REF-B | 7 | 5 | 5 | 6 | 7 | 6 |
+| REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
+| REF-D | 8 | 7 | 7 | 8 | 7 | 8 |
+
+Main criticism: the next cue is grey and small; the idle screen spends its biggest text on "Ready"; nearly everything is weight 700; inputs change style from screen to screen; Stop looks like Delete; red marks roles and a healthy ping instead of actions; the downbeat dot looks like the current beat.
+
+Applied:
+
+1. Playing order: Song name (15 px), Section (52 px), count, next cue (28 px bold with a coral arrow).
+2. Disc 280 px with a 6 px coral ring while playing and a 160 px count; the beat pulse stays at the rim instead of a 60 px halo.
+3. Beat dots: four equal 20 px dots, the downbeat marked by a ring; dark-mode inactive dots lifted to #48484A; dots at 30% while idle.
+4. Idle: the Song title takes the 40 px slot and "Ready" became a small green status pill; BPM unit 15 px, meter 20 px.
+5. Stop is a solid 64 px dark button; Delete Song, Delete Setlist and Leave Group are borderless red text buttons.
+6. Ping bars coloured by state (green under 80 ms, amber to 150 ms, red above); the pill lost its fill; round back button.
+7. Groups: neutral initial avatars, grey role line with a small shield for Admin.
+8. Songs tab: Setlist name as a 22 px heading, coral Edit and New, one amber banner when every Song lacks Sections, fixed Key chips with a faded dash, the collapsed library as one row.
+9. Sound tab: one row per sound (icon, name, switch) with its slider underneath; Speaker without a card around it; 64 px Latency row.
+10. Type weights: row titles 600, chips and segments 500 (600 when selected), 700 and 800 kept for display text and primary buttons.
+11. One input style: white or #2C2C2E fill, 1 px border, 12 px radius, 17 px text; sentence-case field labels.
+12. Secondary buttons: light fill, border and coral text; disabled is the normal style at 40%.
+13. Members and Voice pack: grey pills for role changes, 52 px recording rows with separators, coral play, red trash, a "No." field.
+14. Song editor: full-width Key, Count-in as its own switch row, red Section trash set apart by a divider.
+15. Setlist editor: one grouped card for all entries; library rows already in the Setlist faded with a check; Make current as a coral text button.
+16. Latency: Round buttons secondary so Done is the only filled button; tap pad with a solid border on the input fill; 15 px intro.
+17. Sign-in: centred with an upward bias, the official Google G on a neutral outlined button, helper text held to two even lines.
+
+Skipped or changed:
+
+- Song title above the Section while idle and "Ready" in green: applied, but the green pill only shows when Start is possible; otherwise it reads "No Song picked" or "Needs Sections" in grey.
+- "B?" shown as B plus a superscript: it is the Key as entered, so it is shown as is.

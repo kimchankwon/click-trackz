@@ -13,6 +13,7 @@ export function IconButton({
   filled,
   disabled,
   size = 44,
+  round,
 }: {
   icon: IconName;
   label: string;
@@ -22,6 +23,7 @@ export function IconButton({
   filled?: boolean;
   disabled?: boolean;
   size?: number;
+  round?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -35,6 +37,7 @@ export function IconButton({
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size, backgroundColor: filled ? theme.backgroundElement : "transparent" },
+        round ? { borderRadius: size / 2 } : null,
         disabled ? styles.disabled : null,
         pressed ? styles.pressed : null,
       ]}

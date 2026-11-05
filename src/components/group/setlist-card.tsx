@@ -35,6 +35,8 @@ export function SetlistCard({
   const setlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
   if (!setlists || (setlists.length === 0 && !isAdmin)) return null;
   const entries = setlist?.entries ?? [];
+  const allNeedSections = entries.length > 0 && entries.every((entry) => entry.needsStructure);
+  const someNeedSections = entries.some((entry) => entry.needsStructure);
   const createAndOpen = () =>
     run(async () => {
       const setlistId = await createSetlist({ groupId, name: "New Setlist" });
@@ -42,14 +44,15 @@ export function SetlistCard({
     });
   return (
     <Card
-      title={shown ? `Setlist · ${shown.name}` : "Setlist"}
+      title={shown?.isCurrent ? "Current setlist" : "Setlist"}
+      heading={shown?.name}
       action={
         isAdmin ? (
           <View style={styles.actions}>
             {shown ? (
               <ActionButton
                 small
-                variant="ghost"
+                variant="link"
                 icon="edit"
                 label="Edit"
                 accessibleName="Edit this Setlist"
@@ -57,7 +60,7 @@ export function SetlistCard({
                 onPress={() => router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId: shown.setlistId } })}
               />
             ) : null}
-            <ActionButton small variant="ghost" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
+            <ActionButton small variant="link" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
           </View>
         ) : null
       }
@@ -87,7 +90,13 @@ export function SetlistCard({
         </ThemedText>
       ) : (
         <View style={styles.list}>
-          {entries.some((entry) => entry.needsStructure) ? (
+          {allNeedSections ? (
+            <View style={[styles.banner, { backgroundColor: theme.warningTint }]}>
+              <ThemedText type="caption" style={[styles.bannerText, { color: theme.warningText }]}>
+                None of these Songs have Sections yet, so none can start. Add them in the Song library.
+              </ThemedText>
+            </View>
+          ) : someNeedSections ? (
             <View style={styles.legend}>
               <View style={[styles.legendDot, { backgroundColor: theme.warning }]} />
               <ThemedText type="caption" themeColor="textSecondary">
@@ -102,7 +111,7 @@ export function SetlistCard({
               title={entry.title}
               meta={entry.leader ? `Led by ${entry.leader}` : null}
               songKey={entry.key}
-              needsSections={entry.needsStructure}
+              needsSections={!allNeedSections && entry.needsStructure}
               warningAsDot
               selected={selectedSongId === entry.songId}
               selectable={isAdmin}
@@ -120,6 +129,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   list: { marginHorizontal: -Spacing.two, gap: 2 },
+  banner: { marginHorizontal: Spacing.two, marginBottom: Spacing.one, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
+  bannerText: { fontWeight: 500 },
   legend: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingHorizontal: Spacing.two, paddingBottom: Spacing.one },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
 });

@@ -22,7 +22,7 @@ export function ScreenHeader({
 }) {
   return (
     <View style={styles.header}>
-      {onBack ? <IconButton icon="back" label={backLabel} testID={backTestID} onPress={onBack} filled /> : null}
+      {onBack ? <IconButton icon="back" label={backLabel} testID={backTestID} onPress={onBack} filled round /> : null}
       <View style={styles.titles}>
         <ThemedText type="heading" numberOfLines={1} role="heading">
           {title}

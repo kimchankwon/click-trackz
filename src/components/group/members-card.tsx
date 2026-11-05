@@ -21,24 +21,24 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
         const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
         return (
           <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
-            <View style={[styles.avatar, { backgroundColor: member.role === "admin" ? theme.accentTint : theme.backgroundSelected }]}>
-              <ThemedText type="smallBold" themeColor={member.role === "admin" ? "accent" : "textSecondary"}>
+            <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
+              <ThemedText style={styles.initial}>
                 {member.displayName.slice(0, 1).toUpperCase()}
               </ThemedText>
             </View>
             <View style={styles.name}>
-              <ThemedText type="smallBold" numberOfLines={1}>
+              <ThemedText numberOfLines={1} style={styles.memberName}>
                 {member.displayName}
                 {member.userId === viewer?.id ? " (you)" : ""}
               </ThemedText>
-              <ThemedText type="caption" themeColor={member.role === "admin" ? "accent" : "textSecondary"}>
+              <ThemedText type="small" themeColor="textSecondary">
                 {role}
               </ThemedText>
             </View>
             {isAdmin && !member.isGuest ? (
               <ActionButton
                 small
-                variant="ghost"
+                variant="pill"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}
                 onPress={() =>
@@ -57,4 +57,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 52 },
   avatar: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
   name: { flex: 1, minWidth: 0 },
+  memberName: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
+  initial: { fontSize: 17, fontWeight: 600 },
 });

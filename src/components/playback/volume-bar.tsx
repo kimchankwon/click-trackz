@@ -18,9 +18,10 @@ type Props = {
   accessibleRange?: { min: number; max: number; now: number };
   icon?: IconName;
   hideValue?: boolean;
+  bare?: boolean;
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue, bare }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
@@ -41,9 +42,11 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   return (
     <View style={styles.row}>
       {icon ? <Icon name={icon} size={20} color="textSecondary" /> : null}
-      <ThemedText type="smallBold" style={styles.label}>
-        {label}
-      </ThemedText>
+      {bare ? null : (
+        <ThemedText type="smallBold" style={styles.label}>
+          {label}
+        </ThemedText>
+      )}
       <View
         testID={testID}
         role="slider"
@@ -84,9 +87,9 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%" },
   label: { width: 52 },
-  hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12 },
+  hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, marginHorizontal: -12 },
   track: { height: 6, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
   thumb: { position: "absolute", width: 28, height: 28, borderRadius: 14, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
-  value: { minWidth: 48, textAlign: "right", fontVariant: ["tabular-nums"] },
+  value: { minWidth: 40, textAlign: "right", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
 });

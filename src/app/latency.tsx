@@ -121,7 +121,7 @@ export default function LatencyScreen() {
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content}>
           <ScreenHeader title="Latency nudge" subtitle="This phone only" onBack={() => router.back()} backTestID="latency-back" />
-          <ThemedText themeColor="textSecondary">
+          <ThemedText themeColor="textSecondary" style={styles.intro}>
             Bluetooth headphones and some speakers play sound late. The nudge schedules your Click and Voice cues earlier so
             they line up with everyone else.
           </ThemedText>
@@ -220,7 +220,7 @@ export default function LatencyScreen() {
               </View>
               <View style={styles.steps}>
                 <View style={styles.stepCell}>
-                  <ActionButton full icon="play" label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" accent={!speakerDone} onPress={() => run(() => startRound("speaker"))} />
+                  <ActionButton full icon="play" label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
                 </View>
                 <View style={styles.stepCell}>
                   <ActionButton
@@ -229,7 +229,6 @@ export default function LatencyScreen() {
                     label="Round 2"
                     accessibleName="Round 2: your output"
                     testID="round-output"
-                    accent={speakerDone}
                     disabled={!speakerDone}
                     onPress={() => run(() => startRound("output"))}
                   />
@@ -246,7 +245,7 @@ export default function LatencyScreen() {
                 }}
                 style={[
                   styles.pad,
-                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.background, borderColor: theme.backgroundSelected },
+                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.inputFill, borderColor: theme.inputBorder },
                 ]}
               >
                 <Icon name="touch" size={36} color={listening ? "onAccent" : "textTertiary"} />
@@ -307,6 +306,7 @@ const styles = StyleSheet.create({
   roundStep: { flexDirection: "row", gap: Spacing.three, alignItems: "flex-start" },
   stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1, minWidth: 0 },
-  pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: Spacing.two },
+  intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
+  pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

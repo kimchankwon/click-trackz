@@ -10,6 +10,7 @@ import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -25,6 +26,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
   const generateUploadUrl = useMutation(api.recordings.generateUploadUrl);
   const save = useMutation(api.recordings.save);
   const remove = useMutation(api.recordings.remove);
+  const theme = useTheme();
   const [word, setWord] = useState("");
   const [number, setNumber] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -52,20 +54,24 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
       <ThemedText type="caption" themeColor="textSecondary">
         Your recordings replace the Speaker for every Member. A new word becomes a Section type for this Group.
       </ThemedText>
-      {(recordings ?? []).map((recording) => (
-        <View key={recording.key} style={styles.row} testID={`recording-${recording.key}`}>
+      {(recordings ?? []).map((recording, index) => (
+        <View
+          key={recording.key}
+          style={[styles.recording, index > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : null]}
+          testID={`recording-${recording.key}`}
+        >
           <Icon name="mic" size={20} color="textSecondary" />
-          <ThemedText type="smallBold" style={styles.grow}>
+          <ThemedText style={[styles.grow, styles.word]}>
             {recording.word}
             {recording.number ? ` ${recording.number}` : ""}
           </ThemedText>
           {canPreview ? (
-            <IconButton icon="play" label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+            <IconButton icon="play" color="accent" label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
           ) : null}
           <IconButton
             icon="trash"
             label={`Remove ${recording.word}`}
-            color="textSecondary"
+            color="danger"
             testID={`remove-${recording.key}`}
             onPress={() => run(() => remove({ groupId, key: recording.key }))}
           />
@@ -79,7 +85,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
       <Divider />
       <View style={styles.row}>
         <Field testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" compact inset />
-        <Field testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="#" inputMode="numeric" compact inset />
+        <Field testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="No." inputMode="numeric" compact inset />
       </View>
       <ActionButton icon="upload" accent label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
       {status ? (
@@ -92,7 +98,9 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 48 },
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 52 },
+  word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },
-  numberInput: { width: 64 },
+  numberInput: { width: 72 },
 });

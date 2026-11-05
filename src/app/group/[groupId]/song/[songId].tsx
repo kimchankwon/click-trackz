@@ -80,7 +80,7 @@ function SectionRow({
           aria-label={`Section type, ${section.sectionType}`}
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
-          style={[styles.typeButton, { backgroundColor: theme.background }]}
+          style={[styles.typeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
         >
           <ThemedText type="default" style={styles.typeText} numberOfLines={1}>
             {section.sectionType}
@@ -90,7 +90,8 @@ function SectionRow({
         </Pressable>
         <IconButton icon="up" color="textSecondary" label={`Move Section ${index + 1} up`} disabled={index === 0} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
         <IconButton icon="down" color="textSecondary" label={`Move Section ${index + 1} down`} disabled={index === count - 1} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <IconButton icon="trash" color="textSecondary" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        <View style={[styles.headerDivider, { backgroundColor: theme.border }]} />
+        <IconButton icon="trash" color="danger" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
@@ -122,10 +123,10 @@ function SectionRow({
       <Divider />
       <View style={styles.sectionBottom}>
         <View style={styles.numberGroup}>
-          <ThemedText type="label" themeColor="textSecondary">
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.fieldLabel}>
             Number
           </ThemedText>
-          <View style={[styles.stepper, { backgroundColor: theme.background, borderColor: theme.border }]} aria-label="Section number">
+          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
             <IconButton
               icon="minus"
               size={36}
@@ -267,12 +268,8 @@ function SongForm({
           ) : null}
           <View style={styles.group}>
             <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
-            <View style={styles.keyRow}>
-              <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.keyField} />
-              <View style={[styles.countIn, { backgroundColor: theme.backgroundElement }]}>
-                <Switch label="Count-in" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
-              </View>
-            </View>
+            <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" />
+            <Switch label="Count-in" hint="One bar of beat numbers before the first Section" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
           </View>
 
           {lookupAvailable ? (
@@ -378,9 +375,8 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
-  keyRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.three },
-  keyField: { width: 112 },
-  countIn: { flex: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.three, minHeight: 48, justifyContent: "center" },
+  headerDivider: { width: 1, height: 24, marginHorizontal: Spacing.two },
+  fieldLabel: { fontWeight: 600 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
@@ -393,10 +389,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 44,
     paddingHorizontal: 14,
-    borderRadius: Radius.md,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  typeText: { fontWeight: 700, flexShrink: 1 },
-  stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
+  typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
+  stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
   stepperValue: { minWidth: 44, textAlign: "center", fontVariant: ["tabular-nums"] },
   numberGroup: { gap: Spacing.one + 2 },
   fields: { flexDirection: "row", gap: Spacing.two },

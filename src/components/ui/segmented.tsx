@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
             onPress={() => onChange(option.value)}
             style={[styles.segment, selected ? [styles.raised, { backgroundColor: theme.raised }] : null]}
           >
-            <ThemedText type="smallBold" themeColor={selected ? "text" : "textSecondary"} numberOfLines={1}>
+            <ThemedText type="default" themeColor={selected ? "text" : "textSecondary"} numberOfLines={1} style={selected ? styles.selectedLabel : styles.label}>
               {option.label}
             </ThemedText>
           </Pressable>
@@ -42,6 +42,8 @@ export function Segmented<T extends string>({
 
 const styles = StyleSheet.create({
   track: { flexDirection: "row", borderRadius: Radius.md, padding: 3, gap: 3, alignSelf: "stretch" },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
+  selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   segment: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm, paddingHorizontal: 8 },
   raised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
 });

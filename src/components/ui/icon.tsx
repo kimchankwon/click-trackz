@@ -35,6 +35,8 @@ const symbols = {
   admin: { ios: "checkmark.shield.fill", material: "verified_user" },
   library: { ios: "books.vertical", material: "library_music" },
   next: { ios: "arrow.turn.down.right", material: "subdirectory_arrow_right" },
+  numbered: { ios: "list.number", material: "format_list_numbered" },
+  stopFilled: { ios: "stop.fill", material: "stop_circle" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

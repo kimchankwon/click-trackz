@@ -122,7 +122,7 @@ function SetlistForm({
             right={
               <ActionButton
                 small
-                variant="outline"
+                variant="link"
                 icon="star"
                 label="Make current"
                 testID="make-current"
@@ -154,47 +154,55 @@ function SetlistForm({
                 No Songs yet. Add them from the library below.
               </ThemedText>
             ) : null}
-            {entries.map((entry, index) => (
-              <View key={`${entry.songId}-${index}`} style={[styles.entry, { backgroundColor: theme.backgroundElement }]} testID={`entry-${index}`}>
-                <View style={styles.entryTop}>
-                  <ThemedText type="smallBold" themeColor="textTertiary" style={styles.entryIndex}>
-                    {index + 1}
-                  </ThemedText>
-                  <ThemedText type="default" style={styles.entryTitle} numberOfLines={1}>
-                    {entry.title}
-                  </ThemedText>
-                  <IconButton icon="up" color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
-                  <IconButton icon="down" color="textSecondary" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
-                  <IconButton
-                    icon="trash"
-                    color="textSecondary"
-                    label={`Remove ${entry.title}`}
-                    testID={`entry-${index}-remove`}
-                    onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
-                  />
-                </View>
-                <View style={styles.entryFields}>
-                  <Field
-                    testID={`entry-${index}-key`}
-                    containerStyle={styles.keyInput}
-                    value={entry.key}
-                    onChangeText={(key) => update(index, { key })}
-                    placeholder="Key"
-                    compact
-                    inset
-                  />
-                  <Field
-                    testID={`entry-${index}-leader`}
-                    containerStyle={styles.grow}
-                    value={entry.leader}
-                    onChangeText={(leader) => update(index, { leader })}
-                    placeholder="Led by"
-                    compact
-                    inset
-                  />
-                </View>
+            {entries.length > 0 ? (
+              <View style={[styles.entries, { backgroundColor: theme.backgroundElement }]}>
+                {entries.map((entry, index) => (
+                  <View
+                    key={`${entry.songId}-${index}`}
+                    style={[styles.entry, index > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : null]}
+                    testID={`entry-${index}`}
+                  >
+                    <View style={styles.entryTop}>
+                      <ThemedText type="smallBold" themeColor="textTertiary" style={styles.entryIndex}>
+                        {index + 1}
+                      </ThemedText>
+                      <ThemedText type="default" style={styles.entryTitle} numberOfLines={1}>
+                        {entry.title}
+                      </ThemedText>
+                      <IconButton icon="up" color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                      <IconButton icon="down" color="textSecondary" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
+                      <IconButton
+                        icon="trash"
+                        color="textSecondary"
+                        label={`Remove ${entry.title}`}
+                        testID={`entry-${index}-remove`}
+                        onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
+                      />
+                    </View>
+                    <View style={styles.entryFields}>
+                      <Field
+                        testID={`entry-${index}-key`}
+                        containerStyle={styles.keyInput}
+                        value={entry.key}
+                        onChangeText={(key) => update(index, { key })}
+                        placeholder="Key"
+                        compact
+                        inset
+                      />
+                      <Field
+                        testID={`entry-${index}-leader`}
+                        containerStyle={styles.grow}
+                        value={entry.leader}
+                        onChangeText={(leader) => update(index, { leader })}
+                        placeholder="Led by"
+                        compact
+                        inset
+                      />
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
+            ) : null}
           </View>
 
           <View style={styles.group}>
@@ -202,30 +210,33 @@ function SetlistForm({
               Add from the library
             </ThemedText>
             <View style={[styles.library, { backgroundColor: theme.backgroundElement }]}>
-              {songs.map((song, index) => (
-                <Pressable
-                  key={song.songId}
-                  role="button"
-                  aria-label={`Add ${song.title}`}
-                  testID={`add-${song.title}`}
-                  onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
-                  style={({ pressed }) => [
-                    styles.libraryRow,
-                    index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
-                    pressed ? { backgroundColor: theme.backgroundSelected } : null,
-                  ]}
-                >
-                  <ThemedText type="small" style={styles.grow} numberOfLines={1}>
-                    {song.title}
-                  </ThemedText>
-                  {song.key ? (
-                    <ThemedText type="caption" themeColor="textSecondary">
-                      {song.key}
+              {songs.map((song, index) => {
+                const added = entries.some((entry) => entry.songId === song.songId);
+                return (
+                  <Pressable
+                    key={song.songId}
+                    role="button"
+                    aria-label={`Add ${song.title}`}
+                    testID={`add-${song.title}`}
+                    onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
+                    style={({ pressed }) => [
+                      styles.libraryRow,
+                      index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
+                      pressed ? { backgroundColor: theme.backgroundSelected } : null,
+                    ]}
+                  >
+                    <ThemedText style={[styles.grow, styles.libraryTitle, added ? styles.added : null]} numberOfLines={1}>
+                      {song.title}
                     </ThemedText>
-                  ) : null}
-                  <Icon name="add" size={22} color="accent" />
-                </Pressable>
-              ))}
+                    {song.key ? (
+                      <ThemedText type="small" themeColor="textSecondary" style={added ? styles.added : null}>
+                        {song.key}
+                      </ThemedText>
+                    ) : null}
+                    {added ? <Icon name="check" size={20} color="textTertiary" /> : <Icon name="add" size={22} color="accent" />}
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -280,10 +291,13 @@ const styles = StyleSheet.create({
   conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
-  entry: { gap: Spacing.two, paddingVertical: Spacing.two, paddingLeft: Spacing.three, paddingRight: Spacing.one, borderRadius: Radius.lg },
+  entries: { borderRadius: Radius.lg, overflow: "hidden" },
+  entry: { gap: Spacing.two, paddingVertical: 12, paddingLeft: Spacing.three, paddingRight: Spacing.one },
+  libraryTitle: { fontSize: 16, fontWeight: 500 },
+  added: { opacity: 0.5 },
   entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   entryIndex: { width: 22, fontVariant: ["tabular-nums"] },
-  entryTitle: { flex: 1, minWidth: 0, fontWeight: 700 },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17 },
   entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.two, paddingBottom: Spacing.one },
   keyInput: { width: 88 },
   grow: { flex: 1, minWidth: 0 },
