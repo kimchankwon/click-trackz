@@ -41,6 +41,7 @@ export function BeatPulse({ beat, playing }: Props) {
   }));
 
   const beatsPerBar = beat?.beatsPerBar ?? 4;
+  const label = playing && beat ? beat.count : "–";
   return (
     <View style={styles.stage}>
       <View style={styles.circleBox}>
@@ -49,14 +50,14 @@ export function BeatPulse({ beat, playing }: Props) {
           <Animated.Text
             testID="playback-count"
             numberOfLines={1}
-            adjustsFontSizeToFit
             style={[
               styles.count,
+              countFontFor(label),
               { color: playing && accent ? theme.accent : theme.text },
               countStyle,
             ]}
           >
-            {playing && beat ? beat.count : "–"}
+            {label}
           </Animated.Text>
         </View>
       </View>
@@ -80,6 +81,14 @@ export function BeatPulse({ beat, playing }: Props) {
 }
 
 const DISC = 240;
+const DISC_TEXT_WIDTH = DISC - Spacing.four * 2 - 8;
+const MAX_COUNT_FONT = 72;
+const UPPERCASE_WIDTH_PER_FONT_PX = 0.78;
+
+function countFontFor(label: string) {
+  const fontSize = Math.min(MAX_COUNT_FONT, Math.floor(DISC_TEXT_WIDTH / (label.length * UPPERCASE_WIDTH_PER_FONT_PX)));
+  return { fontSize, lineHeight: Math.round(fontSize * 1.17) };
+}
 
 const styles = StyleSheet.create({
   stage: { alignItems: "center", gap: Spacing.four, paddingVertical: Spacing.four },
