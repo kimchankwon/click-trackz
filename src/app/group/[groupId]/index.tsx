@@ -16,6 +16,7 @@ import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { beatsBetween, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { useServerClock } from "@/sync/use-server-clock";
@@ -325,6 +326,7 @@ export default function GroupScreen() {
   const [clickVolume, setClickVolume] = useDeviceSetting("clickVolume", "0.8", isVolume);
   const [voiceVolume, setVoiceVolume] = useDeviceSetting("voiceVolume", "0.9", isVolume);
   const [speaker, setSpeaker] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
+  const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
@@ -347,6 +349,10 @@ export default function GroupScreen() {
   useEffect(() => {
     engine.current?.setVolumes({ click: Number(clickVolume), voice: Number(voiceVolume) });
   }, [clickVolume, voiceVolume, soundOn]);
+
+  useEffect(() => {
+    if (engine.current) engine.current.latencyNudgeMs = Number(latencyNudge);
+  }, [latencyNudge, soundOn]);
 
   useEffect(() => {
     if (soundOn) void engine.current?.setSpeaker(speaker);
@@ -506,6 +512,11 @@ export default function GroupScreen() {
             ) : (
               <TransportButton label="Enable sound" testID="enable-sound" primary onPress={enableSound} />
             )}
+            <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Latency nudge {latencyNudge} ms · Adjust
+              </ThemedText>
+            </Pressable>
             <View style={styles.wrap} testID="speaker-picker">
               <ThemedText type="small" themeColor="textSecondary">
                 Speaker

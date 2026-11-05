@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { audioTimeFor, slewMapping } from "./clock-mapping";
+import { audioTimeFor, scheduleTimeFor, slewMapping } from "./clock-mapping";
 
 describe("audioTimeFor", () => {
   it("converts a beat's server time to AudioContext seconds, early by the output latency", () => {
@@ -20,5 +20,12 @@ describe("slewMapping", () => {
 
   it("snaps to a change larger than 50 ms instead of drifting there", () => {
     expect(slewMapping({ audioMinusServerMs: -9_000 }, -9_080)).toEqual({ audioMinusServerMs: -9_080 });
+  });
+});
+
+describe("scheduleTimeFor", () => {
+  it("schedules early by the browser's reported latency plus the Member's Latency nudge", () => {
+    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 20, 180)).toBeCloseTo(0.8, 6);
+    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 20, -30)).toBeCloseTo(1.01, 6);
   });
 });

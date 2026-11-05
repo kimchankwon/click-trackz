@@ -3,7 +3,7 @@ import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audi
 import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
 
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
-import { audioTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
+import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
@@ -44,6 +44,7 @@ export class CueAudioEngine {
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
+  latencyNudgeMs = 0;
 
   get enabled() {
     return this.context !== null;
@@ -51,6 +52,7 @@ export class CueAudioEngine {
 
   async enable(serverNow: () => number | null, speaker: SpeakerId) {
     this.serverNow = serverNow;
+    const firstTime = this.context === null;
     if (this.context === null) {
       this.context = new AudioContext();
       await this.context.resume();
@@ -60,7 +62,7 @@ export class CueAudioEngine {
       this.voiceBus.connect(this.context.destination);
       this.setVolumes(this.volumes);
     }
-    await this.setSpeaker(speaker, true);
+    await this.setSpeaker(speaker, firstTime);
     this.timer ??= setInterval(() => this.tick(), TICK_MS);
   }
 
@@ -112,6 +114,20 @@ export class CueAudioEngine {
     if (context && buffer) this.playBuffer(context, buffer, context.currentTime);
   }
 
+  calibrationRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
+    const context = this.context;
+    if (context === null) throw new Error("Enable sound first");
+    const firstAt = context.currentTime + 0.8;
+    const nowMs = performance.now();
+    const clickTimesMs: number[] = [];
+    for (let index = 0; index < clicks; index++) {
+      const when = firstAt + (index * intervalMs) / 1000;
+      this.click(context, when, index % 4 === 0);
+      clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
+    }
+    return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
+  }
+
   setVolumes(volumes: CueVolumes) {
     this.volumes = volumes;
     if (this.clickBus) this.clickBus.gain.value = volumes.click;
@@ -158,7 +174,7 @@ export class CueAudioEngine {
     if (to <= from) return;
     const latency = outputLatencyMs(context);
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
-      this.schedule(context, beat, audioTimeFor(beat.at, this.mapping, latency));
+      this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
     }
     this.scheduledUntil = to;
   }

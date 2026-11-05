@@ -13,9 +13,11 @@ type Props = {
   value: number;
   onChange: (next: number) => void;
   testID?: string;
+  valueText?: string;
+  accessibleName?: string;
 };
 
-export function VolumeBar({ label, value, onChange, testID }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const setFromTouch = (event: GestureResponderEvent) => {
@@ -29,7 +31,7 @@ export function VolumeBar({ label, value, onChange, testID }: Props) {
       <View
         testID={testID}
         role="slider"
-        aria-label={`${label} volume`}
+        aria-label={accessibleName ?? `${label} volume`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(value * 100)}
@@ -50,7 +52,7 @@ export function VolumeBar({ label, value, onChange, testID }: Props) {
         />
       </View>
       <ThemedText type="small" themeColor="textSecondary" style={styles.value}>
-        {Math.round(value * 100)}
+        {valueText ?? Math.round(value * 100)}
       </ThemedText>
     </View>
   );
@@ -61,5 +63,5 @@ const styles = StyleSheet.create({
   label: { width: 56 },
   track: { flex: 1, height: 28, borderRadius: Spacing.two, overflow: "hidden", justifyContent: "center" },
   fill: { height: "100%", borderRadius: Spacing.two },
-  value: { width: 32, textAlign: "right" },
+  value: { minWidth: 32, textAlign: "right" },
 });
