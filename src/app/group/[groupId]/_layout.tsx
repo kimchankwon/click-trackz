@@ -1,0 +1,51 @@
+import { useConvexAuth } from "convex/react";
+import { Redirect, router, Stack, type ErrorBoundaryProps } from "expo-router";
+import { Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { errorText } from "@/lib/error-text";
+
+export default function GroupLayout() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  if (isLoading) return <ThemedView style={styles.container} />;
+  if (!isAuthenticated) return <Redirect href="/" />;
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const theme = useTheme();
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.content}>
+        <ThemedText type="subtitle">Cannot open this Group</ThemedText>
+        <ThemedText themeColor="textSecondary" testID="group-error">
+          {errorText(error)}
+        </ThemedText>
+        <Pressable
+          role="button"
+          testID="back-to-groups"
+          onPress={() => router.replace("/")}
+          style={[styles.button, { backgroundColor: theme.accent }]}
+        >
+          <ThemedText style={styles.onAccent}>Back to your Groups</ThemedText>
+        </Pressable>
+        <Pressable role="button" onPress={retry}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Try again
+          </ThemedText>
+        </Pressable>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
+  button: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
+  onAccent: { color: "#FFFFFF" },
+});

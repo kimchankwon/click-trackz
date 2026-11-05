@@ -37,6 +37,9 @@ function upcomingVoiceCue(recent: readonly Beat[]): Beat["voiceCue"] {
   return sameBar ? recent[cueIndex].voiceCue : null;
 }
 
+const sameVoiceCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
+  a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
+
 function KeepAwake() {
   useKeepAwake();
   return null;
@@ -374,7 +377,8 @@ export default function GroupScreen() {
         const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (previous?.at === latest?.at ? previous : latest));
-        setUpcoming(upcomingVoiceCue(recent));
+        const nextCue = upcomingVoiceCue(recent);
+        setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
         setPlaying(ahead.length > 0 || (recent.length > 0 && now < (playback.stopsAt ?? Infinity)));
       } else {
         setBeat(null);
@@ -394,7 +398,7 @@ export default function GroupScreen() {
 
   const enableSound = () =>
     run(async () => {
-      engine.current ??= new CueAudioEngine();
+      if (!engine.current) engine.current = new CueAudioEngine();
       await engine.current.enable(serverNow, speaker);
       setSoundOn(true);
     });

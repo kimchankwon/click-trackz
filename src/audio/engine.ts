@@ -47,6 +47,8 @@ export class CueAudioEngine {
   private plan: Plan | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
+  private enabling: Promise<void> | null = null;
+  private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
 
@@ -56,18 +58,40 @@ export class CueAudioEngine {
 
   async enable(serverNow: () => number | null, speaker: SpeakerId | null) {
     this.serverNow = serverNow;
+    if (this.enabling) return this.enabling;
+    const enabling = this.startAudio(speaker).finally(() => {
+      this.enabling = null;
+    });
+    this.enabling = enabling;
+    return enabling;
+  }
+
+  private async startAudio(speaker: SpeakerId | null) {
     const firstTime = this.context === null;
-    if (this.context === null) {
-      this.context = new AudioContext();
-      await this.context.resume();
-      this.clickBus = this.context.createGain();
-      this.voiceBus = this.context.createGain();
-      this.clickBus.connect(this.context.destination);
-      this.voiceBus.connect(this.context.destination);
+    if (firstTime) {
+      const context = new AudioContext();
+      try {
+        await context.resume();
+      } catch (error) {
+        void context.close();
+        throw error;
+      }
+      if (this.disposed) {
+        void context.close();
+        return;
+      }
+      const clickBus = context.createGain();
+      const voiceBus = context.createGain();
+      clickBus.connect(context.destination);
+      voiceBus.connect(context.destination);
+      this.context = context;
+      this.clickBus = clickBus;
+      this.voiceBus = voiceBus;
       this.setVolumes(this.volumes);
     }
-    if (speaker !== null) await this.setSpeaker(speaker, firstTime);
-    this.timer ??= setInterval(() => this.tick(), TICK_MS);
+    if (speaker !== null) await this.setSpeaker(speaker, firstTime || this.clips.size === 0);
+    if (this.disposed || this.context === null) return;
+    if (this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
   }
 
   async setSpeaker(speaker: SpeakerId, force = false) {
@@ -163,6 +187,7 @@ export class CueAudioEngine {
   }
 
   dispose() {
+    this.disposed = true;
     this.endTapTest();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;

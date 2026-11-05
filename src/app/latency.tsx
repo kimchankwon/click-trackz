@@ -67,7 +67,7 @@ export default function LatencyScreen() {
       speakerRound.current = null;
       setSpeakerDone(false);
     }
-    engine.current ??= new CueAudioEngine();
+    if (!engine.current) engine.current = new CueAudioEngine();
     await engine.current.enable(() => null, null);
     const { clickTimesMs, reportedLatencyMs, lastClickInMs } = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
     round.current = { clickTimesMs, reportedLatencyMs, taps: [] };
