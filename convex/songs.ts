@@ -118,7 +118,10 @@ export const deleteSong = mutation({
       .collect();
     for (const setlist of setlists) {
       if (setlist.entries.some((entry) => entry.songId === songId)) {
-        await ctx.db.patch(setlist._id, { entries: setlist.entries.filter((entry) => entry.songId !== songId) });
+        await ctx.db.patch(setlist._id, {
+          entries: setlist.entries.filter((entry) => entry.songId !== songId),
+          revision: (setlist.revision ?? 0) + 1,
+        });
       }
     }
     const playback = await ctx.db

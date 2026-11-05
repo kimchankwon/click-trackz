@@ -54,15 +54,21 @@ const cleanNote = (value: string | undefined, what: string) => {
   return trimmed;
 };
 
-export const setEntries = mutation({
+export const save = mutation({
   args: {
     setlistId: v.id("setlists"),
+    revision: v.number(),
+    name: v.string(),
     entries: v.array(v.object({ songId: v.id("songs"), key: v.optional(v.string()), leader: v.optional(v.string()) })),
   },
-  handler: async (ctx, { setlistId, entries }) => {
+  handler: async (ctx, { setlistId, revision, name, entries }) => {
     const setlist = await ctx.db.get(setlistId);
     if (setlist === null) throw new ConvexError("That Setlist no longer exists");
     await requireAdmin(ctx, setlist.groupId);
+    const current = setlist.revision ?? 0;
+    if (current !== revision) {
+      throw new ConvexError("Another Admin changed this Setlist after you opened it. Load their changes, then save again.");
+    }
     if (entries.length > 100) throw new ConvexError("A Setlist can have at most 100 Songs");
     const cleaned = await Promise.all(
       entries.map(async (entry) => {
@@ -71,7 +77,7 @@ export const setEntries = mutation({
         return { songId: entry.songId, key: cleanNote(entry.key, "Key"), leader: cleanNote(entry.leader, "Leader") };
       }),
     );
-    await ctx.db.patch(setlistId, { entries: cleaned });
+    await ctx.db.patch(setlistId, { name: cleanName(name), entries: cleaned, revision: current + 1 });
   },
 });
 
@@ -94,7 +100,7 @@ export const get = query({
         };
       }),
     );
-    return { setlistId, name: setlist.name, entries: entries.filter((entry) => entry !== null) };
+    return { setlistId, name: setlist.name, revision: setlist.revision ?? 0, entries: entries.filter((entry) => entry !== null) };
   },
 });
 
@@ -115,15 +121,5 @@ export const currentSetlistId = query({
   handler: async (ctx, { groupId }) => {
     await requireMember(ctx, groupId);
     return (await ctx.db.get(groupId))?.currentSetlistId ?? null;
-  },
-});
-
-export const rename = mutation({
-  args: { setlistId: v.id("setlists"), name: v.string() },
-  handler: async (ctx, { setlistId, name }) => {
-    const setlist = await ctx.db.get(setlistId);
-    if (setlist === null) throw new ConvexError("That Setlist no longer exists");
-    await requireAdmin(ctx, setlist.groupId);
-    await ctx.db.patch(setlistId, { name: cleanName(name) });
   },
 });

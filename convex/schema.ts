@@ -47,6 +47,7 @@ export default defineSchema({
         leader: v.optional(v.string()),
       }),
     ),
+    revision: v.optional(v.number()),
   }).index("by_group", ["groupId"]),
   recordings: defineTable({
     groupId: v.id("groups"),

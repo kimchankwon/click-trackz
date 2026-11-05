@@ -3,13 +3,18 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { BeatPulse } from "@/components/playback/beat-pulse";
+import { Card } from "@/components/group/card";
+import { Chip } from "@/components/group/chip";
+import { MembersCard } from "@/components/group/members-card";
+import { SetlistCard } from "@/components/group/setlist-card";
+import { SongsCard } from "@/components/group/songs-card";
 import { VoicePackCard } from "@/components/group/voice-pack-card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
@@ -46,35 +51,6 @@ function KeepAwake() {
   return null;
 }
 
-function Chip({
-  label,
-  selected,
-  onPress,
-  role = "switch",
-  testID,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  role?: "switch" | "button";
-  testID?: string;
-}) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role={role}
-      aria-checked={role === "switch" ? selected : undefined}
-      testID={testID}
-      onPress={onPress}
-      style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}
-    >
-      <ThemedText type="smallBold" style={selected ? { color: theme.onAccent } : null}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 function TransportButton({ label, onPress, testID, primary }: { label: string; onPress: () => void; testID: string; primary?: boolean }) {
   const theme = useTheme();
   return (
@@ -88,218 +64,6 @@ function TransportButton({ label, onPress, testID, primary }: { label: string; o
         {label}
       </ThemedText>
     </Pressable>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.card, { borderColor: theme.backgroundSelected }]}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        {title}
-      </ThemedText>
-      {children}
-    </View>
-  );
-}
-
-function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; isAdmin: boolean; run: (action: () => Promise<unknown>) => void }) {
-  const members = useQuery(api.groups.members, { groupId });
-  const viewer = useQuery(api.users.viewer, {});
-  const setRole = useMutation(api.groups.setRole);
-  const theme = useTheme();
-  return (
-    <Card title="MEMBERS">
-      {(members ?? []).map((member) => (
-        <View key={member.userId} style={styles.memberRow} testID={`member-${member.displayName}`}>
-          <ThemedText style={styles.memberName}>
-            {member.displayName}
-            {member.userId === viewer?.id ? " (you)" : ""}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member"}
-          </ThemedText>
-          {isAdmin && !member.isGuest ? (
-            <Pressable
-              role="button"
-              testID={`toggle-admin-${member.displayName}`}
-              onPress={() =>
-                run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
-              }
-              style={[styles.smallButton, { backgroundColor: theme.backgroundElement }]}
-            >
-              <ThemedText type="small">{member.role === "admin" ? "Make Member" : "Make Admin"}</ThemedText>
-            </Pressable>
-          ) : null}
-        </View>
-      ))}
-    </Card>
-  );
-}
-
-function SongsCard({
-  groupId,
-  isAdmin,
-  selectedSongId,
-  onSelect,
-  run,
-}: {
-  groupId: Id<"groups">;
-  isAdmin: boolean;
-  selectedSongId: Id<"songs"> | null;
-  onSelect: (songId: Id<"songs">) => void;
-  run: (action: () => Promise<unknown>) => void;
-}) {
-  const songs = useQuery(api.songs.list, { groupId });
-  const createSong = useMutation(api.songs.createSong);
-  const theme = useTheme();
-  const [title, setTitle] = useState("");
-  return (
-    <Card title="SONGS">
-      {(songs ?? []).map((song) => (
-        <View key={song.songId} style={styles.memberRow}>
-          <Pressable
-            role={isAdmin ? "radio" : undefined}
-            aria-checked={isAdmin ? selectedSongId === song.songId : undefined}
-            testID={`song-${song.title}`}
-            onPress={() => (isAdmin ? onSelect(song.songId) : undefined)}
-            style={styles.memberName}
-          >
-            <ThemedText type={selectedSongId === song.songId ? "smallBold" : "default"}>
-              {selectedSongId === song.songId ? "▶ " : ""}
-              {song.title}
-              {song.key ? ` · ${song.key}` : ""}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {song.sectionCount === 0 ? "needs structure" : `${song.sectionCount} Sections`}
-            </ThemedText>
-          </Pressable>
-          {isAdmin ? (
-            <Pressable
-              role="link"
-              testID={`edit-${song.title}`}
-              onPress={() =>
-                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })
-              }
-              style={[styles.smallButton, { backgroundColor: theme.backgroundElement }]}
-            >
-              <ThemedText type="small">Edit</ThemedText>
-            </Pressable>
-          ) : null}
-        </View>
-      ))}
-      {isAdmin ? (
-        <View style={styles.memberRow}>
-          <TextInput
-            testID="new-song-title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="New Song title"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-          />
-          <Pressable
-            role="button"
-            testID="add-song"
-            onPress={() =>
-              run(async () => {
-                const songId = await createSong({ groupId, title });
-                setTitle("");
-                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
-              })
-            }
-            style={[styles.smallButton, { backgroundColor: theme.accent }]}
-          >
-            <ThemedText type="small" style={{ color: theme.onAccent }}>
-              Add
-            </ThemedText>
-          </Pressable>
-        </View>
-      ) : null}
-    </Card>
-  );
-}
-
-function SetlistCard({
-  groupId,
-  isAdmin,
-  selectedSongId,
-  onSelect,
-  run,
-}: {
-  groupId: Id<"groups">;
-  isAdmin: boolean;
-  selectedSongId: Id<"songs"> | null;
-  onSelect: (songId: Id<"songs">) => void;
-  run: (action: () => Promise<unknown>) => void;
-}) {
-  const setlists = useQuery(api.setlists.list, { groupId });
-  const createSetlist = useMutation(api.setlists.createSetlist);
-  const theme = useTheme();
-  const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
-  const current = setlists?.find((s) => s.isCurrent) ?? null;
-  const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
-  const setlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
-  if (!setlists || (setlists.length === 0 && !isAdmin)) return null;
-  return (
-    <Card title="SETLIST">
-      <View style={styles.wrap}>
-        {setlists.map((option) => (
-          <Chip
-            key={option.setlistId}
-            label={`${option.name}${option.isCurrent ? " ★" : ""}`}
-            selected={shown?.setlistId === option.setlistId}
-            onPress={() => setShownId(option.setlistId)}
-            testID={`setlist-${option.name}`}
-          />
-        ))}
-        {isAdmin ? (
-          <Chip
-            role="button"
-            label="+ New"
-            selected={false}
-            testID="new-setlist"
-            onPress={() =>
-              run(async () => {
-                const setlistId = await createSetlist({ groupId, name: "New Setlist" });
-                router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
-              })
-            }
-          />
-        ) : null}
-      </View>
-      {(setlist?.entries ?? []).map((entry, index) => (
-        <Pressable
-          key={`${entry.songId}-${index}`}
-          role={isAdmin ? "radio" : undefined}
-          aria-checked={isAdmin ? selectedSongId === entry.songId : undefined}
-          testID={`setlist-entry-${index}`}
-          onPress={() => (isAdmin ? onSelect(entry.songId) : undefined)}
-          style={[styles.entryRow, selectedSongId === entry.songId ? { backgroundColor: theme.accentSoft } : null]}
-        >
-          <ThemedText type="small" themeColor="textSecondary" style={styles.entryIndex}>
-            {index + 1}
-          </ThemedText>
-          <View style={styles.memberName}>
-            <ThemedText type="smallBold">{entry.title}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {[entry.key ? `Key of ${entry.key}` : null, entry.leader ? `Led by ${entry.leader}` : null, entry.needsStructure ? "needs structure" : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </ThemedText>
-          </View>
-        </Pressable>
-      ))}
-      {isAdmin && shown ? (
-        <Chip
-          role="button"
-          label="Edit this Setlist"
-          selected={false}
-          testID="edit-setlist"
-          onPress={() => router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId: shown.setlistId } })}
-        />
-      ) : null}
-    </Card>
   );
 }
 
@@ -643,14 +407,6 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   transport: { flex: 1, alignItems: "center", paddingVertical: Spacing.three, borderRadius: Spacing.four },
   transportText: { fontSize: 22, lineHeight: 28 },
-  chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   hidden: { display: "none" },
-  entryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.three },
-  entryIndex: { width: 20, textAlign: "right" },
-  input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
-  memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
-  memberName: { flex: 1 },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
-  smallButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.three },
-  card: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.four },
 });

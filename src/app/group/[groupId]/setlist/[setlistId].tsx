@@ -13,6 +13,14 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 type Entry = { songId: Id<"songs">; title: string; key: string; leader: string };
+type LiveSetlist = {
+  name: string;
+  revision: number;
+  entries: { songId: Id<"songs">; title: string; key: string | null; leader: string | null }[];
+};
+
+const toEntries = (setlist: LiveSetlist): Entry[] =>
+  setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }));
 
 function SmallButton({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
   const theme = useTheme();
@@ -42,8 +50,7 @@ export default function SetlistScreen() {
       key={setlistId}
       groupId={groupId}
       setlistId={setlistId}
-      initialName={setlist.name}
-      initialEntries={setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }))}
+      live={setlist}
       songs={songs}
     />
   );
@@ -52,23 +59,28 @@ export default function SetlistScreen() {
 function SetlistForm({
   groupId,
   setlistId,
-  initialName,
-  initialEntries,
+  live,
   songs,
 }: {
   groupId: Id<"groups">;
   setlistId: Id<"setlists">;
-  initialName: string;
-  initialEntries: Entry[];
+  live: LiveSetlist;
   songs: { songId: Id<"songs">; title: string; key: string | null }[];
 }) {
-  const setEntries = useMutation(api.setlists.setEntries);
-  const rename = useMutation(api.setlists.rename);
+  const save = useMutation(api.setlists.save);
   const setCurrent = useMutation(api.setlists.setCurrent);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const theme = useTheme();
-  const [name, setName] = useState(initialName);
-  const [entries, setEntriesState] = useState<Entry[]>(initialEntries);
+  const [name, setName] = useState(live.name);
+  const [entries, setEntriesState] = useState<Entry[]>(() => toEntries(live));
+  const [revision, setRevision] = useState(live.revision);
+  const changedElsewhere = live.revision !== revision;
+  const loadLatest = () => {
+    setName(live.name);
+    setEntriesState(toEntries(live));
+    setRevision(live.revision);
+    setMessage(null);
+  };
   const [message, setMessage] = useState<string | null>(null);
   const input = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
 
@@ -94,6 +106,14 @@ function SetlistForm({
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ThemedText type="subtitle">Edit Setlist</ThemedText>
           <TextInput testID="setlist-name" style={input} value={name} onChangeText={setName} placeholder="Setlist name" />
+          {changedElsewhere ? (
+            <View style={[styles.conflict, { backgroundColor: theme.accentSoft }]} testID="setlist-changed">
+              <ThemedText type="small" style={styles.grow}>
+                Another Admin changed this Setlist. Load their changes before you save; your edits here will be replaced.
+              </ThemedText>
+              <SmallButton label="Load their changes" testID="load-latest" onPress={loadLatest} />
+            </View>
+          ) : null}
 
           {entries.map((entry, index) => (
             <View key={`${entry.songId}-${index}`} style={[styles.entry, { borderColor: theme.backgroundSelected }]} testID={`entry-${index}`}>
@@ -147,11 +167,13 @@ function SetlistForm({
               testID="save-setlist"
               onPress={() =>
                 run(async () => {
-                  await rename({ setlistId, name });
-                  await setEntries({
+                  await save({
                     setlistId,
+                    revision,
+                    name,
                     entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
                   });
+                  setRevision(revision + 1);
                   setMessage("Saved");
                 })
               }
@@ -167,8 +189,8 @@ function SetlistForm({
               testID="delete-setlist"
               onPress={() =>
                 run(async () => {
-                  router.back();
                   await deleteSetlist({ setlistId });
+                  router.back();
                 })
               }
             />
@@ -185,6 +207,7 @@ function SetlistForm({
 }
 
 const styles = StyleSheet.create({
+  conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.two, borderRadius: Spacing.two },
   container: { flex: 1 },
   content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
