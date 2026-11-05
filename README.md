@@ -31,6 +31,21 @@ npm run typecheck
 npm test
 ```
 
+## Admin sign-in with Google
+
+Members can join as guests; creating a Group or being an Admin needs a Google account.
+
+1. In Google Cloud Console, create an OAuth client of type **Web application**.
+2. Add the authorised redirect URI `https://<deployment>.convex.site/api/auth/callback/google` (the `EXPO_PUBLIC_CONVEX_SITE_URL` from `.env.local`, plus that path).
+3. Set the credentials on the deployment:
+
+```bash
+npx convex env set AUTH_GOOGLE_ID <client id>
+npx convex env set AUTH_GOOGLE_SECRET <client secret>
+```
+
+For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment only and start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. Never set `DEV_LOGIN_SECRET` on production.
+
 ## Check the clock sync
 
 - `npm run clock-check -- 3 12` opens 3 independent Convex clients, takes 12 clock samples each against your deployment and prints each client's offset and how far apart they are. It exits non-zero if the spread exceeds the worst-case bound.
