@@ -306,12 +306,13 @@ export default function GroupScreen() {
   const groupId = groupIdParam as Id<"groups">;
   const { estimate, serverNow } = useServerClock();
   const playbackDoc = useQuery(api.playback.current, { groupId });
-  const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs"> }) | null;
+  const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
-  const song: Song = playingSong ?? emptySong;
-  const shownSong = playback ? playingSong : selectedSong;
+  const song: Song = playback?.song ?? emptySong;
+  const shownTitle = playback ? playingSong?.title : selectedSong?.title;
+  const shownSections = playback ? playback.song.sections : (selectedSong?.sections ?? []);
   const myGroups = useQuery(api.groups.myGroups, {});
   const group = myGroups?.find((g) => g.groupId === groupId);
   const isAdmin = group?.role === "admin";
@@ -339,8 +340,8 @@ export default function GroupScreen() {
   }, [serverNow]);
 
   useEffect(() => {
-    engine.current?.setPlan(song, playingSong ? playback : null);
-  }, [song, playingSong, playback, soundOn]);
+    engine.current?.setPlan(song, song.sections.length > 0 ? playback : null);
+  }, [song, playback, soundOn]);
 
   useEffect(() => {
     if (engine.current) engine.current.mix = mix;
@@ -403,7 +404,8 @@ export default function GroupScreen() {
     void engine.current?.setSpeaker(next).then(() => engine.current?.preview("chorus"));
   };
 
-  const currentSection = playing && beat ? (beat.sectionIndex === null ? "COUNT-IN" : labelOf(song.sections[beat.sectionIndex])) : "READY";
+  const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
+  const currentSection = !playing || !beat ? "READY" : beat.sectionIndex === null ? "COUNT-IN" : beatSection ? labelOf(beatSection) : "READY";
 
   return (
     <ThemedView style={styles.container}>
@@ -460,12 +462,12 @@ export default function GroupScreen() {
           )}
 
           <ThemedText type="smallBold" testID="song-title">
-            {shownSong?.title ?? (isAdmin ? "Pick a Song below" : "Waiting for an Admin to start a Song")}
+            {shownTitle ?? (isAdmin ? "Pick a Song below" : "Waiting for an Admin to start a Song")}
           </ThemedText>
 
           <Card title="SECTIONS">
             <View style={styles.wrap}>
-              {(shownSong?.sections ?? []).map((section, index) => (
+              {shownSections.map((section, index) => (
                 <Chip
                   key={index}
                   role="button"

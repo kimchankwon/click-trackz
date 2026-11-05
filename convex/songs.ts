@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./recordings";
+import { sectionFields } from "./schema";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
@@ -44,15 +45,7 @@ export const list = query({
   },
 });
 
-const sectionValidator = v.object({
-  sectionType: v.string(),
-  number: v.optional(v.number()),
-  bars: v.number(),
-  beatsPerBar: v.number(),
-  bpm: v.number(),
-  voiceCueEnabled: v.optional(v.boolean()),
-  customLabel: v.optional(v.string()),
-});
+const sectionValidator = sectionFields;
 
 type Section = Doc<"songs">["sections"][number];
 

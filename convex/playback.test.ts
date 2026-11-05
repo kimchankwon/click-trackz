@@ -75,4 +75,20 @@ describe("Group Playback", () => {
     const empty = await admin.mutation(api.songs.createSong, { groupId, title: "Kingdom Come" });
     await expect(admin.mutation(api.playback.start, { groupId, songId: empty })).rejects.toThrow(/needs structure/);
   });
+
+  it("keeps playing the Song as it was at Start when an Admin edits it mid-Playback", async () => {
+    const { admin, member, groupId, songId } = await band();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    await admin.mutation(api.songs.updateSong, {
+      songId,
+      sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }],
+    });
+    const playback = await member.query(api.playback.current, { groupId });
+    expect(playback?.song.sections).toEqual([...demoSong.sections]);
+    const startsAt = NOW + 2_000;
+    vi.setSystemTime(startsAt + 3_000);
+    await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
+    expect((await member.query(api.playback.current, { groupId }))?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
+  });
 });

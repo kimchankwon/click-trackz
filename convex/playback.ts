@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
-import { commandBoundary, type Song } from "../src/sync/timeline";
-import type { Doc, Id } from "./_generated/dataModel";
+import { commandBoundary } from "../src/sync/timeline";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 
@@ -15,20 +15,14 @@ async function groupPlayback(ctx: QueryCtx, groupId: Id<"groups">) {
     .unique();
 }
 
-async function songOf(ctx: QueryCtx, playback: Doc<"playbacks">): Promise<Song> {
-  const song = await ctx.db.get(playback.songId);
-  if (song === null) throw new ConvexError("That Song no longer exists");
-  return { countIn: song.countIn, sections: song.sections };
-}
-
 export const current = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, startsAt, startSection, jumps, stopsAt } = playback;
-    return { songId, startsAt, startSection, jumps, stopsAt };
+    const { songId, song, startsAt, startSection, jumps, stopsAt } = playback;
+    return { songId, song, startsAt, startSection, jumps, stopsAt };
   },
 });
 
@@ -42,6 +36,7 @@ export const start = mutation({
     const fields = {
       groupId,
       songId,
+      song: { countIn: song.countIn, sections: song.sections },
       startsAt: Date.now() + LEAD_IN_MS,
       startSection: 0,
       jumps: [],
@@ -64,7 +59,7 @@ export const jump = mutation({
     await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
-    const song = await songOf(ctx, playback);
+    const song = playback.song;
     if (!Number.isInteger(toSection) || toSection < 0 || toSection >= song.sections.length) {
       throw new ConvexError("That Section is not in the Song");
     }
@@ -85,7 +80,7 @@ export const stop = mutation({
     await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
-    const stopsAt = commandBoundary(await songOf(ctx, playback), playback, {
+    const stopsAt = commandBoundary(playback.song, playback, {
       nowMs: Date.now(),
       minLeadMs: MIN_COMMAND_LEAD_MS,
       mode: "nextBar",
