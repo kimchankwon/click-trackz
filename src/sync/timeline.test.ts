@@ -115,4 +115,17 @@ describe("beatsBetween", () => {
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
     expect(beats.map((b) => b.accent)).toEqual([true, false, false, true, false, false]);
   });
+
+  it("tells each beat where it sits in its bar and which Section it belongs to", () => {
+    const song: Song = { countIn: true, sections: [{ ...intro, beatsPerBar: 3 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
+    expect(beats.map((b) => [b.beatInBar, b.beatsPerBar, b.sectionIndex])).toEqual([
+      [1, 3, null],
+      [2, 3, null],
+      [3, 3, null],
+      [1, 3, 0],
+      [2, 3, 0],
+      [3, 3, 0],
+    ]);
+  });
 });

@@ -1,4 +1,4 @@
-import { AudioContext, type AudioBuffer } from "react-native-audio-api";
+import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audio-api";
 
 import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
 
@@ -18,10 +18,18 @@ export type CueMix = {
   spokenCounts: boolean;
 };
 
+export type CueVolumes = {
+  click: number;
+  voice: number;
+};
+
 type Plan = { song: Song; playback: Playback | null };
 
 export class CueAudioEngine {
   private context: AudioContext | null = null;
+  private clickBus: GainNode | null = null;
+  private voiceBus: GainNode | null = null;
+  private volumes: CueVolumes = { click: 0.8, voice: 0.9 };
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private speaker: SpeakerId = defaultSpeaker;
   private loadingSpeaker: Promise<void> | null = null;
@@ -42,6 +50,11 @@ export class CueAudioEngine {
     if (this.context === null) {
       this.context = new AudioContext();
       await this.context.resume();
+      this.clickBus = this.context.createGain();
+      this.voiceBus = this.context.createGain();
+      this.clickBus.connect(this.context.destination);
+      this.voiceBus.connect(this.context.destination);
+      this.setVolumes(this.volumes);
     }
     await this.setSpeaker(speaker, true);
     this.timer ??= setInterval(() => this.tick(), TICK_MS);
@@ -63,6 +76,12 @@ export class CueAudioEngine {
     })();
     this.loadingSpeaker = loading;
     await loading;
+  }
+
+  setVolumes(volumes: CueVolumes) {
+    this.volumes = volumes;
+    if (this.clickBus) this.clickBus.gain.value = volumes.click;
+    if (this.voiceBus) this.voiceBus.gain.value = volumes.voice;
   }
 
   preview(key: BuiltinClipKey) {
@@ -89,6 +108,8 @@ export class CueAudioEngine {
     this.timer = null;
     void this.context?.close();
     this.context = null;
+    this.clickBus = null;
+    this.voiceBus = null;
   }
 
   private tick() {
@@ -128,7 +149,7 @@ export class CueAudioEngine {
     gain.gain.setValueAtTime(accent ? 0.9 : 0.6, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + CLICK_MS / 1000);
     oscillator.connect(gain);
-    gain.connect(context.destination);
+    gain.connect(this.clickBus ?? context.destination);
     oscillator.start(when);
     oscillator.stop(when + CLICK_MS / 1000);
   }
@@ -138,7 +159,7 @@ export class CueAudioEngine {
     if (!buffer) return null;
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    source.connect(this.voiceBus ?? context.destination);
     source.start(when);
     return buffer.duration;
   }
