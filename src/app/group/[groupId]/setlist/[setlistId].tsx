@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -21,22 +22,6 @@ type LiveSetlist = {
 
 const toEntries = (setlist: LiveSetlist): Entry[] =>
   setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }));
-
-function SmallButton({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role="button"
-      testID={testID}
-      onPress={onPress}
-      style={[styles.small, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
-    >
-      <ThemedText type="small" style={accent ? { color: theme.onAccent } : null}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
 
 export default function SetlistScreen() {
   const params = useLocalSearchParams<{ groupId: string; setlistId: string }>();
@@ -111,7 +96,7 @@ function SetlistForm({
               <ThemedText type="small" style={styles.grow}>
                 Another Admin changed this Setlist. Load their changes before you save; your edits here will be replaced.
               </ThemedText>
-              <SmallButton label="Load their changes" testID="load-latest" onPress={loadLatest} />
+              <ActionButton small label="Load their changes" testID="load-latest" onPress={loadLatest} />
             </View>
           ) : null}
 
@@ -121,9 +106,9 @@ function SetlistForm({
                 <ThemedText type="smallBold" style={styles.grow}>
                   {index + 1}. {entry.title}
                 </ThemedText>
-                <SmallButton label="↑" onPress={() => move(index, -1)} />
-                <SmallButton label="↓" onPress={() => move(index, 1)} />
-                <SmallButton label="✕" testID={`entry-${index}-remove`} onPress={() => setEntriesState(entries.filter((_, i) => i !== index))} />
+                <ActionButton small label="↑" onPress={() => move(index, -1)} />
+                <ActionButton small label="↓" onPress={() => move(index, 1)} />
+                <ActionButton small label="✕" testID={`entry-${index}-remove`} onPress={() => setEntriesState(entries.filter((_, i) => i !== index))} />
               </View>
               <View style={styles.inline}>
                 <TextInput
@@ -151,7 +136,7 @@ function SetlistForm({
           </ThemedText>
           <View style={styles.wrap}>
             {songs.map((song) => (
-              <SmallButton
+              <ActionButton small
                 key={song.songId}
                 label={`+ ${song.title}`}
                 testID={`add-${song.title}`}
@@ -161,7 +146,7 @@ function SetlistForm({
           </View>
 
           <View style={styles.inline}>
-            <SmallButton
+            <ActionButton small
               label="Save"
               accent
               testID="save-setlist"
@@ -178,13 +163,13 @@ function SetlistForm({
                 })
               }
             />
-            <SmallButton label="Make current" testID="make-current" onPress={() => run(async () => {
+            <ActionButton small label="Make current" testID="make-current" onPress={() => run(async () => {
               await setCurrent({ groupId, setlistId });
               setMessage("This is now the Current setlist");
             })} />
-            <SmallButton label="Back" testID="back" onPress={() => router.back()} />
+            <ActionButton small label="Back" testID="back" onPress={() => router.back()} />
             <View style={styles.grow} />
-            <SmallButton
+            <ActionButton small
               label="Delete"
               testID="delete-setlist"
               onPress={() =>
@@ -215,6 +200,5 @@ const styles = StyleSheet.create({
   inline: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1 },
-  small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   entry: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
 });

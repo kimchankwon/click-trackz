@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CueAudioEngine } from "@/audio/engine";
 import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
 import { VolumeBar } from "@/components/playback/volume-bar";
+import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -23,20 +24,6 @@ type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
 
-function Button({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role="button"
-      testID={testID}
-      onPress={onPress}
-      style={[styles.button, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
-    >
-      <ThemedText style={accent ? { color: theme.onAccent } : null}>{label}</ThemedText>
-    </Pressable>
-  );
-}
-
 export default function LatencyScreen() {
   const theme = useTheme();
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
@@ -45,6 +32,7 @@ export default function LatencyScreen() {
   const round = useRef<{ clickTimesMs: number[]; reportedLatencyMs: number; taps: number[] } | null>(null);
   const speakerRound = useRef<TapRound | null>(null);
   const roundTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundBusy = useRef(false);
   const [speakerDone, setSpeakerDone] = useState(false);
   const [step, setStep] = useState<Step>("idle");
   const [listening, setListening] = useState(false);
@@ -62,14 +50,22 @@ export default function LatencyScreen() {
   const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
 
   const startRound = async (next: "speaker" | "output") => {
-    if (roundTimer.current) clearTimeout(roundTimer.current);
+    if (roundBusy.current) return;
+    roundBusy.current = true;
     if (next === "speaker") {
       speakerRound.current = null;
       setSpeakerDone(false);
     }
-    if (!engine.current) engine.current = new CueAudioEngine();
-    await engine.current.enable(() => null, null);
-    const { clickTimesMs, reportedLatencyMs, lastClickInMs } = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
+    let started: ReturnType<CueAudioEngine["tapTestRound"]>;
+    try {
+      if (!engine.current) engine.current = new CueAudioEngine();
+      await engine.current.enable(() => null, null);
+      started = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
+    } catch (error) {
+      roundBusy.current = false;
+      throw error;
+    }
+    const { clickTimesMs, reportedLatencyMs, lastClickInMs } = started;
     round.current = { clickTimesMs, reportedLatencyMs, taps: [] };
     setTapCount(0);
     setStep(next);
@@ -79,6 +75,7 @@ export default function LatencyScreen() {
 
   const finishRound = (finished: "speaker" | "output") => {
     roundTimer.current = null;
+    roundBusy.current = false;
     setListening(false);
     engine.current?.endTapTest();
     const current = round.current;
@@ -156,7 +153,7 @@ export default function LatencyScreen() {
           />
           <View style={styles.wrap}>
             {[-10, -1, 1, 10].map((step) => (
-              <Button key={step} label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
+              <ActionButton key={step} label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
             ))}
           </View>
 
@@ -168,9 +165,9 @@ export default function LatencyScreen() {
             speakers you will play with and do the same. Only the difference counts, so your own reaction time cancels out.
           </ThemedText>
           <View style={styles.wrap}>
-            <Button label="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
+            <ActionButton label="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
             {speakerDone ? (
-              <Button label="Round 2: your output" testID="round-output" accent onPress={() => run(() => startRound("output"))} />
+              <ActionButton label="Round 2: your output" testID="round-output" accent onPress={() => run(() => startRound("output"))} />
             ) : null}
           </View>
           <Pressable
@@ -198,7 +195,7 @@ export default function LatencyScreen() {
               This device could not save your Latency nudge, so it will reset when you reopen the app.
             </ThemedText>
           ) : null}
-          <Button label="Done" testID="latency-done" onPress={() => router.back()} />
+          <ActionButton label="Done" testID="latency-done" onPress={() => router.back()} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -210,6 +207,5 @@ const styles = StyleSheet.create({
   content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
-  button: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   pad: { height: 160, borderRadius: Spacing.four, alignItems: "center", justifyContent: "center" },
 });

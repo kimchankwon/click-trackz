@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -17,22 +18,6 @@ type EditableSection = Section & { customLabel?: string };
 type SectionRowState = { id: number; section: EditableSection };
 
 type LookupResult = { title: string; artist: string | null; bpm: number | null; beatsPerBar: number | null; key: string | null };
-
-function SmallButton({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role="button"
-      testID={testID}
-      onPress={onPress}
-      style={[styles.small, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
-    >
-      <ThemedText type="small" style={accent ? { color: theme.onAccent } : null}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
 
 function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
   const theme = useTheme();
@@ -85,24 +70,24 @@ function SectionRow({
           role="button"
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
-          style={[styles.small, { backgroundColor: theme.accentSoft }]}
+          style={[styles.typeButton, { backgroundColor: theme.accentSoft }]}
         >
           <ThemedText type="smallBold">
             {section.sectionType}
             {section.number ? ` ${section.number}` : ""}
           </ThemedText>
         </Pressable>
-        <SmallButton label="−" testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
-        <SmallButton label="#+" testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
+        <ActionButton small label="−" testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
+        <ActionButton small label="#+" testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
         <View style={styles.grow} />
-        <SmallButton label="↑" onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <SmallButton label="↓" onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <SmallButton label="✕" onPress={onRemove} testID={`section-${index}-remove`} />
+        <ActionButton small label="↑" onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
+        <ActionButton small label="↓" onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <ActionButton small label="✕" onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
           {vocabulary.map((type) => (
-            <SmallButton
+            <ActionButton small
               key={type}
               label={type}
               accent={type === section.sectionType}
@@ -249,7 +234,7 @@ function SongForm({
 
           {lookupAvailable ? (
             <View style={styles.lookup}>
-              <SmallButton
+              <ActionButton small
                 label="Look up BPM"
                 testID="lookup-bpm"
                 onPress={() => run(async () => setResults(await lookup({ groupId, title })))}
@@ -285,10 +270,10 @@ function SongForm({
               onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
             />
           ))}
-          <SmallButton label="+ Add Section" testID="add-section" onPress={addSection} />
+          <ActionButton small label="+ Add Section" testID="add-section" onPress={addSection} />
 
           <View style={styles.inline}>
-            <SmallButton
+            <ActionButton small
               label="Save"
               accent
               testID="save-song"
@@ -299,9 +284,9 @@ function SongForm({
                 })
               }
             />
-            <SmallButton label="Back" testID="back" onPress={() => router.back()} />
+            <ActionButton small label="Back" testID="back" onPress={() => router.back()} />
             <View style={styles.grow} />
-            <SmallButton
+            <ActionButton small
               label="Delete Song"
               testID="delete-song"
               onPress={() =>
@@ -324,6 +309,7 @@ function SongForm({
 }
 
 const styles = StyleSheet.create({
+  typeButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   container: { flex: 1 },
   content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.three, borderRadius: Spacing.three, fontSize: 16 },
@@ -331,7 +317,6 @@ const styles = StyleSheet.create({
   inline: { flexDirection: "row", alignItems: "center", gap: Spacing.two, flexWrap: "wrap" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.one },
   grow: { flex: 1 },
-  small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   sectionRow: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
   numberField: { gap: Spacing.half, flex: 1, minWidth: 80 },
   numberInput: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two, borderRadius: Spacing.two, fontSize: 16 },
