@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -304,9 +305,37 @@ function SetlistCard({
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-export default function GroupScreen() {
-  const { groupId: groupIdParam } = useLocalSearchParams<{ groupId: string }>();
-  const groupId = groupIdParam as Id<"groups">;
+type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
+
+export default function GroupRoute() {
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const myGroups = useQuery(api.groups.myGroups, {});
+  const theme = useTheme();
+  if (myGroups === undefined) return <ThemedView style={styles.container} />;
+  const group = myGroups.find((g) => g.groupId === groupId);
+  if (group) return <GroupScreen group={group} />;
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.notInGroup}>
+        <ThemedText type="subtitle">You are not in this Group</ThemedText>
+        <ThemedText themeColor="textSecondary" testID="not-in-group">
+          Ask an Admin for its join code, or open one of your Groups.
+        </ThemedText>
+        <Pressable
+          role="button"
+          testID="back-to-groups"
+          onPress={() => router.replace("/")}
+          style={[styles.backButton, { backgroundColor: theme.accent }]}
+        >
+          <ThemedText style={{ color: theme.onAccent }}>Back to your Groups</ThemedText>
+        </Pressable>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+function GroupScreen({ group }: { group: MyGroup }) {
+  const groupId = group.groupId;
   const { estimate, serverNow } = useServerClock();
   const playbackDoc = useQuery(api.playback.current, { groupId });
   const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
@@ -316,9 +345,7 @@ export default function GroupScreen() {
   const song: Song = playback?.song ?? emptySong;
   const shownTitle = playback ? playingSong?.title : selectedSong?.title;
   const shownSections = playback ? playback.song.sections : (selectedSong?.sections ?? []);
-  const myGroups = useQuery(api.groups.myGroups, {});
-  const group = myGroups?.find((g) => g.groupId === groupId);
-  const isAdmin = group?.role === "admin";
+  const isAdmin = group.role === "admin";
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
@@ -425,9 +452,9 @@ export default function GroupScreen() {
           <View style={styles.header}>
             <View>
               <ThemedText type="smallBold" testID="group-name">
-                {group?.name ?? ""}
+                {group.name}
               </ThemedText>
-              {group?.joinCode ? (
+              {group.joinCode ? (
                 <ThemedText type="small" themeColor="textSecondary" testID="join-code">
                   Join code {group.joinCode}
                 </ThemedText>
@@ -569,8 +596,8 @@ export default function GroupScreen() {
             testID="leave-group"
             onPress={() =>
               run(async () => {
-                router.replace("/");
                 await leave({ groupId });
+                router.replace("/");
               })
             }
           >
@@ -591,6 +618,7 @@ export default function GroupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  notInGroup: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
   safeArea: { flex: 1 },
   content: {
     alignItems: "center",
@@ -621,6 +649,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
   memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   memberName: { flex: 1 },
+  backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
   smallButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.three },
   card: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.four },
 });
