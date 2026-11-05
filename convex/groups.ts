@@ -29,7 +29,7 @@ export const createGroup = mutation({
   args: { name: v.string(), displayName: v.string() },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (isGuest(user)) throw new ConvexError("Sign in with Google or Apple to create a Group");
+    if (isGuest(user)) throw new ConvexError("Sign in with Google to create a Group");
     const joinCode = await uniqueJoinCode(ctx);
     const groupId = await ctx.db.insert("groups", {
       name: cleanName(args.name, "Group name"),
@@ -114,7 +114,7 @@ export const setRole = mutation({
     if (target.role === role) return;
     if (role === "admin") {
       const user = await ctx.db.get(userId);
-      if (user === null || isGuest(user)) throw new ConvexError("Admins must sign in with Google or Apple first");
+      if (user === null || isGuest(user)) throw new ConvexError("Admins must sign in with Google first");
     } else if ((await adminCount(ctx, groupId)) <= 1) {
       throw new ConvexError("A Group needs at least one Admin; promote someone else before stepping down as the last Admin");
     }

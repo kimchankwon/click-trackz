@@ -12,4 +12,10 @@ describe("chooseClip", () => {
     expect(chooseClip({ sectionType: "Exhortation" }, uploads, builtin)).toEqual({ source: "upload", ref: "upload:exhortation" });
     expect(chooseClip({ sectionType: "Spontaneous" }, uploads, builtin)).toBeNull();
   });
+
+  it("uses the Group's plain-word recording before the Speaker's numbered clip", () => {
+    const uploads = { chorus: "upload:chorus" };
+    const builtin = new Set(["chorus", "chorus-2"]);
+    expect(chooseClip({ sectionType: "Chorus", number: 2 }, uploads, builtin)).toEqual({ source: "upload", ref: "upload:chorus" });
+  });
 });

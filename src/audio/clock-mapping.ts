@@ -16,3 +16,12 @@ export function slewMapping(current: ClockMapping | null, targetAudioMinusServer
   const step = Math.max(-MAX_STEP_MS, Math.min(MAX_STEP_MS, gap));
   return { audioMinusServerMs: current.audioMinusServerMs + step };
 }
+
+export function scheduleTimeFor(
+  beatServerMs: number,
+  mapping: ClockMapping,
+  reportedLatencyMs: number,
+  latencyNudgeMs: number,
+): number {
+  return audioTimeFor(beatServerMs, mapping, reportedLatencyMs + latencyNudgeMs);
+}

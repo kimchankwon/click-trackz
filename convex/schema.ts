@@ -2,6 +2,16 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+export const sectionFields = v.object({
+  sectionType: v.string(),
+  number: v.optional(v.number()),
+  bars: v.number(),
+  beatsPerBar: v.number(),
+  bpm: v.number(),
+  voiceCueEnabled: v.optional(v.boolean()),
+  customLabel: v.optional(v.string()),
+});
+
 export default defineSchema({
   ...authTables,
   groups: defineTable({
@@ -25,17 +35,7 @@ export default defineSchema({
     key: v.optional(v.string()),
     tempoHint: v.optional(v.object({ bpm: v.number(), beatsPerBar: v.number() })),
     countIn: v.boolean(),
-    sections: v.array(
-      v.object({
-        sectionType: v.string(),
-        number: v.optional(v.number()),
-        bars: v.number(),
-        beatsPerBar: v.number(),
-        bpm: v.number(),
-        voiceCueEnabled: v.optional(v.boolean()),
-        customLabel: v.optional(v.string()),
-      }),
-    ),
+    sections: v.array(sectionFields),
   }).index("by_group", ["groupId"]),
   setlists: defineTable({
     groupId: v.id("groups"),
@@ -47,6 +47,7 @@ export default defineSchema({
         leader: v.optional(v.string()),
       }),
     ),
+    revision: v.optional(v.number()),
   }).index("by_group", ["groupId"]),
   recordings: defineTable({
     groupId: v.id("groups"),
@@ -56,10 +57,12 @@ export default defineSchema({
     storageId: v.id("_storage"),
   })
     .index("by_group", ["groupId"])
-    .index("by_group_key", ["groupId", "key"]),
+    .index("by_group_key", ["groupId", "key"])
+    .index("by_storage", ["storageId"]),
   playbacks: defineTable({
     groupId: v.id("groups"),
     songId: v.id("songs"),
+    song: v.object({ countIn: v.boolean(), sections: v.array(sectionFields) }),
     startsAt: v.number(),
     startSection: v.number(),
     jumps: v.array(v.object({ at: v.number(), toSection: v.number() })),

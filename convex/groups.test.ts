@@ -1,4 +1,3 @@
-// @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -31,7 +30,7 @@ describe("Groups", () => {
 
     const guest = await as({ isAnonymous: true });
     await expect(guest.client.mutation(api.groups.createGroup, { name: "x", displayName: "G" })).rejects.toThrow(
-      /Google or Apple/,
+      /Sign in with Google to create a Group/,
     );
   });
 
@@ -60,7 +59,7 @@ describe("Groups", () => {
     await guest.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Minwoo" });
 
     await expect(joanne.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "admin" })).rejects.toThrow(/Only Admins/);
-    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "admin" })).rejects.toThrow(/Google or Apple/);
+    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "admin" })).rejects.toThrow(/Admins must sign in with Google first/);
     await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" })).rejects.toThrow(/last Admin/);
     await expect(daniel.client.mutation(api.groups.leaveGroup, { groupId })).rejects.toThrow(/last Admin/);
 

@@ -1,27 +1,38 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { onDeviceSetting } from "./device-setting-events";
 import { deviceStore } from "./device-store";
 
 export function useDeviceSetting<T extends string>(key: string, fallback: T, isValid: (value: string) => value is T) {
   const [value, setValue] = useState<T>(fallback);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void deviceStore.get(key).then((stored) => {
-      if (!cancelled && stored !== null && isValid(stored)) setValue(stored);
+    let changed = false;
+    deviceStore.get(key).then(
+      (stored) => {
+        if (!cancelled && !changed && stored !== null && isValid(stored)) setValue(stored);
+      },
+      () => undefined,
+    );
+    const unsubscribe = onDeviceSetting(key, (next) => {
+      changed = true;
+      if (isValid(next)) setValue(next);
     });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [key, isValid]);
 
   const update = useCallback(
     (next: T) => {
-      setValue(next);
-      void deviceStore.set(key, next);
+      setSaveFailed(false);
+      deviceStore.set(key, next).catch(() => setSaveFailed(true));
     },
     [key],
   );
 
-  return [value, update] as const;
+  return [value, update, saveFailed] as const;
 }

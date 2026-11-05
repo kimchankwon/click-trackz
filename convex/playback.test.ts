@@ -1,4 +1,3 @@
-// @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +9,7 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 const NOW = 1_000_000;
 
-async function band() {
+async function setupGroup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
     const userId = await t.run((ctx) => ctx.db.insert("users", profile));
@@ -34,7 +33,7 @@ describe("Group Playback", () => {
   afterEach(() => vi.useRealTimers());
 
   it("starts one Lead-in after the server receives an Admin's Start, for every Member to read", async () => {
-    const { admin, member, groupId, songId } = await band();
+    const { admin, member, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     const playback = await member.query(api.playback.current, { groupId });
@@ -42,7 +41,7 @@ describe("Group Playback", () => {
   });
 
   it("lands a next-bar Jump on the first bar line at least one second away", async () => {
-    const { admin, groupId, songId } = await band();
+    const { admin, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     const startsAt = NOW + 2_000;
@@ -53,7 +52,7 @@ describe("Group Playback", () => {
   });
 
   it("lands Stop on the first bar line at least one second away", async () => {
-    const { admin, groupId, songId } = await band();
+    const { admin, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     const startsAt = NOW + 2_000;
@@ -64,15 +63,31 @@ describe("Group Playback", () => {
   });
 
   it("refuses Playback commands from Members and reads from people outside the Group", async () => {
-    const { t, member, outsider, groupId, songId } = await band();
+    const { t, member, outsider, groupId, songId } = await setupGroup();
     await expect(member.mutation(api.playback.start, { groupId, songId })).rejects.toThrow(/Only Admins/);
     await expect(outsider.query(api.playback.current, { groupId })).rejects.toThrow(/not in this Group/);
     await expect(t.query(api.playback.current, { groupId })).rejects.toThrow(/Sign in/);
   });
 
   it("will not start a Song that still needs structure", async () => {
-    const { admin, groupId } = await band();
+    const { admin, groupId } = await setupGroup();
     const empty = await admin.mutation(api.songs.createSong, { groupId, title: "Kingdom Come" });
     await expect(admin.mutation(api.playback.start, { groupId, songId: empty })).rejects.toThrow(/needs structure/);
+  });
+
+  it("keeps playing the Song as it was at Start when an Admin edits it mid-Playback", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    await admin.mutation(api.songs.updateSong, {
+      songId,
+      sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }],
+    });
+    const playback = await member.query(api.playback.current, { groupId });
+    expect(playback?.song.sections).toEqual([...demoSong.sections]);
+    const startsAt = NOW + 2_000;
+    vi.setSystemTime(startsAt + 3_000);
+    await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
+    expect((await member.query(api.playback.current, { groupId }))?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
   });
 });

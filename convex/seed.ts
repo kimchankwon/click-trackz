@@ -29,16 +29,19 @@ export const firstSetlistForGroup = internalMutation({
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
-    const byTitle = new Map(existing.map((song) => [song.title, song._id]));
+    const byTitle = new Map(existing.map((song) => [song.title, song]));
     const entries = [];
     for (const song of firstSetlist) {
+      const tempoHint = { bpm: song.bpm, beatsPerBar: song.beatsPerBar };
+      const reused = byTitle.get(song.title);
+      if (reused && reused.tempoHint === undefined) await ctx.db.patch(reused._id, { tempoHint });
       const songId =
-        byTitle.get(song.title) ??
+        reused?._id ??
         (await ctx.db.insert("songs", {
           groupId,
           title: song.title,
           key: song.key,
-          tempoHint: { bpm: song.bpm, beatsPerBar: song.beatsPerBar },
+          tempoHint,
           countIn: true,
           sections: [],
         }));

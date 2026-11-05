@@ -7,6 +7,7 @@ import { estimateClockOffset, type ClockEstimate, type ClockSample } from "./clo
 const INITIAL_BURST = 8;
 const RESAMPLE_EVERY_MS = 5_000;
 const SAMPLE_WINDOW = 12;
+const SAMPLES_BEFORE_READY = 4;
 
 const clientNow = () => performance.now();
 
@@ -29,7 +30,7 @@ export function useServerClock(): ServerClock {
       if (cancelled) return;
       samples.push({ sentAt, serverAt, receivedAt });
       if (samples.length > SAMPLE_WINDOW) samples.shift();
-      setEstimate(estimateClockOffset(samples));
+      if (samples.length >= SAMPLES_BEFORE_READY) setEstimate(estimateClockOffset(samples));
     };
     const burst = async () => {
       for (let i = 0; i < INITIAL_BURST && !cancelled; i++) await sampleOnce().catch(() => undefined);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -14,24 +15,9 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 type EditableSection = Section & { customLabel?: string };
+type SectionRowState = { id: number; section: EditableSection };
 
 type LookupResult = { title: string; artist: string | null; bpm: number | null; beatsPerBar: number | null; key: string | null };
-
-function SmallButton({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role="button"
-      testID={testID}
-      onPress={onPress}
-      style={[styles.small, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
-    >
-      <ThemedText type="small" style={accent ? styles.onAccent : null}>
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
-}
 
 function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
   const theme = useTheme();
@@ -84,24 +70,24 @@ function SectionRow({
           role="button"
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
-          style={[styles.small, { backgroundColor: theme.accentSoft }]}
+          style={[styles.typeButton, { backgroundColor: theme.accentSoft }]}
         >
           <ThemedText type="smallBold">
             {section.sectionType}
             {section.number ? ` ${section.number}` : ""}
           </ThemedText>
         </Pressable>
-        <SmallButton label="−" testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
-        <SmallButton label="#+" testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
+        <ActionButton small label="−" accessibleName={`Lower the number of Section ${index + 1}`} testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
+        <ActionButton small label="#+" accessibleName={`Raise the number of Section ${index + 1}`} testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
         <View style={styles.grow} />
-        <SmallButton label="↑" onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <SmallButton label="↓" onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <SmallButton label="✕" onPress={onRemove} testID={`section-${index}-remove`} />
+        <ActionButton small label="↑" accessibleName={`Move Section ${index + 1} up`} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
+        <ActionButton small label="↓" accessibleName={`Move Section ${index + 1} down`} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <ActionButton small label="✕" accessibleName={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
           {vocabulary.map((type) => (
-            <SmallButton
+            <ActionButton small
               key={type}
               label={type}
               accent={type === section.sectionType}
@@ -152,10 +138,20 @@ export default function SongEditorScreen() {
   const song = useQuery(api.songs.get, { songId });
   const vocabulary = useQuery(api.recordings.vocabulary, { groupId });
   if (!song || !vocabulary) return <ThemedView style={styles.container} />;
-  return <SongForm key={songId} songId={songId} song={song} vocabulary={vocabulary} />;
+  return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} />;
 }
 
-function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: LoadedSong; vocabulary: readonly string[] }) {
+function SongForm({
+  groupId,
+  songId,
+  song,
+  vocabulary,
+}: {
+  groupId: Id<"groups">;
+  songId: Id<"songs">;
+  song: LoadedSong;
+  vocabulary: readonly string[];
+}) {
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
   const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
@@ -164,7 +160,9 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
-  const [sections, setSections] = useState<EditableSection[]>(song.sections);
+  const [rows, setRows] = useState<SectionRowState[]>(() => song.sections.map((section, id) => ({ id, section })));
+  const [nextRowId, setNextRowId] = useState(song.sections.length);
+  const sections = rows.map((row) => row.section);
   const [results, setResults] = useState<LookupResult[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -175,32 +173,39 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
 
   const addSection = () => {
     const last = sections.at(-1);
-    setSections([
-      ...sections,
+    setRows([
+      ...rows,
       {
-        sectionType: last ? "Verse" : "Intro",
-        bars: 4,
-        beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
-        bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
+        id: nextRowId,
+        section: {
+          sectionType: last ? "Verse" : "Intro",
+          bars: 4,
+          beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
+          bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
+        },
       },
     ]);
+    setNextRowId(nextRowId + 1);
   };
 
   const move = (index: number, by: -1 | 1) => {
     const target = index + by;
-    if (target < 0 || target >= sections.length) return;
-    const next = [...sections];
+    if (target < 0 || target >= rows.length) return;
+    const next = [...rows];
     [next[index], next[target]] = [next[target], next[index]];
-    setSections(next);
+    setRows(next);
   };
 
   const applyLookup = (result: LookupResult) => {
     if (result.key) setSongKey(result.key);
-    setSections(
-      sections.map((section) => ({
-        ...section,
-        ...(result.bpm ? { bpm: result.bpm } : {}),
-        ...(result.beatsPerBar ? { beatsPerBar: result.beatsPerBar } : {}),
+    setRows(
+      rows.map((row) => ({
+        id: row.id,
+        section: {
+          ...row.section,
+          ...(result.bpm ? { bpm: result.bpm } : {}),
+          ...(result.beatsPerBar ? { beatsPerBar: result.beatsPerBar } : {}),
+        },
       })),
     );
     setResults(null);
@@ -229,10 +234,10 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
 
           {lookupAvailable ? (
             <View style={styles.lookup}>
-              <SmallButton
+              <ActionButton small
                 label="Look up BPM"
                 testID="lookup-bpm"
-                onPress={() => run(async () => setResults(await lookup({ title })))}
+                onPress={() => run(async () => setResults(await lookup({ groupId, title })))}
               />
               <Pressable onPress={() => void Linking.openURL("https://getsongbpm.com")}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -253,22 +258,22 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
             </View>
           ) : null}
 
-          {sections.map((section, index) => (
+          {rows.map((row, index) => (
             <SectionRow
-              key={index}
-              section={section}
+              key={row.id}
+              section={row.section}
               index={index}
-              count={sections.length}
+              count={rows.length}
               vocabulary={vocabulary}
-              onChange={(next) => setSections(sections.map((s, i) => (i === index ? next : s)))}
+              onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
               onMove={(by) => move(index, by)}
-              onRemove={() => setSections(sections.filter((_, i) => i !== index))}
+              onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
             />
           ))}
-          <SmallButton label="+ Add Section" testID="add-section" onPress={addSection} />
+          <ActionButton small label="+ Add Section" testID="add-section" onPress={addSection} />
 
           <View style={styles.inline}>
-            <SmallButton
+            <ActionButton small
               label="Save"
               accent
               testID="save-song"
@@ -279,9 +284,9 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
                 })
               }
             />
-            <SmallButton label="Back" testID="back" onPress={() => router.back()} />
+            <ActionButton small label="Back" testID="back" onPress={() => router.back()} />
             <View style={styles.grow} />
-            <SmallButton
+            <ActionButton small
               label="Delete Song"
               testID="delete-song"
               onPress={() =>
@@ -304,6 +309,7 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
 }
 
 const styles = StyleSheet.create({
+  typeButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   container: { flex: 1 },
   content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.three, borderRadius: Spacing.three, fontSize: 16 },
@@ -311,8 +317,6 @@ const styles = StyleSheet.create({
   inline: { flexDirection: "row", alignItems: "center", gap: Spacing.two, flexWrap: "wrap" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.one },
   grow: { flex: 1 },
-  small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
-  onAccent: { color: "#FFFFFF" },
   sectionRow: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
   numberField: { gap: Spacing.half, flex: 1, minWidth: 80 },
   numberInput: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two, borderRadius: Spacing.two, fontSize: 16 },

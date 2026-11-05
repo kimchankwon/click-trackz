@@ -8,8 +8,10 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts", "convex/**/*.test.ts"],
-    environment: "node",
     server: { deps: { inline: ["convex-test"] } },
+    projects: [
+      { extends: true, test: { name: "app", include: ["src/**/*.test.ts"], environment: "node" } },
+      { extends: true, test: { name: "convex", include: ["convex/**/*.test.ts"], environment: "edge-runtime" } },
+    ],
   },
 });

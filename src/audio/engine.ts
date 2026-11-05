@@ -3,7 +3,7 @@ import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audi
 import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
 
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
-import { audioTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
+import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
@@ -26,6 +26,10 @@ export type CueVolumes = {
 
 type Plan = { song: Song; playback: Playback | null };
 
+const SPOKEN_COUNT_OVERLAP_MS = 100;
+
+let tapTestOwner: CueAudioEngine | null = null;
+
 export class CueAudioEngine {
   private context: AudioContext | null = null;
   private clickBus: GainNode | null = null;
@@ -34,56 +38,94 @@ export class CueAudioEngine {
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private uploads = new Map<string, AudioBuffer>();
   private uploadUrls = new Map<string, string>();
+  private wantedUploadUrls = new Map<string, string>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
-  private loadingSpeaker: Promise<void> | null = null;
+  private clipsSpeaker: SpeakerId | null = null;
+  private loadingSpeaker: { speaker: SpeakerId; done: Promise<void> } | null = null;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private voiceBusyUntil = -Infinity;
   private plan: Plan | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
+  private enabling: Promise<void> | null = null;
+  private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
+  latencyNudgeMs = 0;
 
   get enabled() {
     return this.context !== null;
   }
 
-  async enable(serverNow: () => number | null, speaker: SpeakerId) {
+  async enable(serverNow: () => number | null, speaker: SpeakerId | null) {
     this.serverNow = serverNow;
-    if (this.context === null) {
-      this.context = new AudioContext();
-      await this.context.resume();
-      this.clickBus = this.context.createGain();
-      this.voiceBus = this.context.createGain();
-      this.clickBus.connect(this.context.destination);
-      this.voiceBus.connect(this.context.destination);
-      this.setVolumes(this.volumes);
-    }
-    await this.setSpeaker(speaker, true);
-    this.timer ??= setInterval(() => this.tick(), TICK_MS);
+    if (this.enabling) return this.enabling;
+    const enabling = this.startAudio(speaker).finally(() => {
+      this.enabling = null;
+    });
+    this.enabling = enabling;
+    return enabling;
   }
 
-  async setSpeaker(speaker: SpeakerId, force = false) {
-    if (!force && speaker === this.speaker && this.clips.size > 0) return;
+  private async startAudio(speaker: SpeakerId | null) {
+    const firstTime = this.context === null;
+    if (firstTime) {
+      const context = new AudioContext();
+      try {
+        await context.resume();
+      } catch (error) {
+        void context.close();
+        throw error;
+      }
+      if (this.disposed) {
+        void context.close();
+        return;
+      }
+      const clickBus = context.createGain();
+      const voiceBus = context.createGain();
+      clickBus.connect(context.destination);
+      voiceBus.connect(context.destination);
+      this.context = context;
+      this.clickBus = clickBus;
+      this.voiceBus = voiceBus;
+      this.setVolumes(this.volumes);
+    }
+    if (speaker !== null) await this.setSpeaker(speaker);
+    if (this.disposed || this.context === null) return;
+    if (this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
+  }
+
+  async setSpeaker(speaker: SpeakerId) {
     this.speaker = speaker;
     const context = this.context;
-    if (context === null) return;
-    const loading = (async () => {
+    if (context === null || this.clipsSpeaker === speaker) return;
+    if (this.loadingSpeaker?.speaker === speaker) return this.loadingSpeaker.done;
+    this.clips = new Map();
+    this.clipsSpeaker = null;
+    const done = (async () => {
       const loaded = new Map<BuiltinClipKey, AudioBuffer>();
       await Promise.all(
         allClipKeys.map(async (key) => {
           loaded.set(key, await loadClip(context, builtinVoiceClips[speaker][key]));
         }),
       );
-      if (this.speaker === speaker) this.clips = loaded;
+      if (this.speaker !== speaker) return;
+      this.clips = loaded;
+      this.clipsSpeaker = speaker;
     })();
+    const loading = { speaker, done };
     this.loadingSpeaker = loading;
-    await loading;
+    try {
+      await done;
+    } finally {
+      if (this.loadingSpeaker === loading) this.loadingSpeaker = null;
+    }
   }
 
   async setUploads(recordings: readonly { key: string; url: string | null }[]) {
     const wanted = new Map(recordings.filter((r) => r.url !== null).map((r) => [r.key, r.url as string]));
+    this.wantedUploadUrls = wanted;
     for (const key of [...this.uploads.keys()]) {
       if (wanted.get(key) !== this.uploadUrls.get(key)) {
         this.uploads.delete(key);
@@ -97,6 +139,7 @@ export class CueAudioEngine {
         if (this.uploadUrls.get(key) === url) return;
         try {
           const buffer = await loadClip(context, url);
+          if (this.wantedUploadUrls.get(key) !== url) return;
           this.uploads.set(key, buffer);
           this.uploadUrls.set(key, url);
         } catch {
@@ -112,6 +155,21 @@ export class CueAudioEngine {
     if (context && buffer) this.playBuffer(context, buffer, context.currentTime);
   }
 
+  tapTestRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
+    const context = this.context;
+    if (context === null) throw new Error("Enable sound first");
+    tapTestOwner = this;
+    const firstAt = context.currentTime + 0.8;
+    const nowMs = performance.now();
+    const clickTimesMs: number[] = [];
+    for (let index = 0; index < clicks; index++) {
+      const when = firstAt + (index * intervalMs) / 1000;
+      this.click(context, when, index % 4 === 0);
+      clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
+    }
+    return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
+  }
+
   setVolumes(volumes: CueVolumes) {
     this.volumes = volumes;
     if (this.clickBus) this.clickBus.gain.value = volumes.click;
@@ -121,7 +179,10 @@ export class CueAudioEngine {
   preview(key: BuiltinClipKey) {
     const context = this.context;
     if (context === null) return;
-    void (this.loadingSpeaker ?? Promise.resolve()).then(() => this.play(context, key, context.currentTime));
+    void (this.loadingSpeaker?.done ?? Promise.resolve()).then(
+      () => this.play(context, key, context.currentTime),
+      () => undefined,
+    );
   }
 
   setServerClock(serverNow: () => number | null) {
@@ -137,7 +198,13 @@ export class CueAudioEngine {
     }
   }
 
+  endTapTest() {
+    if (tapTestOwner === this) tapTestOwner = null;
+  }
+
   dispose() {
+    this.disposed = true;
+    this.endTapTest();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     void this.context?.close();
@@ -152,13 +219,13 @@ export class CueAudioEngine {
     if (context === null || now === null) return;
     this.mapping = slewMapping(this.mapping, context.currentTime * 1000 - now);
     const playback = this.plan?.playback;
-    if (!this.plan || !playback) return;
-    const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS;
-    if (to <= from) return;
+    if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
+    const from = Math.max(this.scheduledUntil, now);
+    const to = now + LOOKAHEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
-      this.schedule(context, beat, audioTimeFor(beat.at, this.mapping, latency));
+      this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
     }
     this.scheduledUntil = to;
   }
@@ -175,7 +242,7 @@ export class CueAudioEngine {
         this.voiceBusyUntil = beat.at + buffer.duration * 1000;
       }
     }
-    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil) {
+    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil - SPOKEN_COUNT_OVERLAP_MS) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       if (key) this.play(context, key, when);
     }

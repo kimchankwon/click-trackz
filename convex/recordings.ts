@@ -13,9 +13,18 @@ export async function groupVocabulary(ctx: QueryCtx, groupId: Id<"groups">): Pro
     .query("recordings")
     .withIndex("by_group", (q) => q.eq("groupId", groupId))
     .collect();
-  const builtinKeys = new Set(builtinSectionTypes.map(wordKey));
-  const added = recordings.map((r) => r.word).filter((word) => !builtinKeys.has(wordKey(word)));
-  return [...builtinSectionTypes, ...new Set(added)];
+  const songs = await ctx.db
+    .query("songs")
+    .withIndex("by_group", (q) => q.eq("groupId", groupId))
+    .collect();
+  const known = new Set(builtinSectionTypes.map(wordKey));
+  const added: string[] = [];
+  for (const word of [...recordings.map((r) => r.word), ...songs.flatMap((song) => song.sections.map((s) => s.sectionType))]) {
+    if (known.has(wordKey(word))) continue;
+    known.add(wordKey(word));
+    added.push(word);
+  }
+  return [...builtinSectionTypes, ...added];
 }
 
 const cleanWord = (word: string) => {
@@ -46,6 +55,11 @@ export const save = mutation({
     };
     const file = await ctx.db.system.get(storageId);
     if (file === null) return { ok: false as const, error: "Upload the recording first" };
+    const claimed = await ctx.db
+      .query("recordings")
+      .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+      .first();
+    if (claimed) return { ok: false as const, error: "That upload is already used by a recording. Choose the file again." };
     if (file.size > MAX_BYTES) return discard("Recordings must be under 1 MB");
     if (!file.contentType?.startsWith("audio/")) return discard("Recordings must be audio files");
     if (number !== undefined && !(Number.isInteger(number) && number >= 1 && number <= 9)) return discard("Number must be 1 to 9");

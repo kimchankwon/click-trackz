@@ -49,7 +49,7 @@
     "web": "expo start --web",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "convex": "convex dev",
+    "backend": "convex dev",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

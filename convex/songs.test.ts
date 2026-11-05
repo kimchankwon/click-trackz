@@ -1,4 +1,3 @@
-// @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -8,7 +7,7 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
-async function band() {
+async function setupGroup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
     const userId = await t.run((ctx) => ctx.db.insert("users", profile));
@@ -25,7 +24,7 @@ const verse = { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 7
 
 describe("Songs", () => {
   it("lets Admins add a Song that every Member can read, starting with no Sections", async () => {
-    const { admin, member, groupId } = await band();
+    const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "So Will I", key: "D" });
     expect(await member.query(api.songs.list, { groupId })).toEqual([
       expect.objectContaining({ songId, title: "So Will I", key: "D", sectionCount: 0, countIn: true }),
@@ -34,7 +33,7 @@ describe("Songs", () => {
   });
 
   it("saves an Admin's Sections only when every Section is playable", async () => {
-    const { admin, member, groupId } = await band();
+    const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
     const intro = { sectionType: "Intro", bars: 4, beatsPerBar: 4, bpm: 72 };
     await admin.mutation(api.songs.updateSong, { songId, countIn: false, sections: [intro, verse] });
@@ -52,7 +51,7 @@ describe("Songs", () => {
   });
 
   it("ends the Group's Playback when the playing Song is deleted", async () => {
-    const { admin, member, groupId } = await band();
+    const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
     await admin.mutation(api.songs.updateSong, { songId, sections: [verse] });
     await admin.mutation(api.playback.start, { groupId, songId });
