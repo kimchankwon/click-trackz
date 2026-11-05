@@ -57,6 +57,17 @@ describe("BPM lookup", () => {
     expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("sends the GetSongBPM key in a header instead of the URL", async () => {
+    vi.stubEnv("GETSONGBPM_API_KEY", "test-key");
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ search: [] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { admin, groupId } = await setupGroup();
+    await admin.action(api.bpm.lookup, { groupId, title: "Firm Foundation" });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).not.toContain("test-key");
+    expect(new Headers(init?.headers).get("X-API-KEY")).toBe("test-key");
+  });
+
   it("still counts a slow response body as a timeout", async () => {
     vi.stubEnv("GETSONGBPM_API_KEY", "test-key");
     const stalledBody = {
