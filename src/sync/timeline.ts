@@ -32,6 +32,9 @@ export type VoiceCue = {
 export type Beat = {
   at: number;
   count: string;
+  beatInBar: number;
+  beatsPerBar: number;
+  sectionIndex: number | null;
   accent: boolean;
   voiceCue: VoiceCue | null;
   spokenCount: number | null;
@@ -44,6 +47,7 @@ type Bar = {
   beatMs: number;
   beatsPerBar: number;
   section: Section | null;
+  sectionIndex: number | null;
   barNumber: number;
   segmentEndsAt: number;
 };
@@ -71,7 +75,7 @@ function barsOf(song: Song, segment: Segment): Bar[] {
   const sections = song.sections.slice(segment.startSection);
   const bars: Bar[] = [];
   let startsAt = segment.startsAt;
-  const push = (section: Section, barSection: Section | null, barNumber: number) => {
+  const push = (section: Section, barSection: Section | null, sectionIndex: number | null, barNumber: number) => {
     if (startsAt >= segment.endsAt) return;
     const beatMs = beatMsOf(section);
     bars.push({
@@ -79,15 +83,17 @@ function barsOf(song: Song, segment: Segment): Bar[] {
       beatMs,
       beatsPerBar: section.beatsPerBar,
       section: barSection,
+      sectionIndex,
       barNumber,
       segmentEndsAt: segment.endsAt,
     });
     startsAt += beatMs * section.beatsPerBar;
   };
-  if (segment.countIn && sections.length > 0) push(sections[0], null, 1);
-  for (const section of sections) {
-    for (let barNumber = 1; barNumber <= section.bars; barNumber++) push(section, section, barNumber);
-  }
+  if (segment.countIn && sections.length > 0) push(sections[0], null, null, 1);
+  sections.forEach((section, offset) => {
+    const sectionIndex = segment.startSection + offset;
+    for (let barNumber = 1; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber);
+  });
   return bars;
 }
 
@@ -118,6 +124,9 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
       beats.push({
         at,
         count: countOf(bar, beat),
+        beatInBar: beat,
+        beatsPerBar: bar.beatsPerBar,
+        sectionIndex: bar.sectionIndex,
         accent: beat === 1,
         voiceCue: upcoming && beat === 1 ? voiceCueOf(upcoming) : null,
         spokenCount: upcoming && beat > 1 ? beat : null,
