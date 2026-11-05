@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-AU
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!convex/_generated/**"
+    - "!package-lock.json"
+  path_instructions:
+    - path: "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+      instructions: |
+        House rules for this repository. Flag every violation.
+        1. No code comments of any kind: no explanatory comments, no JSDoc or docstrings, no TODO/FIXME, no section banners. Allowed only: eslint/ts pragmas, triple-slash type references, license headers, codegen markers.
+        2. No em dash character (U+2014) in code, strings or identifiers.
+        3. Timing invariant: any instant that decides when a beat, Click or Voice cue sounds must derive from the Convex server clock (server timestamp plus measured client offset). Flag scheduling from a bare client Date.now() or performance.now() without the offset.
+        4. Beats are never sent over the network. Flag any server push, mutation or query per beat; Start, Jump and Stop store a future instant and clients compute beats locally.
+        5. Admin commands (Start, Jump, Stop) must target a future bar line, never the current instant.
+        6. Use the domain terms in CONTEXT.md exactly (Member not user, Section type not label, Lead-in is not Count-in).
+    - path: "convex/**"
+      instructions: |
+        Every public query and mutation must check the caller's identity and Group role before reading or writing Group data. Timestamps written to the database come from the server, never from client arguments.
+    - path: "**/*.md"
+      instructions: |
+        Flag any em dash character (U+2014). CONTEXT.md is a glossary only: flag implementation details in it.
+chat:
+  auto_reply: true

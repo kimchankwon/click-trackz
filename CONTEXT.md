@@ -1,0 +1,95 @@
+# Cue Tracker
+
+A shared cue track for musicians playing in the same room. Every musician follows the same click, count and voice guide on their own device, started by an Admin and aligned to one shared clock.
+
+## People
+
+**Group**:
+A set of musicians who play together and share Songs and Playback.
+_Avoid_: Band, room, session, team
+
+**Member**:
+A person in a Group who follows Playback on their own device.
+_Avoid_: User, musician, player, participant
+
+**Admin**:
+A Member who can edit Songs, control Playback and make other Members Admins.
+_Avoid_: Owner, leader, host, MD
+
+## Songs
+
+**Song**:
+An ordered list of Sections, plus whether it has a Count-in.
+_Avoid_: Track, chart, arrangement
+
+**Section**:
+A run of consecutive bars sharing one Section type, one tempo and one time signature.
+_Avoid_: Part, segment, block
+
+**Section type**:
+A word from the Group's Cue vocabulary plus an optional number, naming a Section and deciding which Voice cue it gets.
+_Avoid_: Label, tag, name
+
+**Cue vocabulary**:
+The words a Group can use as Section types: the built-in ones (Intro, Verse, Chorus, Bridge, …) plus any an Admin has added with their own recording.
+_Avoid_: Word list, dictionary
+
+**Custom label**:
+Optional on-screen text for a Section that replaces the Section type's wording but not its Voice cue.
+_Avoid_: Title, caption
+
+**Setlist**:
+A reusable, named, ordered list of Songs a Group plays together, each started by an Admin, optionally noting the Key and Leader for each Song.
+_Avoid_: Set, service, playlist, plan
+
+**Current setlist**:
+The one Setlist an Admin has marked as what the Group is playing now, which Members see first.
+_Avoid_: Active set, tonight's set
+
+**Count-in**:
+One optional bar before the first Section, counted with plain beat numbers.
+_Avoid_: Pre-roll, lead-in, intro
+
+## Cues
+
+**Count**:
+The token shown and spoken on a beat: the Section label on its first downbeat, the bar number on each later downbeat, and the beat number on every other beat.
+_Avoid_: Cue, label, marker
+
+**Click**:
+The audible tick on every beat.
+_Avoid_: Metronome, beep
+
+**Voice cue**:
+The spoken Section type, said on the first beat of the bar before that Section, optionally followed by the spoken remaining beats of that bar.
+_Avoid_: Guide, announcement, callout
+
+**Voice pack**:
+The set of recordings a Group uses for Voice cues and spoken counts: the built-in recordings, with any an Admin has uploaded taking their place or adding new words.
+_Avoid_: Samples, voice, sound bank
+
+**Latency nudge**:
+A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite their own speakers or headphones.
+_Avoid_: Delay, offset, calibration
+
+## Playback
+
+**Playback**:
+One run of a Song for a Group, from Start until Stop or the end of the Song.
+_Avoid_: Session, performance, run
+
+**Start**:
+The Admin command that begins Playback at an agreed future instant on the shared clock.
+_Avoid_: Play, go
+
+**Lead-in**:
+The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it.
+_Avoid_: Count-in, pre-roll, delay
+
+**Jump**:
+The Admin command that moves Playback to another Section at the next bar line.
+_Avoid_: Skip, seek, goto
+
+**Stop**:
+The Admin command that ends Playback.
+_Avoid_: Pause, halt
