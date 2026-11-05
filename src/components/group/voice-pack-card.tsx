@@ -105,7 +105,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 const styles = StyleSheet.create({
   card: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.four },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  grow: { flex: 1 },
+  grow: { flex: 1, minWidth: 0 },
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
   numberInput: { width: 56 },
   small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
