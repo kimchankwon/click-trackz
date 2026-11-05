@@ -15,6 +15,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy cue-tracker-six-dev
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
