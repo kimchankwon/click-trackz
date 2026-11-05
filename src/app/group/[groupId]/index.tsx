@@ -70,6 +70,7 @@ function idleReadoutFor(song: LoadedSong | null | undefined): IdleReadout | null
 
 const emptySong: Song = { countIn: false, sections: [] };
 
+const MIX_TEXT_INSET = 38;
 const WEAK_PING_MS = 80;
 const BAD_PING_MS = 150;
 
@@ -268,7 +269,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <>
       {soundPrompt}
       {playing ? (
-        <View style={styles.stageHead}>
+        <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
             {shownTitle ?? " "}
           </ThemedText>
@@ -277,7 +278,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           </ThemedText>
         </View>
       ) : (
-        <View style={styles.stageHead}>
+        <View style={[styles.stageHead, styles.titleBlock]}>
           <View style={[styles.statusPill, { backgroundColor: startBlocker === null ? theme.successTint : theme.backgroundElement }]}>
             <ThemedText testID="current-section" themeColor={startBlocker === null ? "success" : "textSecondary"} style={styles.statusText}>
               {startBlocker === null ? "Ready" : startBlocker === "noSong" ? "No Song picked" : startBlocker === "loading" ? "Loading" : "Needs Sections"}
@@ -309,11 +310,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
       <BeatPulse beat={beat} playing={playing} idle={idle} />
       {nextLine ? (
         <View style={styles.nextBlock}>
-          <ThemedText type="label" themeColor="textSecondary">
+          <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
             {upcoming ? "Next, in one bar" : "Next"}
           </ThemedText>
           <View style={styles.nextRow}>
-            <Icon name="next" size={18} color="accent" />
+            <Icon name="next" size={24} color="accent" />
             <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
               {nextLine}
             </ThemedText>
@@ -327,6 +328,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
               <Chip
                 key={index}
                 role="button"
+                strong
                 label={titleOf(section)}
                 selected={playing && beat?.sectionIndex === index}
                 onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
@@ -388,21 +390,25 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 <Switch label="Click" value={mix.click} onChange={(on) => setMix({ ...mix, click: on })} />
               </View>
             </View>
-            <VolumeBar label="Click" bare testID="click-volume" value={Number(clickVolume)} onChange={(next) => setClickVolume(next.toFixed(2))} />
+            <View style={styles.mixSlider}>
+              <VolumeBar label="Click" bare testID="click-volume" value={Number(clickVolume)} onChange={(next) => setClickVolume(next.toFixed(2))} />
+            </View>
           </View>
-          <Divider />
+          <Divider inset={MIX_TEXT_INSET} />
           <View style={styles.mixRow}>
             <View style={styles.mixHead}>
-              <Icon name="mic" size={22} color="textSecondary" />
+              <Icon name="speaking" size={22} color="textSecondary" />
               <View style={styles.grow}>
                 <Switch label="Voice cues" value={mix.voiceCues} onChange={(on) => setMix({ ...mix, voiceCues: on })} />
               </View>
             </View>
-            <VolumeBar label="Voice" bare testID="voice-volume" value={Number(voiceVolume)} onChange={(next) => setVoiceVolume(next.toFixed(2))} />
+            <View style={styles.mixSlider}>
+              <VolumeBar label="Voice" bare testID="voice-volume" value={Number(voiceVolume)} onChange={(next) => setVoiceVolume(next.toFixed(2))} />
+            </View>
           </View>
-          <Divider />
+          <Divider inset={MIX_TEXT_INSET} />
           <View style={styles.mixHead}>
-            <Icon name="speaking" size={22} color="textSecondary" />
+            <Icon name="counter" size={22} color="textSecondary" />
             <View style={styles.grow}>
               <Switch label="Spoken counts" hint="Uses the Voice volume" value={mix.spokenCounts} onChange={(on) => setMix({ ...mix, spokenCounts: on })} />
             </View>
@@ -423,7 +429,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           </ThemedText>
         )}
       </Card>
-      <Card title="Timing">
+      <Card title="Timing" tight>
         <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")} style={styles.linkRow}>
           <Icon name="headphones" size={22} color="textSecondary" />
           <View style={styles.grow}>
@@ -452,7 +458,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
-          variant="ghost"
+          variant="danger"
           icon="logout"
           label="Leave Group"
           testID="leave-group"
@@ -501,7 +507,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </View>
           ) : null}
           {isAdmin && tab !== "play" ? (
-            <View style={styles.miniBar}>
+            <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
               <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
               <View style={styles.grow}>
                 <ThemedText numberOfLines={1} style={styles.miniTitle}>
@@ -512,9 +518,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 </ThemedText>
               </View>
               {playing ? (
-                <ActionButton small variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+                <ActionButton medium rounded variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
               ) : (
-                <ActionButton small accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
+                <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
               )}
             </View>
           ) : null}
@@ -547,9 +553,12 @@ const styles = StyleSheet.create({
   idleTitle: { fontSize: 40, lineHeight: 46 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
+  titleBlock: { minHeight: 120, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 28 },
-  nextText: { fontFamily: Fonts.display, fontSize: 22, lineHeight: 28, fontWeight: 600 },
+  nextLabel: { fontSize: 13, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 32 },
+  nextText: { fontFamily: Fonts.display, fontSize: 26, lineHeight: 32, fontWeight: 700 },
+  mixSlider: { paddingLeft: MIX_TEXT_INSET },
   mixRow: { gap: Spacing.one },
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   plainHint: { paddingHorizontal: Spacing.one },
@@ -565,22 +574,25 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  leave: { width: "100%", paddingTop: Spacing.two },
+  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "flex-start" },
   switches: { gap: Spacing.three },
   miniBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
-    paddingTop: Spacing.two,
-    minHeight: 52,
+    marginTop: Spacing.two,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     maxWidth: MaxContentWidth,
     width: "100%",
     alignSelf: "center",
   },
   grow: { flex: 1, minWidth: 0 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
   jumpMode: { gap: Spacing.two, paddingTop: Spacing.one },
-  linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64 },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },

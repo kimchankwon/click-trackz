@@ -34,7 +34,7 @@ export function Segmented<T extends string>({
           >
             <ThemedText
               type="default"
-              themeColor={selected ? "text" : "textSecondary"}
+              themeColor={selected ? "onRaised" : "textSecondary"}
               numberOfLines={1}
               style={[selected ? styles.selectedLabel : styles.label, compact ? styles.compactLabel : null]}
             >

@@ -121,40 +121,32 @@ function SectionRow({
         />
         <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
       </View>
-      <Divider />
-      <View style={styles.sectionBottom}>
-        <View style={styles.numberGroup}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.fieldLabel}>
-            Number
+      <View style={styles.numberGroup}>
+        <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+          Number
+        </ThemedText>
+        <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
+          <IconButton
+            icon="minus"
+            size={36}
+            label={`Lower the number of Section ${index + 1}`}
+            testID={`section-${index}-number-down`}
+            onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+          />
+          <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
+            {section.number ?? "None"}
           </ThemedText>
-          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
-            <IconButton
-              icon="minus"
-              size={36}
-              label={`Lower the number of Section ${index + 1}`}
-              testID={`section-${index}-number-down`}
-              onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
-            />
-            <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
-              {section.number ?? "None"}
-            </ThemedText>
-            <IconButton
-              icon="add"
-              size={36}
-              label={`Raise the number of Section ${index + 1}`}
-              testID={`section-${index}-number-up`}
-              onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
-            />
-          </View>
-        </View>
-        <View style={styles.grow}>
-          <Switch
-            label="Voice cue"
-            value={section.voiceCueEnabled !== false}
-            onChange={(on) => onChange({ ...section, voiceCueEnabled: on })}
+          <IconButton
+            icon="add"
+            size={36}
+            label={`Raise the number of Section ${index + 1}`}
+            testID={`section-${index}-number-up`}
+            onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
           />
         </View>
       </View>
+      <Divider />
+      <Switch label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
     </View>
   );
 }
@@ -379,7 +371,7 @@ const styles = StyleSheet.create({
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
   indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
-  fieldLabel: { fontWeight: 600 },
+  fieldLabel: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
@@ -397,11 +389,10 @@ const styles = StyleSheet.create({
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
   stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
   stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
-  numberGroup: { gap: Spacing.one + 2 },
+  numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
   numberInput: { fontVariant: ["tabular-nums"] },
-  sectionBottom: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
   result: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md },
   credit: { textDecorationLine: "underline" },
   centeredText: { textAlign: "center" },

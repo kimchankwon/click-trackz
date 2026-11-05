@@ -38,6 +38,8 @@ const symbols = {
   numbered: { ios: "list.number", material: "format_list_numbered" },
   metronome: { ios: "metronome", material: "av_timer" },
   speaking: { ios: "person.wave.2", material: "record_voice_over" },
+  counter: { ios: "1.circle", material: "counter_1" },
+  member: { ios: "person.fill", material: "person" },
   stopFilled: { ios: "stop.fill", material: "stop_circle" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 

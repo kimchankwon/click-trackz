@@ -23,7 +23,7 @@ export function Field({ label, containerStyle, compact, inset, style, ...input }
   if (!label) return containerStyle ? <View style={containerStyle}>{box}</View> : box;
   return (
     <View style={[styles.labelled, containerStyle]}>
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
+      <ThemedText themeColor="textSecondary" style={styles.label}>
         {label}
       </ThemedText>
       {box}
@@ -41,5 +41,5 @@ const styles = StyleSheet.create({
     fontWeight: 400,
     borderRadius: 12,
   },
-  label: { fontWeight: 600 },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
 });

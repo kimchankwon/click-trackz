@@ -55,11 +55,8 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
         Your recordings replace the Speaker for every Member. A new word becomes a Section type for this Group.
       </ThemedText>
       {(recordings ?? []).map((recording, index) => (
-        <View
-          key={recording.key}
-          style={[styles.recording, index > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : null]}
-          testID={`recording-${recording.key}`}
-        >
+        <View key={recording.key} style={styles.recording} testID={`recording-${recording.key}`}>
+          {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
           <Icon name="mic" size={20} color="textSecondary" />
           <ThemedText style={[styles.grow, styles.word]}>
             {recording.word}
@@ -99,7 +96,8 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 52 },
+  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 56 },
+  separator: { position: "absolute", top: 0, left: 36, right: 0, height: StyleSheet.hairlineWidth },
   word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },
   numberInput: { width: 72 },

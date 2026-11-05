@@ -169,18 +169,9 @@ function SetlistForm({
                       <ThemedText type="smallBold" themeColor="textTertiary" style={styles.entryIndex}>
                         {index + 1}
                       </ThemedText>
-                      <ThemedText type="default" style={styles.entryTitle} numberOfLines={1}>
+                      <ThemedText type="default" style={styles.entryTitle} numberOfLines={2}>
                         {entry.title}
                       </ThemedText>
-                      <IconButton icon="up" color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
-                      <IconButton icon="down" color="textSecondary" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
-                      <IconButton
-                        icon="trash"
-                        color="textSecondary"
-                        label={`Remove ${entry.title}`}
-                        testID={`entry-${index}-remove`}
-                        onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
-                      />
                     </View>
                     <View style={styles.entryFields}>
                       <Field
@@ -190,7 +181,6 @@ function SetlistForm({
                         onChangeText={(key) => update(index, { key })}
                         placeholder="Key"
                         compact
-                        inset
                       />
                       <Field
                         testID={`entry-${index}-leader`}
@@ -199,7 +189,23 @@ function SetlistForm({
                         onChangeText={(leader) => update(index, { leader })}
                         placeholder="Led by"
                         compact
-                        inset
+                      />
+                      <IconButton icon="up" size={36} color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                      <IconButton
+                        icon="down"
+                        size={36}
+                        color="textSecondary"
+                        label={`Move ${entry.title} down`}
+                        disabled={index === entries.length - 1}
+                        onPress={() => move(index, 1)}
+                      />
+                      <IconButton
+                        icon="trash"
+                        size={36}
+                        color="textSecondary"
+                        label={`Remove ${entry.title}`}
+                        testID={`entry-${index}-remove`}
+                        onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
                       />
                     </View>
                   </View>
@@ -311,11 +317,11 @@ const styles = StyleSheet.create({
   addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },
-  entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
-  entryIndex: { width: 22, fontVariant: ["tabular-nums"] },
-  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 16 },
-  entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.two, paddingBottom: Spacing.one },
-  keyInput: { width: 64 },
+  entryTop: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.one, paddingRight: 12 },
+  entryIndex: { width: 22, lineHeight: 22, fontVariant: ["tabular-nums"] },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17, lineHeight: 22 },
+  entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingLeft: 26, paddingRight: Spacing.one },
+  keyInput: { width: 60 },
   grow: { flex: 1, minWidth: 0 },
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },

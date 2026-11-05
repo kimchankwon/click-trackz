@@ -161,7 +161,7 @@ export default function LatencyScreen() {
             <View style={styles.steps}>
               {[-10, -1, 1, 10].map((step) => (
                 <View key={step} style={styles.stepCell}>
-                  <ActionButton full label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
+                  <ActionButton full medium label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
                 </View>
               ))}
             </View>
@@ -232,11 +232,13 @@ export default function LatencyScreen() {
               </View>
               <View style={styles.steps}>
                 <View style={styles.stepCell}>
-                  <ActionButton full leading={<RoundBadge n={1} />} label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
+                  <ActionButton full medium variant={speakerDone ? "quiet" : "selected"} leading={<RoundBadge n={1} muted={speakerDone} />} label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
                 </View>
                 <View style={styles.stepCell}>
                   <ActionButton
                     full
+                    medium
+                    variant={speakerDone ? "selected" : "quiet"}
                     leading={<RoundBadge n={2} muted={!speakerDone} />}
                     label="Round 2"
                     accessibleName="Round 2: your output"

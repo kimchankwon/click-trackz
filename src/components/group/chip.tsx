@@ -13,7 +13,9 @@ export function Chip({
   testID,
   icon,
   disabled,
+  strong,
 }: {
+  strong?: boolean;
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -36,14 +38,15 @@ export function Chip({
       style={({ pressed }) => [
         styles.chip,
         {
-          backgroundColor: selected ? theme.accentTint : theme.backgroundSelected,
+          backgroundColor: selected ? (strong ? theme.accent : theme.accentTint) : theme.backgroundSelected,
           borderColor: selected ? theme.accent : "transparent",
         },
+        strong ? styles.strongChip : null,
         pressed ? styles.pressed : null,
       ]}
     >
-      {leading ? <Icon name={leading} size={16} color={selected ? "accent" : "textSecondary"} /> : null}
-      <ThemedText type="default" themeColor={selected ? "accent" : "text"} style={selected ? styles.selectedLabel : styles.label}>
+      {leading ? <Icon name={leading} size={16} color={selected ? (strong ? "onAccent" : "accent") : "textSecondary"} /> : null}
+      <ThemedText type="default" themeColor={selected ? (strong ? "onAccent" : "accent") : "text"} style={selected ? styles.selectedLabel : styles.label}>
         {label}
       </ThemedText>
     </Pressable>
@@ -61,6 +64,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pressed: { opacity: 0.7 },
+  strongChip: { minHeight: 48, paddingHorizontal: 20 },
   label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
   selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
 });

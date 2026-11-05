@@ -6,7 +6,18 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { ControlHeight, Fonts, Radius, Spacing, type ThemeColor } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-export type ButtonVariant = "primary" | "secondary" | "inverse" | "ghost" | "link" | "danger" | "outline" | "stop" | "pill";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "inverse"
+  | "ghost"
+  | "link"
+  | "selected"
+  | "quiet"
+  | "danger"
+  | "outline"
+  | "stop"
+  | "pill";
 
 type Props = {
   label: string;
@@ -15,6 +26,8 @@ type Props = {
   accent?: boolean;
   variant?: ButtonVariant;
   small?: boolean;
+  medium?: boolean;
+  rounded?: boolean;
   large?: boolean;
   huge?: boolean;
   full?: boolean;
@@ -26,22 +39,24 @@ type Props = {
 
 const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeColor; border?: ThemeColor }> = {
   primary: { background: "accent", text: "onAccent" },
-  secondary: { background: "backgroundElement", text: "accent", border: "border" },
+  secondary: { background: "backgroundElement", text: "text", border: "border" },
   inverse: { background: "inverse", text: "onInverse" },
   ghost: { background: null, text: "text" },
-  link: { background: null, text: "accent" },
+  link: { background: null, text: "text" },
+  selected: { background: "accentTint", text: "accent", border: "accent" },
+  quiet: { background: null, text: "textSecondary", border: "inputBorder" },
   danger: { background: null, text: "danger" },
   outline: { background: "inputFill", text: "text", border: "inputBorder" },
   stop: { background: "stopFill", text: "onStop" },
   pill: { background: "backgroundSelected", text: "text" },
 };
 
-export function ActionButton({ label, onPress, testID, accent, variant, small, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
+export function ActionButton({ label, onPress, testID, accent, variant, small, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
   const textColor = disabled ? "textTertiary" : look.text;
   const background = disabled && look.background ? theme.backgroundSelected : look.background ? theme[look.background] : "transparent";
-  const height = huge ? 64 : large ? ControlHeight.large : small ? ControlHeight.small : ControlHeight.regular;
+  const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
       role="button"
@@ -55,6 +70,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, l
         { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
         look.border ? { borderWidth: 1, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
         full ? styles.full : null,
+        rounded ? { borderRadius: height / 2 } : null,
         pressed && !disabled ? styles.pressed : null,
       ]}
     >
@@ -63,7 +79,11 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, l
         type={small ? "smallBold" : "default"}
         themeColor={textColor}
         numberOfLines={1}
-        style={[styles.label, small ? styles.smallLabel : null, variant === "outline" || variant === "ghost" ? styles.quietLabel : null]}
+        style={[
+          styles.label,
+          small || medium ? styles.smallLabel : null,
+          variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" ? styles.quietLabel : null,
+        ]}
       >
         {label}
       </ThemedText>
@@ -83,5 +103,5 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
   label: { fontFamily: Fonts.display, fontWeight: 700, fontSize: 17, lineHeight: 22, flexShrink: 1 },
   smallLabel: { fontSize: 15, lineHeight: 20 },
-  quietLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 16 },
+  quietLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 15 },
 });

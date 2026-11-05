@@ -11,7 +11,9 @@ export function Card({
   action,
   children,
   plain,
+  tight,
 }: {
+  tight?: boolean;
   title: string;
   heading?: string;
   action?: ReactNode;
@@ -35,14 +37,22 @@ export function Card({
         {action && !heading ? action : null}
       </View>
       {action && heading ? <View style={styles.actionRow}>{action}</View> : null}
-      <View style={[styles.body, plain ? null : { backgroundColor: theme.backgroundElement, padding: Spacing.three }]}>{children}</View>
+      <View
+        style={[
+          styles.body,
+          plain ? null : { backgroundColor: theme.backgroundElement, padding: Spacing.three },
+          tight ? { paddingVertical: Spacing.one } : null,
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
 
-export function Divider() {
+export function Divider({ inset = 0 }: { inset?: number }) {
   const theme = useTheme();
-  return <View style={[styles.divider, { backgroundColor: theme.border }]} />;
+  return <View style={[styles.divider, { backgroundColor: theme.border, marginLeft: inset }]} />;
 }
 
 const styles = StyleSheet.create({

@@ -70,15 +70,13 @@ export function BeatPulse({ beat, playing, idle }: Props) {
       </View>
       <View style={[styles.dots, live ? null : styles.dotsIdle]} testID="beat-dots">
         {Array.from({ length: beatsPerBar }, (_, index) => {
-          const active = playing && beat?.beatInBar === index + 1;
+          const position = live ? beat.beatInBar : 0;
+          const active = position === index + 1;
+          const past = position > index + 1;
           return (
             <View key={index} style={styles.dotSlot}>
               <View
-                style={[
-                  styles.dot,
-                  active ? styles.activeDot : null,
-                  { backgroundColor: active ? theme.accent : index === 0 ? theme.textTertiary : theme.dotInactive },
-                ]}
+                style={[styles.dot, active ? styles.activeDot : null, { backgroundColor: active ? theme.accent : past ? theme.dotPast : theme.dotInactive }]}
               />
             </View>
           );
@@ -121,9 +119,9 @@ const styles = StyleSheet.create({
   discLive: { borderWidth: 6 },
   idleValue: { fontFamily: Fonts.condensed, fontSize: 96, lineHeight: 100, fontWeight: "700", fontVariant: ["tabular-nums"] },
   idleUnit: { fontSize: 15, lineHeight: 20, fontWeight: 600, marginTop: Spacing.two },
-  dots: { flexDirection: "row", alignItems: "center", minHeight: 24 },
-  dotsIdle: { opacity: 0.3 },
-  dotSlot: { width: 28, height: 24, alignItems: "center", justifyContent: "center" },
-  dot: { width: 14, height: 14, borderRadius: 7 },
-  activeDot: { width: 20, height: 20, borderRadius: 10 },
+  dots: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 28 },
+  dotsIdle: { opacity: 0.6 },
+  dotSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+  dot: { width: 20, height: 20, borderRadius: 10 },
+  activeDot: { width: 28, height: 28, borderRadius: 14 },
 });

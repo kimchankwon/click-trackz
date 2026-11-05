@@ -167,3 +167,45 @@ Skipped or changed:
 - A 3 px coral bar on the picked Song row: the row already has a tint and a check.
 - Edit and New as icon-only circles: Sonnet asked for labels in round 2, so they are labelled neutral pills.
 - Phosphor and Lucide icons: Material Symbols has no metronome, so Click uses the closest tempo dial (av_timer) and iOS uses SF Symbols' metronome.
+
+## Round 5
+
+Reviewed: `design-shots/round-4/`. Reviewer: Opus, high effort.
+
+| App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|
+| **Cue Tracker** | **7** | **7** | **6** | **6** | **7** | **6** |
+| REF-A | 8 | 8 | 7 | 8 | 6 | 8 |
+| REF-B | 7 | 5 | 6 | 6 | 7 | 6 |
+| REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
+| REF-D | 8 | 7 | 7 | 6 | 7 | 8 |
+
+The same REF-A image scored 7 / 6 / 6 / 8 / 5 / 7 in round 4 and 8 / 8 / 7 / 8 / 6 / 8 here, so a single reviewer moves by one or two points between runs. From round 6 the review uses three Opus reviewers in parallel, as the loop was first planned, and only fixes that at least two of them raise are applied.
+
+Main criticism: the disc jumps 72 px when a Song starts; future beat dots and the selected dark segment are nearly invisible; Stop is low contrast in dark mode; coral spent on secondary actions; Leave Group neutral while other destructive actions are red; three divider styles.
+
+Applied:
+
+1. Fixed 120 px title block above the disc in both states.
+2. Dots 20 px with a 28 px current beat; distinct past and future greys in both themes; idle dots all in the future colour.
+3. Dark selected segment #636366 with white text.
+4. Stop in dark mode: #D1D1D6 fill with black text and icon.
+5. Coral reserved for filled primary buttons, the active tab, the live beat, selection and nothing else; secondary buttons, Make current, Show them and the steps use neutral text.
+6. Leave Group red like Delete Song and Delete Setlist (majority across rounds 2, 3 and 5).
+7. Next cue 26 px bold with a 24 px arrow icon and a tracked 13 px label.
+8. Current Section chip solid coral, 48 px tall, 12 px gaps.
+9. Missing Keys show a grey dash in the Key column.
+10. Setlist editor: arrows and trash on the field line, full-width 17 px titles that wrap.
+11. Mix sliders start at the label column; dividers inset to it.
+12. Separators start at the text column everywhere (Groups, Members, Voice pack, Mix).
+13. Role icons on every role line in Groups and Members.
+14. Mini player with its own surface and border, 44 px rounded Start.
+15. Voice cues uses the speaking icon, Spoken counts a numbered-circle icon, the mic only for recordings.
+16. Latency: the next round to do is tinted and outlined in coral, the other a quiet outline; 44 px steps.
+17. Song editor: Number on its own row, Voice cue as a separate switch row; field labels 15 px medium.
+18. Dark input border #48484A.
+
+Skipped or changed:
+
+- Key column as plain text: rounds 2 to 4 asked for chips, so chips stay and only the empty case changed.
+- A Material "metronome" icon: not in the installed Material Symbols set; Click keeps the tempo dial on Android and web and the SF Symbols metronome on iOS.

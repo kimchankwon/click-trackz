@@ -55,12 +55,9 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               role="link"
               testID={`open-group-${group.name}`}
               onPress={() => router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } })}
-              style={({ pressed }) => [
-                styles.groupRow,
-                index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
-                pressed ? { backgroundColor: theme.backgroundSelected } : null,
-              ]}
+              style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
             >
+              {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
               <View style={[styles.groupMark, { backgroundColor: theme.backgroundSelected }]}>
                 <ThemedText style={styles.initial}>{group.name.slice(0, 1).toUpperCase()}</ThemedText>
               </View>
@@ -69,7 +66,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
                   {group.name}
                 </ThemedText>
                 <View style={styles.roleRow}>
-                  {group.role === "admin" ? <Icon name="admin" size={14} color="textSecondary" /> : null}
+                  <Icon name={group.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
                   <ThemedText themeColor="textSecondary" style={styles.role}>
                     {group.role === "admin" ? "Admin" : "Member"}
                   </ThemedText>
@@ -259,5 +256,6 @@ const styles = StyleSheet.create({
   groupName: { fontWeight: 600, fontSize: 17 },
   role: { fontSize: 15, lineHeight: 20, fontWeight: 400 },
   roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  separator: { position: "absolute", top: 0, left: 72, right: Spacing.three, height: StyleSheet.hairlineWidth },
   initial: { fontSize: 17, fontWeight: 600 },
 });
