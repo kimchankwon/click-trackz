@@ -18,8 +18,26 @@ export default defineSchema({
     .index("by_group", ["groupId"])
     .index("by_user", ["userId"])
     .index("by_group_user", ["groupId", "userId"]),
+  songs: defineTable({
+    groupId: v.id("groups"),
+    title: v.string(),
+    key: v.optional(v.string()),
+    countIn: v.boolean(),
+    sections: v.array(
+      v.object({
+        sectionType: v.string(),
+        number: v.optional(v.number()),
+        bars: v.number(),
+        beatsPerBar: v.number(),
+        bpm: v.number(),
+        voiceCueEnabled: v.optional(v.boolean()),
+        customLabel: v.optional(v.string()),
+      }),
+    ),
+  }).index("by_group", ["groupId"]),
   playbacks: defineTable({
     groupId: v.id("groups"),
+    songId: v.id("songs"),
     startsAt: v.number(),
     startSection: v.number(),
     jumps: v.array(v.object({ at: v.number(), toSection: v.number() })),
