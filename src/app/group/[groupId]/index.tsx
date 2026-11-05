@@ -67,7 +67,7 @@ function Chip({
       onPress={onPress}
       style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}
     >
-      <ThemedText type="smallBold" style={selected ? styles.onAccent : null}>
+      <ThemedText type="smallBold" style={selected ? { color: theme.onAccent } : null}>
         {label}
       </ThemedText>
     </Pressable>
@@ -83,7 +83,7 @@ function TransportButton({ label, onPress, testID, primary }: { label: string; o
       onPress={onPress}
       style={[styles.transport, { backgroundColor: primary ? theme.accent : theme.backgroundElement }]}
     >
-      <ThemedText type="subtitle" style={[styles.transportText, primary ? styles.onAccent : null]}>
+      <ThemedText type="subtitle" style={[styles.transportText, primary ? { color: theme.onAccent } : null]}>
         {label}
       </ThemedText>
     </Pressable>
@@ -209,7 +209,7 @@ function SongsCard({
             }
             style={[styles.smallButton, { backgroundColor: theme.accent }]}
           >
-            <ThemedText type="small" style={styles.onAccent}>
+            <ThemedText type="small" style={{ color: theme.onAccent }}>
               Add
             </ThemedText>
           </Pressable>
@@ -614,7 +614,6 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   transport: { flex: 1, alignItems: "center", paddingVertical: Spacing.three, borderRadius: Spacing.four },
   transportText: { fontSize: 22, lineHeight: 28 },
-  onAccent: { color: "#FFFFFF" },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   hidden: { display: "none" },
   entryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.three },

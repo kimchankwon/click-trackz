@@ -75,7 +75,7 @@ export function VoicePackCard({ groupId, onPreview, run }: Props) {
         <TextInput testID="recording-word" style={[input, styles.grow]} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" placeholderTextColor={theme.textSecondary} />
         <TextInput testID="recording-number" style={[input, styles.numberInput]} value={number} onChangeText={setNumber} placeholder="#" inputMode="numeric" placeholderTextColor={theme.textSecondary} />
         <Pressable role="button" testID="upload-recording" onPress={upload} style={[styles.small, { backgroundColor: theme.accent }]}>
-          <ThemedText type="small" style={styles.onAccent}>
+          <ThemedText type="small" style={{ color: theme.onAccent }}>
             Upload
           </ThemedText>
         </Pressable>
@@ -96,5 +96,4 @@ const styles = StyleSheet.create({
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
   numberInput: { width: 56 },
   small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
-  onAccent: { color: "#FFFFFF" },
 });

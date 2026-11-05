@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { StyleSheet, View, type GestureResponderEvent } from "react-native";
+import { StyleSheet, View, type GestureResponderEvent, type KeyDownEvent } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-const STEP = 0.1;
-const clamp = (value: number) => Math.min(1, Math.max(0, value));
+import { VOLUME_STEP, clampVolume, volumeForKey } from "./volume-keys";
 
 type Props = {
   label: string;
@@ -21,8 +20,20 @@ type Props = {
 export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
+  const [focused, setFocused] = useState(false);
   const setFromTouch = (event: GestureResponderEvent) => {
-    if (width > 0) onChange(clamp(event.nativeEvent.locationX / width));
+    if (width > 0) onChange(clampVolume(event.nativeEvent.locationX / width));
+  };
+  const keyboard = {
+    tabIndex: 0 as const,
+    onKeyDown: (event: KeyDownEvent) => {
+      const next = volumeForKey(value, event.nativeEvent.key);
+      if (next === null) return;
+      event.preventDefault();
+      onChange(next);
+    },
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
   };
   return (
     <View style={styles.row}>
@@ -39,14 +50,15 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         aria-valuetext={valueText}
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(event) =>
-          onChange(clamp(value + (event.nativeEvent.actionName === "increment" ? STEP : -STEP)))
+          onChange(clampVolume(value + (event.nativeEvent.actionName === "increment" ? VOLUME_STEP : -VOLUME_STEP)))
         }
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderGrant={setFromTouch}
         onResponderMove={setFromTouch}
-        style={[styles.track, { backgroundColor: theme.backgroundElement }]}
+        {...keyboard}
+        style={[styles.track, { backgroundColor: theme.backgroundElement, borderColor: focused ? theme.text : "transparent" }]}
       >
         <View
           pointerEvents="none"
@@ -63,7 +75,7 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%" },
   label: { width: 56 },
-  track: { flex: 1, height: 28, borderRadius: Spacing.two, overflow: "hidden", justifyContent: "center" },
+  track: { flex: 1, height: 28, borderRadius: Spacing.two, borderWidth: 2, overflow: "hidden", justifyContent: "center" },
   fill: { height: "100%", borderRadius: Spacing.two },
   value: { minWidth: 32, textAlign: "right" },
 });

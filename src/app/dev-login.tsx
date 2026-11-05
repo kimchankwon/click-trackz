@@ -35,7 +35,7 @@ export default function DevLoginScreen() {
               .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
           }
         >
-          <ThemedText style={styles.onAccent}>Sign in</ThemedText>
+          <ThemedText style={{ color: theme.onAccent }}>Sign in</ThemedText>
         </Pressable>
         {error ? <ThemedText themeColor="textSecondary">{error}</ThemedText> : null}
       </SafeAreaView>
@@ -48,5 +48,4 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, padding: Spacing.four, gap: Spacing.three, justifyContent: "center" },
   input: { padding: Spacing.three, borderRadius: Spacing.three, fontSize: 16 },
   button: { padding: Spacing.three, borderRadius: Spacing.three, alignItems: "center" },
-  onAccent: { color: "#FFFFFF" },
 });

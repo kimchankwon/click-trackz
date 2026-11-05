@@ -23,7 +23,7 @@ function SmallButton({ label, onPress, testID, accent }: { label: string; onPres
       onPress={onPress}
       style={[styles.small, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
     >
-      <ThemedText type="small" style={accent ? styles.onAccent : null}>
+      <ThemedText type="small" style={accent ? { color: theme.onAccent } : null}>
         {label}
       </ThemedText>
     </Pressable>
@@ -193,6 +193,5 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1 },
   small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
-  onAccent: { color: "#FFFFFF" },
   entry: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
 });

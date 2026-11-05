@@ -31,7 +31,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
           onPress={() => router.replace("/")}
           style={[styles.button, { backgroundColor: theme.accent }]}
         >
-          <ThemedText style={styles.onAccent}>Back to your Groups</ThemedText>
+          <ThemedText style={{ color: theme.onAccent }}>Back to your Groups</ThemedText>
         </Pressable>
         <Pressable role="button" onPress={retry}>
           <ThemedText type="small" themeColor="textSecondary">
@@ -47,5 +47,4 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
   button: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
-  onAccent: { color: "#FFFFFF" },
 });

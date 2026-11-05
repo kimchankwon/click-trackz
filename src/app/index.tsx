@@ -22,7 +22,7 @@ function Button({ label, onPress, testID, primary }: { label: string; onPress: (
       onPress={onPress}
       style={[styles.button, { backgroundColor: primary ? theme.accent : theme.backgroundElement }]}
     >
-      <ThemedText style={primary ? styles.onAccent : null}>{label}</ThemedText>
+      <ThemedText style={primary ? { color: theme.onAccent } : null}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.three, borderRadius: Spacing.three, fontSize: 16 },
   button: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three, alignItems: "center" },
-  onAccent: { color: "#FFFFFF" },
   groupRow: {
     flexDirection: "row",
     justifyContent: "space-between",

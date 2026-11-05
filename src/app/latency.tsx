@@ -32,7 +32,7 @@ function Button({ label, onPress, testID, accent }: { label: string; onPress: ()
       onPress={onPress}
       style={[styles.button, { backgroundColor: accent ? theme.accent : theme.backgroundElement }]}
     >
-      <ThemedText style={accent ? styles.onAccent : null}>{label}</ThemedText>
+      <ThemedText style={accent ? { color: theme.onAccent } : null}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -184,7 +184,7 @@ export default function LatencyScreen() {
             }}
             style={[styles.pad, { backgroundColor: listening ? theme.accent : theme.backgroundElement }]}
           >
-            <ThemedText type="subtitle" style={listening ? styles.onAccent : null}>
+            <ThemedText type="subtitle" style={listening ? { color: theme.onAccent } : null}>
               {listening ? `Tap on every click (${step === "speaker" ? "round 1" : "round 2"}) · ${tapCount}` : "Tap pad"}
             </ThemedText>
           </Pressable>
@@ -211,6 +211,5 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   button: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
-  onAccent: { color: "#FFFFFF" },
   pad: { height: 160, borderRadius: Spacing.four, alignItems: "center", justifyContent: "center" },
 });
