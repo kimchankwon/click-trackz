@@ -9,7 +9,6 @@ import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { builtinSectionTypes } from "@/sync/cue-vocabulary";
 import type { Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -63,6 +62,7 @@ function SectionRow({
   section,
   index,
   count,
+  vocabulary,
   onChange,
   onMove,
   onRemove,
@@ -70,6 +70,7 @@ function SectionRow({
   section: EditableSection;
   index: number;
   count: number;
+  vocabulary: readonly string[];
   onChange: (next: EditableSection) => void;
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
@@ -99,7 +100,7 @@ function SectionRow({
       </View>
       {choosing ? (
         <View style={styles.wrap}>
-          {builtinSectionTypes.map((type) => (
+          {vocabulary.map((type) => (
             <SmallButton
               key={type}
               label={type}
@@ -147,12 +148,14 @@ type LoadedSong = {
 export default function SongEditorScreen() {
   const params = useLocalSearchParams<{ groupId: string; songId: string }>();
   const songId = params.songId as Id<"songs">;
+  const groupId = params.groupId as Id<"groups">;
   const song = useQuery(api.songs.get, { songId });
-  if (!song) return <ThemedView style={styles.container} />;
-  return <SongForm key={songId} songId={songId} song={song} />;
+  const vocabulary = useQuery(api.recordings.vocabulary, { groupId });
+  if (!song || !vocabulary) return <ThemedView style={styles.container} />;
+  return <SongForm key={songId} songId={songId} song={song} vocabulary={vocabulary} />;
 }
 
-function SongForm({ songId, song }: { songId: Id<"songs">; song: LoadedSong }) {
+function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: LoadedSong; vocabulary: readonly string[] }) {
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
   const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
@@ -256,6 +259,7 @@ function SongForm({ songId, song }: { songId: Id<"songs">; song: LoadedSong }) {
               section={section}
               index={index}
               count={sections.length}
+              vocabulary={vocabulary}
               onChange={(next) => setSections(sections.map((s, i) => (i === index ? next : s)))}
               onMove={(by) => move(index, by)}
               onRemove={() => setSections(sections.filter((_, i) => i !== index))}
