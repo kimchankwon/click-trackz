@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
@@ -16,11 +16,10 @@ import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { useDeviceSetting } from "@/settings/use-device-setting";
-import { demoSong } from "@/sync/demo-song";
-import { beatsBetween, type Beat, type Playback, type Section } from "@/sync/timeline";
+import { beatsBetween, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { useServerClock } from "@/sync/use-server-clock";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
 
@@ -132,11 +131,102 @@ function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; isAdmin
   );
 }
 
+function SongsCard({
+  groupId,
+  isAdmin,
+  selectedSongId,
+  onSelect,
+  run,
+}: {
+  groupId: Id<"groups">;
+  isAdmin: boolean;
+  selectedSongId: Id<"songs"> | null;
+  onSelect: (songId: Id<"songs">) => void;
+  run: (action: () => Promise<unknown>) => void;
+}) {
+  const songs = useQuery(api.songs.list, { groupId });
+  const createSong = useMutation(api.songs.createSong);
+  const theme = useTheme();
+  const [title, setTitle] = useState("");
+  return (
+    <Card title="SONGS">
+      {(songs ?? []).map((song) => (
+        <View key={song.songId} style={styles.memberRow}>
+          <Pressable
+            role={isAdmin ? "radio" : undefined}
+            aria-checked={isAdmin ? selectedSongId === song.songId : undefined}
+            testID={`song-${song.title}`}
+            onPress={() => (isAdmin ? onSelect(song.songId) : undefined)}
+            style={styles.memberName}
+          >
+            <ThemedText type={selectedSongId === song.songId ? "smallBold" : "default"}>
+              {selectedSongId === song.songId ? "▶ " : ""}
+              {song.title}
+              {song.key ? ` · ${song.key}` : ""}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {song.sectionCount === 0 ? "needs structure" : `${song.sectionCount} Sections`}
+            </ThemedText>
+          </Pressable>
+          {isAdmin ? (
+            <Pressable
+              role="link"
+              testID={`edit-${song.title}`}
+              onPress={() =>
+                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })
+              }
+              style={[styles.smallButton, { backgroundColor: theme.backgroundElement }]}
+            >
+              <ThemedText type="small">Edit</ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+      {isAdmin ? (
+        <View style={styles.memberRow}>
+          <TextInput
+            testID="new-song-title"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="New Song title"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+          />
+          <Pressable
+            role="button"
+            testID="add-song"
+            onPress={() =>
+              run(async () => {
+                const songId = await createSong({ groupId, title });
+                setTitle("");
+                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
+              })
+            }
+            style={[styles.smallButton, { backgroundColor: theme.accent }]}
+          >
+            <ThemedText type="small" style={styles.onAccent}>
+              Add
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+    </Card>
+  );
+}
+
+const emptySong: Song = { countIn: false, sections: [] };
+
 export default function GroupScreen() {
   const { groupId: groupIdParam } = useLocalSearchParams<{ groupId: string }>();
   const groupId = groupIdParam as Id<"groups">;
   const { estimate, serverNow } = useServerClock();
-  const playback = useQuery(api.playback.current, { groupId }) as Playback | null | undefined;
+  const playbackDoc = useQuery(api.playback.current, { groupId });
+  const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs"> }) | null;
+  const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
+  const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
+  const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
+  const song: Song = playingSong ?? emptySong;
+  const shownSong = playback ? playingSong : selectedSong;
   const myGroups = useQuery(api.groups.myGroups, {});
   const group = myGroups?.find((g) => g.groupId === groupId);
   const isAdmin = group?.role === "admin";
@@ -162,8 +252,8 @@ export default function GroupScreen() {
   }, [serverNow]);
 
   useEffect(() => {
-    engine.current?.setPlan(demoSong, playback ?? null);
-  }, [playback, soundOn]);
+    engine.current?.setPlan(song, playingSong ? playback : null);
+  }, [song, playingSong, playback, soundOn]);
 
   useEffect(() => {
     if (engine.current) engine.current.mix = mix;
@@ -183,9 +273,9 @@ export default function GroupScreen() {
     let handle = 0;
     const draw = () => {
       const now = serverNow();
-      if (now !== null && playback) {
-        const recent = beatsBetween(demoSong, playback, now - 10_000, now + 1);
-        const ahead = beatsBetween(demoSong, playback, now, now + 60 * 60_000);
+      if (now !== null && playback && song.sections.length > 0) {
+        const recent = beatsBetween(song, playback, now - 10_000, now + 1);
+        const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (previous?.at === latest?.at ? previous : latest));
         setUpcoming(upcomingVoiceCue(recent));
@@ -199,7 +289,7 @@ export default function GroupScreen() {
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
-  }, [serverNow, playback]);
+  }, [serverNow, playback, song]);
 
   const run = useCallback((action: () => Promise<unknown>) => {
     setError(null);
@@ -218,7 +308,7 @@ export default function GroupScreen() {
     void engine.current?.setSpeaker(next).then(() => engine.current?.preview("chorus"));
   };
 
-  const currentSection = playing && beat ? (beat.sectionIndex === null ? "COUNT-IN" : labelOf(demoSong.sections[beat.sectionIndex])) : "READY";
+  const currentSection = playing && beat ? (beat.sectionIndex === null ? "COUNT-IN" : labelOf(song.sections[beat.sectionIndex])) : "READY";
 
   return (
     <ThemedView style={styles.container}>
@@ -254,7 +344,18 @@ export default function GroupScreen() {
 
           {isAdmin ? (
             <View style={styles.row}>
-              <TransportButton label="Start" testID="start" primary onPress={() => run(() => start({ groupId }))} />
+              <TransportButton
+                label="Start"
+                testID="start"
+                primary
+                onPress={() =>
+                  run(async () => {
+                    const songId = selectedSongId ?? playback?.songId;
+                    if (!songId) throw new Error("Pick a Song first");
+                    await start({ groupId, songId });
+                  })
+                }
+              />
               <TransportButton label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
             </View>
           ) : (
@@ -263,9 +364,13 @@ export default function GroupScreen() {
             </ThemedText>
           )}
 
+          <ThemedText type="smallBold" testID="song-title">
+            {shownSong?.title ?? (isAdmin ? "Pick a Song below" : "Waiting for an Admin to start a Song")}
+          </ThemedText>
+
           <Card title="SECTIONS">
             <View style={styles.wrap}>
-              {demoSong.sections.map((section, index) => (
+              {(shownSong?.sections ?? []).map((section, index) => (
                 <Chip
                   key={index}
                   role="button"
@@ -321,6 +426,13 @@ export default function GroupScreen() {
               ))}
             </View>
           </Card>
+          <SongsCard
+            groupId={groupId}
+            isAdmin={isAdmin}
+            selectedSongId={selectedSongId ?? playback?.songId ?? null}
+            onSelect={setSelectedSongId}
+            run={run}
+          />
           <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
           <Pressable
             role="button"
@@ -375,6 +487,7 @@ const styles = StyleSheet.create({
   onAccent: { color: "#FFFFFF" },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   hidden: { display: "none" },
+  input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
   memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   memberName: { flex: 1 },
   smallButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.three },
