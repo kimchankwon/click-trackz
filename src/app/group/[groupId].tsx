@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -13,11 +14,13 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { errorText } from "@/lib/error-text";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { demoSong } from "@/sync/demo-song";
 import { beatsBetween, type Beat, type Playback, type Section } from "@/sync/timeline";
 import { useServerClock } from "@/sync/use-server-clock";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
 
@@ -95,12 +98,52 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export default function PlaybackScreen() {
+function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; isAdmin: boolean; run: (action: () => Promise<unknown>) => void }) {
+  const members = useQuery(api.groups.members, { groupId });
+  const viewer = useQuery(api.users.viewer, {});
+  const setRole = useMutation(api.groups.setRole);
+  const theme = useTheme();
+  return (
+    <Card title="MEMBERS">
+      {(members ?? []).map((member) => (
+        <View key={member.userId} style={styles.memberRow} testID={`member-${member.displayName}`}>
+          <ThemedText style={styles.memberName}>
+            {member.displayName}
+            {member.userId === viewer?.id ? " (you)" : ""}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member"}
+          </ThemedText>
+          {isAdmin && !member.isGuest ? (
+            <Pressable
+              role="button"
+              testID={`toggle-admin-${member.displayName}`}
+              onPress={() =>
+                run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
+              }
+              style={[styles.smallButton, { backgroundColor: theme.backgroundElement }]}
+            >
+              <ThemedText type="small">{member.role === "admin" ? "Make Member" : "Make Admin"}</ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+export default function GroupScreen() {
+  const { groupId: groupIdParam } = useLocalSearchParams<{ groupId: string }>();
+  const groupId = groupIdParam as Id<"groups">;
   const { estimate, serverNow } = useServerClock();
-  const playback = useQuery(api.playback.current, {}) as Playback | null | undefined;
+  const playback = useQuery(api.playback.current, { groupId }) as Playback | null | undefined;
+  const myGroups = useQuery(api.groups.myGroups, {});
+  const group = myGroups?.find((g) => g.groupId === groupId);
+  const isAdmin = group?.role === "admin";
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
+  const leave = useMutation(api.groups.leaveGroup);
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
@@ -160,7 +203,7 @@ export default function PlaybackScreen() {
 
   const run = useCallback((action: () => Promise<unknown>) => {
     setError(null);
-    action().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    action().catch((e: unknown) => setError(errorText(e)));
   }, []);
 
   const enableSound = () =>
@@ -183,7 +226,16 @@ export default function PlaybackScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="smallBold">Demo Song</ThemedText>
+            <View>
+              <ThemedText type="smallBold" testID="group-name">
+                {group?.name ?? ""}
+              </ThemedText>
+              {group?.joinCode ? (
+                <ThemedText type="small" themeColor="textSecondary" testID="join-code">
+                  Join code {group.joinCode}
+                </ThemedText>
+              ) : null}
+            </View>
             <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
               <View style={[styles.statusDot, { backgroundColor: estimate ? theme.accent : theme.textSecondary }]} />
               <ThemedText type="small" themeColor="textSecondary" testID="clock-status">
@@ -200,10 +252,16 @@ export default function PlaybackScreen() {
             {playing && upcoming ? `next: ${labelOf(upcoming)}` : " "}
           </ThemedText>
 
-          <View style={styles.row}>
-            <TransportButton label="Start" testID="start" primary onPress={() => run(() => start({}))} />
-            <TransportButton label="Stop" testID="stop" onPress={() => run(() => stop({}))} />
-          </View>
+          {isAdmin ? (
+            <View style={styles.row}>
+              <TransportButton label="Start" testID="start" primary onPress={() => run(() => start({ groupId }))} />
+              <TransportButton label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+            </View>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary">
+              An Admin starts and steers Playback.
+            </ThemedText>
+          )}
 
           <Card title="SECTIONS">
             <View style={styles.wrap}>
@@ -213,11 +271,11 @@ export default function PlaybackScreen() {
                   role="button"
                   label={labelOf(section)}
                   selected={playing && beat?.sectionIndex === index}
-                  onPress={() => run(() => jump({ toSection: index, mode: jumpMode }))}
+                  onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
                 />
               ))}
             </View>
-            <View style={styles.wrap}>
+            <View style={[styles.wrap, isAdmin ? null : styles.hidden]}>
               <ThemedText type="small" themeColor="textSecondary">
                 Jump at
               </ThemedText>
@@ -263,7 +321,26 @@ export default function PlaybackScreen() {
               ))}
             </View>
           </Card>
-          {error ? <ThemedText themeColor="textSecondary">{error}</ThemedText> : null}
+          <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
+          <Pressable
+            role="button"
+            testID="leave-group"
+            onPress={() =>
+              run(async () => {
+                router.replace("/");
+                await leave({ groupId });
+              })
+            }
+          >
+            <ThemedText type="small" themeColor="textSecondary">
+              Leave Group
+            </ThemedText>
+          </Pressable>
+          {error ? (
+            <ThemedText themeColor="textSecondary" testID="error">
+              {error}
+            </ThemedText>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -297,5 +374,9 @@ const styles = StyleSheet.create({
   transportText: { fontSize: 22, lineHeight: 28 },
   onAccent: { color: "#FFFFFF" },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
+  hidden: { display: "none" },
+  memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
+  memberName: { flex: 1 },
+  smallButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.three },
   card: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.four },
 });

@@ -9,49 +9,61 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 const NOW = 1_000_000;
 
-async function signedIn() {
+async function band() {
   const t = convexTest(schema, modules);
-  const userId = await t.run((ctx) => ctx.db.insert("users", {}));
-  return t.withIdentity({ subject: `${userId}|session` });
+  const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
+    const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+    return t.withIdentity({ subject: `${userId}|session` });
+  };
+  const admin = await as({ email: "admin@example.com" });
+  const { groupId, joinCode } = await admin.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
+  const member = await as({ isAnonymous: true });
+  await member.mutation(api.groups.joinGroup, { joinCode, displayName: "Member" });
+  const outsider = await as({ isAnonymous: true });
+  return { t, admin, member, outsider, groupId };
 }
 
-describe("demo Playback", () => {
+describe("Group Playback", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(NOW);
+    vi.setSystemTime(NOW - 60_000);
   });
   afterEach(() => vi.useRealTimers());
 
-  it("starts one Lead-in after the server receives Start", async () => {
-    const member = await signedIn();
-    await member.mutation(api.playback.start, {});
-    const playback = await member.query(api.playback.current, {});
+  it("starts one Lead-in after the server receives an Admin's Start, for every Member to read", async () => {
+    const { admin, member, groupId } = await band();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId });
+    const playback = await member.query(api.playback.current, { groupId });
     expect(playback).toMatchObject({ startsAt: NOW + 2_000, startSection: 0, jumps: [], stopsAt: null });
   });
 
   it("lands a next-bar Jump on the first bar line at least one second away", async () => {
-    const member = await signedIn();
-    await member.mutation(api.playback.start, {});
+    const { admin, groupId } = await band();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId });
     const startsAt = NOW + 2_000;
     vi.setSystemTime(startsAt + 3_000);
-    await member.mutation(api.playback.jump, { toSection: 3, mode: "nextBar" });
-    const playback = await member.query(api.playback.current, {});
+    await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
+    const playback = await admin.query(api.playback.current, { groupId });
     expect(playback?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
   });
 
   it("lands Stop on the first bar line at least one second away", async () => {
-    const member = await signedIn();
-    await member.mutation(api.playback.start, {});
+    const { admin, groupId } = await band();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId });
     const startsAt = NOW + 2_000;
     vi.setSystemTime(startsAt + 6_200);
-    await member.mutation(api.playback.stop, {});
-    const playback = await member.query(api.playback.current, {});
+    await admin.mutation(api.playback.stop, { groupId });
+    const playback = await admin.query(api.playback.current, { groupId });
     expect(playback?.stopsAt).toBe(startsAt + 7_500);
   });
 
-  it("refuses Playback commands and reads from someone who is not signed in", async () => {
-    const t = convexTest(schema, modules);
-    await expect(t.mutation(api.playback.start, {})).rejects.toThrow(/Sign in/);
-    await expect(t.query(api.playback.current, {})).rejects.toThrow(/Sign in/);
+  it("refuses Playback commands from Members and reads from people outside the Group", async () => {
+    const { t, member, outsider, groupId } = await band();
+    await expect(member.mutation(api.playback.start, { groupId })).rejects.toThrow(/Only Admins/);
+    await expect(outsider.query(api.playback.current, { groupId })).rejects.toThrow(/not in this Group/);
+    await expect(t.query(api.playback.current, { groupId })).rejects.toThrow(/Sign in/);
   });
 });

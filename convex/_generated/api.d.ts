@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as auth from "../auth.js";
 import type * as clock from "../clock.js";
+import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as playback from "../playback.js";
 import type * as users from "../users.js";
@@ -21,8 +23,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   auth: typeof auth;
   clock: typeof clock;
+  groups: typeof groups;
   http: typeof http;
   playback: typeof playback;
   users: typeof users;
