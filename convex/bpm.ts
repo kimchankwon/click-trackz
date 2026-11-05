@@ -28,11 +28,15 @@ export const checkAdmin = internalQuery({
 
 const isAbort = (error: unknown) => error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 
-async function fetchWithTimeout(url: string) {
+type SearchBody = { search?: SearchResult[] | { error?: string } };
+
+async function fetchSearch(url: string): Promise<SearchBody> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new ConvexError(`BPM lookup failed (${response.status})`);
+    return (await response.json()) as SearchBody;
   } catch (error) {
     if (isAbort(error)) throw new ConvexError("GetSongBPM took too long to answer. Try again in a moment.");
     throw error;
@@ -50,9 +54,7 @@ export const lookup = action({
     const query = title.trim();
     if (query.length === 0 || query.length > 80) throw new ConvexError("Type a Song title to look up");
     const url = `https://api.getsong.co/search/?api_key=${encodeURIComponent(apiKey)}&type=song&lookup=${encodeURIComponent(query)}`;
-    const response = await fetchWithTimeout(url);
-    if (!response.ok) throw new ConvexError(`BPM lookup failed (${response.status})`);
-    const body = (await response.json()) as { search?: SearchResult[] | { error?: string } };
+    const body = await fetchSearch(url);
     const results = Array.isArray(body.search) ? body.search : [];
     return results.slice(0, 5).map((result) => {
       const beats = Number.parseInt(result.time_sig ?? "", 10);

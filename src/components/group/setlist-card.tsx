@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
+import { rowStyles } from "@/components/group/row-styles";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -64,6 +65,7 @@ export function SetlistCard({
           key={`${entry.songId}-${index}`}
           role={isAdmin ? "radio" : undefined}
           aria-checked={isAdmin ? selectedSongId === entry.songId : undefined}
+          disabled={!isAdmin}
           testID={`setlist-entry-${index}`}
           onPress={() => (isAdmin ? onSelect(entry.songId) : undefined)}
           style={[styles.entryRow, selectedSongId === entry.songId ? { backgroundColor: theme.accentSoft } : null]}
@@ -71,7 +73,7 @@ export function SetlistCard({
           <ThemedText type="small" themeColor="textSecondary" style={styles.entryIndex}>
             {index + 1}
           </ThemedText>
-          <View style={styles.memberName}>
+          <View style={rowStyles.name}>
             <ThemedText type="smallBold">{entry.title}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {[entry.key ? `Key of ${entry.key}` : null, entry.leader ? `Led by ${entry.leader}` : null, entry.needsStructure ? "needs structure" : null]
@@ -98,5 +100,4 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   entryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.three },
   entryIndex: { width: 20, textAlign: "right" },
-  memberName: { flex: 1 },
 });

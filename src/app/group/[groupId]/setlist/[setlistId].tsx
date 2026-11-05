@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -59,6 +59,8 @@ function SetlistForm({
   const [name, setName] = useState(live.name);
   const [entries, setEntriesState] = useState<Entry[]>(() => toEntries(live));
   const [revision, setRevision] = useState(live.revision);
+  const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const changedElsewhere = live.revision !== revision;
   const loadLatest = () => {
     setName(live.name);
@@ -106,9 +108,9 @@ function SetlistForm({
                 <ThemedText type="smallBold" style={styles.grow}>
                   {index + 1}. {entry.title}
                 </ThemedText>
-                <ActionButton small label="↑" onPress={() => move(index, -1)} />
-                <ActionButton small label="↓" onPress={() => move(index, 1)} />
-                <ActionButton small label="✕" testID={`entry-${index}-remove`} onPress={() => setEntriesState(entries.filter((_, i) => i !== index))} />
+                <ActionButton small label="↑" accessibleName={`Move ${entry.title} up`} onPress={() => move(index, -1)} />
+                <ActionButton small label="↓" accessibleName={`Move ${entry.title} down`} onPress={() => move(index, 1)} />
+                <ActionButton small label="✕" accessibleName={`Remove ${entry.title}`} testID={`entry-${index}-remove`} onPress={() => setEntriesState(entries.filter((_, i) => i !== index))} />
               </View>
               <View style={styles.inline}>
                 <TextInput
@@ -146,22 +148,32 @@ function SetlistForm({
           </View>
 
           <View style={styles.inline}>
-            <ActionButton small
-              label="Save"
+            <ActionButton
+              small
+              label={saving ? "Saving…" : "Save"}
               accent
+              disabled={saving}
               testID="save-setlist"
-              onPress={() =>
+              onPress={() => {
+                if (saveInFlight.current) return;
+                saveInFlight.current = true;
+                setSaving(true);
                 run(async () => {
-                  await save({
-                    setlistId,
-                    revision,
-                    name,
-                    entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
-                  });
-                  setRevision(revision + 1);
-                  setMessage("Saved");
-                })
-              }
+                  try {
+                    await save({
+                      setlistId,
+                      revision,
+                      name,
+                      entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
+                    });
+                    setRevision(revision + 1);
+                    setMessage("Saved");
+                  } finally {
+                    saveInFlight.current = false;
+                    setSaving(false);
+                  }
+                });
+              }}
             />
             <ActionButton small label="Make current" testID="make-current" onPress={() => run(async () => {
               await setCurrent({ groupId, setlistId });

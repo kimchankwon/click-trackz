@@ -279,12 +279,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 />
               ))}
             </View>
-            <View style={[styles.wrap, isAdmin ? null : styles.hidden]}>
+            <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="Jump at">
               <ThemedText type="small" themeColor="textSecondary">
                 Jump at
               </ThemedText>
-              <Chip label="End of Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
-              <Chip label="Next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
+              <Chip role="radio" label="End of Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
+              <Chip role="radio" label="Next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
             </View>
           </Card>
 
@@ -321,12 +321,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 Latency nudge {latencyNudge} ms · Adjust
               </ThemedText>
             </Pressable>
-            <View style={styles.wrap} testID="speaker-picker">
+            <View style={styles.wrap} testID="speaker-picker" role="radiogroup" aria-label="Speaker">
               <ThemedText type="small" themeColor="textSecondary">
                 Speaker
               </ThemedText>
               {speakers.map((option) => (
-                <Chip key={option.id} label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
+                <Chip key={option.id} role="radio" label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
               ))}
             </View>
             {soundOn ? null : (

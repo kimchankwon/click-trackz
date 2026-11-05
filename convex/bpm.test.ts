@@ -1,4 +1,3 @@
-// @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -56,5 +55,17 @@ describe("BPM lookup", () => {
     const { admin, groupId } = await setupGroup();
     await admin.action(api.bpm.lookup, { groupId, title: "Firm Foundation" });
     expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("still counts a slow response body as a timeout", async () => {
+    vi.stubEnv("GETSONGBPM_API_KEY", "test-key");
+    const stalledBody = {
+      ok: true,
+      status: 200,
+      json: async () => Promise.reject(new DOMException("The operation was aborted", "AbortError")),
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => stalledBody));
+    const { admin, groupId } = await setupGroup();
+    await expect(admin.action(api.bpm.lookup, { groupId, title: "Firm Foundation" })).rejects.toThrow(/took too long/);
   });
 });

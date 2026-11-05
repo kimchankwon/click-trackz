@@ -77,12 +77,12 @@ function SectionRow({
             {section.number ? ` ${section.number}` : ""}
           </ThemedText>
         </Pressable>
-        <ActionButton small label="−" testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
-        <ActionButton small label="#+" testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
+        <ActionButton small label="−" accessibleName={`Lower the number of Section ${index + 1}`} testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
+        <ActionButton small label="#+" accessibleName={`Raise the number of Section ${index + 1}`} testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
         <View style={styles.grow} />
-        <ActionButton small label="↑" onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <ActionButton small label="↓" onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <ActionButton small label="✕" onPress={onRemove} testID={`section-${index}-remove`} />
+        <ActionButton small label="↑" accessibleName={`Move Section ${index + 1} up`} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
+        <ActionButton small label="↓" accessibleName={`Move Section ${index + 1} down`} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <ActionButton small label="✕" accessibleName={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>

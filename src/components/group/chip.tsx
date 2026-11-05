@@ -14,14 +14,14 @@ export function Chip({
   label: string;
   selected: boolean;
   onPress: () => void;
-  role?: "switch" | "button";
+  role?: "switch" | "radio" | "button";
   testID?: string;
 }) {
   const theme = useTheme();
   return (
     <Pressable
       role={role}
-      aria-checked={role === "switch" ? selected : undefined}
+      aria-checked={role === "button" ? undefined : selected}
       testID={testID}
       onPress={onPress}
       style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}

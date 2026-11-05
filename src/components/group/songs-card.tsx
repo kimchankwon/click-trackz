@@ -3,7 +3,9 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
+import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
+import { rowStyles } from "@/components/group/row-styles";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -30,13 +32,14 @@ export function SongsCard({
   return (
     <Card title="SONGS">
       {(songs ?? []).map((song) => (
-        <View key={song.songId} style={styles.memberRow}>
+        <View key={song.songId} style={rowStyles.row}>
           <Pressable
             role={isAdmin ? "radio" : undefined}
             aria-checked={isAdmin ? selectedSongId === song.songId : undefined}
+            disabled={!isAdmin}
             testID={`song-${song.title}`}
             onPress={() => (isAdmin ? onSelect(song.songId) : undefined)}
-            style={styles.memberName}
+            style={rowStyles.name}
           >
             <ThemedText type={selectedSongId === song.songId ? "smallBold" : "default"}>
               {selectedSongId === song.songId ? "▶ " : ""}
@@ -54,7 +57,7 @@ export function SongsCard({
               onPress={() =>
                 router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })
               }
-              style={[styles.smallButton, { backgroundColor: theme.backgroundElement }]}
+              style={[rowStyles.smallButton, { backgroundColor: theme.backgroundElement }]}
             >
               <ThemedText type="small">Edit</ThemedText>
             </Pressable>
@@ -62,7 +65,7 @@ export function SongsCard({
         </View>
       ))}
       {isAdmin ? (
-        <View style={styles.memberRow}>
+        <View style={rowStyles.row}>
           <TextInput
             testID="new-song-title"
             value={title}
@@ -71,8 +74,10 @@ export function SongsCard({
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
           />
-          <Pressable
-            role="button"
+          <ActionButton
+            small
+            accent
+            label="Add"
             testID="add-song"
             onPress={() =>
               run(async () => {
@@ -81,12 +86,7 @@ export function SongsCard({
                 router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
               })
             }
-            style={[styles.smallButton, { backgroundColor: theme.accent }]}
-          >
-            <ThemedText type="small" style={{ color: theme.onAccent }}>
-              Add
-            </ThemedText>
-          </Pressable>
+          />
         </View>
       ) : null}
     </Card>
@@ -94,8 +94,5 @@ export function SongsCard({
 }
 
 const styles = StyleSheet.create({
-  memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
-  memberName: { flex: 1 },
-  smallButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.three },
   input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
 });
