@@ -1,0 +1,61 @@
+import { SymbolView, type AndroidSymbol, type SFSymbol } from "expo-symbols";
+import type { StyleProp, ViewStyle } from "react-native";
+
+import type { ThemeColor } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+
+const symbols = {
+  play: { ios: "play.fill", material: "play_arrow" },
+  stop: { ios: "stop.fill", material: "stop" },
+  back: { ios: "chevron.left", material: "arrow_back" },
+  forward: { ios: "chevron.right", material: "chevron_right" },
+  expand: { ios: "chevron.down", material: "expand_more" },
+  up: { ios: "arrow.up", material: "arrow_upward" },
+  down: { ios: "arrow.down", material: "arrow_downward" },
+  trash: { ios: "trash", material: "delete" },
+  add: { ios: "plus", material: "add" },
+  minus: { ios: "minus", material: "remove" },
+  check: { ios: "checkmark", material: "check" },
+  star: { ios: "star.fill", material: "star" },
+  starOutline: { ios: "star", material: "star_outline" },
+  sound: { ios: "speaker.wave.2.fill", material: "volume_up" },
+  songs: { ios: "music.note.list", material: "queue_music" },
+  group: { ios: "person.2.fill", material: "group" },
+  pulse: { ios: "waveform", material: "graphic_eq" },
+  ping: { ios: "cellularbars", material: "signal_cellular_alt" },
+  mic: { ios: "mic.fill", material: "mic" },
+  edit: { ios: "pencil", material: "edit" },
+  headphones: { ios: "headphones", material: "headphones" },
+  speed: { ios: "speedometer", material: "speed" },
+  upload: { ios: "square.and.arrow.up", material: "upload" },
+  logout: { ios: "rectangle.portrait.and.arrow.right", material: "logout" },
+  person: { ios: "person.crop.circle", material: "account_circle" },
+  touch: { ios: "hand.tap.fill", material: "touch_app" },
+} as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
+
+export type IconName = keyof typeof symbols;
+
+export function Icon({
+  name,
+  size = 22,
+  color = "text",
+  tint,
+  style,
+}: {
+  name: IconName;
+  size?: number;
+  color?: ThemeColor;
+  tint?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const theme = useTheme();
+  const symbol = symbols[name];
+  return (
+    <SymbolView
+      name={{ ios: symbol.ios, android: symbol.material, web: symbol.material }}
+      size={size}
+      tintColor={tint ?? theme[color]}
+      style={style}
+    />
+  );
+}

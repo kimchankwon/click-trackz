@@ -9,17 +9,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
-import { BeatPulse } from "@/components/playback/beat-pulse";
-import { Card } from "@/components/group/card";
+import { ActionButton } from "@/components/action-button";
+import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { Card, Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
+import { TabBar, type GroupTab } from "@/components/group/tab-bar";
 import { VoicePackCard } from "@/components/group/voice-pack-card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { Icon } from "@/components/ui/icon";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { isLatencySetting } from "@/settings/latency";
@@ -30,9 +34,6 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
-
-const labelOf = (section: Pick<Section, "sectionType" | "number">) =>
-  `${section.sectionType.toUpperCase()}${section.number ?? ""}`;
 
 const isVolume = (value: string): value is string => /^(0(\.\d+)?|1(\.0+)?)$/.test(value);
 
@@ -51,38 +52,18 @@ function KeepAwake() {
   return null;
 }
 
-function TransportButton({
-  label,
-  onPress,
-  testID,
-  primary,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  testID: string;
-  primary?: boolean;
-  disabled?: boolean;
-}) {
-  const theme = useTheme();
-  const filled = primary && !disabled;
-  return (
-    <Pressable
-      role="button"
-      testID={testID}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.transport, { backgroundColor: filled ? theme.accent : theme.backgroundElement }, disabled ? styles.transportDisabled : null]}
-    >
-      <ThemedText
-        type="subtitle"
-        themeColor={disabled ? "textSecondary" : undefined}
-        style={[styles.transportText, filled ? { color: theme.onAccent } : null]}
-      >
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
+const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
+  `${section.sectionType}${section.number ? ` ${section.number}` : ""}`;
+
+type LoadedSong = { title: string; key: string | null; tempoHint: { bpm: number; beatsPerBar: number } | null; sections: Section[] };
+
+function idleReadoutFor(song: LoadedSong | null | undefined): IdleReadout | null {
+  if (!song) return null;
+  const first = song.sections[0];
+  const bpm = first?.bpm ?? song.tempoHint?.bpm;
+  const beatsPerBar = first?.beatsPerBar ?? song.tempoHint?.beatsPerBar;
+  const detail = [beatsPerBar ? `${beatsPerBar}/4` : null, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ");
+  return bpm ? { value: String(Math.round(bpm)), unit: "BPM", detail: detail || undefined } : { value: "--", unit: "No Sections yet" };
 }
 
 const emptySong: Song = { countIn: false, sections: [] };
@@ -152,6 +133,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<GroupTab>("play");
   const theme = useTheme();
 
   useEffect(() => {
@@ -231,187 +213,240 @@ function GroupScreen({ group }: { group: MyGroup }) {
   };
 
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
-  const currentSection = !playing || !beat ? "READY" : beat.sectionIndex === null ? "COUNT-IN" : beatSection ? labelOf(beatSection) : "READY";
+  const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
+  const idle = idleReadoutFor(startSong);
+  const startHint =
+    startBlocker === "noSong"
+      ? "Pick a Song to start"
+      : startBlocker === "needsSections"
+        ? "Add Sections before this Song can start"
+        : null;
+
+  const header = (
+    <ScreenHeader
+      title={group.name}
+      subtitle={group.joinCode ? `Join code ${group.joinCode}` : isAdmin ? "Admin" : "Member"}
+      onBack={() => router.replace("/")}
+      backLabel="Your Groups"
+      backTestID="groups-back"
+      right={
+        <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
+          <Icon name="ping" size={16} color={estimate ? (estimate.roundTripMs > WEAK_PING_MS ? "warning" : "accent") : "textTertiary"} />
+          <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
+            {estimate ? `Ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
+          </ThemedText>
+        </View>
+      }
+    />
+  );
+
+  const soundPrompt = soundOn ? null : (
+    <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
+      <Icon name="sound" size={22} color="accent" />
+      <View style={styles.grow}>
+        <ThemedText type="smallBold">Sound is off on this phone</ThemedText>
+        <ThemedText type="caption" themeColor="textSecondary">
+          Turn it on to hear the Click and Voice cues.
+        </ThemedText>
+      </View>
+      <ActionButton small accent label="Enable" testID="enable-sound" onPress={enableSound} />
+    </View>
+  );
+
+  const playTab = (
+    <>
+      {soundPrompt}
+      <View style={styles.stageHead}>
+        <ThemedText type="title" testID="current-section" style={styles.centered}>
+          {currentSection}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" testID="playback-next" style={styles.centered}>
+          {playing && upcoming ? `Next: ${titleOf(upcoming)}` : " "}
+        </ThemedText>
+      </View>
+      <BeatPulse beat={beat} playing={playing} idle={idle} />
+      <View style={styles.stageHead}>
+        <ThemedText type="heading" testID="song-title" style={styles.centered}>
+          {shownTitle ?? (isAdmin ? "No Song picked" : "Waiting for an Admin")}
+        </ThemedText>
+        {!isAdmin ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+            An Admin starts and steers Playback.
+          </ThemedText>
+        ) : null}
+        {isAdmin && startBlocker === "needsSections" && startSongId ? (
+          <Pressable
+            role="link"
+            testID="start-needs-sections"
+            onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: startSongId } })}
+            style={styles.inlineLink}
+          >
+            <ThemedText type="smallBold" themeColor="accent">
+              Add Sections to this Song
+            </ThemedText>
+            <Icon name="forward" size={18} color="accent" />
+          </Pressable>
+        ) : null}
+      </View>
+      {shownSections.length > 0 ? (
+        <Card title="Sections">
+          <View style={styles.wrap}>
+            {shownSections.map((section, index) => (
+              <Chip
+                key={index}
+                role="button"
+                label={titleOf(section)}
+                selected={playing && beat?.sectionIndex === index}
+                onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
+              />
+            ))}
+          </View>
+          {isAdmin ? (
+            <>
+              <Divider />
+              <View style={styles.jumpMode} role="radiogroup" aria-label="When I tap a Section, go">
+                <ThemedText type="caption" themeColor="textSecondary">
+                  When I tap a Section, go
+                </ThemedText>
+                <View style={styles.wrap}>
+                  <Chip role="radio" label="After this Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
+                  <Chip role="radio" label="At the next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
+                </View>
+              </View>
+            </>
+          ) : null}
+        </Card>
+      ) : null}
+    </>
+  );
+
+  const songsTab = (
+    <>
+      <SetlistCard
+        groupId={groupId}
+        isAdmin={isAdmin}
+        selectedSongId={selectedSongId ?? playback?.songId ?? null}
+        onSelect={setSelectedSongId}
+        run={run}
+      />
+      <SongsCard
+        groupId={groupId}
+        isAdmin={isAdmin}
+        selectedSongId={selectedSongId ?? playback?.songId ?? null}
+        onSelect={setSelectedSongId}
+        run={run}
+      />
+    </>
+  );
+
+  const soundTab = (
+    <>
+      {soundPrompt}
+      {soundOn ? (
+        <Card title="Mix">
+          <VolumeBar icon="pulse" label="Click" testID="click-volume" value={Number(clickVolume)} onChange={(next) => setClickVolume(next.toFixed(2))} />
+          <VolumeBar icon="mic" label="Voice" testID="voice-volume" value={Number(voiceVolume)} onChange={(next) => setVoiceVolume(next.toFixed(2))} />
+          <Divider />
+          <View style={styles.wrap}>
+            <Chip label="Click" selected={mix.click} onPress={() => setMix({ ...mix, click: !mix.click })} />
+            <Chip label="Voice cues" selected={mix.voiceCues} onPress={() => setMix({ ...mix, voiceCues: !mix.voiceCues })} />
+            <Chip label="Spoken counts" selected={mix.spokenCounts} onPress={() => setMix({ ...mix, spokenCounts: !mix.spokenCounts })} />
+          </View>
+        </Card>
+      ) : null}
+      <Card title="Speaker">
+        <View style={styles.wrap} testID="speaker-picker" role="radiogroup" aria-label="Speaker">
+          {speakers.map((option) => (
+            <Chip key={option.id} role="radio" label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
+          ))}
+        </View>
+        {soundOn ? null : (
+          <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint">
+            Enable sound to hear each Speaker as you choose.
+          </ThemedText>
+        )}
+      </Card>
+      <Card title="Timing">
+        <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")} style={styles.linkRow}>
+          <Icon name="headphones" size={22} color="textSecondary" />
+          <View style={styles.grow}>
+            <ThemedText type="smallBold">Latency nudge</ThemedText>
+            <ThemedText type="caption" themeColor="textSecondary">
+              For Bluetooth headphones or slow speakers
+            </ThemedText>
+          </View>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabular}>
+            {latencyNudge} ms
+          </ThemedText>
+          <Icon name="forward" size={20} color="textTertiary" />
+        </Pressable>
+      </Card>
+      {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
+        <ThemedText type="caption" themeColor="textSecondary" testID="setting-unsaved">
+          This device could not save your choice, so it will reset when you reopen the app.
+        </ThemedText>
+      ) : null}
+    </>
+  );
+
+  const groupTab = (
+    <>
+      <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
+      {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
+      <ActionButton
+        variant="danger"
+        icon="logout"
+        label="Leave Group"
+        testID="leave-group"
+        onPress={() =>
+          run(async () => {
+            await leave({ groupId });
+            router.replace("/");
+          })
+        }
+      />
+    </>
+  );
 
   return (
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <View>
-              <ThemedText type="smallBold" testID="group-name">
-                {group.name}
-              </ThemedText>
-              {group.joinCode ? (
-                <ThemedText type="small" themeColor="textSecondary" testID="join-code">
-                  Join code {group.joinCode}
-                </ThemedText>
-              ) : null}
-            </View>
-            <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
-              <View style={[styles.statusDot, { backgroundColor: estimate ? theme.accent : theme.textSecondary }]} />
-              <ThemedText type="small" themeColor="textSecondary" testID="clock-status">
-                {estimate ? `ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring ping…"}
-              </ThemedText>
-            </View>
-          </View>
-
-          <ThemedText type="smallBold" themeColor="textSecondary" testID="current-section">
-            {currentSection}
-          </ThemedText>
-          <BeatPulse beat={beat} playing={playing} />
-          <ThemedText type="subtitle" testID="playback-next" style={{ color: theme.accent }}>
-            {playing && upcoming ? `next: ${labelOf(upcoming)}` : " "}
-          </ThemedText>
-
-          {isAdmin ? (
-            <View style={styles.row}>
-              <TransportButton
-                label="Start"
-                testID="start"
-                primary
-                disabled={startBlocker !== null}
-                onPress={() =>
-                  run(async () => {
-                    if (startSongId) await start({ groupId, songId: startSongId });
-                  })
-                }
-              />
-              <TransportButton label="Stop" testID="stop" disabled={!playing} onPress={() => run(() => stop({ groupId }))} />
-            </View>
-          ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              An Admin starts and steers Playback.
-            </ThemedText>
-          )}
-
-          <ThemedText type="smallBold" testID="song-title">
-            {shownTitle ?? (isAdmin ? "Pick a Song below" : "Waiting for an Admin to start a Song")}
-          </ThemedText>
-          {isAdmin && startBlocker === "needsSections" && startSongId ? (
-            <Pressable
-              role="link"
-              testID="start-needs-sections"
-              onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: startSongId } })}
-            >
-              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-                This Song has no Sections yet, so it cannot start. Tap to add them.
-              </ThemedText>
-            </Pressable>
-          ) : null}
+          {header}
+          {tab === "play" ? playTab : tab === "songs" ? songsTab : tab === "sound" ? soundTab : groupTab}
           {error ? (
-            <ThemedText themeColor="textSecondary" testID="error" style={styles.centered}>
+            <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
               {error}
             </ThemedText>
           ) : null}
-
-          {shownSections.length > 0 ? (
-            <Card title="SECTIONS">
-              <View style={styles.wrap}>
-                {shownSections.map((section, index) => (
-                  <Chip
-                    key={index}
-                    role="button"
-                    label={labelOf(section)}
-                    selected={playing && beat?.sectionIndex === index}
-                    onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
-                  />
-                ))}
-              </View>
-              <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="When I tap a Section, go">
-                <ThemedText type="small" themeColor="textSecondary">
-                  When I tap a Section, go
-                </ThemedText>
-                <Chip role="radio" label="After this Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
-                <Chip role="radio" label="At the next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
-              </View>
-            </Card>
-          ) : null}
-
-          <Card title="SOUND">
-            {soundOn ? (
-              <>
-                <VolumeBar
-                  label="Click"
-                  testID="click-volume"
-                  value={Number(clickVolume)}
-                  onChange={(next) => setClickVolume(next.toFixed(2))}
-                />
-                <VolumeBar
-                  label="Voice"
-                  testID="voice-volume"
-                  value={Number(voiceVolume)}
-                  onChange={(next) => setVoiceVolume(next.toFixed(2))}
-                />
-                <View style={styles.wrap}>
-                  <Chip label="Click" selected={mix.click} onPress={() => setMix({ ...mix, click: !mix.click })} />
-                  <Chip label="Voice cues" selected={mix.voiceCues} onPress={() => setMix({ ...mix, voiceCues: !mix.voiceCues })} />
-                  <Chip
-                    label="Spoken counts"
-                    selected={mix.spokenCounts}
-                    onPress={() => setMix({ ...mix, spokenCounts: !mix.spokenCounts })}
-                  />
-                </View>
-              </>
-            ) : (
-              <TransportButton label="Enable sound" testID="enable-sound" primary onPress={enableSound} />
-            )}
-            <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Latency nudge {latencyNudge} ms · Adjust
-              </ThemedText>
-            </Pressable>
-            <View style={styles.wrap} testID="speaker-picker" role="radiogroup" aria-label="Speaker">
-              <ThemedText type="small" themeColor="textSecondary">
-                Speaker
-              </ThemedText>
-              {speakers.map((option) => (
-                <Chip key={option.id} role="radio" label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
-              ))}
-            </View>
-            {soundOn ? null : (
-              <ThemedText type="small" themeColor="textSecondary" testID="speaker-preview-hint">
-                Enable sound to hear each Speaker as you choose.
-              </ThemedText>
-            )}
-            {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
-              <ThemedText type="small" themeColor="textSecondary" testID="setting-unsaved">
-                This device could not save your choice, so it will reset when you reopen the app.
-              </ThemedText>
-            ) : null}
-          </Card>
-          <SetlistCard
-            groupId={groupId}
-            isAdmin={isAdmin}
-            selectedSongId={selectedSongId ?? playback?.songId ?? null}
-            onSelect={setSelectedSongId}
-            run={run}
-          />
-          <SongsCard
-            groupId={groupId}
-            isAdmin={isAdmin}
-            selectedSongId={selectedSongId ?? playback?.songId ?? null}
-            onSelect={setSelectedSongId}
-            run={run}
-          />
-          {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
-          <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
-          <Pressable
-            role="button"
-            testID="leave-group"
-            onPress={() =>
-              run(async () => {
-                await leave({ groupId });
-                router.replace("/");
-              })
-            }
-          >
-            <ThemedText type="small" themeColor="textSecondary">
-              Leave Group
-            </ThemedText>
-          </Pressable>
         </ScrollView>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+          {isAdmin ? (
+            <View style={styles.transport}>
+              {playing ? (
+                <ActionButton large full variant="inverse" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+              ) : (
+                <ActionButton
+                  large
+                  full
+                  accent
+                  icon="play"
+                  label={startHint ?? (startSong ? `Start ${startSong.title}` : "Start")}
+                  accessibleName="Start"
+                  testID="start"
+                  disabled={startBlocker !== null}
+                  onPress={() =>
+                    run(async () => {
+                      if (startSongId) await start({ groupId, songId: startSongId });
+                    })
+                  }
+                />
+              )}
+            </View>
+          ) : null}
+          <TabBar active={tab} onChange={setTab} />
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -423,28 +458,33 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   content: {
     alignItems: "center",
-    gap: Spacing.three,
-    padding: Spacing.four,
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
     maxWidth: MaxContentWidth,
     alignSelf: "center",
     width: "100%",
   },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%" },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.five,
+    gap: Spacing.one + 2,
+    paddingHorizontal: 12,
+    height: 32,
+    borderRadius: Radius.pill,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  row: { flexDirection: "row", gap: Spacing.three, width: "100%" },
+  pillText: { fontWeight: 700, fontVariant: ["tabular-nums"] },
+  stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
+  soundPrompt: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg, width: "100%" },
+  grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
-  transport: { flex: 1, alignItems: "center", paddingVertical: Spacing.three, borderRadius: Spacing.four },
-  transportDisabled: { opacity: 0.5 },
+  jumpMode: { gap: Spacing.two },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48 },
+  inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
+  tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
-  transportText: { fontSize: 22, lineHeight: 28 },
-  hidden: { display: "none" },
-  backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
+  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.three },
+  transport: { flexDirection: "row", paddingTop: Spacing.three, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
+  backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

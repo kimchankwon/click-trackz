@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, View, type GestureResponderEvent, type KeyDownEvent } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -15,9 +16,10 @@ type Props = {
   valueText?: string;
   accessibleName?: string;
   accessibleRange?: { min: number; max: number; now: number };
+  icon?: IconName;
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
@@ -37,7 +39,8 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   };
   return (
     <View style={styles.row}>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+      {icon ? <Icon name={icon} size={20} color="textSecondary" /> : null}
+      <ThemedText type="smallBold" style={styles.label}>
         {label}
       </ThemedText>
       <View
@@ -58,14 +61,17 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         onResponderGrant={setFromTouch}
         onResponderMove={setFromTouch}
         {...keyboard}
-        style={[styles.track, { backgroundColor: theme.backgroundElement, borderColor: focused ? theme.text : "transparent" }]}
+        style={[styles.hitArea, { borderColor: focused ? theme.text : "transparent" }]}
       >
+        <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+          <View style={[styles.fill, { width: `${value * 100}%`, backgroundColor: theme.accent }]} />
+        </View>
         <View
           pointerEvents="none"
-          style={[styles.fill, { width: `${value * 100}%`, backgroundColor: theme.accent }]}
+          style={[styles.thumb, { left: Math.max(0, width - 28) * value, backgroundColor: theme.background, borderColor: theme.accent }]}
         />
       </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.value}>
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.value}>
         {valueText ?? Math.round(value * 100)}
       </ThemedText>
     </View>
@@ -74,8 +80,10 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%" },
-  label: { width: 56 },
-  track: { flex: 1, height: 28, borderRadius: Spacing.two, borderWidth: 2, overflow: "hidden", justifyContent: "center" },
-  fill: { height: "100%", borderRadius: Spacing.two },
-  value: { minWidth: 32, textAlign: "right" },
+  label: { width: 52 },
+  hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12 },
+  track: { height: 6, borderRadius: 3, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: 3 },
+  thumb: { position: "absolute", width: 24, height: 24, borderRadius: 12, borderWidth: 3 },
+  value: { minWidth: 48, textAlign: "right", fontVariant: ["tabular-nums"] },
 });

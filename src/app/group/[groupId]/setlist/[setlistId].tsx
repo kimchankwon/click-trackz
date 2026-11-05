@@ -1,13 +1,17 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { api } from "../../../../../convex/_generated/api";
@@ -69,7 +73,6 @@ function SetlistForm({
     setMessage(null);
   };
   const [message, setMessage] = useState<string | null>(null);
-  const input = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
 
   const run = (action: () => Promise<unknown>) => {
     setMessage(null);
@@ -87,14 +90,53 @@ function SetlistForm({
     setEntriesState(next);
   };
 
+  const saveSetlist = () => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
+    setSaving(true);
+    run(async () => {
+      try {
+        await save({
+          setlistId,
+          revision,
+          name,
+          entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
+        });
+        setRevision(revision + 1);
+        setMessage("Saved");
+      } finally {
+        saveInFlight.current = false;
+        setSaving(false);
+      }
+    });
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ThemedText type="subtitle">Edit Setlist</ThemedText>
-          <TextInput testID="setlist-name" style={input} value={name} onChangeText={setName} placeholder="Setlist name" />
+          <ScreenHeader
+            title="Edit Setlist"
+            subtitle={live.name}
+            onBack={() => router.back()}
+            right={
+              <ActionButton
+                small
+                icon="star"
+                label="Make current"
+                testID="make-current"
+                onPress={() =>
+                  run(async () => {
+                    await setCurrent({ groupId, setlistId });
+                    setMessage("This is now the Current setlist");
+                  })
+                }
+              />
+            }
+          />
+          <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
           {changedElsewhere ? (
-            <View style={[styles.conflict, { backgroundColor: theme.accentSoft }]} testID="setlist-changed">
+            <View style={[styles.conflict, { backgroundColor: theme.accentTint }]} testID="setlist-changed">
               <ThemedText type="small" style={styles.grow}>
                 Another Admin changed this Setlist. Load their changes before you save; your edits here will be replaced.
               </ThemedText>
@@ -102,115 +144,150 @@ function SetlistForm({
             </View>
           ) : null}
 
-          {entries.map((entry, index) => (
-            <View key={`${entry.songId}-${index}`} style={[styles.entry, { borderColor: theme.backgroundSelected }]} testID={`entry-${index}`}>
-              <View style={styles.inline}>
-                <ThemedText type="smallBold" style={styles.grow}>
-                  {index + 1}. {entry.title}
-                </ThemedText>
-                <ActionButton small label="↑" accessibleName={`Move ${entry.title} up`} onPress={() => move(index, -1)} />
-                <ActionButton small label="↓" accessibleName={`Move ${entry.title} down`} onPress={() => move(index, 1)} />
-                <ActionButton small label="✕" accessibleName={`Remove ${entry.title}`} testID={`entry-${index}-remove`} onPress={() => setEntriesState(entries.filter((_, i) => i !== index))} />
+          <View style={styles.group}>
+            <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
+              Songs · {entries.length}
+            </ThemedText>
+            {entries.length === 0 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                No Songs yet. Add them from the library below.
+              </ThemedText>
+            ) : null}
+            {entries.map((entry, index) => (
+              <View key={`${entry.songId}-${index}`} style={[styles.entry, { backgroundColor: theme.backgroundElement }]} testID={`entry-${index}`}>
+                <View style={styles.entryTop}>
+                  <ThemedText type="smallBold" themeColor="textTertiary" style={styles.entryIndex}>
+                    {index + 1}
+                  </ThemedText>
+                  <ThemedText type="default" style={styles.entryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </ThemedText>
+                  <IconButton icon="up" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                  <IconButton icon="down" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
+                  <IconButton
+                    icon="trash"
+                    color="danger"
+                    label={`Remove ${entry.title}`}
+                    testID={`entry-${index}-remove`}
+                    onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
+                  />
+                </View>
+                <View style={styles.entryFields}>
+                  <Field
+                    testID={`entry-${index}-key`}
+                    containerStyle={styles.keyInput}
+                    value={entry.key}
+                    onChangeText={(key) => update(index, { key })}
+                    placeholder="Key"
+                    compact
+                    inset
+                  />
+                  <Field
+                    testID={`entry-${index}-leader`}
+                    containerStyle={styles.grow}
+                    value={entry.leader}
+                    onChangeText={(leader) => update(index, { leader })}
+                    placeholder="Led by"
+                    compact
+                    inset
+                  />
+                </View>
               </View>
-              <View style={styles.inline}>
-                <TextInput
-                  testID={`entry-${index}-key`}
-                  style={[input, styles.keyInput]}
-                  value={entry.key}
-                  onChangeText={(key) => update(index, { key })}
-                  placeholder="Key"
-                  placeholderTextColor={theme.textSecondary}
-                />
-                <TextInput
-                  testID={`entry-${index}-leader`}
-                  style={[input, styles.grow]}
-                  value={entry.leader}
-                  onChangeText={(leader) => update(index, { leader })}
-                  placeholder="Led by"
-                  placeholderTextColor={theme.textSecondary}
-                />
-              </View>
-            </View>
-          ))}
-
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            ADD A SONG
-          </ThemedText>
-          <View style={styles.wrap}>
-            {songs.map((song) => (
-              <ActionButton small
-                key={song.songId}
-                label={`+ ${song.title}`}
-                testID={`add-${song.title}`}
-                onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
-              />
             ))}
           </View>
 
-          <View style={styles.inline}>
-            <ActionButton
-              small
-              label={saving ? "Saving…" : "Save"}
-              accent
-              disabled={saving}
-              testID="save-setlist"
-              onPress={() => {
-                if (saveInFlight.current) return;
-                saveInFlight.current = true;
-                setSaving(true);
-                run(async () => {
-                  try {
-                    await save({
-                      setlistId,
-                      revision,
-                      name,
-                      entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
-                    });
-                    setRevision(revision + 1);
-                    setMessage("Saved");
-                  } finally {
-                    saveInFlight.current = false;
-                    setSaving(false);
-                  }
-                });
-              }}
-            />
-            <ActionButton small label="Make current" testID="make-current" onPress={() => run(async () => {
-              await setCurrent({ groupId, setlistId });
-              setMessage("This is now the Current setlist");
-            })} />
-            <ActionButton small label="Back" testID="back" onPress={() => router.back()} />
-            <View style={styles.grow} />
-            <ActionButton small
-              label="Delete"
-              testID="delete-setlist"
-              onPress={() =>
-                run(async () => {
-                  await deleteSetlist({ setlistId });
-                  router.back();
-                })
-              }
-            />
+          <View style={styles.group}>
+            <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
+              Add from the library
+            </ThemedText>
+            <View style={[styles.library, { backgroundColor: theme.backgroundElement }]}>
+              {songs.map((song, index) => (
+                <Pressable
+                  key={song.songId}
+                  role="button"
+                  aria-label={`Add ${song.title}`}
+                  testID={`add-${song.title}`}
+                  onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
+                  style={({ pressed }) => [
+                    styles.libraryRow,
+                    index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
+                    pressed ? { backgroundColor: theme.backgroundSelected } : null,
+                  ]}
+                >
+                  <ThemedText type="small" style={styles.grow} numberOfLines={1}>
+                    {song.title}
+                  </ThemedText>
+                  {song.key ? (
+                    <ThemedText type="caption" themeColor="textSecondary">
+                      {song.key}
+                    </ThemedText>
+                  ) : null}
+                  <Icon name="add" size={22} color="accent" />
+                </Pressable>
+              ))}
+            </View>
           </View>
+
           {message ? (
-            <ThemedText themeColor="textSecondary" testID="setlist-message">
+            <ThemedText type="small" themeColor="textSecondary" testID="setlist-message" style={styles.centeredText}>
               {message}
             </ThemedText>
           ) : null}
+          <ActionButton
+            variant="danger"
+            icon="trash"
+            label="Delete Setlist"
+            accessibleName="Delete"
+            testID="delete-setlist"
+            onPress={() =>
+              run(async () => {
+                await deleteSetlist({ setlistId });
+                router.back();
+              })
+            }
+          />
         </ScrollView>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+          <ActionButton
+            large
+            full
+            accent
+            icon="check"
+            label={saving ? "Saving…" : "Save Setlist"}
+            accessibleName="Save"
+            disabled={saving}
+            testID="save-setlist"
+            onPress={saveSetlist}
+          />
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.two, borderRadius: Spacing.two },
   container: { flex: 1 },
-  content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
-  input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
-  keyInput: { width: 80 },
-  inline: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  grow: { flex: 1 },
-  entry: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
+  content: {
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
+    maxWidth: MaxContentWidth,
+    alignSelf: "center",
+    width: "100%",
+  },
+  conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
+  group: { gap: Spacing.two },
+  groupLabel: { paddingHorizontal: Spacing.one },
+  entry: { gap: Spacing.two, padding: Spacing.three, paddingRight: Spacing.two, borderRadius: Radius.lg },
+  entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  entryIndex: { width: 22, fontVariant: ["tabular-nums"] },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 700 },
+  entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.one },
+  keyInput: { width: 88 },
+  grow: { flex: 1, minWidth: 0 },
+  library: { borderRadius: Radius.lg, overflow: "hidden" },
+  libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },
+  centeredText: { textAlign: "center" },
+  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

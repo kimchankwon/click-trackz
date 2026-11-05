@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
-import { rowStyles } from "@/components/group/row-styles";
 import { ThemedText } from "@/components/themed-text";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -12,29 +13,47 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
   const setRole = useMutation(api.groups.setRole);
+  const theme = useTheme();
+  const list = members ?? [];
   return (
-    <Card title="MEMBERS">
-      {(members ?? []).map((member) => (
-        <View key={member.userId} style={rowStyles.row} testID={`member-${member.displayName}`}>
-          <ThemedText style={rowStyles.name}>
-            {member.displayName}
-            {member.userId === viewer?.id ? " (you)" : ""}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member"}
-          </ThemedText>
-          {isAdmin && !member.isGuest ? (
-            <ActionButton
-              small
-              label={member.role === "admin" ? "Make Member" : "Make Admin"}
-              testID={`toggle-admin-${member.displayName}`}
-              onPress={() =>
-                run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
-              }
-            />
-          ) : null}
-        </View>
-      ))}
+    <Card title={`Members · ${list.length}`}>
+      {list.map((member) => {
+        const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
+        return (
+          <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
+            <View style={[styles.avatar, { backgroundColor: member.role === "admin" ? theme.accentTint : theme.backgroundSelected }]}>
+              <ThemedText type="smallBold" themeColor={member.role === "admin" ? "accent" : "textSecondary"}>
+                {member.displayName.slice(0, 1).toUpperCase()}
+              </ThemedText>
+            </View>
+            <View style={styles.name}>
+              <ThemedText type="smallBold" numberOfLines={1}>
+                {member.displayName}
+                {member.userId === viewer?.id ? " (you)" : ""}
+              </ThemedText>
+              <ThemedText type="caption" themeColor={member.role === "admin" ? "accent" : "textSecondary"}>
+                {role}
+              </ThemedText>
+            </View>
+            {isAdmin && !member.isGuest ? (
+              <ActionButton
+                small
+                label={member.role === "admin" ? "Make Member" : "Make Admin"}
+                testID={`toggle-admin-${member.displayName}`}
+                onPress={() =>
+                  run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
+                }
+              />
+            ) : null}
+          </View>
+        );
+      })}
     </Card>
   );
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48 },
+  avatar: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
+  name: { flex: 1, minWidth: 0 },
+});
