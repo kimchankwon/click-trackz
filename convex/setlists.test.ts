@@ -8,7 +8,7 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
-async function band() {
+async function setupGroup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
     const userId = await t.run((ctx) => ctx.db.insert("users", profile));
@@ -24,7 +24,7 @@ async function band() {
 
 describe("Setlists", () => {
   it("lets Admins create a Setlist and mark it current for every Member to see first", async () => {
-    const { admin, member, groupId } = await band();
+    const { admin, member, groupId } = await setupGroup();
     const setlistId = await admin.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });
     expect(await member.query(api.setlists.list, { groupId })).toEqual([
       expect.objectContaining({ setlistId, name: "Sunday", isCurrent: false, songCount: 0 }),
@@ -36,7 +36,7 @@ describe("Setlists", () => {
   });
 
   it("keeps an ordered list of the Group's Songs with an optional Key and Leader for each", async () => {
-    const { as, admin, member, groupId, song } = await band();
+    const { as, admin, member, groupId, song } = await setupGroup();
     const pure = await song("Pure");
     const promises = await song("Promises");
     const setlistId = await admin.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });
@@ -58,7 +58,7 @@ describe("Setlists", () => {
   });
 
   it("drops a deleted Song from every Setlist and forgets a deleted current Setlist", async () => {
-    const { admin, member, groupId, song } = await band();
+    const { admin, member, groupId, song } = await setupGroup();
     const pure = await song("Pure");
     const promises = await song("Promises");
     const setlistId = await admin.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });

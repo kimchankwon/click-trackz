@@ -14,6 +14,7 @@ import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 type EditableSection = Section & { customLabel?: string };
+type SectionRowState = { id: number; section: EditableSection };
 
 type LookupResult = { title: string; artist: string | null; bpm: number | null; beatsPerBar: number | null; key: string | null };
 
@@ -152,10 +153,20 @@ export default function SongEditorScreen() {
   const song = useQuery(api.songs.get, { songId });
   const vocabulary = useQuery(api.recordings.vocabulary, { groupId });
   if (!song || !vocabulary) return <ThemedView style={styles.container} />;
-  return <SongForm key={songId} songId={songId} song={song} vocabulary={vocabulary} />;
+  return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} />;
 }
 
-function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: LoadedSong; vocabulary: readonly string[] }) {
+function SongForm({
+  groupId,
+  songId,
+  song,
+  vocabulary,
+}: {
+  groupId: Id<"groups">;
+  songId: Id<"songs">;
+  song: LoadedSong;
+  vocabulary: readonly string[];
+}) {
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
   const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
@@ -164,7 +175,9 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
-  const [sections, setSections] = useState<EditableSection[]>(song.sections);
+  const [rows, setRows] = useState<SectionRowState[]>(() => song.sections.map((section, id) => ({ id, section })));
+  const [nextRowId, setNextRowId] = useState(song.sections.length);
+  const sections = rows.map((row) => row.section);
   const [results, setResults] = useState<LookupResult[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -175,32 +188,39 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
 
   const addSection = () => {
     const last = sections.at(-1);
-    setSections([
-      ...sections,
+    setRows([
+      ...rows,
       {
-        sectionType: last ? "Verse" : "Intro",
-        bars: 4,
-        beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
-        bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
+        id: nextRowId,
+        section: {
+          sectionType: last ? "Verse" : "Intro",
+          bars: 4,
+          beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
+          bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
+        },
       },
     ]);
+    setNextRowId(nextRowId + 1);
   };
 
   const move = (index: number, by: -1 | 1) => {
     const target = index + by;
-    if (target < 0 || target >= sections.length) return;
-    const next = [...sections];
+    if (target < 0 || target >= rows.length) return;
+    const next = [...rows];
     [next[index], next[target]] = [next[target], next[index]];
-    setSections(next);
+    setRows(next);
   };
 
   const applyLookup = (result: LookupResult) => {
     if (result.key) setSongKey(result.key);
-    setSections(
-      sections.map((section) => ({
-        ...section,
-        ...(result.bpm ? { bpm: result.bpm } : {}),
-        ...(result.beatsPerBar ? { beatsPerBar: result.beatsPerBar } : {}),
+    setRows(
+      rows.map((row) => ({
+        id: row.id,
+        section: {
+          ...row.section,
+          ...(result.bpm ? { bpm: result.bpm } : {}),
+          ...(result.beatsPerBar ? { beatsPerBar: result.beatsPerBar } : {}),
+        },
       })),
     );
     setResults(null);
@@ -232,7 +252,7 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
               <SmallButton
                 label="Look up BPM"
                 testID="lookup-bpm"
-                onPress={() => run(async () => setResults(await lookup({ title })))}
+                onPress={() => run(async () => setResults(await lookup({ groupId, title })))}
               />
               <Pressable onPress={() => void Linking.openURL("https://getsongbpm.com")}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -253,16 +273,16 @@ function SongForm({ songId, song, vocabulary }: { songId: Id<"songs">; song: Loa
             </View>
           ) : null}
 
-          {sections.map((section, index) => (
+          {rows.map((row, index) => (
             <SectionRow
-              key={index}
-              section={section}
+              key={row.id}
+              section={row.section}
               index={index}
-              count={sections.length}
+              count={rows.length}
               vocabulary={vocabulary}
-              onChange={(next) => setSections(sections.map((s, i) => (i === index ? next : s)))}
+              onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
               onMove={(by) => move(index, by)}
-              onRemove={() => setSections(sections.filter((_, i) => i !== index))}
+              onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
             />
           ))}
           <SmallButton label="+ Add Section" testID="add-section" onPress={addSection} />

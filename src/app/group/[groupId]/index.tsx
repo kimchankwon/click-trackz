@@ -343,8 +343,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
   const song: Song = playback?.song ?? emptySong;
-  const shownTitle = playback ? playingSong?.title : selectedSong?.title;
-  const shownSections = playback ? playback.song.sections : (selectedSong?.sections ?? []);
+  const [playing, setPlaying] = useState(false);
+  const showPlayback = playback !== null && (playing || selectedSongId === null);
+  const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
+  const shownSections = showPlayback ? playback.song.sections : (selectedSong?.sections ?? []);
   const isAdmin = group.role === "admin";
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
@@ -361,7 +363,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
-  const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
 
