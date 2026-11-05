@@ -51,16 +51,34 @@ function KeepAwake() {
   return null;
 }
 
-function TransportButton({ label, onPress, testID, primary }: { label: string; onPress: () => void; testID: string; primary?: boolean }) {
+function TransportButton({
+  label,
+  onPress,
+  testID,
+  primary,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+  primary?: boolean;
+  disabled?: boolean;
+}) {
   const theme = useTheme();
+  const filled = primary && !disabled;
   return (
     <Pressable
       role="button"
       testID={testID}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.transport, { backgroundColor: primary ? theme.accent : theme.backgroundElement }]}
+      style={[styles.transport, { backgroundColor: filled ? theme.accent : theme.backgroundElement }, disabled ? styles.transportDisabled : null]}
     >
-      <ThemedText type="subtitle" style={[styles.transportText, primary ? { color: theme.onAccent } : null]}>
+      <ThemedText
+        type="subtitle"
+        themeColor={disabled ? "textSecondary" : undefined}
+        style={[styles.transportText, filled ? { color: theme.onAccent } : null]}
+      >
         {label}
       </ThemedText>
     </Pressable>
@@ -68,6 +86,8 @@ function TransportButton({ label, onPress, testID, primary }: { label: string; o
 }
 
 const emptySong: Song = { countIn: false, sections: [] };
+
+const WEAK_PING_MS = 80;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -100,18 +120,22 @@ export default function GroupRoute() {
 
 function GroupScreen({ group }: { group: MyGroup }) {
   const groupId = group.groupId;
-  const { estimate, serverNow } = useServerClock();
+  const [playing, setPlaying] = useState(false);
+  const { estimate, serverNow } = useServerClock({ playing });
   const playbackDoc = useQuery(api.playback.current, { groupId });
   const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
   const song: Song = playback?.song ?? emptySong;
-  const [playing, setPlaying] = useState(false);
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
   const shownSections = showPlayback ? playback.song.sections : (selectedSong?.sections ?? []);
   const isAdmin = group.role === "admin";
+  const startSongId = selectedSongId ?? playback?.songId ?? null;
+  const startSong = selectedSongId ? selectedSong : playingSong;
+  const startBlocker: "noSong" | "needsSections" | "loading" | null =
+    startSongId === null ? "noSong" : startSong === undefined ? "loading" : startSong === null || startSong.sections.length === 0 ? "needsSections" : null;
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
@@ -228,7 +252,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
               <View style={[styles.statusDot, { backgroundColor: estimate ? theme.accent : theme.textSecondary }]} />
               <ThemedText type="small" themeColor="textSecondary" testID="clock-status">
-                {estimate ? `clock ±${estimate.uncertaintyMs.toFixed(0)} ms` : "Measuring clock…"}
+                {estimate ? `ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring ping…"}
               </ThemedText>
             </View>
           </View>
@@ -247,15 +271,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 label="Start"
                 testID="start"
                 primary
+                disabled={startBlocker !== null}
                 onPress={() =>
                   run(async () => {
-                    const songId = selectedSongId ?? playback?.songId;
-                    if (!songId) throw new Error("Pick a Song first");
-                    await start({ groupId, songId });
+                    if (startSongId) await start({ groupId, songId: startSongId });
                   })
                 }
               />
-              <TransportButton label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+              <TransportButton label="Stop" testID="stop" disabled={!playing} onPress={() => run(() => stop({ groupId }))} />
             </View>
           ) : (
             <ThemedText type="small" themeColor="textSecondary">
@@ -266,27 +289,45 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <ThemedText type="smallBold" testID="song-title">
             {shownTitle ?? (isAdmin ? "Pick a Song below" : "Waiting for an Admin to start a Song")}
           </ThemedText>
-
-          <Card title="SECTIONS">
-            <View style={styles.wrap}>
-              {shownSections.map((section, index) => (
-                <Chip
-                  key={index}
-                  role="button"
-                  label={labelOf(section)}
-                  selected={playing && beat?.sectionIndex === index}
-                  onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
-                />
-              ))}
-            </View>
-            <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="Jump at">
-              <ThemedText type="small" themeColor="textSecondary">
-                Jump at
+          {isAdmin && startBlocker === "needsSections" && startSongId ? (
+            <Pressable
+              role="link"
+              testID="start-needs-sections"
+              onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: startSongId } })}
+            >
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                This Song has no Sections yet, so it cannot start. Tap to add them.
               </ThemedText>
-              <Chip role="radio" label="End of Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
-              <Chip role="radio" label="Next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
-            </View>
-          </Card>
+            </Pressable>
+          ) : null}
+          {error ? (
+            <ThemedText themeColor="textSecondary" testID="error" style={styles.centered}>
+              {error}
+            </ThemedText>
+          ) : null}
+
+          {shownSections.length > 0 ? (
+            <Card title="SECTIONS">
+              <View style={styles.wrap}>
+                {shownSections.map((section, index) => (
+                  <Chip
+                    key={index}
+                    role="button"
+                    label={labelOf(section)}
+                    selected={playing && beat?.sectionIndex === index}
+                    onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
+                  />
+                ))}
+              </View>
+              <View style={[styles.wrap, isAdmin ? null : styles.hidden]} role="radiogroup" aria-label="When I tap a Section, go">
+                <ThemedText type="small" themeColor="textSecondary">
+                  When I tap a Section, go
+                </ThemedText>
+                <Chip role="radio" label="After this Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
+                <Chip role="radio" label="At the next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
+              </View>
+            </Card>
+          ) : null}
 
           <Card title="SOUND">
             {soundOn ? (
@@ -370,11 +411,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
               Leave Group
             </ThemedText>
           </Pressable>
-          {error ? (
-            <ThemedText themeColor="textSecondary" testID="error">
-              {error}
-            </ThemedText>
-          ) : null}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -406,6 +442,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: Spacing.three, width: "100%" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   transport: { flex: 1, alignItems: "center", paddingVertical: Spacing.three, borderRadius: Spacing.four },
+  transportDisabled: { opacity: 0.5 },
+  centered: { textAlign: "center" },
   transportText: { fontSize: 22, lineHeight: 28 },
   hidden: { display: "none" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },

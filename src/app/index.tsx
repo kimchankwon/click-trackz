@@ -1,11 +1,11 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useGoogleSignIn } from "@/auth/use-google-sign-in";
+import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
@@ -143,16 +143,29 @@ export default function HomeScreen() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { signIn } = useAuthActions();
   const signInWithGoogle = useGoogleSignIn();
+  const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = (action: () => Promise<unknown>) => {
+  const run = useCallback((action: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
     action()
       .catch((e: unknown) => setError(errorText(e)))
       .finally(() => setBusy(false));
-  };
+  }, []);
+
+  const retryGoogle = useCallback(() => run(() => signInWithGoogle({ retry: true })), [run, signInWithGoogle]);
+  const explainGoogle = useCallback(
+    () => setError("Google sign-in did not finish. Tap Sign in with Google to try again."),
+    [],
+  );
+  useGoogleReturn({
+    settled: !isLoading && (!isAuthenticated || viewer !== undefined),
+    signedInWithGoogle: isAuthenticated && viewer != null && !viewer.isAnonymous,
+    onRetry: retryGoogle,
+    onGiveUp: explainGoogle,
+  });
 
   return (
     <ThemedView style={styles.container}>

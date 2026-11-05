@@ -1,14 +1,21 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import * as Linking from "expo-linking";
 import { maybeCompleteAuthSession, openAuthSessionAsync } from "expo-web-browser";
+import { useEffect } from "react";
 import { Platform } from "react-native";
+
+import { googleReturnAction } from "./google-return";
+import { readPendingGoogleSignIn, writePendingGoogleSignIn } from "./pending-google";
 
 maybeCompleteAuthSession();
 
+let returnChecked = false;
+
 export function useGoogleSignIn() {
   const { signIn } = useAuthActions();
-  return async () => {
+  return async (options?: { retry?: boolean }) => {
     const redirectTo = Platform.OS === "web" ? window.location.origin : Linking.createURL("/");
+    if (Platform.OS === "web") writePendingGoogleSignIn({ startedAt: Date.now(), retried: options?.retry === true });
     const { redirect } = await signIn("google", { redirectTo });
     if (Platform.OS === "web" || !redirect) return;
     const result = await openAuthSessionAsync(redirect.toString(), redirectTo);
@@ -16,4 +23,30 @@ export function useGoogleSignIn() {
     const code = Linking.parse(result.url).queryParams?.code;
     if (typeof code === "string") await signIn("google", { code });
   };
+}
+
+export function useGoogleReturn({
+  settled,
+  signedInWithGoogle,
+  onRetry,
+  onGiveUp,
+}: {
+  settled: boolean;
+  signedInWithGoogle: boolean;
+  onRetry: () => void;
+  onGiveUp: () => void;
+}) {
+  useEffect(() => {
+    if (!settled || returnChecked) return;
+    const hasCode = Platform.OS === "web" && new URLSearchParams(window.location.search).has("code");
+    if (hasCode) return;
+    returnChecked = true;
+    const action = googleReturnAction({ pending: readPendingGoogleSignIn(), now: Date.now(), isAuthenticated: signedInWithGoogle, hasCode });
+    if (action === "clear") writePendingGoogleSignIn(null);
+    if (action === "retry") onRetry();
+    if (action === "explain") {
+      writePendingGoogleSignIn(null);
+      onGiveUp();
+    }
+  }, [settled, signedInWithGoogle, onRetry, onGiveUp]);
 }
