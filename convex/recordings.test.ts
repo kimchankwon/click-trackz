@@ -55,4 +55,32 @@ describe("Voice pack recordings", () => {
     await admin.mutation(api.songs.updateSong, { songId, sections: [exhortation] });
     expect((await admin.query(api.songs.get, { songId }))?.sections[0].sectionType).toBe("Exhortation");
   });
+
+  it("never deletes a file a recording still plays from", async () => {
+    const { t, admin, member, groupId, store } = await setupGroup();
+    const file = await store(20_000, "audio/wav");
+    await admin.mutation(api.recordings.save, { groupId, word: "Chorus", storageId: file });
+    expect(await admin.mutation(api.recordings.save, { groupId, word: "Chorus", storageId: file })).toEqual({
+      ok: false,
+      error: expect.stringMatching(/already used/),
+    });
+    expect(await admin.mutation(api.recordings.save, { groupId, word: "Verse", number: 12, storageId: file })).toEqual({
+      ok: false,
+      error: expect.stringMatching(/already used/),
+    });
+    expect(await t.run((ctx) => ctx.storage.getUrl(file))).toEqual(expect.any(String));
+    expect((await member.query(api.recordings.list, { groupId }))[0].url).toEqual(expect.any(String));
+  });
+
+  it("keeps a custom Section type that Songs use after its last recording is removed", async () => {
+    const { admin, member, groupId, store } = await setupGroup();
+    const file = await store(20_000, "audio/wav");
+    await admin.mutation(api.recordings.save, { groupId, word: "Exhortation", storageId: file });
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    const exhortation = { sectionType: "Exhortation", bars: 4, beatsPerBar: 4, bpm: 78 };
+    await admin.mutation(api.songs.updateSong, { songId, sections: [exhortation] });
+    await admin.mutation(api.recordings.remove, { groupId, key: "exhortation" });
+    expect(await member.query(api.recordings.vocabulary, { groupId })).toContain("Exhortation");
+    await admin.mutation(api.songs.updateSong, { songId, sections: [exhortation, { ...exhortation, bars: 8 }] });
+  });
 });

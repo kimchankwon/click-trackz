@@ -12,10 +12,11 @@ import type { Id } from "../../../convex/_generated/dataModel";
 type Props = {
   groupId: Id<"groups">;
   onPreview: (key: string) => void;
+  canPreview: boolean;
   run: (action: () => Promise<unknown>) => void;
 };
 
-export function VoicePackCard({ groupId, onPreview, run }: Props) {
+export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
   const recordings = useQuery(api.recordings.list, { groupId });
   const generateUploadUrl = useMutation(api.recordings.generateUploadUrl);
   const save = useMutation(api.recordings.save);
@@ -58,9 +59,16 @@ export function VoicePackCard({ groupId, onPreview, run }: Props) {
             {recording.word}
             {recording.number ? ` ${recording.number}` : ""}
           </ThemedText>
-          <Pressable role="button" onPress={() => onPreview(recording.key)} style={[styles.small, { backgroundColor: theme.backgroundElement }]}>
-            <ThemedText type="small">Play</ThemedText>
-          </Pressable>
+          {canPreview ? (
+            <Pressable
+              role="button"
+              testID={`play-${recording.key}`}
+              onPress={() => onPreview(recording.key)}
+              style={[styles.small, { backgroundColor: theme.backgroundElement }]}
+            >
+              <ThemedText type="small">Play</ThemedText>
+            </Pressable>
+          ) : null}
           <Pressable
             role="button"
             testID={`remove-${recording.key}`}
@@ -71,6 +79,11 @@ export function VoicePackCard({ groupId, onPreview, run }: Props) {
           </Pressable>
         </View>
       ))}
+      {!canPreview && (recordings ?? []).length > 0 ? (
+        <ThemedText type="small" themeColor="textSecondary" testID="voice-pack-preview-hint">
+          Enable sound to play these recordings.
+        </ThemedText>
+      ) : null}
       <View style={styles.row}>
         <TextInput testID="recording-word" style={[input, styles.grow]} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" placeholderTextColor={theme.textSecondary} />
         <TextInput testID="recording-number" style={[input, styles.numberInput]} value={number} onChangeText={setNumber} placeholder="#" inputMode="numeric" placeholderTextColor={theme.textSecondary} />

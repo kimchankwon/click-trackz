@@ -57,7 +57,8 @@ export default defineSchema({
     storageId: v.id("_storage"),
   })
     .index("by_group", ["groupId"])
-    .index("by_group_key", ["groupId", "key"]),
+    .index("by_group_key", ["groupId", "key"])
+    .index("by_storage", ["storageId"]),
   playbacks: defineTable({
     groupId: v.id("groups"),
     songId: v.id("songs"),

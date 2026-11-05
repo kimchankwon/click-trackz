@@ -354,7 +354,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             onSelect={setSelectedSongId}
             run={run}
           />
-          {isAdmin ? <VoicePackCard groupId={groupId} run={run} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
+          {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
           <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
           <Pressable
             role="button"

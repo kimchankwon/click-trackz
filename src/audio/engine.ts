@@ -38,6 +38,7 @@ export class CueAudioEngine {
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private uploads = new Map<string, AudioBuffer>();
   private uploadUrls = new Map<string, string>();
+  private wantedUploadUrls = new Map<string, string>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
   private clipsSpeaker: SpeakerId | null = null;
@@ -124,6 +125,7 @@ export class CueAudioEngine {
 
   async setUploads(recordings: readonly { key: string; url: string | null }[]) {
     const wanted = new Map(recordings.filter((r) => r.url !== null).map((r) => [r.key, r.url as string]));
+    this.wantedUploadUrls = wanted;
     for (const key of [...this.uploads.keys()]) {
       if (wanted.get(key) !== this.uploadUrls.get(key)) {
         this.uploads.delete(key);
@@ -137,6 +139,7 @@ export class CueAudioEngine {
         if (this.uploadUrls.get(key) === url) return;
         try {
           const buffer = await loadClip(context, url);
+          if (this.wantedUploadUrls.get(key) !== url) return;
           this.uploads.set(key, buffer);
           this.uploadUrls.set(key, url);
         } catch {

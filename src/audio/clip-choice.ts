@@ -11,9 +11,8 @@ export function chooseClip(
 ): ClipChoice | null {
   const base = wordKey(cue.sectionType);
   const candidates = cue.number === undefined ? [base] : [`${base}-${cue.number}`, base];
-  for (const key of candidates) {
-    if (uploads[key]) return { source: "upload", ref: uploads[key] };
-    if (builtin.has(key)) return { source: "builtin", ref: key };
-  }
-  return null;
+  const uploaded = candidates.find((key) => uploads[key]);
+  if (uploaded) return { source: "upload", ref: uploads[uploaded] };
+  const builtinKey = candidates.find((key) => builtin.has(key));
+  return builtinKey ? { source: "builtin", ref: builtinKey } : null;
 }
