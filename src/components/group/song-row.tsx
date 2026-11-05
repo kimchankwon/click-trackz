@@ -64,14 +64,15 @@ export function SongRow({
             </View>
           ) : null}
         </View>
-        <View
-          style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }, songKey ? null : styles.keyEmpty]}
-          aria-label={songKey ? `Key of ${songKey}` : "No Key"}
-        >
-          <ThemedText type="smallBold" style={styles.keyText}>
-            {songKey || "–"}
-          </ThemedText>
-        </View>
+        {songKey ? (
+          <View style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }]} aria-label={`Key of ${songKey}`}>
+            <ThemedText type="smallBold" style={styles.keyText}>
+              {songKey}
+            </ThemedText>
+          </View>
+        ) : (
+          <View style={styles.keyPill} />
+        )}
         {selected && selectable ? <Icon name="check" size={20} color="accent" /> : null}
       </Pressable>
       {trailing}
@@ -85,10 +86,9 @@ const styles = StyleSheet.create({
   index: { width: 22, textAlign: "right", fontVariant: ["tabular-nums"] },
   text: { flex: 1, minWidth: 0 },
   title: { fontWeight: 600, fontSize: 17 },
-  keyText: { fontSize: 15, lineHeight: 20 },
+  keyText: { fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  keyPill: { width: 40, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
-  keyEmpty: { opacity: 0.4 },
+  keyPill: { width: 44, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
 });

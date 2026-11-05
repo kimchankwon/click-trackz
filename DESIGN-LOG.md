@@ -126,3 +126,44 @@ Skipped or changed:
 
 - Song title above the Section while idle and "Ready" in green: applied, but the green pill only shows when Start is possible; otherwise it reads "No Song picked" or "Needs Sections" in grey.
 - "B?" shown as B plus a superscript: it is the Key as entered, so it is shown as is.
+
+## Round 4
+
+Reviewed: `design-shots/round-3/`. Reviewer: Opus, high effort.
+
+| App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|
+| **Cue Tracker** | **7** | **7** | **6** | **6** | **6** | **6** |
+| REF-A | 7 | 6 | 6 | 8 | 5 | 7 |
+| REF-B | 7 | 5 | 6 | 6 | 7 | 7 |
+| REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
+| REF-D | 7 | 7 | 7 | 6 | 7 | 8 |
+
+Main criticism: disabled buttons at about 2:1 contrast in three styles; the Click icon copies the app logo; the ringed downbeat dot looks like the current beat; trash drawn as the strongest icon in its row; the Setlist editor lists every Song twice; button labels switch faces and weights.
+
+Several fixes reverse round 3 (trash colour, the downbeat ring, the role-change pill, the Edit and New treatment, the next-cue size). Where the reviewers have disagreed across rounds, the majority view is applied and the flip is noted here.
+
+Applied:
+
+1. Disc 320 px with a 190 px count, no outer glow; the disc dims slightly on each beat instead; idle and playing discs are the same size.
+2. Next cue: a NEXT label over a 22 px semibold name, coral with "Next, in one bar" when the Voice cue is about to play; "End of Song" after the last Section.
+3. Beat dots: current beat is a 20 px coral dot, others 14 px; the downbeat is darker grey (round 3 ring removed; round 1 size cue not restored, so the current beat stays unmistakable).
+4. Start and Stop 56 px with 24 px side margins matching the cards; no divider above the dock.
+5. One disabled style: grey fill and grey text, same shape as the enabled control.
+6. Trash icons grey everywhere except the red Delete Song and Delete Setlist text buttons (Sonnet round 2 and Opus round 4 against Opus round 3).
+7. Setlist editor: library shows only Songs not yet added, with "14 already in this Setlist · Show them"; tighter entries.
+8. Sound tab: tempo dial icon for Click, speaking-person icon for Spoken counts, 17 px semibold row titles with 14 px hints.
+9. Members: coral text buttons for role changes, inset separators. Leave Group and Sign out both neutral.
+10. Groups: Join and Create both filled coral.
+11. Songs tab: 28 px Setlist name on its own line, Edit and New as neutral pills, 44x32 Key chips, empty Keys leave the space blank.
+12. Jump mode control 36 px with 14 px labels, no divider; idle BPM and meter on one line.
+13. Song editor: Title, Key and Count-in in one card; circle badges for Section numbers; 16 px stepper value.
+14. Button labels: display face 17 px bold everywhere; the Google button in the body face 16 px semibold.
+15. Latency: full-width slider without a label; number badges on Round 1 and Round 2.
+
+Skipped or changed:
+
+- Moving the GetSongBPM line into the scrolling content: their key check reads the static HTML, and hiding the static link from people while showing it to the checker would be cloaking.
+- A 3 px coral bar on the picked Song row: the row already has a tint and a check.
+- Edit and New as icon-only circles: Sonnet asked for labels in round 2, so they are labelled neutral pills.
+- Phosphor and Lucide icons: Material Symbols has no metronome, so Click uses the closest tempo dial (av_timer) and iOS uses SF Symbols' metronome.

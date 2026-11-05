@@ -28,7 +28,7 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   primary: { background: "accent", text: "onAccent" },
   secondary: { background: "backgroundElement", text: "accent", border: "border" },
   inverse: { background: "inverse", text: "onInverse" },
-  ghost: { background: null, text: "textSecondary" },
+  ghost: { background: null, text: "text" },
   link: { background: null, text: "accent" },
   danger: { background: null, text: "danger" },
   outline: { background: "inputFill", text: "text", border: "inputBorder" },
@@ -39,8 +39,8 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
 export function ActionButton({ label, onPress, testID, accent, variant, small, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
-  const textColor = look.text;
-  const background = look.background ? theme[look.background] : "transparent";
+  const textColor = disabled ? "textTertiary" : look.text;
+  const background = disabled && look.background ? theme.backgroundSelected : look.background ? theme[look.background] : "transparent";
   const height = huge ? 64 : large ? ControlHeight.large : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
@@ -53,8 +53,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, l
       style={({ pressed }) => [
         styles.button,
         { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
-        look.border ? { borderWidth: 1, borderColor: theme[look.border] } : null,
-        disabled ? styles.disabled : null,
+        look.border ? { borderWidth: 1, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
         full ? styles.full : null,
         pressed && !disabled ? styles.pressed : null,
       ]}
@@ -64,7 +63,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, l
         type={small ? "smallBold" : "default"}
         themeColor={textColor}
         numberOfLines={1}
-        style={[small ? styles.smallLabel : styles.label, large || huge ? styles.largeLabel : null, huge ? styles.hugeLabel : null]}
+        style={[styles.label, small ? styles.smallLabel : null, variant === "outline" || variant === "ghost" ? styles.quietLabel : null]}
       >
         {label}
       </ThemedText>
@@ -78,13 +77,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.two,
-    borderRadius: Radius.md,
+    borderRadius: Radius.md + 2,
   },
   full: { alignSelf: "stretch", flexGrow: 1 },
   pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.4 },
-  label: { fontWeight: 600, flexShrink: 1 },
-  smallLabel: { fontWeight: 600, fontSize: 15, flexShrink: 1 },
-  largeLabel: { fontFamily: Fonts.display, fontWeight: 700, fontSize: 18, lineHeight: 24 },
-  hugeLabel: { fontSize: 20, lineHeight: 26 },
+  label: { fontFamily: Fonts.display, fontWeight: 700, fontSize: 17, lineHeight: 22, flexShrink: 1 },
+  smallLabel: { fontSize: 15, lineHeight: 20 },
+  quietLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 16 },
 });

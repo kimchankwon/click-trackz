@@ -27,13 +27,14 @@ export function Card({
             {title}
           </ThemedText>
           {heading ? (
-            <ThemedText type="heading" role="heading" numberOfLines={1} style={styles.heading}>
+            <ThemedText type="heading" role="heading" numberOfLines={2} style={styles.heading}>
               {heading}
             </ThemedText>
           ) : null}
         </View>
-        {action}
+        {action && !heading ? action : null}
       </View>
+      {action && heading ? <View style={styles.actionRow}>{action}</View> : null}
       <View style={[styles.body, plain ? null : { backgroundColor: theme.backgroundElement, padding: Spacing.three }]}>{children}</View>
     </View>
   );
@@ -46,9 +47,10 @@ export function Divider() {
 
 const styles = StyleSheet.create({
   section: { width: "100%", gap: Spacing.two },
-  header: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", minHeight: 32, paddingHorizontal: Spacing.one, gap: Spacing.two },
+  header: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", minHeight: 24, paddingHorizontal: Spacing.one, gap: Spacing.two },
+  actionRow: { flexDirection: "row", gap: Spacing.two, paddingHorizontal: Spacing.one },
   titles: { flex: 1, minWidth: 0, gap: 2 },
-  heading: { fontSize: 22, lineHeight: 28 },
+  heading: { fontSize: 28, lineHeight: 34, fontWeight: 800 },
   body: { gap: Spacing.three, borderRadius: Radius.lg },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: "stretch" },
 });

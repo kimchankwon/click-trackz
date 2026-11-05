@@ -219,7 +219,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong);
   const followingSection = playing && beat ? song.sections[beat.sectionIndex === null ? 0 : beat.sectionIndex + 1] : undefined;
-  const nextLine = !playing ? null : upcoming ? `Next: ${titleOf(upcoming)}` : followingSection ? `Then ${titleOf(followingSection)}` : "Last Section";
+  const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
   const startHint =
     startBlocker === "noSong"
       ? "Pick a Song to start"
@@ -308,11 +308,16 @@ function GroupScreen({ group }: { group: MyGroup }) {
       )}
       <BeatPulse beat={beat} playing={playing} idle={idle} />
       {nextLine ? (
-        <View style={styles.nextRow}>
-          <Icon name="next" size={24} color="accent" />
-          <ThemedText testID="playback-next" style={styles.nextText}>
-            {nextLine}
+        <View style={styles.nextBlock}>
+          <ThemedText type="label" themeColor="textSecondary">
+            {upcoming ? "Next, in one bar" : "Next"}
           </ThemedText>
+          <View style={styles.nextRow}>
+            <Icon name="next" size={18} color="accent" />
+            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
+              {nextLine}
+            </ThemedText>
+          </View>
         </View>
       ) : null}
       {shownSections.length > 0 ? (
@@ -330,12 +335,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
           </View>
           {isAdmin ? (
             <>
-              <Divider />
               <View style={styles.jumpMode}>
                 <ThemedText type="caption" themeColor="textSecondary">
                   When I tap a Section, go
                 </ThemedText>
                 <Segmented
+                  compact
                   label="When I tap a Section, go"
                   value={jumpMode}
                   onChange={setJumpMode}
@@ -378,7 +383,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         <Card title="Mix">
           <View style={styles.mixRow}>
             <View style={styles.mixHead}>
-              <Icon name="pulse" size={24} color="textSecondary" />
+              <Icon name="metronome" size={22} color="textSecondary" />
               <View style={styles.grow}>
                 <Switch label="Click" value={mix.click} onChange={(on) => setMix({ ...mix, click: on })} />
               </View>
@@ -388,7 +393,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <Divider />
           <View style={styles.mixRow}>
             <View style={styles.mixHead}>
-              <Icon name="mic" size={24} color="textSecondary" />
+              <Icon name="mic" size={22} color="textSecondary" />
               <View style={styles.grow}>
                 <Switch label="Voice cues" value={mix.voiceCues} onChange={(on) => setMix({ ...mix, voiceCues: on })} />
               </View>
@@ -397,7 +402,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           </View>
           <Divider />
           <View style={styles.mixHead}>
-            <Icon name="numbered" size={24} color="textSecondary" />
+            <Icon name="speaking" size={22} color="textSecondary" />
             <View style={styles.grow}>
               <Switch label="Spoken counts" hint="Uses the Voice volume" value={mix.spokenCounts} onChange={(on) => setMix({ ...mix, spokenCounts: on })} />
             </View>
@@ -447,7 +452,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
-          variant="danger"
+          variant="ghost"
           icon="logout"
           label="Leave Group"
           testID="leave-group"
@@ -475,14 +480,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background }]}>
           {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
               {playing ? (
-                <ActionButton huge full variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+                <ActionButton large full variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
               ) : (
                 <ActionButton
-                  huge
+                  large
                   full
                   accent
                   icon="play"
@@ -542,8 +547,9 @@ const styles = StyleSheet.create({
   idleTitle: { fontSize: 40, lineHeight: 46 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 36 },
-  nextText: { fontFamily: Fonts.display, fontSize: 28, lineHeight: 34, fontWeight: 700 },
+  nextBlock: { alignItems: "center", gap: Spacing.one },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 28 },
+  nextText: { fontFamily: Fonts.display, fontSize: 22, lineHeight: 28, fontWeight: 600 },
   mixRow: { gap: Spacing.one },
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   plainHint: { paddingHorizontal: Spacing.one },
@@ -559,14 +565,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  leave: { width: "100%", paddingTop: Spacing.five },
+  leave: { width: "100%", paddingTop: Spacing.two },
   switches: { gap: Spacing.three },
   miniBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
     paddingTop: Spacing.two,
-    paddingHorizontal: Spacing.two,
     minHeight: 52,
     maxWidth: MaxContentWidth,
     width: "100%",
@@ -574,12 +579,12 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
-  jumpMode: { gap: Spacing.two },
+  jumpMode: { gap: Spacing.two, paddingTop: Spacing.one },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64 },
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
-  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.three },
-  transport: { flexDirection: "row", paddingTop: Spacing.three, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
+  dock: { paddingHorizontal: Spacing.four },
+  transport: { flexDirection: "row", paddingTop: Spacing.two, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

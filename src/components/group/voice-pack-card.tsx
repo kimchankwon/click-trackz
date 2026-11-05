@@ -66,12 +66,12 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
             {recording.number ? ` ${recording.number}` : ""}
           </ThemedText>
           {canPreview ? (
-            <IconButton icon="play" color="accent" label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+            <IconButton icon="play" color="text" label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
           ) : null}
           <IconButton
             icon="trash"
             label={`Remove ${recording.word}`}
-            color="danger"
+            color="textSecondary"
             testID={`remove-${recording.key}`}
             onPress={() => run(() => remove({ groupId, key: recording.key }))}
           />

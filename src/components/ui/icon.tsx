@@ -36,6 +36,8 @@ const symbols = {
   library: { ios: "books.vertical", material: "library_music" },
   next: { ios: "arrow.turn.down.right", material: "subdirectory_arrow_right" },
   numbered: { ios: "list.number", material: "format_list_numbered" },
+  metronome: { ios: "metronome", material: "av_timer" },
+  speaking: { ios: "person.wave.2", material: "record_voice_over" },
   stopFilled: { ios: "stop.fill", material: "stop_circle" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 

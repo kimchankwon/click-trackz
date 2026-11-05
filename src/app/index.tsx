@@ -139,6 +139,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
             />
             <ActionButton
               label="Create"
+              accent
               testID="create-group"
               disabled={groupName.trim().length === 0}
               onPress={() =>

@@ -23,7 +23,7 @@ export function Switch({
       <View style={styles.text}>
         <ThemedText style={styles.label}>{label}</ThemedText>
         {hint ? (
-          <ThemedText type="caption" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
             {hint}
           </ThemedText>
         ) : null}
@@ -38,7 +38,8 @@ export function Switch({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   text: { flex: 1 },
-  label: { fontSize: 17, lineHeight: 22, fontWeight: 500 },
+  hint: { fontWeight: 400 },
+  label: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
   track: { width: 51, height: 31, borderRadius: 16, padding: 2, justifyContent: "center" },
   thumb: { width: 27, height: 27, borderRadius: 14, backgroundColor: "#FFFFFF", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)" },
   thumbOn: { alignSelf: "flex-end" },

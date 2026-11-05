@@ -39,10 +39,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   }, [beatAt, accent, scale, ring]);
 
   const countStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: (1 - ring.value) * (accent ? 0.5 : 0.28),
-    transform: [{ scale: 1 + ring.value * 0.09 }],
-  }));
+  const discStyle = useAnimatedStyle(() => ({ opacity: 1 - (1 - ring.value) * (accent ? 0.18 : 0.08) }));
 
   const beatsPerBar = beat?.beatsPerBar ?? 4;
   const live = playing && beat !== null;
@@ -50,8 +47,9 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   return (
     <View style={styles.stage}>
       <View style={styles.circleBox}>
-        <Animated.View style={[styles.ring, { borderColor: theme.accent }, ringStyle]} />
-        <View style={[styles.disc, { backgroundColor: theme.backgroundElement, borderColor: live ? theme.accent : theme.border }, live ? styles.discLive : null]}>
+        <Animated.View
+          style={[styles.disc, { backgroundColor: theme.backgroundElement, borderColor: live ? theme.accent : theme.border }, live ? styles.discLive : null, live ? discStyle : null]}
+        >
           {live ? (
             <Animated.Text
               testID="playback-count"
@@ -64,28 +62,24 @@ export function BeatPulse({ beat, playing, idle }: Props) {
             <View style={styles.idle} testID="playback-count">
               <ThemedText style={[styles.idleValue, { color: idle ? theme.text : theme.textTertiary }]}>{idle?.value ?? "--"}</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.idleUnit}>
-                {idle?.unit ?? "No Song picked"}
+                {[idle?.unit ?? "No Song picked", idle?.detail].filter(Boolean).join(" · ")}
               </ThemedText>
-              {idle?.detail ? (
-                <ThemedText themeColor="textSecondary" style={styles.idleDetail}>
-                  {idle.detail}
-                </ThemedText>
-              ) : null}
             </View>
           )}
-        </View>
+        </Animated.View>
       </View>
       <View style={[styles.dots, live ? null : styles.dotsIdle]} testID="beat-dots">
         {Array.from({ length: beatsPerBar }, (_, index) => {
           const active = playing && beat?.beatInBar === index + 1;
-          const dot = <View style={[styles.dot, { backgroundColor: active ? theme.accent : theme.dotInactive }]} />;
-          return index === 0 ? (
-            <View key={index} style={[styles.downbeatRing, { borderColor: active ? theme.accent : theme.dotInactive }]}>
-              {dot}
-            </View>
-          ) : (
+          return (
             <View key={index} style={styles.dotSlot}>
-              {dot}
+              <View
+                style={[
+                  styles.dot,
+                  active ? styles.activeDot : null,
+                  { backgroundColor: active ? theme.accent : index === 0 ? theme.textTertiary : theme.dotInactive },
+                ]}
+              />
             </View>
           );
         })}
@@ -94,9 +88,9 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   );
 }
 
-const DISC = 280;
+const DISC = 320;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
-const MAX_COUNT_FONT = 160;
+const MAX_COUNT_FONT = 190;
 const CONDENSED_WIDTH_PER_FONT_PX = 0.6;
 
 function countFontFor(label: string) {
@@ -105,9 +99,8 @@ function countFontFor(label: string) {
 }
 
 const styles = StyleSheet.create({
-  stage: { alignItems: "center", gap: Spacing.three },
-  circleBox: { width: DISC + 28, height: DISC + 28, alignItems: "center", justifyContent: "center" },
-  ring: { position: "absolute", width: DISC, height: DISC, borderRadius: DISC / 2, borderWidth: 6 },
+  stage: { alignItems: "center", gap: Spacing.four },
+  circleBox: { width: DISC, height: DISC, alignItems: "center", justifyContent: "center" },
   disc: {
     width: DISC,
     height: DISC,
@@ -127,11 +120,10 @@ const styles = StyleSheet.create({
   idle: { alignItems: "center", gap: Spacing.one },
   discLive: { borderWidth: 6 },
   idleValue: { fontFamily: Fonts.condensed, fontSize: 96, lineHeight: 100, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  idleUnit: { fontSize: 15, lineHeight: 20, fontWeight: 600, letterSpacing: 1 },
-  idleDetail: { fontSize: 20, lineHeight: 26, fontWeight: 600, marginTop: Spacing.one },
-  dots: { flexDirection: "row", gap: Spacing.three, alignItems: "center", minHeight: 30 },
+  idleUnit: { fontSize: 15, lineHeight: 20, fontWeight: 600, marginTop: Spacing.two },
+  dots: { flexDirection: "row", alignItems: "center", minHeight: 24 },
   dotsIdle: { opacity: 0.3 },
-  dotSlot: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-  downbeatRing: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  dot: { width: 20, height: 20, borderRadius: 10 },
+  dotSlot: { width: 28, height: 24, alignItems: "center", justifyContent: "center" },
+  dot: { width: 14, height: 14, borderRadius: 7 },
+  activeDot: { width: 20, height: 20, borderRadius: 10 },
 });

@@ -73,6 +73,9 @@ function SetlistForm({
     setMessage(null);
   };
   const [message, setMessage] = useState<string | null>(null);
+  const [showAdded, setShowAdded] = useState(false);
+  const addedCount = songs.filter((song) => entries.some((entry) => entry.songId === song.songId)).length;
+  const librarySongs = showAdded ? songs : songs.filter((song) => !entries.some((entry) => entry.songId === song.songId));
 
   const run = (action: () => Promise<unknown>) => {
     setMessage(null);
@@ -209,35 +212,47 @@ function SetlistForm({
             <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
               Add from the library
             </ThemedText>
-            <View style={[styles.library, { backgroundColor: theme.backgroundElement }]}>
-              {songs.map((song, index) => {
-                const added = entries.some((entry) => entry.songId === song.songId);
-                return (
-                  <Pressable
-                    key={song.songId}
-                    role="button"
-                    aria-label={`Add ${song.title}`}
-                    testID={`add-${song.title}`}
-                    onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
-                    style={({ pressed }) => [
-                      styles.libraryRow,
-                      index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
-                      pressed ? { backgroundColor: theme.backgroundSelected } : null,
-                    ]}
-                  >
-                    <ThemedText style={[styles.grow, styles.libraryTitle, added ? styles.added : null]} numberOfLines={1}>
-                      {song.title}
-                    </ThemedText>
-                    {song.key ? (
-                      <ThemedText type="small" themeColor="textSecondary" style={added ? styles.added : null}>
-                        {song.key}
+            {addedCount > 0 ? (
+              <Pressable role="button" testID="toggle-added" onPress={() => setShowAdded(!showAdded)} style={styles.addedLine}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {addedCount} already in this Setlist ·{" "}
+                </ThemedText>
+                <ThemedText type="smallBold" themeColor="accent">
+                  {showAdded ? "Hide them" : "Show them"}
+                </ThemedText>
+              </Pressable>
+            ) : null}
+            {librarySongs.length === 0 ? null : (
+              <View style={[styles.library, { backgroundColor: theme.backgroundElement }]}>
+                {librarySongs.map((song, index) => {
+                  const added = entries.some((entry) => entry.songId === song.songId);
+                  return (
+                    <Pressable
+                      key={song.songId}
+                      role="button"
+                      aria-label={`Add ${song.title}`}
+                      testID={`add-${song.title}`}
+                      onPress={() => setEntriesState([...entries, { songId: song.songId, title: song.title, key: song.key ?? "", leader: "" }])}
+                      style={({ pressed }) => [
+                        styles.libraryRow,
+                        index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null,
+                        pressed ? { backgroundColor: theme.backgroundSelected } : null,
+                      ]}
+                    >
+                      <ThemedText style={[styles.grow, styles.libraryTitle, added ? styles.added : null]} numberOfLines={1}>
+                        {song.title}
                       </ThemedText>
-                    ) : null}
-                    {added ? <Icon name="check" size={20} color="textTertiary" /> : <Icon name="add" size={22} color="accent" />}
-                  </Pressable>
-                );
-              })}
-            </View>
+                      {song.key ? (
+                        <ThemedText type="small" themeColor="textSecondary" style={added ? styles.added : null}>
+                          {song.key}
+                        </ThemedText>
+                      ) : null}
+                      {added ? <Icon name="check" size={20} color="textTertiary" /> : <Icon name="add" size={22} color="accent" />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {message ? (
@@ -292,14 +307,15 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
   entries: { borderRadius: Radius.lg, overflow: "hidden" },
-  entry: { gap: Spacing.two, paddingVertical: 12, paddingLeft: Spacing.three, paddingRight: Spacing.one },
+  entry: { gap: Spacing.two, paddingVertical: 12, paddingLeft: 12, paddingRight: Spacing.one },
+  addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },
   entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   entryIndex: { width: 22, fontVariant: ["tabular-nums"] },
-  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17 },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 16 },
   entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.two, paddingBottom: Spacing.one },
-  keyInput: { width: 88 },
+  keyInput: { width: 64 },
   grow: { flex: 1, minWidth: 0 },
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },

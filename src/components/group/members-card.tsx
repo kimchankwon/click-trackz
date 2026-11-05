@@ -17,10 +17,11 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
   const list = members ?? [];
   return (
     <Card title={`Members · ${list.length}`}>
-      {list.map((member) => {
+      {list.map((member, index) => {
         const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
         return (
           <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
+            {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
             <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
               <ThemedText style={styles.initial}>
                 {member.displayName.slice(0, 1).toUpperCase()}
@@ -38,7 +39,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
             {isAdmin && !member.isGuest ? (
               <ActionButton
                 small
-                variant="pill"
+                variant="link"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}
                 onPress={() =>
@@ -54,7 +55,8 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 52 },
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 60 },
+  separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
   avatar: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
   name: { flex: 1, minWidth: 0 },
   memberName: { fontSize: 17, lineHeight: 22, fontWeight: 600 },

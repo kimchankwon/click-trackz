@@ -26,6 +26,17 @@ type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
 
+function RoundBadge({ n, muted }: { n: number; muted?: boolean }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.roundBadge, { backgroundColor: muted ? theme.textTertiary : theme.accent }]}>
+      <ThemedText type="smallBold" themeColor={muted ? "background" : "onAccent"} style={styles.roundBadgeText}>
+        {n}
+      </ThemedText>
+    </View>
+  );
+}
+
 export default function LatencyScreen() {
   const theme = useTheme();
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
@@ -144,6 +155,7 @@ export default function LatencyScreen() {
               value={(nudge - LATENCY_MIN_MS) / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
               valueText={`${nudge} ms`}
               hideValue
+              bare
               onChange={(fraction) => setNudge(LATENCY_MIN_MS + fraction * (LATENCY_MAX_MS - LATENCY_MIN_MS))}
             />
             <View style={styles.steps}>
@@ -220,12 +232,12 @@ export default function LatencyScreen() {
               </View>
               <View style={styles.steps}>
                 <View style={styles.stepCell}>
-                  <ActionButton full icon="play" label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
+                  <ActionButton full leading={<RoundBadge n={1} />} label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
                 </View>
                 <View style={styles.stepCell}>
                   <ActionButton
                     full
-                    icon="headphones"
+                    leading={<RoundBadge n={2} muted={!speakerDone} />}
                     label="Round 2"
                     accessibleName="Round 2: your output"
                     testID="round-output"
@@ -307,6 +319,8 @@ const styles = StyleSheet.create({
   stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1, minWidth: 0 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
+  roundBadge: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  roundBadgeText: { fontSize: 12, lineHeight: 14 },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

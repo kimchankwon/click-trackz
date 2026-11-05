@@ -52,7 +52,7 @@ export function SetlistCard({
             {shown ? (
               <ActionButton
                 small
-                variant="link"
+                variant="pill"
                 icon="edit"
                 label="Edit"
                 accessibleName="Edit this Setlist"
@@ -60,7 +60,7 @@ export function SetlistCard({
                 onPress={() => router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId: shown.setlistId } })}
               />
             ) : null}
-            <ActionButton small variant="link" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
+            <ActionButton small variant="pill" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
           </View>
         ) : null
       }
@@ -126,7 +126,7 @@ export function SetlistCard({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", gap: 0 },
+  actions: { flexDirection: "row", gap: Spacing.two },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   list: { marginHorizontal: -Spacing.two, gap: 2 },
   banner: { marginHorizontal: Spacing.two, marginBottom: Spacing.one, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
