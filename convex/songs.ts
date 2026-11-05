@@ -99,7 +99,14 @@ export const get = query({
     const song = await ctx.db.get(songId);
     if (song === null) return null;
     await requireMember(ctx, song.groupId);
-    return { songId: song._id, title: song.title, key: song.key ?? null, countIn: song.countIn, sections: song.sections };
+    return {
+      songId: song._id,
+      title: song.title,
+      key: song.key ?? null,
+      tempoHint: song.tempoHint ?? null,
+      countIn: song.countIn,
+      sections: song.sections,
+    };
   },
 });
 
@@ -109,6 +116,20 @@ export const deleteSong = mutation({
     const song = await ctx.db.get(songId);
     if (song === null) return;
     await requireAdmin(ctx, song.groupId);
+    const setlists = await ctx.db
+      .query("setlists")
+      .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
+      .collect();
+    for (const setlist of setlists) {
+      if (setlist.entries.some((entry) => entry.songId === songId)) {
+        await ctx.db.patch(setlist._id, { entries: setlist.entries.filter((entry) => entry.songId !== songId) });
+      }
+    }
+    const playback = await ctx.db
+      .query("playbacks")
+      .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
+      .unique();
+    if (playback?.songId === songId) await ctx.db.delete(playback._id);
     await ctx.db.delete(songId);
   },
 });

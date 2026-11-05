@@ -214,6 +214,89 @@ function SongsCard({
   );
 }
 
+function SetlistCard({
+  groupId,
+  isAdmin,
+  selectedSongId,
+  onSelect,
+  run,
+}: {
+  groupId: Id<"groups">;
+  isAdmin: boolean;
+  selectedSongId: Id<"songs"> | null;
+  onSelect: (songId: Id<"songs">) => void;
+  run: (action: () => Promise<unknown>) => void;
+}) {
+  const setlists = useQuery(api.setlists.list, { groupId });
+  const createSetlist = useMutation(api.setlists.createSetlist);
+  const theme = useTheme();
+  const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
+  const current = setlists?.find((s) => s.isCurrent) ?? null;
+  const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
+  const setlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
+  if (!setlists || (setlists.length === 0 && !isAdmin)) return null;
+  return (
+    <Card title="SETLIST">
+      <View style={styles.wrap}>
+        {setlists.map((option) => (
+          <Chip
+            key={option.setlistId}
+            label={`${option.name}${option.isCurrent ? " ★" : ""}`}
+            selected={shown?.setlistId === option.setlistId}
+            onPress={() => setShownId(option.setlistId)}
+            testID={`setlist-${option.name}`}
+          />
+        ))}
+        {isAdmin ? (
+          <Chip
+            role="button"
+            label="+ New"
+            selected={false}
+            testID="new-setlist"
+            onPress={() =>
+              run(async () => {
+                const setlistId = await createSetlist({ groupId, name: "New Setlist" });
+                router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
+              })
+            }
+          />
+        ) : null}
+      </View>
+      {(setlist?.entries ?? []).map((entry, index) => (
+        <Pressable
+          key={`${entry.songId}-${index}`}
+          role={isAdmin ? "radio" : undefined}
+          aria-checked={isAdmin ? selectedSongId === entry.songId : undefined}
+          testID={`setlist-entry-${index}`}
+          onPress={() => (isAdmin ? onSelect(entry.songId) : undefined)}
+          style={[styles.entryRow, selectedSongId === entry.songId ? { backgroundColor: theme.accentSoft } : null]}
+        >
+          <ThemedText type="small" themeColor="textSecondary" style={styles.entryIndex}>
+            {index + 1}
+          </ThemedText>
+          <View style={styles.memberName}>
+            <ThemedText type="smallBold">{entry.title}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {[entry.key ? `Key of ${entry.key}` : null, entry.leader ? `Led by ${entry.leader}` : null, entry.needsStructure ? "needs structure" : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </ThemedText>
+          </View>
+        </Pressable>
+      ))}
+      {isAdmin && shown ? (
+        <Chip
+          role="button"
+          label="Edit this Setlist"
+          selected={false}
+          testID="edit-setlist"
+          onPress={() => router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId: shown.setlistId } })}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
 const emptySong: Song = { countIn: false, sections: [] };
 
 export default function GroupScreen() {
@@ -426,6 +509,13 @@ export default function GroupScreen() {
               ))}
             </View>
           </Card>
+          <SetlistCard
+            groupId={groupId}
+            isAdmin={isAdmin}
+            selectedSongId={selectedSongId ?? playback?.songId ?? null}
+            onSelect={setSelectedSongId}
+            run={run}
+          />
           <SongsCard
             groupId={groupId}
             isAdmin={isAdmin}
@@ -487,6 +577,8 @@ const styles = StyleSheet.create({
   onAccent: { color: "#FFFFFF" },
   chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   hidden: { display: "none" },
+  entryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.three },
+  entryIndex: { width: 20, textAlign: "right" },
   input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
   memberRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   memberName: { flex: 1 },
