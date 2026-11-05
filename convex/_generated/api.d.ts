@@ -15,6 +15,8 @@ import type * as clock from "../clock.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as playback from "../playback.js";
+import type * as seed from "../seed.js";
+import type * as setlists from "../setlists.js";
 import type * as songs from "../songs.js";
 import type * as users from "../users.js";
 
@@ -32,6 +34,8 @@ declare const fullApi: ApiFromModules<{
   groups: typeof groups;
   http: typeof http;
   playback: typeof playback;
+  seed: typeof seed;
+  setlists: typeof setlists;
   songs: typeof songs;
   users: typeof users;
 }>;

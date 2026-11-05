@@ -136,7 +136,13 @@ function SectionRow({
   );
 }
 
-type LoadedSong = { title: string; key: string | null; countIn: boolean; sections: EditableSection[] };
+type LoadedSong = {
+  title: string;
+  key: string | null;
+  tempoHint: { bpm: number; beatsPerBar: number } | null;
+  countIn: boolean;
+  sections: EditableSection[];
+};
 
 export default function SongEditorScreen() {
   const params = useLocalSearchParams<{ groupId: string; songId: string }>();
@@ -168,7 +174,12 @@ function SongForm({ songId, song }: { songId: Id<"songs">; song: LoadedSong }) {
     const last = sections.at(-1);
     setSections([
       ...sections,
-      { sectionType: last ? "Verse" : "Intro", bars: 4, beatsPerBar: last?.beatsPerBar ?? 4, bpm: last?.bpm ?? 72 },
+      {
+        sectionType: last ? "Verse" : "Intro",
+        bars: 4,
+        beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
+        bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
+      },
     ]);
   };
 
@@ -200,6 +211,11 @@ function SongForm({ songId, song }: { songId: Id<"songs">; song: LoadedSong }) {
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <ThemedText type="subtitle">Edit Song</ThemedText>
+          {song.tempoHint && sections.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="tempo-hint">
+              Suggested tempo {song.tempoHint.bpm} BPM, {song.tempoHint.beatsPerBar} beats per bar
+            </ThemedText>
+          ) : null}
           <TextInput testID="song-title-input" style={input} value={title} onChangeText={setTitle} placeholder="Title" />
           <View style={styles.inline}>
             <TextInput testID="song-key-input" style={[input, styles.keyInput]} value={songKey} onChangeText={setSongKey} placeholder="Key" />

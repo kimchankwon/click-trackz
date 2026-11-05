@@ -50,4 +50,13 @@ describe("Songs", () => {
     await expect(bad({ bars: 2.5 })).rejects.toThrow(/Bars/);
     await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
   });
+
+  it("ends the Group's Playback when the playing Song is deleted", async () => {
+    const { admin, member, groupId } = await band();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [verse] });
+    await admin.mutation(api.playback.start, { groupId, songId });
+    await admin.mutation(api.songs.deleteSong, { songId });
+    expect(await member.query(api.playback.current, { groupId })).toBeNull();
+  });
 });

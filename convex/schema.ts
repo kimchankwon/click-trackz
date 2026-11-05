@@ -8,6 +8,7 @@ export default defineSchema({
     name: v.string(),
     joinCode: v.string(),
     createdBy: v.id("users"),
+    currentSetlistId: v.optional(v.id("setlists")),
   }).index("by_join_code", ["joinCode"]),
   memberships: defineTable({
     groupId: v.id("groups"),
@@ -22,6 +23,7 @@ export default defineSchema({
     groupId: v.id("groups"),
     title: v.string(),
     key: v.optional(v.string()),
+    tempoHint: v.optional(v.object({ bpm: v.number(), beatsPerBar: v.number() })),
     countIn: v.boolean(),
     sections: v.array(
       v.object({
@@ -32,6 +34,17 @@ export default defineSchema({
         bpm: v.number(),
         voiceCueEnabled: v.optional(v.boolean()),
         customLabel: v.optional(v.string()),
+      }),
+    ),
+  }).index("by_group", ["groupId"]),
+  setlists: defineTable({
+    groupId: v.id("groups"),
+    name: v.string(),
+    entries: v.array(
+      v.object({
+        songId: v.id("songs"),
+        key: v.optional(v.string()),
+        leader: v.optional(v.string()),
       }),
     ),
   }).index("by_group", ["groupId"]),

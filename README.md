@@ -56,6 +56,16 @@ npx convex env set GETSONGBPM_API_KEY <key>
 
 The editor shows "BPM data from GetSongBPM" with a link back, as their terms require.
 
+## Seed the first Setlist
+
+Once your real Group exists, copy its id from the Group page URL (`/group/<id>`) and run:
+
+```bash
+npx convex run seed:firstSetlistForGroup '{"groupId":"<id>"}'
+```
+
+It adds the 15 Songs with their keys, leaders and a suggested tempo (Sections still need entering), puts them in a Setlist and marks it current. Songs whose title already exists in the Group are reused.
+
 ## Check the clock sync
 
 - `npm run clock-check -- 3 12` opens 3 independent Convex clients, takes 12 clock samples each against your deployment and prints each client's offset and how far apart they are. It exits non-zero if the spread exceeds the worst-case bound.
