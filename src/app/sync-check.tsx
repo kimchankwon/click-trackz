@@ -18,7 +18,7 @@ const voiceText = (beat: Beat) =>
       : "";
 
 export default function SyncCheckScreen() {
-  const { estimate, serverNow } = useServerClock();
+  const { estimate, serverNow } = useServerClock({ fast: true });
   const theme = useTheme();
   const songMs = useMemo(() => {
     const beats = beatsBetween(demoSong, { startsAt: 0, startSection: 0 }, 0, Infinity);

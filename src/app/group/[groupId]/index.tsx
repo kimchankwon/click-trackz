@@ -120,14 +120,14 @@ export default function GroupRoute() {
 
 function GroupScreen({ group }: { group: MyGroup }) {
   const groupId = group.groupId;
-  const { estimate, serverNow } = useServerClock();
+  const [playing, setPlaying] = useState(false);
+  const { estimate, serverNow } = useServerClock({ fast: playing });
   const playbackDoc = useQuery(api.playback.current, { groupId });
   const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
   const song: Song = playback?.song ?? emptySong;
-  const [playing, setPlaying] = useState(false);
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
   const shownSections = showPlayback ? playback.song.sections : (selectedSong?.sections ?? []);
