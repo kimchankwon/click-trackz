@@ -28,7 +28,13 @@ The first time, `npx convex dev` asks you to log in and pick a deployment, then 
 ```bash
 npm run lint
 npm run typecheck
+npm test
 ```
+
+## Check the clock sync
+
+- `npm run clock-check -- 3 12` opens 3 independent Convex clients, takes 12 clock samples each against your deployment and prints each client's offset and how far apart they are. It exits non-zero if the spread exceeds the worst-case bound.
+- Open `/sync-check` on two or more devices: each runs a demo Song from the shared clock, so the big Count should change on every screen at the same moment.
 
 ## Docs
 
