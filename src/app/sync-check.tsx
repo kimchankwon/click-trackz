@@ -6,17 +6,9 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { beatsBetween, type Beat, type Song } from "@/sync/timeline";
+import { demoSong } from "@/sync/demo-song";
+import { beatsBetween, type Beat } from "@/sync/timeline";
 import { useServerClock } from "@/sync/use-server-clock";
-
-const demoSong: Song = {
-  countIn: true,
-  sections: [
-    { sectionType: "Intro", bars: 2, beatsPerBar: 4, bpm: 96 },
-    { sectionType: "Verse", number: 1, bars: 4, beatsPerBar: 4, bpm: 96 },
-    { sectionType: "Chorus", bars: 2, beatsPerBar: 3, bpm: 72 },
-  ],
-};
 
 const voiceText = (beat: Beat) =>
   beat.voiceCue
