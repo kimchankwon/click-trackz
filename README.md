@@ -38,7 +38,7 @@ npm test
 
 ## Voice cue recordings
 
-The built-in Voice cue clips in `assets/voice/` were generated once with [ElevenLabs](https://elevenlabs.io) text-to-speech by `npm run voice-pack` (needs `ELEVENLABS_API_KEY` in `.env.tts.local`). They are trimmed to start 4 ms before the first audible sample so each word lands on its beat.
+The built-in Voice cue clips in `assets/voice/<speaker>/` (four Speakers: Adam, Alice, Charlie, Sarah) were generated once with [ElevenLabs](https://elevenlabs.io) text-to-speech by `npm run voice-pack`, which only generates clips that are missing (needs `ELEVENLABS_API_KEY` in `.env.tts.local`). They are trimmed to start 4 ms before the first audible sample so each word lands on its beat.
 
 ## Docs
 
