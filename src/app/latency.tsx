@@ -39,7 +39,7 @@ function Button({ label, onPress, testID, accent }: { label: string; onPress: ()
 
 export default function LatencyScreen() {
   const theme = useTheme();
-  const [stored, setStored] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const nudge = Number(stored);
   const engine = useRef<CueAudioEngine | null>(null);
   const round = useRef<{ clickTimesMs: number[]; reportedLatencyMs: number; taps: number[] } | null>(null);
@@ -191,6 +191,11 @@ export default function LatencyScreen() {
           {message ? (
             <ThemedText testID="latency-message" themeColor="textSecondary">
               {message}
+            </ThemedText>
+          ) : null}
+          {nudgeUnsaved ? (
+            <ThemedText testID="setting-unsaved" themeColor="textSecondary">
+              This device could not save your Latency nudge, so it will reset when you reopen the app.
             </ThemedText>
           ) : null}
           <Button label="Done" testID="latency-done" onPress={() => router.back()} />

@@ -40,7 +40,8 @@ export class CueAudioEngine {
   private uploadUrls = new Map<string, string>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
-  private loadingSpeaker: Promise<void> | null = null;
+  private clipsSpeaker: SpeakerId | null = null;
+  private loadingSpeaker: { speaker: SpeakerId; done: Promise<void> } | null = null;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private voiceBusyUntil = -Infinity;
@@ -89,27 +90,36 @@ export class CueAudioEngine {
       this.voiceBus = voiceBus;
       this.setVolumes(this.volumes);
     }
-    if (speaker !== null) await this.setSpeaker(speaker, firstTime || this.clips.size === 0);
+    if (speaker !== null) await this.setSpeaker(speaker);
     if (this.disposed || this.context === null) return;
     if (this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
   }
 
-  async setSpeaker(speaker: SpeakerId, force = false) {
-    if (!force && speaker === this.speaker && this.clips.size > 0) return;
+  async setSpeaker(speaker: SpeakerId) {
     this.speaker = speaker;
     const context = this.context;
-    if (context === null) return;
-    const loading = (async () => {
+    if (context === null || this.clipsSpeaker === speaker) return;
+    if (this.loadingSpeaker?.speaker === speaker) return this.loadingSpeaker.done;
+    this.clips = new Map();
+    this.clipsSpeaker = null;
+    const done = (async () => {
       const loaded = new Map<BuiltinClipKey, AudioBuffer>();
       await Promise.all(
         allClipKeys.map(async (key) => {
           loaded.set(key, await loadClip(context, builtinVoiceClips[speaker][key]));
         }),
       );
-      if (this.speaker === speaker) this.clips = loaded;
+      if (this.speaker !== speaker) return;
+      this.clips = loaded;
+      this.clipsSpeaker = speaker;
     })();
+    const loading = { speaker, done };
     this.loadingSpeaker = loading;
-    await loading;
+    try {
+      await done;
+    } finally {
+      if (this.loadingSpeaker === loading) this.loadingSpeaker = null;
+    }
   }
 
   async setUploads(recordings: readonly { key: string; url: string | null }[]) {
@@ -166,7 +176,10 @@ export class CueAudioEngine {
   preview(key: BuiltinClipKey) {
     const context = this.context;
     if (context === null) return;
-    void (this.loadingSpeaker ?? Promise.resolve()).then(() => this.play(context, key, context.currentTime));
+    void (this.loadingSpeaker?.done ?? Promise.resolve()).then(
+      () => this.play(context, key, context.currentTime),
+      () => undefined,
+    );
   }
 
   setServerClock(serverNow: () => number | null) {

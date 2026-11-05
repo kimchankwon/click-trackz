@@ -10,10 +10,6 @@ export const deviceStore = {
   },
   set: async (key: string, value: string): Promise<void> => {
     notifyDeviceSetting(key, value);
-    try {
-      window.localStorage.setItem(key, value);
-    } catch {
-      return;
-    }
+    window.localStorage.setItem(key, value);
   },
 };

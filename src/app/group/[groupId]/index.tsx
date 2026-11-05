@@ -327,9 +327,9 @@ export default function GroupScreen() {
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
-  const [clickVolume, setClickVolume] = useDeviceSetting("clickVolume", "0.8", isVolume);
-  const [voiceVolume, setVoiceVolume] = useDeviceSetting("voiceVolume", "0.9", isVolume);
-  const [speaker, setSpeaker] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
+  const [clickVolume, setClickVolume, clickVolumeUnsaved] = useDeviceSetting("clickVolume", "0.8", isVolume);
+  const [voiceVolume, setVoiceVolume, voiceVolumeUnsaved] = useDeviceSetting("voiceVolume", "0.9", isVolume);
+  const [speaker, setSpeaker, speakerUnsaved] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
@@ -359,7 +359,8 @@ export default function GroupScreen() {
   }, [latencyNudge, soundOn]);
 
   useEffect(() => {
-    if (soundOn) void engine.current?.setSpeaker(speaker);
+    if (!soundOn) return;
+    engine.current?.setSpeaker(speaker).catch((e: unknown) => setError(errorText(e)));
   }, [speaker, soundOn]);
 
   useEffect(() => {
@@ -405,7 +406,12 @@ export default function GroupScreen() {
 
   const chooseSpeaker = (next: SpeakerId) => {
     setSpeaker(next);
-    void engine.current?.setSpeaker(next).then(() => engine.current?.preview("chorus"));
+    const current = engine.current;
+    if (!current?.enabled) return;
+    run(async () => {
+      await current.setSpeaker(next);
+      current.preview("chorus");
+    });
   };
 
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
@@ -531,6 +537,16 @@ export default function GroupScreen() {
                 <Chip key={option.id} label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
               ))}
             </View>
+            {soundOn ? null : (
+              <ThemedText type="small" themeColor="textSecondary" testID="speaker-preview-hint">
+                Enable sound to hear each Speaker as you choose.
+              </ThemedText>
+            )}
+            {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
+              <ThemedText type="small" themeColor="textSecondary" testID="setting-unsaved">
+                This device could not save your choice, so it will reset when you reopen the app.
+              </ThemedText>
+            ) : null}
           </Card>
           <SetlistCard
             groupId={groupId}
