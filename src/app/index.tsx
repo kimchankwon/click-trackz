@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
+import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -43,6 +44,14 @@ export default function HomeScreen() {
             <ThemedText testID="viewer-status">
               {viewer ? `Signed in${viewer.isAnonymous ? " as a guest" : ""}` : "Loading…"}
             </ThemedText>
+            <Pressable
+              accessibilityRole="link"
+              testID="open-playback"
+              style={[styles.button, { backgroundColor: theme.backgroundElement }]}
+              onPress={() => router.push("/playback")}
+            >
+              <ThemedText>Open Playback</ThemedText>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               style={[styles.button, { backgroundColor: theme.backgroundElement }]}

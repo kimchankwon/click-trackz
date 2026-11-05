@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as clock from "../clock.js";
 import type * as http from "../http.js";
+import type * as playback from "../playback.js";
 import type * as users from "../users.js";
 
 import type {
@@ -23,6 +24,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   clock: typeof clock;
   http: typeof http;
+  playback: typeof playback;
   users: typeof users;
 }>;
 
