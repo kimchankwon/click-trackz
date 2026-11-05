@@ -6,9 +6,10 @@ import { StyleSheet, View } from "react-native";
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { SongRow } from "@/components/group/song-row";
+import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
-import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -27,6 +28,7 @@ export function SetlistCard({
 }) {
   const setlists = useQuery(api.setlists.list, { groupId });
   const createSetlist = useMutation(api.setlists.createSetlist);
+  const theme = useTheme();
   const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
   const current = setlists?.find((s) => s.isCurrent) ?? null;
   const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
@@ -45,14 +47,17 @@ export function SetlistCard({
         isAdmin ? (
           <View style={styles.actions}>
             {shown ? (
-              <IconButton
+              <ActionButton
+                small
+                variant="ghost"
                 icon="edit"
-                label="Edit this Setlist"
+                label="Edit"
+                accessibleName="Edit this Setlist"
                 testID="edit-setlist"
                 onPress={() => router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId: shown.setlistId } })}
               />
             ) : null}
-            <IconButton icon="add" label="New Setlist" testID="new-setlist" onPress={createAndOpen} />
+            <ActionButton small variant="ghost" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
           </View>
         ) : null
       }
@@ -82,6 +87,14 @@ export function SetlistCard({
         </ThemedText>
       ) : (
         <View style={styles.list}>
+          {entries.some((entry) => entry.needsStructure) ? (
+            <View style={styles.legend}>
+              <View style={[styles.legendDot, { backgroundColor: theme.warning }]} />
+              <ThemedText type="caption" themeColor="textSecondary">
+                No Sections yet, so it cannot start
+              </ThemedText>
+            </View>
+          ) : null}
           {entries.map((entry, index) => (
             <SongRow
               key={`${entry.songId}-${index}`}
@@ -90,6 +103,7 @@ export function SetlistCard({
               meta={entry.leader ? `Led by ${entry.leader}` : null}
               songKey={entry.key}
               needsSections={entry.needsStructure}
+              warningAsDot
               selected={selectedSongId === entry.songId}
               selectable={isAdmin}
               onSelect={() => onSelect(entry.songId)}
@@ -103,7 +117,9 @@ export function SetlistCard({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", gap: Spacing.one },
+  actions: { flexDirection: "row", gap: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   list: { marginHorizontal: -Spacing.two, gap: 2 },
+  legend: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingHorizontal: Spacing.two, paddingBottom: Spacing.one },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
 });

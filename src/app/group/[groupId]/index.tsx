@@ -23,7 +23,9 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { Segmented } from "@/components/ui/segmented";
+import { Switch } from "@/components/ui/switch";
+import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { isLatencySetting } from "@/settings/latency";
@@ -215,12 +217,19 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong);
+  const followingSection = playing && beat ? song.sections[beat.sectionIndex === null ? 0 : beat.sectionIndex + 1] : undefined;
+  const nextLine = !playing ? null : upcoming ? `Next: ${titleOf(upcoming)}` : followingSection ? `Then ${titleOf(followingSection)}` : "Last Section";
   const startHint =
     startBlocker === "noSong"
       ? "Pick a Song to start"
       : startBlocker === "needsSections"
         ? "Add Sections before this Song can start"
         : null;
+
+  const startPlayback = () =>
+    run(async () => {
+      if (startSongId) await start({ groupId, songId: startSongId });
+    });
 
   const header = (
     <ScreenHeader
@@ -242,13 +251,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const soundPrompt = soundOn ? null : (
     <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
-      <Icon name="sound" size={22} color="accent" />
-      <View style={styles.grow}>
-        <ThemedText type="smallBold">Sound is off on this phone</ThemedText>
-        <ThemedText type="caption" themeColor="textSecondary">
-          Turn it on to hear the Click and Voice cues.
-        </ThemedText>
-      </View>
+      <Icon name="sound" size={20} color="accent" />
+      <ThemedText type="smallBold" style={styles.grow}>
+        Sound is off on this phone
+      </ThemedText>
       <ActionButton small accent label="Enable" testID="enable-sound" onPress={enableSound} />
     </View>
   );
@@ -256,15 +262,18 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const playTab = (
     <>
       {soundPrompt}
-      <View style={styles.stageHead}>
-        <ThemedText type="title" testID="current-section" style={styles.centered}>
-          {currentSection}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" testID="playback-next" style={styles.centered}>
-          {playing && upcoming ? `Next: ${titleOf(upcoming)}` : " "}
-        </ThemedText>
-      </View>
+      <ThemedText type="title" testID="current-section" style={[styles.centered, styles.sectionHeading]}>
+        {currentSection}
+      </ThemedText>
       <BeatPulse beat={beat} playing={playing} idle={idle} />
+      {nextLine ? (
+        <View style={styles.nextRow}>
+          <Icon name="next" size={20} color={upcoming ? "accent" : "textSecondary"} />
+          <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "textSecondary"} style={styles.nextText}>
+            {nextLine}
+          </ThemedText>
+        </View>
+      ) : null}
       <View style={styles.stageHead}>
         <ThemedText type="heading" testID="song-title" style={styles.centered}>
           {shownTitle ?? (isAdmin ? "No Song picked" : "Waiting for an Admin")}
@@ -304,14 +313,19 @@ function GroupScreen({ group }: { group: MyGroup }) {
           {isAdmin ? (
             <>
               <Divider />
-              <View style={styles.jumpMode} role="radiogroup" aria-label="When I tap a Section, go">
+              <View style={styles.jumpMode}>
                 <ThemedText type="caption" themeColor="textSecondary">
                   When I tap a Section, go
                 </ThemedText>
-                <View style={styles.wrap}>
-                  <Chip role="radio" label="After this Section" selected={jumpMode === "endOfSection"} onPress={() => setJumpMode("endOfSection")} />
-                  <Chip role="radio" label="At the next bar" selected={jumpMode === "nextBar"} onPress={() => setJumpMode("nextBar")} />
-                </View>
+                <Segmented
+                  label="When I tap a Section, go"
+                  value={jumpMode}
+                  onChange={setJumpMode}
+                  options={[
+                    { value: "endOfSection", label: "After this Section" },
+                    { value: "nextBar", label: "At the next bar" },
+                  ]}
+                />
               </View>
             </>
           ) : null}
@@ -347,19 +361,21 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <VolumeBar icon="pulse" label="Click" testID="click-volume" value={Number(clickVolume)} onChange={(next) => setClickVolume(next.toFixed(2))} />
           <VolumeBar icon="mic" label="Voice" testID="voice-volume" value={Number(voiceVolume)} onChange={(next) => setVoiceVolume(next.toFixed(2))} />
           <Divider />
-          <View style={styles.wrap}>
-            <Chip label="Click" selected={mix.click} onPress={() => setMix({ ...mix, click: !mix.click })} />
-            <Chip label="Voice cues" selected={mix.voiceCues} onPress={() => setMix({ ...mix, voiceCues: !mix.voiceCues })} />
-            <Chip label="Spoken counts" selected={mix.spokenCounts} onPress={() => setMix({ ...mix, spokenCounts: !mix.spokenCounts })} />
+          <View style={styles.switches}>
+            <Switch label="Click" hint="A tick on every beat" value={mix.click} onChange={(on) => setMix({ ...mix, click: on })} />
+            <Switch label="Voice cues" hint="Section names a bar ahead" value={mix.voiceCues} onChange={(on) => setMix({ ...mix, voiceCues: on })} />
+            <Switch label="Spoken counts" hint="Bar and beat numbers" value={mix.spokenCounts} onChange={(on) => setMix({ ...mix, spokenCounts: on })} />
           </View>
         </Card>
       ) : null}
       <Card title="Speaker">
-        <View style={styles.wrap} testID="speaker-picker" role="radiogroup" aria-label="Speaker">
-          {speakers.map((option) => (
-            <Chip key={option.id} role="radio" label={option.name} selected={speaker === option.id} onPress={() => chooseSpeaker(option.id)} />
-          ))}
-        </View>
+        <Segmented
+          label="Speaker"
+          testID="speaker-picker"
+          value={speaker}
+          onChange={chooseSpeaker}
+          options={speakers.map((option) => ({ value: option.id, label: option.name }))}
+        />
         {soundOn ? null : (
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint">
             Enable sound to hear each Speaker as you choose.
@@ -393,18 +409,20 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <>
       <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
-      <ActionButton
-        variant="danger"
-        icon="logout"
-        label="Leave Group"
-        testID="leave-group"
-        onPress={() =>
-          run(async () => {
-            await leave({ groupId });
-            router.replace("/");
-          })
-        }
-      />
+      <View style={styles.leave}>
+        <ActionButton
+          variant="danger"
+          icon="logout"
+          label="Leave Group"
+          testID="leave-group"
+          onPress={() =>
+            run(async () => {
+              await leave({ groupId });
+              router.replace("/");
+            })
+          }
+        />
+      </View>
     </>
   );
 
@@ -422,10 +440,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
-          {isAdmin ? (
+          {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
               {playing ? (
-                <ActionButton large full variant="inverse" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+                <ActionButton large full variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
               ) : (
                 <ActionButton
                   large
@@ -436,12 +454,26 @@ function GroupScreen({ group }: { group: MyGroup }) {
                   accessibleName="Start"
                   testID="start"
                   disabled={startBlocker !== null}
-                  onPress={() =>
-                    run(async () => {
-                      if (startSongId) await start({ groupId, songId: startSongId });
-                    })
-                  }
+                  onPress={startPlayback}
                 />
+              )}
+            </View>
+          ) : null}
+          {isAdmin && tab !== "play" ? (
+            <View style={styles.miniBar}>
+              <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
+              <View style={styles.grow}>
+                <ThemedText type="smallBold" numberOfLines={1}>
+                  {shownTitle ?? "No Song picked"}
+                </ThemedText>
+                <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+                  {playing ? currentSection : (startHint ?? "Ready to start")}
+                </ThemedText>
+              </View>
+              {playing ? (
+                <ActionButton small variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+              ) : (
+                <ActionButton small accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
               )}
             </View>
           ) : null}
@@ -476,7 +508,32 @@ const styles = StyleSheet.create({
   },
   pillText: { fontWeight: 700, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
-  soundPrompt: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg, width: "100%" },
+  sectionHeading: { fontSize: 44, lineHeight: 50 },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 28 },
+  nextText: { fontFamily: Fonts.display, fontSize: 18, lineHeight: 24, fontWeight: 700 },
+  soundPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.three,
+    paddingLeft: Spacing.three,
+    paddingRight: Spacing.two,
+    minHeight: 52,
+    borderRadius: Radius.md,
+    width: "100%",
+  },
+  leave: { width: "100%", paddingTop: Spacing.two },
+  switches: { gap: Spacing.three },
+  miniBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    minHeight: 52,
+    maxWidth: MaxContentWidth,
+    width: "100%",
+    alignSelf: "center",
+  },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   jumpMode: { gap: Spacing.two },

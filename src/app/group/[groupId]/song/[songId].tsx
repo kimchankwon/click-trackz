@@ -84,28 +84,13 @@ function SectionRow({
         >
           <ThemedText type="default" style={styles.typeText} numberOfLines={1}>
             {section.sectionType}
+            {section.number ? ` ${section.number}` : ""}
           </ThemedText>
           <Icon name="expand" size={20} color="textSecondary" />
         </Pressable>
-        <View style={[styles.stepper, { backgroundColor: theme.background }]} aria-label="Section number">
-          <IconButton
-            icon="minus"
-            size={36}
-            label={`Lower the number of Section ${index + 1}`}
-            testID={`section-${index}-number-down`}
-            onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
-          />
-          <ThemedText type="smallBold" themeColor={section.number ? "text" : "textTertiary"} style={styles.stepperValue}>
-            {section.number ?? "#"}
-          </ThemedText>
-          <IconButton
-            icon="add"
-            size={36}
-            label={`Raise the number of Section ${index + 1}`}
-            testID={`section-${index}-number-up`}
-            onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
-          />
-        </View>
+        <IconButton icon="up" color="textSecondary" label={`Move Section ${index + 1} up`} disabled={index === 0} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
+        <IconButton icon="down" color="textSecondary" label={`Move Section ${index + 1} down`} disabled={index === count - 1} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <IconButton icon="trash" color="textSecondary" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
@@ -136,6 +121,30 @@ function SectionRow({
       </View>
       <Divider />
       <View style={styles.sectionBottom}>
+        <View style={styles.numberGroup}>
+          <ThemedText type="label" themeColor="textSecondary">
+            Number
+          </ThemedText>
+          <View style={[styles.stepper, { backgroundColor: theme.background, borderColor: theme.border }]} aria-label="Section number">
+            <IconButton
+              icon="minus"
+              size={36}
+              label={`Lower the number of Section ${index + 1}`}
+              testID={`section-${index}-number-down`}
+              onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+            />
+            <ThemedText type="smallBold" themeColor={section.number ? "text" : "textTertiary"} style={styles.stepperValue}>
+              {section.number ?? "None"}
+            </ThemedText>
+            <IconButton
+              icon="add"
+              size={36}
+              label={`Raise the number of Section ${index + 1}`}
+              testID={`section-${index}-number-up`}
+              onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
+            />
+          </View>
+        </View>
         <View style={styles.grow}>
           <Switch
             label="Voice cue"
@@ -143,9 +152,6 @@ function SectionRow({
             onChange={(on) => onChange({ ...section, voiceCueEnabled: on })}
           />
         </View>
-        <IconButton icon="up" label={`Move Section ${index + 1} up`} disabled={index === 0} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <IconButton icon="down" label={`Move Section ${index + 1} down`} disabled={index === count - 1} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <IconButton icon="trash" color="danger" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
     </View>
   );
@@ -378,7 +384,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
-  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   sectionIndex: { width: 18, textAlign: "center", fontVariant: ["tabular-nums"] },
   typeButton: {
     flex: 1,
@@ -390,12 +396,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
   },
   typeText: { fontWeight: 700, flexShrink: 1 },
-  stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, paddingHorizontal: 2, minHeight: 44 },
-  stepperValue: { minWidth: 18, textAlign: "center", fontVariant: ["tabular-nums"] },
+  stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
+  stepperValue: { minWidth: 44, textAlign: "center", fontVariant: ["tabular-nums"] },
+  numberGroup: { gap: Spacing.one + 2 },
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
   numberInput: { fontVariant: ["tabular-nums"] },
-  sectionBottom: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  sectionBottom: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
   result: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md },
   credit: { textDecorationLine: "underline" },
   centeredText: { textAlign: "center" },

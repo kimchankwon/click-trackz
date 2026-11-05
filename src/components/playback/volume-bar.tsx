@@ -17,9 +17,10 @@ type Props = {
   accessibleName?: string;
   accessibleRange?: { min: number; max: number; now: number };
   icon?: IconName;
+  hideValue?: boolean;
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
@@ -68,12 +69,14 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         </View>
         <View
           pointerEvents="none"
-          style={[styles.thumb, { left: Math.max(0, width - 28) * value, backgroundColor: theme.background, borderColor: theme.accent }]}
+          style={[styles.thumb, { left: Math.max(0, width - 32) * value, backgroundColor: theme.accent, borderColor: theme.background }]}
         />
       </View>
-      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.value}>
-        {valueText ?? Math.round(value * 100)}
-      </ThemedText>
+      {hideValue ? null : (
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.value}>
+          {valueText ?? Math.round(value * 100)}
+        </ThemedText>
+      )}
     </View>
   );
 }
@@ -84,6 +87,6 @@ const styles = StyleSheet.create({
   hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12 },
   track: { height: 6, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
-  thumb: { position: "absolute", width: 24, height: 24, borderRadius: 12, borderWidth: 3 },
+  thumb: { position: "absolute", width: 28, height: 28, borderRadius: 14, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
   value: { minWidth: 48, textAlign: "right", fontVariant: ["tabular-nums"] },
 });

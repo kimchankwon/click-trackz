@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { ControlHeight, Fonts, Radius, Spacing, type ThemeColor } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-export type ButtonVariant = "primary" | "secondary" | "inverse" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "inverse" | "ghost" | "danger" | "outline" | "stop";
 
 type Props = {
   label: string;
@@ -21,12 +21,14 @@ type Props = {
   disabled?: boolean;
 };
 
-const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeColor }> = {
+const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeColor; border?: ThemeColor }> = {
   primary: { background: "accent", text: "onAccent" },
   secondary: { background: "backgroundSelected", text: "text" },
   inverse: { background: "inverse", text: "onInverse" },
   ghost: { background: null, text: "text" },
-  danger: { background: null, text: "danger" },
+  danger: { background: null, text: "danger", border: "danger" },
+  outline: { background: null, text: "text", border: "backgroundSelected" },
+  stop: { background: "backgroundElement", text: "accent", border: "accent" },
 };
 
 export function ActionButton({ label, onPress, testID, accent, variant, small, large, full, icon, accessibleName, disabled }: Props) {
@@ -46,6 +48,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, l
       style={({ pressed }) => [
         styles.button,
         { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
+        look.border ? { borderWidth: 2, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
         full ? styles.full : null,
         pressed && !disabled ? styles.pressed : null,
       ]}

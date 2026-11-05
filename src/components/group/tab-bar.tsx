@@ -8,7 +8,7 @@ import { useTheme } from "@/hooks/use-theme";
 export type GroupTab = "play" | "songs" | "sound" | "group";
 
 const tabs: { id: GroupTab; label: string; icon: IconName }[] = [
-  { id: "play", label: "Play", icon: "pulse" },
+  { id: "play", label: "Play", icon: "playCircle" },
   { id: "songs", label: "Songs", icon: "songs" },
   { id: "sound", label: "Sound", icon: "sound" },
   { id: "group", label: "Group", icon: "group" },

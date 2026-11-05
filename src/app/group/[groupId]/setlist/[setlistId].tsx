@@ -122,6 +122,7 @@ function SetlistForm({
             right={
               <ActionButton
                 small
+                variant="outline"
                 icon="star"
                 label="Make current"
                 testID="make-current"
@@ -162,11 +163,11 @@ function SetlistForm({
                   <ThemedText type="default" style={styles.entryTitle} numberOfLines={1}>
                     {entry.title}
                   </ThemedText>
-                  <IconButton icon="up" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
-                  <IconButton icon="down" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
+                  <IconButton icon="up" color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                  <IconButton icon="down" color="textSecondary" label={`Move ${entry.title} down`} disabled={index === entries.length - 1} onPress={() => move(index, 1)} />
                   <IconButton
                     icon="trash"
-                    color="danger"
+                    color="textSecondary"
                     label={`Remove ${entry.title}`}
                     testID={`entry-${index}-remove`}
                     onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
@@ -279,11 +280,11 @@ const styles = StyleSheet.create({
   conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
-  entry: { gap: Spacing.two, padding: Spacing.three, paddingRight: Spacing.two, borderRadius: Radius.lg },
+  entry: { gap: Spacing.two, paddingVertical: Spacing.two, paddingLeft: Spacing.three, paddingRight: Spacing.one, borderRadius: Radius.lg },
   entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   entryIndex: { width: 22, fontVariant: ["tabular-nums"] },
   entryTitle: { flex: 1, minWidth: 0, fontWeight: 700 },
-  entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.one },
+  entryFields: { flexDirection: "row", gap: Spacing.two, paddingRight: Spacing.two, paddingBottom: Spacing.one },
   keyInput: { width: 88 },
   grow: { flex: 1, minWidth: 0 },
   library: { borderRadius: Radius.lg, overflow: "hidden" },

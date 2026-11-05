@@ -27,12 +27,31 @@ export function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const songs = useQuery(api.songs.list, { groupId });
+  const setlists = useQuery(api.setlists.list, { groupId });
+  const [expandedChoice, setExpandedChoice] = useState<boolean | null>(null);
+  const expanded = expandedChoice ?? (setlists !== undefined && setlists.length === 0);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const list = songs ?? [];
   return (
-    <Card title={`Song library · ${list.length}`}>
-      {list.length === 0 ? (
+    <Card
+      title={`Song library · ${list.length}`}
+      action={
+        <ActionButton
+          small
+          variant="ghost"
+          icon={expanded ? "up" : "expand"}
+          label={expanded ? "Hide" : "Show all"}
+          testID="toggle-library"
+          onPress={() => setExpandedChoice(!expanded)}
+        />
+      }
+    >
+      {!expanded ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Every Song this Group has, including ones not in a Setlist. Show all to pick or edit one.
+        </ThemedText>
+      ) : list.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           No Songs yet.
         </ThemedText>
@@ -64,7 +83,7 @@ export function SongsCard({
           ))}
         </View>
       )}
-      {isAdmin ? (
+      {isAdmin && expanded ? (
         <>
           <Divider />
           <View style={styles.addRow}>

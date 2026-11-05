@@ -61,13 +61,13 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               ]}
             >
               <View style={[styles.groupMark, { backgroundColor: group.role === "admin" ? theme.accentTint : theme.backgroundSelected }]}>
-                <Icon name="group" size={20} color={group.role === "admin" ? "accent" : "textSecondary"} />
+                <Icon name={group.role === "admin" ? "admin" : "group"} size={20} color={group.role === "admin" ? "accent" : "textSecondary"} />
               </View>
               <View style={styles.grow}>
                 <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
                   {group.name}
                 </ThemedText>
-                <ThemedText type="caption" themeColor={group.role === "admin" ? "accent" : "textSecondary"}>
+                <ThemedText type="small" themeColor={group.role === "admin" ? "accent" : "textSecondary"} style={styles.role}>
                   {group.role === "admin" ? "Admin" : "Member"}
                 </ThemedText>
               </View>
@@ -209,7 +209,7 @@ export default function HomeScreen() {
               <View style={styles.signInButtons}>
                 <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
                 <ActionButton large icon="person" label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-                <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
                   Guests can join a Group. Sign in with Google to create one.
                 </ThemedText>
               </View>
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
-  welcome: { flexGrow: 1, justifyContent: "center", gap: Spacing.five },
+  welcome: { flexGrow: 1, justifyContent: "flex-start", paddingTop: "22%", gap: Spacing.five },
   brand: { alignItems: "center", gap: Spacing.three },
   logo: { width: 80, height: 80, borderRadius: Radius.lg + 4, alignItems: "center", justifyContent: "center", marginBottom: Spacing.two },
   signInButtons: { gap: Spacing.three },
@@ -251,4 +251,5 @@ const styles = StyleSheet.create({
   groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },
   groupMark: { width: 40, height: 40, borderRadius: Radius.md, alignItems: "center", justifyContent: "center" },
   groupName: { fontWeight: 700, fontSize: 17 },
+  role: { fontWeight: 600 },
 });

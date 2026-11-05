@@ -12,7 +12,7 @@ export function IconButton({
   color = "text",
   filled,
   disabled,
-  size = 40,
+  size = 44,
 }: {
   icon: IconName;
   label: string;

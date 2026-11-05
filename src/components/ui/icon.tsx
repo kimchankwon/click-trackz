@@ -31,6 +31,10 @@ const symbols = {
   logout: { ios: "rectangle.portrait.and.arrow.right", material: "logout" },
   person: { ios: "person.crop.circle", material: "account_circle" },
   touch: { ios: "hand.tap.fill", material: "touch_app" },
+  playCircle: { ios: "play.circle.fill", material: "play_circle" },
+  admin: { ios: "checkmark.shield.fill", material: "verified_user" },
+  library: { ios: "books.vertical", material: "library_music" },
+  next: { ios: "arrow.turn.down.right", material: "subdirectory_arrow_right" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

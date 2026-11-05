@@ -65,7 +65,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
           <IconButton
             icon="trash"
             label={`Remove ${recording.word}`}
-            color="danger"
+            color="textSecondary"
             testID={`remove-${recording.key}`}
             onPress={() => run(() => remove({ groupId, key: recording.key }))}
           />
@@ -92,7 +92,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 48 },
   grow: { flex: 1, minWidth: 0 },
   numberInput: { width: 64 },
 });

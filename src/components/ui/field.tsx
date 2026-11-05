@@ -15,7 +15,7 @@ export function Field({ label, containerStyle, compact, inset, style, ...input }
       {...input}
       style={[
         styles.input,
-        { minHeight: compact ? 44 : ControlHeight.regular, color: theme.text, backgroundColor: inset ? theme.background : theme.backgroundElement },
+        { minHeight: compact ? 44 : ControlHeight.regular, color: theme.text, backgroundColor: inset ? theme.background : theme.backgroundElement, borderColor: inset ? theme.border : "transparent" },
         style,
       ]}
     />
@@ -36,6 +36,7 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: 14,
     borderRadius: Radius.md,
+    borderWidth: 1,
     fontFamily: Fonts.body,
     fontSize: 16,
     fontWeight: 500,

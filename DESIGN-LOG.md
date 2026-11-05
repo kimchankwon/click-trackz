@@ -2,7 +2,7 @@
 
 A loop to raise the app's UI quality. Each round: screenshot the main screens in light and dark, have independent reviewers score Cue Tracker and every app in `design-refs/` from 1 to 10 in six categories, apply the fixes they agree on, and record the result here. The loop ends when every reviewer rates Cue Tracker 9 or more in every category and above every reference app.
 
-Reviewers run read-only and are not told a target score. One Sonnet reviewer runs until it scores Cue Tracker 9 or more everywhere; then an Opus reviewer joins.
+Reviewers run read-only and are not told a target score. Rounds 1 and 2 used one Sonnet reviewer; from round 3 the reviewer is Opus at high effort.
 
 Screenshots live in `design-shots/round-N/` (402 px wide at 2x, full scroll length). Annotated before/after sheets live in `design-shots/round-N/compare/`.
 
@@ -52,3 +52,38 @@ Skipped or changed from the reviewer's suggestion:
 - Google "G" logo on the sign-in button: Google's brand mark, so a generic account icon is used.
 - Stop in a red danger fill: red sits too close to the coral Start, so Stop uses the inverse (black or white) fill instead.
 - Progress ring that fills through the bar: the beat dots already show position in the bar.
+
+## Round 2
+
+Reviewed: `design-shots/round-1/`. Reviewer: Sonnet.
+
+| App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|
+| **Cue Tracker** | **6** | **7** | **6** | **6** | **7** | **7** |
+| REF-A | 8 | 8 | 7 | 7 | 7 | 7 |
+| REF-B | 7 | 6 | 6 | 6 | 6 | 7 |
+| REF-C | 8 | 7 | 7 | 8 | 8 | 8 |
+| REF-D | 7 | 7 | 7 | 7 | 7 | 7 |
+
+Main criticism: idle tabs compete (sound banner, Start bar, equal cards); the Songs tab lists every Song twice; one chip style used for toggles, choices and selections; a white Stop glares on a dark stage; dark-mode disabled buttons vanish; both 0 ms latency presets look selected.
+
+Applied:
+
+1. Playing: Section name 44 px; a next line under the circle ("Next: Bridge" in coral a bar ahead, otherwise "Then Bridge" or "Last Section"); Stop outlined in coral on a dark fill.
+2. Sound-off banner reduced to one 52 px row; the big Start stays on Play and becomes a mini bar (Song, status, small Start or Stop) on the other tabs.
+3. Songs tab: Setlist rows show only the amber dot with one legend line; the library collapses when a Setlist exists; Edit and New are labelled 44 px buttons; titles 17 px, Key pills 15 px bold.
+4. Groups: shield icon for Admin Groups, role label 14 px semibold; sign-in brand block moved into the top third, helper text 14 px.
+5. Sound tab: solid 28 px slider thumb; mix toggles became switches with hints; Speaker and jump mode became segmented controls.
+6. Group tab: 40 px avatars, text buttons for role changes, grey trash icons, Leave Group as an outlined deep-red button.
+7. Song editor: move and remove in the Section card header; a labelled Number stepper beside the Voice cue switch; the type button shows the number.
+8. Setlist editor: tighter entry cards, bordered fields, grey icons, outlined Make current.
+9. Latency: 72 px readout with a 24 px unit, no duplicate value by the slider, 48 px steps, one chosen preset with a check.
+10. Tokens: darker light-mode tertiary text, lighter dark-mode tertiary text, a deeper danger red distinct from the coral accent, a raised segment colour for dark mode, 1 px borders on inset fields, 12 px attribution footer.
+
+Skipped or changed:
+
+- Google as the filled sign-in button: most Members join as guests with a code, so guest stays primary.
+- Drag handle for Sections: reordering by drag is new behaviour.
+- Collapsing "No Sections yet" text behind a tap: the library keeps the text; the Setlist shows the dot with a legend.
+- Moving the attribution footer into scrolling content: GetSongBPM checks for the link in the static HTML, so it stays in `public/index.html`.
+- "B?" Key badge: that is the Key as written in the seeded Setlist, not a rendering bug.

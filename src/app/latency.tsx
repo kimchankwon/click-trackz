@@ -40,6 +40,7 @@ export default function LatencyScreen() {
   const [listening, setListening] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [chosenPreset, setChosenPreset] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -128,7 +129,7 @@ export default function LatencyScreen() {
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.readout}>
               <ThemedText style={[styles.readoutValue, { color: theme.text }]}>{nudge}</ThemedText>
-              <ThemedText type="heading" themeColor="textSecondary">
+              <ThemedText themeColor="textSecondary" style={styles.readoutUnit}>
                 ms
               </ThemedText>
             </View>
@@ -142,12 +143,13 @@ export default function LatencyScreen() {
               accessibleRange={{ min: LATENCY_MIN_MS, max: LATENCY_MAX_MS, now: nudge }}
               value={(nudge - LATENCY_MIN_MS) / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
               valueText={`${nudge} ms`}
+              hideValue
               onChange={(fraction) => setNudge(LATENCY_MIN_MS + fraction * (LATENCY_MAX_MS - LATENCY_MIN_MS))}
             />
             <View style={styles.steps}>
               {[-10, -1, 1, 10].map((step) => (
                 <View key={step} style={styles.stepCell}>
-                  <ActionButton small full label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
+                  <ActionButton full label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
                 </View>
               ))}
             </View>
@@ -159,22 +161,31 @@ export default function LatencyScreen() {
             </ThemedText>
             <View style={styles.presets}>
               {latencyPresets.map((preset) => {
-                const selected = preset.ms === nudge;
+                const matching = latencyPresets.filter((p) => p.ms === nudge);
+                const selected =
+                  preset.ms === nudge && (matching.some((p) => p.label === chosenPreset) ? preset.label === chosenPreset : matching[0] === preset);
                 return (
                   <Pressable
                     key={preset.label}
-                    role="button"
                     testID={`preset-${preset.label}`}
-                    onPress={() => setNudge(preset.ms)}
+                    role="radio"
+                    aria-checked={selected}
+                    onPress={() => {
+                      setChosenPreset(preset.label);
+                      setNudge(preset.ms);
+                    }}
                     style={[
                       styles.preset,
                       { backgroundColor: selected ? theme.accentTint : theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
                     ]}
                   >
-                    <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"}>
-                      {preset.label}
-                    </ThemedText>
-                    <ThemedText type="caption" themeColor="textSecondary" style={styles.tabular}>
+                    <View style={styles.presetTop}>
+                      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"} style={styles.grow}>
+                        {preset.label}
+                      </ThemedText>
+                      {selected ? <Icon name="check" size={18} color="accent" /> : null}
+                    </View>
+                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabular}>
                       {preset.ms} ms
                     </ThemedText>
                   </Pressable>
@@ -284,7 +295,9 @@ const styles = StyleSheet.create({
   groupLabel: { paddingHorizontal: Spacing.one },
   panel: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   readout: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", gap: Spacing.two },
-  readoutValue: { fontFamily: Fonts.condensed, fontSize: 64, lineHeight: 70, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  readoutValue: { fontFamily: Fonts.condensed, fontSize: 72, lineHeight: 78, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  readoutUnit: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: "700" },
+  presetTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   centered: { textAlign: "center" },
   steps: { flexDirection: "row", gap: Spacing.two },
   stepCell: { flex: 1, flexDirection: "row" },

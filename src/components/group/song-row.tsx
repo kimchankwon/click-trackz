@@ -17,6 +17,7 @@ export function SongRow({
   onSelect,
   trailing,
   testID,
+  warningAsDot,
 }: {
   index?: number;
   title: string;
@@ -28,6 +29,7 @@ export function SongRow({
   onSelect: () => void;
   trailing?: ReactNode;
   testID?: string;
+  warningAsDot?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -51,16 +53,20 @@ export function SongRow({
           </ThemedText>
           {meta || needsSections ? (
             <View style={styles.metaRow}>
-              {needsSections ? <View style={[styles.dot, { backgroundColor: theme.warning }]} /> : null}
-              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
-                {[needsSections ? "No Sections yet" : null, meta].filter(Boolean).join(" · ")}
-              </ThemedText>
+              {needsSections ? (
+                <View role="img" aria-label="No Sections yet" style={[styles.dot, { backgroundColor: theme.warning }]} />
+              ) : null}
+              {meta || (needsSections && !warningAsDot) ? (
+                <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
+                  {[needsSections && !warningAsDot ? "No Sections yet" : null, meta].filter(Boolean).join(" · ")}
+                </ThemedText>
+              ) : null}
             </View>
           ) : null}
         </View>
         {songKey ? (
           <View style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }]}>
-            <ThemedText type="smallBold" aria-label={`Key of ${songKey}`}>
+            <ThemedText type="smallBold" aria-label={`Key of ${songKey}`} style={styles.keyText}>
               {songKey}
             </ThemedText>
           </View>
@@ -77,9 +83,10 @@ const styles = StyleSheet.create({
   main: { flex: 1, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 56, paddingHorizontal: Spacing.two },
   index: { width: 22, textAlign: "right", fontVariant: ["tabular-nums"] },
   text: { flex: 1, minWidth: 0 },
-  title: { fontWeight: 700 },
+  title: { fontWeight: 700, fontSize: 17 },
+  keyText: { fontSize: 15, lineHeight: 20 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  keyPill: { minWidth: 32, height: 28, paddingHorizontal: Spacing.two, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
+  keyPill: { minWidth: 36, height: 30, paddingHorizontal: Spacing.two, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
 });

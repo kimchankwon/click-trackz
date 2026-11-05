@@ -38,6 +38,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
             {isAdmin && !member.isGuest ? (
               <ActionButton
                 small
+                variant="ghost"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}
                 onPress={() =>
@@ -53,7 +54,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48 },
-  avatar: { width: 36, height: 36, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
+  row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 52 },
+  avatar: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
   name: { flex: 1, minWidth: 0 },
 });
