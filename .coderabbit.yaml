@@ -10,6 +10,9 @@ reviews:
     drafts: false
     base_branches:
       - ".*"
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
   path_filters:
     - "!convex/_generated/**"
     - "!package-lock.json"
