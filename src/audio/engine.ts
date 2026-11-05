@@ -26,6 +26,10 @@ export type CueVolumes = {
 
 type Plan = { song: Song; playback: Playback | null };
 
+const SPOKEN_COUNT_OVERLAP_MS = 100;
+
+let tapTestOwner: CueAudioEngine | null = null;
+
 export class CueAudioEngine {
   private context: AudioContext | null = null;
   private clickBus: GainNode | null = null;
@@ -50,7 +54,7 @@ export class CueAudioEngine {
     return this.context !== null;
   }
 
-  async enable(serverNow: () => number | null, speaker: SpeakerId) {
+  async enable(serverNow: () => number | null, speaker: SpeakerId | null) {
     this.serverNow = serverNow;
     const firstTime = this.context === null;
     if (this.context === null) {
@@ -62,7 +66,7 @@ export class CueAudioEngine {
       this.voiceBus.connect(this.context.destination);
       this.setVolumes(this.volumes);
     }
-    await this.setSpeaker(speaker, firstTime);
+    if (speaker !== null) await this.setSpeaker(speaker, firstTime);
     this.timer ??= setInterval(() => this.tick(), TICK_MS);
   }
 
@@ -114,9 +118,10 @@ export class CueAudioEngine {
     if (context && buffer) this.playBuffer(context, buffer, context.currentTime);
   }
 
-  calibrationRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
+  tapTestRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
     const context = this.context;
     if (context === null) throw new Error("Enable sound first");
+    tapTestOwner = this;
     const firstAt = context.currentTime + 0.8;
     const nowMs = performance.now();
     const clickTimesMs: number[] = [];
@@ -153,7 +158,12 @@ export class CueAudioEngine {
     }
   }
 
+  endTapTest() {
+    if (tapTestOwner === this) tapTestOwner = null;
+  }
+
   dispose() {
+    this.endTapTest();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     void this.context?.close();
@@ -168,11 +178,11 @@ export class CueAudioEngine {
     if (context === null || now === null) return;
     this.mapping = slewMapping(this.mapping, context.currentTime * 1000 - now);
     const playback = this.plan?.playback;
-    if (!this.plan || !playback) return;
-    const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS;
-    if (to <= from) return;
+    if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
+    const from = Math.max(this.scheduledUntil, now);
+    const to = now + LOOKAHEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
       this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
     }
@@ -191,7 +201,7 @@ export class CueAudioEngine {
         this.voiceBusyUntil = beat.at + buffer.duration * 1000;
       }
     }
-    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil) {
+    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil - SPOKEN_COUNT_OVERLAP_MS) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       if (key) this.play(context, key, when);
     }

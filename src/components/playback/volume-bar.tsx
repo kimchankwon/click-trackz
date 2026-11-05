@@ -15,9 +15,10 @@ type Props = {
   testID?: string;
   valueText?: string;
   accessibleName?: string;
+  accessibleRange?: { min: number; max: number; now: number };
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const setFromTouch = (event: GestureResponderEvent) => {
@@ -32,9 +33,10 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         testID={testID}
         role="slider"
         aria-label={accessibleName ?? `${label} volume`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(value * 100)}
+        aria-valuemin={accessibleRange?.min ?? 0}
+        aria-valuemax={accessibleRange?.max ?? 100}
+        aria-valuenow={accessibleRange?.now ?? Math.round(value * 100)}
+        aria-valuetext={valueText}
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(event) =>
           onChange(clamp(value + (event.nativeEvent.actionName === "increment" ? STEP : -STEP)))

@@ -20,11 +20,21 @@ const steadyMedian = (offsets: readonly number[]): number | null => {
   return steady.length < MIN_STEADY_TAPS ? null : median(steady);
 };
 
-export function calibrateLatency(speaker: TapRound, output: TapRound): number | null {
+export function nudgeFromTapTest(speaker: TapRound, output: TapRound): number | null {
   const heardOnSpeaker = steadyMedian(speaker.tapOffsetsMs);
   const heardOnOutput = steadyMedian(output.tapOffsetsMs);
   if (heardOnSpeaker === null || heardOnOutput === null) return null;
   const extraHeard = heardOnOutput - heardOnSpeaker;
   const extraReported = output.reportedLatencyMs - speaker.reportedLatencyMs;
   return Math.round(extraHeard - extraReported);
+}
+
+const EARLY_TAP_MS = 150;
+
+export function tapOffsets(clickTimesMs: readonly number[], tapsMs: readonly number[], warmUpClicks: number): number[] {
+  const counted = clickTimesMs.slice(warmUpClicks);
+  return tapsMs.flatMap((tap) => {
+    const followed = counted.filter((click) => click <= tap + EARLY_TAP_MS).at(-1);
+    return followed === undefined ? [] : [tap - followed];
+  });
 }

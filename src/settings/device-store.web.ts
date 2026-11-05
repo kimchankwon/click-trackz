@@ -1,3 +1,5 @@
+import { notifyDeviceSetting } from "./device-setting-events";
+
 export const deviceStore = {
   get: async (key: string): Promise<string | null> => {
     try {
@@ -7,6 +9,7 @@ export const deviceStore = {
     }
   },
   set: async (key: string, value: string): Promise<void> => {
+    notifyDeviceSetting(key, value);
     try {
       window.localStorage.setItem(key, value);
     } catch {

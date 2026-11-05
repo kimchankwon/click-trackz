@@ -3,9 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { calibrateLatency, type TapRound } from "@/audio/calibration";
 import { CueAudioEngine } from "@/audio/engine";
-import { defaultSpeaker } from "@/audio/voice-clips";
+import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -15,22 +14,14 @@ import { errorText } from "@/lib/error-text";
 import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS, latencyPresets } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
-const CLICKS = 12;
-const INTERVAL_MS = 600;
+const CLICKS = 10;
+const INTERVAL_MS = 1_000;
 const WARM_UP_CLICKS = 2;
-const MATCH_WINDOW_MS = 350;
+const ROUND_TAIL_MS = 900;
 
 type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
-
-function tapOffsets(clickTimesMs: readonly number[], tapsMs: readonly number[]) {
-  const counted = clickTimesMs.slice(WARM_UP_CLICKS);
-  return tapsMs.flatMap((tap) => {
-    const nearest = counted.reduce((best, click) => (Math.abs(click - tap) < Math.abs(best - tap) ? click : best), Infinity);
-    return Math.abs(nearest - tap) <= MATCH_WINDOW_MS ? [tap - nearest] : [];
-  });
-}
 
 function Button({ label, onPress, testID, accent }: { label: string; onPress: () => void; testID?: string; accent?: boolean }) {
   const theme = useTheme();
@@ -53,48 +44,71 @@ export default function LatencyScreen() {
   const engine = useRef<CueAudioEngine | null>(null);
   const round = useRef<{ clickTimesMs: number[]; reportedLatencyMs: number; taps: number[] } | null>(null);
   const speakerRound = useRef<TapRound | null>(null);
+  const roundTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [speakerDone, setSpeakerDone] = useState(false);
   const [step, setStep] = useState<Step>("idle");
   const [listening, setListening] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => () => engine.current?.dispose(), []);
+  useEffect(
+    () => () => {
+      if (roundTimer.current) clearTimeout(roundTimer.current);
+      engine.current?.dispose();
+    },
+    [],
+  );
 
   const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
 
   const startRound = async (next: "speaker" | "output") => {
+    if (roundTimer.current) clearTimeout(roundTimer.current);
+    if (next === "speaker") {
+      speakerRound.current = null;
+      setSpeakerDone(false);
+    }
     engine.current ??= new CueAudioEngine();
-    await engine.current.enable(() => null, defaultSpeaker);
-    const { clickTimesMs, reportedLatencyMs, lastClickInMs } = engine.current.calibrationRound(CLICKS, INTERVAL_MS);
+    await engine.current.enable(() => null, null);
+    const { clickTimesMs, reportedLatencyMs, lastClickInMs } = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
     round.current = { clickTimesMs, reportedLatencyMs, taps: [] };
     setTapCount(0);
     setStep(next);
     setListening(true);
-    setTimeout(() => finishRound(next), lastClickInMs + MATCH_WINDOW_MS);
+    roundTimer.current = setTimeout(() => finishRound(next), lastClickInMs + ROUND_TAIL_MS);
   };
 
   const finishRound = (finished: "speaker" | "output") => {
+    roundTimer.current = null;
     setListening(false);
+    engine.current?.endTapTest();
     const current = round.current;
     if (!current) return;
     const result: TapRound = {
-      tapOffsetsMs: tapOffsets(current.clickTimesMs, current.taps),
+      tapOffsetsMs: tapOffsets(current.clickTimesMs, current.taps, WARM_UP_CLICKS),
       reportedLatencyMs: current.reportedLatencyMs,
     };
     if (finished === "speaker") {
       speakerRound.current = result;
+      setSpeakerDone(true);
       setMessage(`Got ${result.tapOffsetsMs.length} taps. Now switch to your headphones or speakers and do round 2.`);
       return;
     }
-    const calibrated = speakerRound.current ? calibrateLatency(speakerRound.current, result) : null;
-    if (calibrated === null) {
-      setMessage("The taps were too few or too uneven to measure. Try both rounds again, tapping on every click.");
+    const measured = speakerRound.current ? nudgeFromTapTest(speakerRound.current, result) : null;
+    speakerRound.current = null;
+    setSpeakerDone(false);
+    if (measured === null) {
+      setMessage("The taps were too few or too uneven to measure. Start again from round 1, tapping on every click.");
       setStep("idle");
       return;
     }
-    setNudge(calibrated);
+    const stored = clampLatency(measured);
+    setNudge(stored);
     setStep("done");
-    setMessage(`Measured ${calibrated} ms. Your Latency nudge is set.`);
+    setMessage(
+      stored === measured
+        ? `Measured ${measured} ms. Your Latency nudge is set.`
+        : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so your Latency nudge is set to ${stored} ms.`,
+    );
   };
 
   const run = (action: () => Promise<unknown>) => {
@@ -135,6 +149,7 @@ export default function LatencyScreen() {
             label="Nudge"
             testID="latency-bar"
             accessibleName="Latency nudge"
+            accessibleRange={{ min: LATENCY_MIN_MS, max: LATENCY_MAX_MS, now: nudge }}
             value={(nudge - LATENCY_MIN_MS) / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
             valueText={`${nudge} ms`}
             onChange={(fraction) => setNudge(LATENCY_MIN_MS + fraction * (LATENCY_MAX_MS - LATENCY_MIN_MS))}
@@ -154,7 +169,9 @@ export default function LatencyScreen() {
           </ThemedText>
           <View style={styles.wrap}>
             <Button label="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
-            <Button label="Round 2: your output" testID="round-output" accent onPress={() => run(() => startRound("output"))} />
+            {speakerDone ? (
+              <Button label="Round 2: your output" testID="round-output" accent onPress={() => run(() => startRound("output"))} />
+            ) : null}
           </View>
           <Pressable
             role="button"
