@@ -16,6 +16,35 @@ import { memberPing, memberPresence, type MemberPresence, type PresenceRow } fro
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
+type MemberAction =
+  | { kind: "remove"; userId: Id<"users">; name: string }
+  | { kind: "role"; userId: Id<"users">; name: string; role: "admin" | "member" };
+
+function dialogFor(action: MemberAction | null, groupName: string) {
+  if (action?.kind === "role" && action.role === "admin") {
+    return {
+      title: `Make ${action.name} an Admin?`,
+      message: `${action.name} will be able to edit Songs and Setlists, start and stop Playback, and manage Members of ${groupName}.`,
+      confirmLabel: "Make Admin",
+      testID: "role-dialog",
+    };
+  }
+  if (action?.kind === "role") {
+    return {
+      title: `Make ${action.name} a Member?`,
+      message: `${action.name} will no longer be able to edit Songs and Setlists, run Playback or manage Members.`,
+      confirmLabel: "Make Member",
+      testID: "role-dialog",
+    };
+  }
+  return {
+    title: `Remove ${action?.name ?? ""}?`,
+    message: `${action?.name ?? "They"} will be taken out of ${groupName} straight away. They can rejoin with the join code.`,
+    confirmLabel: "Remove",
+    testID: "remove-member-dialog",
+  };
+}
+
 const presenceText: Record<MemberPresence, string> = { onPlay: "On Play", online: "Online", offline: "Offline" };
 
 export function MembersCard({
@@ -35,27 +64,29 @@ export function MembersCard({
   const viewer = useQuery(api.users.viewer, {});
   const setRole = useMutation(api.groups.setRole);
   const removeMember = useMutation(api.groups.removeMember);
-  const [removing, setRemoving] = useState<{ userId: Id<"users">; name: string } | null>(null);
-  const [removePending, setRemovePending] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-  const askToRemove = (userId: Id<"users">, name: string) => {
-    setRemoveError(null);
-    setRemoving({ userId, name });
+  const [action, setAction] = useState<MemberAction | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const ask = (next: MemberAction) => {
+    setActionError(null);
+    setAction(next);
   };
-  const confirmRemove = async () => {
-    const target = removing;
-    if (!target || removePending) return;
-    setRemoveError(null);
-    setRemovePending(true);
+  const confirmAction = async () => {
+    const target = action;
+    if (!target || actionPending) return;
+    setActionError(null);
+    setActionPending(true);
     try {
-      await removeMember({ groupId, userId: target.userId });
-      setRemoving((current) => (current?.userId === target.userId ? null : current));
+      if (target.kind === "remove") await removeMember({ groupId, userId: target.userId });
+      else await setRole({ groupId, userId: target.userId, role: target.role });
+      setAction((current) => (current === target ? null : current));
     } catch (error) {
-      setRemoveError(errorText(error));
+      setActionError(errorText(error));
     } finally {
-      setRemovePending(false);
+      setActionPending(false);
     }
   };
+  const dialog = dialogFor(action, groupName);
   const theme = useTheme();
   const list = members ?? [];
   const statusOf = (userId: string) => memberPresence(presence.rows, userId, presence.nowMs, viewer?.id);
@@ -114,7 +145,7 @@ export function MembersCard({
                     label={member.role === "admin" ? "Make Member" : "Make Admin"}
                     testID={`toggle-admin-${member.displayName}`}
                     onPress={() =>
-                      run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
+                      ask({ kind: "role", userId: member.userId, name: member.displayName, role: member.role === "admin" ? "member" : "admin" })
                     }
                   />
                 ) : null}
@@ -125,7 +156,7 @@ export function MembersCard({
                   label="Remove"
                   accessibleName={`Remove ${member.displayName} from the Group`}
                   testID={`remove-${member.displayName}`}
-                  onPress={() => askToRemove(member.userId, member.displayName)}
+                  onPress={() => ask({ kind: "remove", userId: member.userId, name: member.displayName })}
                 />
               </View>
             ) : null}
@@ -133,15 +164,15 @@ export function MembersCard({
         );
       })}
       <ConfirmDialog
-        visible={removing !== null}
-        title={`Remove ${removing?.name ?? ""}?`}
-        message={`${removing?.name ?? "They"} will be taken out of ${groupName} straight away. They can rejoin with the join code.`}
-        confirmLabel="Remove"
-        pending={removePending}
-        error={removeError}
-        onConfirm={() => void confirmRemove()}
-        onCancel={() => setRemoving(null)}
-        testID="remove-member-dialog"
+        visible={action !== null}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        pending={actionPending}
+        error={actionError}
+        onConfirm={() => void confirmAction()}
+        onCancel={() => setAction(null)}
+        testID={dialog.testID}
       />
     </Card>
   );
