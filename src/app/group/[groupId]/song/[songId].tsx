@@ -100,7 +100,7 @@ function SectionRow({
           downTestID={`section-${index}-down`}
         />
         <View style={styles.trashGap} />
-        <IconButton icon="trash" color="danger" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>

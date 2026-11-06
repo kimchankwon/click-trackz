@@ -15,7 +15,7 @@ export function Field({ label, containerStyle, compact, inset, style, ...input }
       {...input}
       style={[
         styles.input,
-        { minHeight: compact ? 40 : ControlHeight.regular, color: theme.text, backgroundColor: theme.inputFill, borderColor: theme.inputBorder },
+        { minHeight: compact ? 44 : ControlHeight.regular, color: theme.text, backgroundColor: theme.inputFill, borderColor: theme.inputBorder },
         style,
       ]}
     />

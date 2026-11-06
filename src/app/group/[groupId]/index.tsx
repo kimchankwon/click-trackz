@@ -414,7 +414,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           </View>
           <Divider inset={MIX_TEXT_INSET} />
           <View style={styles.mixHead}>
-            <Icon name="counter" size={22} color="textSecondary" />
+            <Icon name="numbered" size={22} color="textSecondary" />
             <View style={styles.grow}>
               <Switch label="Spoken counts" hint="Uses the Voice volume" value={mix.spokenCounts} onChange={(on) => setMix({ ...mix, spokenCounts: on })} />
             </View>
@@ -439,7 +439,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")} style={styles.linkRow}>
           <Icon name="headphones" size={22} color="textSecondary" />
           <View style={styles.grow}>
-            <ThemedText type="smallBold">Latency nudge</ThemedText>
+            <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               For Bluetooth audio
             </ThemedText>
@@ -512,15 +512,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
               )}
             </View>
           ) : null}
-          {isAdmin && tab !== "play" && startBlocker === "noSong" && !playing ? (
-            <View style={styles.miniEmpty}>
-              <Icon name="songs" size={20} color="textTertiary" />
-              <ThemedText type="small" themeColor="textSecondary">
-                Pick a Song to start
-              </ThemedText>
-            </View>
-          ) : null}
-          {isAdmin && tab !== "play" && (startBlocker !== "noSong" || playing) ? (
+          {isAdmin && tab !== "play" ? (
             <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement }]}>
               <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
               <View style={styles.grow}>
@@ -579,7 +571,7 @@ const styles = StyleSheet.create({
   plainHint: { paddingHorizontal: Spacing.one },
   latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  miniEmpty: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 44, marginTop: Spacing.one, paddingHorizontal: Spacing.one },
+  rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
   soundPrompt: {
     flexDirection: "row",
     alignItems: "center",

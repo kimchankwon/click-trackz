@@ -317,3 +317,36 @@ Applied (votes in brackets):
 15. Attribution footer 11 px with tighter padding.
 
 Not applied: footer inside the scrolling content (not possible while it stays in the static HTML outside the app root); chevrons on Setlist rows (tapping a row picks it for Start, it does not navigate); neutral avatars (round 6 chose colour 3 of 3); a separate Guest icon; moving the join code to the Group tab; Edit and New as eyebrow links; editor header subtitles removed; Title and Key on one row; white slider thumbs; a bigger tap target for Edit and New.
+
+## Round 9
+
+Reviewed: `design-shots/round-8/`. Reviewers: three Opus reviewers at high effort, in parallel.
+
+| App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|---|
+| **Cue Tracker** | 1 | **8** | **7** | **7** | **7** | **7** | **6** |
+| **Cue Tracker** | 2 | **8** | **7** | **7** | **7** | **8** | **7** |
+| **Cue Tracker** | 3 | **7** | **7** | **7** | **7** | **7** | **6** |
+| REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 6 / 7 / 6 | 6 / 6 / 7 | 7 / 7 / 7 | 5 / 5 / 6 | 7 / 7 / 8 |
+| REF-B | 1 / 2 / 3 | 6 / 7 / 7 | 5 / 5 / 5 | 6 / 6 / 7 | 7 / 6 / 6 | 7 / 7 / 7 | 6 / 6 / 7 |
+| REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 6 | 8 / 8 / 7 | 8 / 8 / 8 | 8 / 8 / 8 |
+| REF-D | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 7 / 7 | 7 / 7 / 6 | 6 / 7 / 6 | 7 / 6 / 7 | 7 / 8 / 7 |
+
+The dark Stop flipped again (rounds 7 and 8: light; round 9: dark, 3 of 3), as did empty Key chips (round 8: plain dash, 3 of 3; round 9: filled badge, 2 of 3). Both follow round 9.
+
+Applied (votes in brackets):
+
+1. Dark Stop #2C2C2E with a #48484A edge and white text (3/3).
+2. Row-level trash grey everywhere; red only on the Delete Song, Delete Setlist and Leave Group text buttons (3/3).
+3. Beat dots: no ring, downbeat 26 px, others 20 px, current 32 px (3/3); past beats in the bar at 35% coral (2/3).
+4. Make Member as a filled pill (3/3, 2 of 3 filled).
+5. Spoken counts icon: numbered list (3/3).
+6. Voice cue as a 13 px field label above its switch, level with Number (3/3).
+7. Empty Keys as a filled badge with a grey dash; library rows on the Setlist editor show the same badge (2/3).
+8. The bar above the tabs keeps one form on every tab: a card with "No Song picked" and a disabled Start (3/3 on one height, 2/3 on the card).
+9. One secondary button style: grey fill, no border (2/3).
+10. Setlist editor: Make current as a full-width button under Name (2/3); 17 px titles (2/3); a right-aligned 24 px number column (2/3); 44 px fields (2/3).
+11. Row titles 17 px semibold, including Latency nudge (2/3).
+12. 10 px of space above the attribution footer (2/3).
+
+Not applied: a quieter next cue (one vote this round after round 8 asked for a louder one); bigger or smaller disc (one vote each way); bigger Section chips; flat dock vs no hairline (split); join code moved to the Group tab; tab label weights; neutral avatars; white slider thumbs; filled play and stop glyphs; zero tick end labels; equal Join and Create widths; sign-in vertical position.

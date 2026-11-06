@@ -78,9 +78,10 @@ export function BeatPulse({ beat, playing, idle }: Props) {
               <View
                 style={[
                   styles.dot,
+                  index === 0 ? styles.downbeatDot : null,
                   active ? styles.activeDot : null,
-                  { backgroundColor: active ? theme.accent : past ? theme.dotPast : theme.dotInactive },
-                  index === 0 && !active ? [styles.downbeat, { borderColor: theme.textTertiary }] : null,
+                  { backgroundColor: active ? theme.accent : past ? theme.accent : theme.dotInactive },
+                  past && !active ? styles.pastDot : null,
                 ]}
               />
             </View>
@@ -127,7 +128,8 @@ const styles = StyleSheet.create({
   dots: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 32 },
   dotsIdle: { opacity: 0.6 },
   dotSlot: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  dot: { width: 24, height: 24, borderRadius: 12 },
+  dot: { width: 20, height: 20, borderRadius: 10 },
+  downbeatDot: { width: 26, height: 26, borderRadius: 13 },
   activeDot: { width: 32, height: 32, borderRadius: 16 },
-  downbeat: { borderWidth: 2 },
+  pastDot: { opacity: 0.35 },
 });

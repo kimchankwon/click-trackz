@@ -10,7 +10,9 @@ export function Switch({
   onChange,
   testID,
   hint,
+  bare,
 }: {
+  bare?: boolean;
   label: string;
   value: boolean;
   onChange: (next: boolean) => void;
@@ -20,14 +22,16 @@ export function Switch({
   const theme = useTheme();
   return (
     <Pressable role="switch" aria-checked={value} aria-label={label} testID={testID} onPress={() => onChange(!value)} style={styles.row}>
-      <View style={styles.text}>
-        <ThemedText style={styles.label}>{label}</ThemedText>
-        {hint ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-            {hint}
-          </ThemedText>
-        ) : null}
-      </View>
+      {bare ? null : (
+        <View style={styles.text}>
+          <ThemedText style={styles.label}>{label}</ThemedText>
+          {hint ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+              {hint}
+            </ThemedText>
+          ) : null}
+        </View>
+      )}
       <View style={[styles.track, { backgroundColor: value ? theme.accent : theme.backgroundSelected }]}>
         <View style={[styles.thumb, value ? styles.thumbOn : null]} />
       </View>

@@ -74,7 +74,7 @@ export function SongRow({
             </ThemedText>
           </View>
         ) : (
-          <View style={styles.keyPill} aria-label="No Key">
+          <View style={[styles.keyPill, { backgroundColor: theme.backgroundSelected }]} aria-label="No Key">
             <ThemedText type="smallBold" themeColor="textTertiary" style={styles.keyText}>
               –
             </ThemedText>

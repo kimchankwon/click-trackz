@@ -40,7 +40,7 @@ type Props = {
 
 const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeColor; border?: ThemeColor }> = {
   primary: { background: "accent", text: "onAccent" },
-  secondary: { background: "backgroundElement", text: "text", border: "border" },
+  secondary: { background: "backgroundSelected", text: "text" },
   inverse: { background: "inverse", text: "onInverse" },
   ghost: { background: null, text: "text" },
   link: { background: null, text: "text" },

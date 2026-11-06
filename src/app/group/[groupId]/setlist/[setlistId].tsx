@@ -123,23 +123,21 @@ function SetlistForm({
             title="Edit Setlist"
             subtitle={live.name}
             onBack={() => router.back()}
-            right={
-              <ActionButton
-                small
-                variant="pill"
-                icon="star"
-                label="Make current"
-                testID="make-current"
-                onPress={() =>
-                  run(async () => {
-                    await setCurrent({ groupId, setlistId });
-                    setMessage("This is now the Current setlist");
-                  })
-                }
-              />
-            }
           />
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
+          <ActionButton
+            variant="secondary"
+            icon="star"
+            label="Make this the Current setlist"
+            accessibleName="Make current"
+            testID="make-current"
+            onPress={() =>
+              run(async () => {
+                await setCurrent({ groupId, setlistId });
+                setMessage("This is now the Current setlist");
+              })
+            }
+          />
           {changedElsewhere ? (
             <View style={[styles.conflict, { backgroundColor: theme.accentTint }]} testID="setlist-changed">
               <ThemedText type="small" style={styles.grow}>
@@ -167,7 +165,7 @@ function SetlistForm({
                     testID={`entry-${index}`}
                   >
                     <View style={styles.entryTop}>
-                      <ThemedText type="smallBold" themeColor="textTertiary" style={styles.entryIndex}>
+                      <ThemedText themeColor="textTertiary" style={styles.entryIndex}>
                         {index + 1}
                       </ThemedText>
                       <ThemedText type="default" style={styles.entryTitle} numberOfLines={2}>
@@ -203,7 +201,7 @@ function SetlistForm({
                       <IconButton
                         icon="trash"
                         size={40}
-                        color="danger"
+                        color="textTertiary"
                         label={`Remove ${entry.title}`}
                         testID={`entry-${index}-remove`}
                         onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
@@ -249,11 +247,11 @@ function SetlistForm({
                       <ThemedText style={[styles.grow, styles.libraryTitle, added ? styles.added : null]} numberOfLines={1}>
                         {song.title}
                       </ThemedText>
-                      {song.key ? (
-                        <ThemedText type="small" themeColor="textSecondary" style={added ? styles.added : null}>
-                          {song.key}
+                      <View style={[styles.keyBadge, { backgroundColor: theme.backgroundSelected }, added ? styles.added : null]}>
+                        <ThemedText type="smallBold" themeColor={song.key ? "text" : "textTertiary"}>
+                          {song.key || "–"}
                         </ThemedText>
-                      ) : null}
+                      </View>
                       {added ? <Icon name="check" size={20} color="textTertiary" /> : <Icon name="add" size={22} color="accent" />}
                     </Pressable>
                   );
@@ -319,9 +317,10 @@ const styles = StyleSheet.create({
   addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },
+  keyBadge: { width: 40, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
   entryTop: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.one, paddingRight: 12 },
-  entryIndex: { width: 22, lineHeight: 22, fontVariant: ["tabular-nums"] },
-  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 16, lineHeight: 22 },
+  entryIndex: { width: 24, fontSize: 13, lineHeight: 22, fontWeight: 600, textAlign: "right", marginRight: Spacing.one, fontVariant: ["tabular-nums"] },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17, lineHeight: 22 },
   entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingLeft: 26, paddingRight: Spacing.one },
   keyInput: { width: 60 },
   keyText: { textAlign: "center", paddingHorizontal: 6 },
