@@ -8,6 +8,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { useStaleAppRecovery } from "@/lib/use-stale-app-recovery";
 
 export default function GroupLayout() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -18,6 +19,18 @@ export default function GroupLayout() {
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const theme = useTheme();
+  const updating = useStaleAppRecovery(error);
+  if (updating) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.content}>
+          <ThemedText themeColor="textSecondary" testID="updating-app">
+            Updating to the latest version…
+          </ThemedText>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.content}>

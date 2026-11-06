@@ -24,6 +24,6 @@ if (deployKey) {
 
 writeFileSync(
   "dist/vercel.json",
-  `${JSON.stringify({ framework: null, rewrites: [{ source: "/(.*)", destination: "/index.html" }] }, null, 2)}\n`,
+  `${JSON.stringify({ framework: null, rewrites: [{ source: "/((?!_expo/|assets/).*)", destination: "/index.html" }] }, null, 2)}\n`,
 );
 run("npx vercel@65.11.0 deploy dist --prod --yes", { VERCEL_ORG_ID, VERCEL_PROJECT_ID });
