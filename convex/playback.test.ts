@@ -51,6 +51,19 @@ describe("Group Playback", () => {
     expect(playback?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
   });
 
+  it("starts from a tapped Section with a one-bar Count-in", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId, fromSection: 3 });
+    const playback = await member.query(api.playback.current, { groupId });
+    expect(playback).toMatchObject({ startsAt: NOW + 2_000, startSection: 3, song: { countIn: true } });
+  });
+
+  it("refuses to start from a Section that is not in the Song", async () => {
+    const { admin, groupId, songId } = await setupGroup();
+    await expect(admin.mutation(api.playback.start, { groupId, songId, fromSection: 99 })).rejects.toThrow(/not in the Song/);
+  });
+
   it("lands Stop on the first bar line at least one second away", async () => {
     const { admin, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);

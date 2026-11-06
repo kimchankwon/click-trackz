@@ -16,12 +16,15 @@ import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Switch } from "@/components/ui/switch";
-import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { Toast, useToast } from "@/components/ui/toast";
+import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import type { Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+
+const MIN_SAVING_MS = 400;
 
 type EditableSection = Section & { customLabel?: string };
 type SectionRowState = { id: number; section: EditableSection };
@@ -211,6 +214,8 @@ function SongForm({
   const sections = rows.map((row) => row.section);
   const [results, setResults] = useState<LookupResult[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   const run = (action: () => Promise<unknown>) => {
     setMessage(null);
@@ -260,8 +265,13 @@ function SongForm({
 
   const save = () =>
     run(async () => {
-      await updateSong({ songId, title, key: songKey, countIn, sections });
-      setMessage("Saved");
+      setSaving(true);
+      try {
+        await Promise.all([updateSong({ songId, title, key: songKey, countIn, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
+        toast.show("Song saved");
+      } finally {
+        setSaving(false);
+      }
     });
 
   return (
@@ -366,8 +376,19 @@ function SongForm({
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Save Song" accessibleName="Save" testID="save-song" onPress={save} />
+          <ActionButton
+            large
+            full
+            accent
+            icon="check"
+            label={saving ? "Saving…" : "Save Song"}
+            accessibleName="Save"
+            testID="save-song"
+            pending={saving}
+            onPress={save}
+          />
         </View>
+        <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
     </ThemedView>
   );

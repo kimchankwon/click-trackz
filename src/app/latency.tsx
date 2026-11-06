@@ -64,7 +64,7 @@ export default function LatencyScreen() {
     let started: ReturnType<CueAudioEngine["tapTestRound"]>;
     try {
       if (!engine.current) engine.current = new CueAudioEngine();
-      await engine.current.enable(() => null, null);
+      if (!(await engine.current.enable(() => null, null))) throw new Error("This device blocked sound. Tap again to allow it.");
       started = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
     } catch (error) {
       roundBusy.current = false;
@@ -122,7 +122,7 @@ export default function LatencyScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ScreenHeader title="Latency nudge" subtitle="This phone only" onBack={() => router.back()} backTestID="latency-back" />
+          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => router.back()} backTestID="latency-back" />
           <ThemedText themeColor="textSecondary" style={styles.intro}>
             Bluetooth headphones and some speakers play sound late. The nudge schedules your Click and Voice cues earlier so
             they line up with everyone else.
@@ -210,7 +210,7 @@ export default function LatencyScreen() {
                   </ThemedText>
                 </View>
                 <ThemedText type="small" style={styles.grow}>
-                  Play through the phone speaker and tap the pad on every click.
+                  Play through the built-in speaker and tap the pad on every click.
                 </ThemedText>
               </View>
               <View style={styles.roundStep}>
@@ -231,7 +231,7 @@ export default function LatencyScreen() {
                       key={round}
                       role="button"
                       aria-disabled={!available}
-                      aria-label={round === "speaker" ? "Round 1: phone speaker" : "Round 2: your output"}
+                      aria-label={round === "speaker" ? "Round 1: built-in speaker" : "Round 2: your output"}
                       testID={round === "speaker" ? "round-speaker" : "round-output"}
                       disabled={!available}
                       onPress={() => run(() => startRound(round))}
@@ -265,7 +265,7 @@ export default function LatencyScreen() {
                 </ThemedText>
                 {listening ? (
                   <ThemedText type="caption" themeColor="onAccent">
-                    {step === "speaker" ? "Round 1, phone speaker" : "Round 2, your output"}
+                    {step === "speaker" ? "Round 1, built-in speaker" : "Round 2, your output"}
                   </ThemedText>
                 ) : null}
               </Pressable>

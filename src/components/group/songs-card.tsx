@@ -1,14 +1,13 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card, Divider } from "@/components/group/card";
 import { SongRow } from "@/components/group/song-row";
 import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
-import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
 import { api } from "../../../convex/_generated/api";
@@ -28,30 +27,12 @@ export function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const songs = useQuery(api.songs.list, { groupId });
-  const setlists = useQuery(api.setlists.list, { groupId });
-  const [expandedChoice, setExpandedChoice] = useState<boolean | null>(null);
-  const expanded = expandedChoice ?? (setlists !== undefined && setlists.length === 0);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const list = songs ?? [];
   return (
-    <Card
-      title="Song library"
-      action={
-        expanded ? (
-          <ActionButton small variant="link" icon="up" label="Hide" testID="toggle-library" onPress={() => setExpandedChoice(false)} />
-        ) : null
-      }
-    >
-      {!expanded ? (
-        <Pressable role="button" aria-expanded={false} testID="toggle-library" onPress={() => setExpandedChoice(true)} style={styles.collapsed}>
-          <Icon name="library" size={22} color="textSecondary" />
-          <ThemedText style={styles.collapsedText}>
-            {list.length} {list.length === 1 ? "Song" : "Songs"}
-          </ThemedText>
-          <Icon name="forward" size={22} color="textTertiary" />
-        </Pressable>
-      ) : list.length === 0 ? (
+    <Card title={`Song library · ${list.length}`}>
+      {list.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           No Songs yet.
         </ThemedText>
@@ -84,7 +65,7 @@ export function SongsCard({
           ))}
         </View>
       )}
-      {isAdmin && expanded ? (
+      {isAdmin ? (
         <>
           <Divider />
           <View style={styles.addRow}>
@@ -123,6 +104,4 @@ const styles = StyleSheet.create({
   list: { marginHorizontal: -Spacing.two, gap: 2 },
   addRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   grow: { flex: 1 },
-  collapsed: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 32 },
-  collapsedText: { flex: 1, fontSize: 17, fontWeight: 600 },
 });

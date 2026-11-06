@@ -2,12 +2,13 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
+import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
@@ -22,17 +23,21 @@ import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
-import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { neighbourSong } from "@/lib/song-order";
+import { countOnPlay } from "@/presence/online";
+import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
-import { beatsBetween, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { beatsBetween, playbackEndsAt, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
@@ -62,13 +67,16 @@ const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
 
 type LoadedSong = { title: string; key: string | null; tempoHint: { bpm: number; beatsPerBar: number } | null; sections: Section[] };
 
-function idleReadoutFor(song: LoadedSong | null | undefined): IdleReadout | null {
+function idleReadoutFor(song: LoadedSong | null | undefined, fromSection: number): IdleReadout | null {
   if (!song) return null;
-  const first = song.sections[0];
-  const bpm = first?.bpm ?? song.tempoHint?.bpm;
-  const beatsPerBar = first?.beatsPerBar ?? song.tempoHint?.beatsPerBar;
-  const detail = [beatsPerBar ? `${beatsPerBar}/4` : null, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ");
-  return bpm ? { value: String(Math.round(bpm)), unit: "BPM", detail: detail || undefined } : { value: "--", unit: "No Sections yet" };
+  const bpm = song.sections[fromSection]?.bpm ?? song.tempoHint?.bpm;
+  return bpm ? { value: String(Math.round(bpm)), unit: "BPM" } : { value: "--", unit: "No Sections yet" };
+}
+
+function songFactsFor(song: LoadedSong | null | undefined, fromSection: number) {
+  if (!song) return null;
+  const beatsPerBar = song.sections[fromSection]?.beatsPerBar ?? song.tempoHint?.beatsPerBar;
+  return [beatsPerBar ? `${beatsPerBar}/4` : null, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ") || null;
 }
 
 const emptySong: Song = { countIn: false, sections: [] };
@@ -118,10 +126,22 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const song: Song = playback?.song ?? emptySong;
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
-  const shownSections = showPlayback ? playback.song.sections : (selectedSong?.sections ?? []);
+
   const isAdmin = group.role === "admin";
   const startSongId = selectedSongId ?? playback?.songId ?? null;
   const startSong = selectedSongId ? selectedSong : playingSong;
+  const shownSections = playing && playback ? playback.song.sections : (startSong?.sections ?? []);
+  const [startPick, setStartPick] = useState<{ songId: Id<"songs">; index: number } | null>(null);
+  const pickedSection = startPick !== null && startPick.songId === startSongId && startPick.index < (startSong?.sections.length ?? 0) ? startPick.index : null;
+  const startSection = pickedSection ?? 0;
+  const [stopPending, setStopPending] = useState(false);
+  const currentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
+  const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
+  const library = useQuery(api.songs.list, { groupId });
+  const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
+  const [orderAt, setOrderAt] = useState<number | null>(null);
+  const songOrder =
+    setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
   const startBlocker: "noSong" | "needsSections" | "loading" | null =
     startSongId === null ? "noSong" : startSong === undefined ? "loading" : startSong === null || startSong.sections.length === 0 ? "needsSections" : null;
   const start = useMutation(api.playback.start);
@@ -131,6 +151,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const recordings = useQuery(api.recordings.list, { groupId });
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
+  const [soundBlocked, setSoundBlocked] = useState(false);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
   const [clickVolume, setClickVolume, clickVolumeUnsaved] = useDeviceSetting("clickVolume", "0.8", isVolume);
   const [voiceVolume, setVoiceVolume, voiceVolumeUnsaved] = useDeviceSetting("voiceVolume", "0.9", isVolume);
@@ -142,8 +163,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [nextIndex, setNextIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<GroupTab>("play");
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
+  useHeartbeat(groupId, tab === "play");
+  const presence = usePresence(groupId, serverNow);
+  const onPlayCount = countOnPlay(presence.rows, presence.nowMs);
+  const stopping = playing && (stopPending || (playback?.stopsAt ?? null) !== null);
 
   useEffect(() => {
     engine.current?.setServerClock(serverNow);
@@ -174,10 +200,60 @@ function GroupScreen({ group }: { group: MyGroup }) {
     if (soundOn && recordings) void engine.current?.setUploads(recordings);
   }, [recordings, soundOn]);
 
-  useEffect(() => () => engine.current?.dispose(), []);
+  useEffect(
+    () => () => {
+      engine.current?.dispose();
+      engine.current = null;
+      setSoundOn(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!engine.current) engine.current = new CueAudioEngine();
+    engine.current
+      .enable(serverNow, speaker)
+      .then((running) => {
+        if (cancelled) return;
+        setSoundOn(running);
+        setSoundBlocked(!running);
+      })
+      .catch(() => {
+        if (!cancelled) setSoundBlocked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      const current = engine.current;
+      if (state !== "active" || !current?.enabled) return;
+      void current.resume().then((running) => {
+        setSoundOn(running);
+        setSoundBlocked(!running);
+      });
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (soundOn) return;
+    return onUserGesture(() => {
+      void engine.current?.resume().then((running) => {
+        if (!running) return;
+        setSoundOn(true);
+        setSoundBlocked(false);
+      });
+    });
+  }, [soundOn]);
 
   useEffect(() => {
     let handle = 0;
+    const endsAt = playback && song.sections.length > 0 ? playbackEndsAt(song, playback) : -Infinity;
     const draw = () => {
       const now = serverNow();
       if (now !== null && playback && song.sections.length > 0) {
@@ -189,7 +265,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
         const following = nextSectionIndex(ahead);
         setNextIndex((previous) => (previous === following ? previous : following));
-        setPlaying(ahead.length > 0 || (recent.length > 0 && now < (playback.stopsAt ?? Infinity)));
+        setPlaying(now < endsAt);
       } else {
         setBeat(null);
         setUpcoming(null);
@@ -210,8 +286,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const enableSound = () =>
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
-      await engine.current.enable(serverNow, speaker);
-      setSoundOn(true);
+      const running = await engine.current.enable(serverNow, speaker);
+      setSoundOn(running);
+      if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
   const chooseSpeaker = (next: SpeakerId) => {
@@ -226,7 +303,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
-  const idle = idleReadoutFor(startSong);
+  const idle = idleReadoutFor(startSong, startSection);
+  const songFacts = songFactsFor(startSong, startSection);
   const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
   const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
   const startHint =
@@ -238,8 +316,37 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const startPlayback = () =>
     run(async () => {
-      if (startSongId) await start({ groupId, songId: startSongId });
+      if (!startSongId) return;
+      await start({ groupId, songId: startSongId, fromSection: pickedSection ?? undefined });
+      setStartPick(null);
     });
+
+  const stopPlayback = () =>
+    run(async () => {
+      setStopPending(true);
+      try {
+        await stop({ groupId });
+      } finally {
+        setStopPending(false);
+      }
+    });
+
+  const previousSong = neighbourSong(songOrder, startSongId, -1, orderAt);
+  const nextSong = neighbourSong(songOrder, startSongId, 1, orderAt);
+  const stepSong = (step: { item: Id<"songs">; at: number } | null) => {
+    if (step === null) return;
+    setSelectedSongId(step.item);
+    setOrderAt(step.at);
+  };
+
+  const tapSection = (index: number) => {
+    if (!isAdmin) return;
+    if (playing) run(() => jump({ groupId, toSection: index, mode: jumpMode }));
+    else if (startSongId) setStartPick({ songId: startSongId, index });
+  };
+
+  const pickedTitle = pickedSection !== null && startSong ? titleOf(startSong.sections[pickedSection]) : null;
+  const startLabel = startHint ?? (startSong ? `Start ${startSong.title}${pickedTitle ? ` from ${pickedTitle}` : ""}` : "Start");
 
   const header = (
     <ScreenHeader
@@ -267,7 +374,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
       <Icon name="sound" size={20} color="accent" />
       <ThemedText type="smallBold" style={styles.grow}>
-        Sound is off on this phone
+        {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
       </ThemedText>
       <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
     </View>
@@ -276,6 +383,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const playTab = (
     <View style={styles.playColumn}>
       {soundPromptFor("enable-sound")}
+      {isAdmin ? (
+        <View style={[styles.audience, { backgroundColor: theme.backgroundElement }]} testID="on-play-count">
+          <Icon name="group" size={16} color="textSecondary" />
+          <ThemedText type="caption" themeColor="textSecondary" style={styles.audienceText}>
+            {onPlayCount === 1 ? "1 Member on Play" : `${onPlayCount} Members on Play`}
+          </ThemedText>
+        </View>
+      ) : null}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
@@ -300,6 +415,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
             {shownTitle ?? (isAdmin ? "Pick a Song" : "Waiting for an Admin")}
           </ThemedText>
+          {shownTitle && songFacts ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="song-facts" style={styles.centered}>
+              {songFacts}
+            </ThemedText>
+          ) : null}
           {!isAdmin ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               An Admin starts and steers Playback.
@@ -343,13 +463,19 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 role="button"
                 strong
                 label={titleOf(section)}
-                selected={playing && beat?.sectionIndex === index}
-                onPress={() => (isAdmin ? run(() => jump({ groupId, toSection: index, mode: jumpMode })) : undefined)}
+                testID={`play-section-${index}`}
+                selected={playing ? beat?.sectionIndex === index : isAdmin && startSection === index && startBlocker === null}
+                onPress={() => tapSection(index)}
               />
             ))}
           </View>
           {isAdmin ? (
             <>
+              {!playing ? (
+                <ThemedText type="caption" themeColor="textSecondary" testID="start-from-hint">
+                  Tap a Section to start from it with a one-bar Count-in.
+                </ThemedText>
+              ) : null}
               <View style={styles.jumpMode}>
                 <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
                   When I tap a Section, go
@@ -374,15 +500,18 @@ function GroupScreen({ group }: { group: MyGroup }) {
     </View>
   );
 
+  const setlistTab = (
+    <SetlistCard
+      groupId={groupId}
+      isAdmin={isAdmin}
+      selectedSongId={selectedSongId ?? playback?.songId ?? null}
+      onSelect={setSelectedSongId}
+      run={run}
+    />
+  );
+
   const songsTab = (
     <>
-      <SetlistCard
-        groupId={groupId}
-        isAdmin={isAdmin}
-        selectedSongId={selectedSongId ?? playback?.songId ?? null}
-        onSelect={setSelectedSongId}
-        run={run}
-      />
       <SongsCard
         groupId={groupId}
         isAdmin={isAdmin}
@@ -469,7 +598,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const groupTab = (
     <>
-      <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} />
+      <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} presence={presence} />
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
@@ -492,11 +621,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scroller} contentContainerStyle={styles.content}>
           {header}
           {(
             [
               ["play", playTab],
+              ["setlist", setlistTab],
               ["songs", songsTab],
               ["sound", soundTab],
               ["group", groupTab],
@@ -515,21 +645,51 @@ function GroupScreen({ group }: { group: MyGroup }) {
         <View style={[styles.dock, { backgroundColor: theme.background, paddingBottom: dockInset }]}>
           {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
+              <IconButton
+                icon="previousSong"
+                label="Previous Song"
+                testID="previous-song"
+                size={ControlHeight.large}
+                round
+                filled
+                disabled={playing || previousSong === null}
+                onPress={() => stepSong(previousSong)}
+              />
               {playing ? (
-                <ActionButton large full variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+                <ActionButton
+                  large
+                  full
+                  variant={stopping ? "secondary" : "stop"}
+                  icon="stop"
+                  label={stopping ? "Stopping…" : "Stop"}
+                  accessibleName="Stop"
+                  testID="stop"
+                  pending={stopping}
+                  onPress={stopPlayback}
+                />
               ) : (
                 <ActionButton
                   large
                   full
                   accent
                   icon="play"
-                  label={startHint ?? (startSong ? `Start ${startSong.title}` : "Start")}
+                  label={startLabel}
                   accessibleName="Start"
                   testID="start"
                   disabled={startBlocker !== null}
                   onPress={startPlayback}
                 />
               )}
+              <IconButton
+                icon="nextSong"
+                label="Next Song"
+                testID="next-song"
+                size={ControlHeight.large}
+                round
+                filled
+                disabled={playing || nextSong === null}
+                onPress={() => stepSong(nextSong)}
+              />
             </View>
           ) : null}
           {isAdmin && tab !== "play" ? (
@@ -540,17 +700,32 @@ function GroupScreen({ group }: { group: MyGroup }) {
                   {shownTitle ?? "No Song picked"}
                 </ThemedText>
                 <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-                  {playing ? currentSection : (startHint ?? "Ready to start")}
+                  {stopping ? "Stopping…" : playing ? currentSection : (startHint ?? (pickedTitle ? `Ready to start from ${pickedTitle}` : "Ready to start"))}
                 </ThemedText>
               </View>
               {playing ? (
-                <ActionButton medium rounded variant="stop" icon="stop" label="Stop" testID="stop" onPress={() => run(() => stop({ groupId }))} />
+                <ActionButton
+                  medium
+                  rounded
+                  variant={stopping ? "secondary" : "stop"}
+                  icon="stop"
+                  label="Stop"
+                  testID="stop"
+                  pending={stopping}
+                  onPress={stopPlayback}
+                />
               ) : (
                 <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
               )}
             </View>
           ) : null}
-          <TabBar active={tab} onChange={setTab} />
+          <TabBar
+            active={tab}
+            onChange={(next) => {
+              setTab(next);
+              scroller.current?.scrollTo({ y: 0, animated: false });
+            }}
+          />
         </View>
       </SafeAreaView>
     </ThemedView>
@@ -605,6 +780,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
+  audience: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, paddingHorizontal: 12, height: 28, borderRadius: Radius.pill },
+  audienceText: { fontSize: 13, lineHeight: 18, fontWeight: 600, fontVariant: ["tabular-nums"] },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
   switches: { gap: Spacing.three },
   miniBar: {
@@ -630,6 +807,6 @@ const styles = StyleSheet.create({
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
   dock: { paddingHorizontal: Spacing.four },
-  transport: { flexDirection: "row", paddingTop: 12, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
+  transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingTop: 12, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

@@ -130,6 +130,11 @@ export const leaveGroup = mutation({
       throw new ConvexError("A Group needs at least one Admin; promote someone else before leaving as the last Admin");
     }
     await ctx.db.delete(membership._id);
+    const presence = await ctx.db
+      .query("presence")
+      .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", membership.userId))
+      .collect();
+    await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
   },
 });
 

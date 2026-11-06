@@ -69,4 +69,14 @@ export default defineSchema({
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
   }).index("by_group", ["groupId"]),
+  presence: defineTable({
+    groupId: v.id("groups"),
+    userId: v.id("users"),
+    screenId: v.string(),
+    onPlay: v.boolean(),
+    seenAt: v.number(),
+  })
+    .index("by_group", ["groupId"])
+    .index("by_group_user", ["groupId", "userId"])
+    .index("by_group_user_screen", ["groupId", "userId", "screenId"]),
 });

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -37,6 +37,7 @@ type Props = {
   leading?: ReactNode;
   accessibleName?: string;
   disabled?: boolean;
+  pending?: boolean;
 };
 
 const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeColor; border?: ThemeColor }> = {
@@ -54,31 +55,34 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   pill: { background: "backgroundSelected", text: "text" },
 };
 
-export function ActionButton({ label, onPress, testID, accent, variant, small, tiny, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
+export function ActionButton({ label, onPress, testID, accent, variant, small, tiny, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled, pending }: Props) {
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
   const textColor = look.text;
   const background = look.background ? theme[look.background] : "transparent";
+  const blocked = disabled || pending;
   const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : tiny ? 32 : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
       role="button"
       testID={testID}
       aria-label={accessibleName}
-      aria-disabled={disabled}
-      disabled={disabled}
+      aria-disabled={blocked}
+      aria-busy={pending}
+      disabled={blocked}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
         { minHeight: height, backgroundColor: background, paddingHorizontal: tiny ? 12 : small ? Spacing.three : Spacing.four },
         look.border ? { borderWidth: 1, borderColor: theme[look.border] } : null,
         disabled ? styles.disabled : null,
+        pending ? styles.pending : null,
         full ? styles.full : null,
         rounded ? { borderRadius: height / 2 } : null,
-        pressed && !disabled ? styles.pressed : null,
+        pressed && !blocked ? styles.pressed : null,
       ]}
     >
-      {leading ?? (icon ? <Icon name={icon} size={large || huge ? 22 : small ? 18 : 20} color={textColor} /> : null)}
+      {pending ? <ActivityIndicator size="small" color={theme[textColor]} /> : leading ?? (icon ? <Icon name={icon} size={large || huge ? 22 : small ? 18 : 20} color={textColor} /> : null)}
       <ThemedText
         type={small ? "smallBold" : "default"}
         themeColor={textColor}
@@ -110,6 +114,7 @@ const styles = StyleSheet.create({
   full: { alignSelf: "stretch", flexGrow: 1 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.4 },
+  pending: { opacity: 0.6 },
   label: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 17, lineHeight: 22, flexShrink: 1 },
   smallLabel: { fontSize: 15, lineHeight: 20 },
   tinyLabel: { fontSize: 13, lineHeight: 18 },
