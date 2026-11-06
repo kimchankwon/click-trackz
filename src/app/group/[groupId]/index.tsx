@@ -195,7 +195,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const toast = useToast();
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  usePreventRemove(playing && !leaving, () => setAskLeave(true));
+  const [leavingGroup, setLeavingGroup] = useState(false);
+  usePreventRemove(playing && !leaving && !leavingGroup, () => setAskLeave(true));
   useEffect(() => {
     if (leaving) router.replace("/");
   }, [leaving]);
@@ -333,9 +334,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setSoundProblem(describeAudioError(error));
         throw error;
       });
-      if (running) await current.setSpeaker(speaker);
+      if (engine.current !== current) return;
       setSoundOn(running);
       setSoundProblem(running ? null : current.failure);
+      if (running) await current.setSpeaker(speaker);
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
@@ -693,7 +695,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
           testID="leave-group"
           onPress={() =>
             run(async () => {
-              await leave({ groupId });
+              setLeavingGroup(true);
+              try {
+                await leave({ groupId });
+              } catch (error) {
+                setLeavingGroup(false);
+                throw error;
+              }
               router.replace("/");
             })
           }

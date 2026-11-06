@@ -27,13 +27,13 @@ export function ScreenHeader({
         <ThemedText type="heading" numberOfLines={1} role="heading">
           {title}
         </ThemedText>
-        {typeof subtitle === "string" && subtitle.length > 0 ? (
+        {typeof subtitle !== "string" ? (
+          subtitle
+        ) : subtitle.length > 0 ? (
           <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
             {subtitle}
           </ThemedText>
-        ) : typeof subtitle === "string" ? null : (
-          subtitle
-        )}
+        ) : null}
       </View>
       {right}
     </View>

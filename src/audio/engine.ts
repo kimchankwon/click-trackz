@@ -60,6 +60,7 @@ export class CueAudioEngine {
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
   private enabling: Promise<boolean> | null = null;
+  private waking: Promise<boolean> | null = null;
   private needsFreshContext = false;
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
@@ -134,13 +135,15 @@ export class CueAudioEngine {
     );
     const timeout = new Promise<"timeout">((done) => setTimeout(() => done("timeout"), RESUME_WAIT_MS));
     const outcome = await Promise.race([resumed, timeout]);
+    if (this.context !== context) return this.running;
     if (isRunning()) {
       this.failure = null;
       this.needsFreshContext = false;
       return true;
     }
-    this.needsFreshContext = true;
     const sessionError = await probeAudioSession();
+    if (this.context !== context) return this.running;
+    this.needsFreshContext = true;
     this.failure = describeAudioFailure({
       state: context.state,
       waitedMs: Math.round(performance.now() - startedAt),
@@ -155,7 +158,12 @@ export class CueAudioEngine {
     const context = this.context;
     if (context === null) return Promise.resolve(false);
     if (context.state === "running") return Promise.resolve(true);
-    return this.needsFreshContext || context.state !== "suspended" ? this.renew() : this.resume();
+    if (this.waking) return this.waking;
+    const waking = (this.needsFreshContext || context.state !== "suspended" ? this.renew() : this.resume()).finally(() => {
+      if (this.waking === waking) this.waking = null;
+    });
+    this.waking = waking;
+    return waking;
   }
 
   private renew(): Promise<boolean> {
@@ -165,7 +173,20 @@ export class CueAudioEngine {
     this.scheduledUntil = -Infinity;
     this.voiceBusyUntil = -Infinity;
     previous?.close().catch(() => undefined);
+    if (previous && this.context && previous.sampleRate !== this.context.sampleRate) this.reloadClips();
     return this.resume();
+  }
+
+  private reloadClips() {
+    const uploads = [...this.wantedUploadUrls].map(([key, url]) => ({ key, url }));
+    this.clips = new Map();
+    this.clipsSpeaker = null;
+    this.loadingSpeaker = null;
+    this.onsets = new WeakMap();
+    this.uploads.clear();
+    this.uploadUrls.clear();
+    this.setSpeaker(this.speaker).catch(() => undefined);
+    void this.setUploads(uploads);
   }
 
   debugSnapshot() {
