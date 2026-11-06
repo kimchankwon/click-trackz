@@ -46,6 +46,18 @@ npx convex env set AUTH_GOOGLE_SECRET <client secret>
 
 For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment only and start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. Never set `DEV_LOGIN_SECRET` on production.
 
+## iOS app
+
+iOS builds run on [EAS](https://expo.dev/accounts/xtectra/projects/cue-tracker). The `production` profile in `eas.json` uses the production Convex deployment. The `preview` profile uses the dev deployment with dev login turned on.
+
+Build and upload to TestFlight:
+
+```bash
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+
+The first run asks for your Apple ID. It then creates the App Store Connect app, the distribution certificate and the provisioning profile, and stores them on EAS. Each build gets the next build number automatically. Once Apple finishes processing the build, add testers in App Store Connect under TestFlight.
+
 ## Seed the first Setlist
 
 Once your real Group exists, copy its id from the Group page URL (`/group/<id>`) and run:
