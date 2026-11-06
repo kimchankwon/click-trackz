@@ -30,7 +30,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
   const signInWithGoogle = useGoogleSignIn();
   const theme = useTheme();
   const [displayName, setDisplayName] = useState("");
-  const [invited] = useState(readPendingJoin);
+  const [invited, setInvited] = useState(readPendingJoin);
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
@@ -115,6 +115,9 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               run(async () => {
                 const groupId = await joinGroup({ joinCode, displayName });
                 void clearPendingJoin();
+                setInvited(null);
+                setJoinCode("");
+                setDisplayName("");
                 router.push({ pathname: "/group/[groupId]", params: { groupId } });
               })
             }
@@ -150,6 +153,8 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               onPress={() =>
                 run(async () => {
                   const { groupId } = await createGroup({ name: groupName, displayName });
+                  setGroupName("");
+                  setDisplayName("");
                   router.push({ pathname: "/group/[groupId]", params: { groupId } });
                 })
               }
