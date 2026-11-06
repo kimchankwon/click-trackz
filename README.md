@@ -62,7 +62,7 @@ The first run asks for your Apple ID. It then creates the App Store Connect app,
 
 A JavaScript-only change can reach phones without a new store build. Each build profile in `eas.json` has an EAS Update channel and an EAS environment of the same name (`production`, `preview`), and the runtime version is the native fingerprint, so an update only goes to builds with the same native code. A change to native code (a new native package, a config plugin, `app.json` native settings) still needs a new build.
 
-Every merge to `main` is published to the `production` channel by `.github/workflows/eas-update.yml`. It waits for Vercel's production build of that commit to succeed, because that build also deploys the production Convex backend, so phones never get JavaScript that calls functions the backend doesn't have yet. It publishes only `main`'s newest commit, and needs an `EXPO_TOKEN` repository secret (an Expo access token for the `xtectra` account). Without the secret it skips with a warning. It can also be run by hand from the Actions tab on `main`.
+Every merge to `main` is published to the `production` channel by `.github/workflows/eas-update.yml`. It waits for Vercel's production build of that commit to succeed, because that build also deploys the production Convex backend, so phones never get JavaScript that calls functions the backend doesn't have yet. It publishes only `main`'s newest commit, and needs an `EXPO_TOKEN` repository secret (an Expo access token for the `xtectra` account). Without the secret it skips with a warning. It can also be run by hand from the Actions tab on `main`; a manual run also waits for that Vercel build to have succeeded.
 
 Publish the current commit by hand:
 
