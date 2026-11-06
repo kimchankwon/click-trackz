@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -30,6 +31,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   const scale = useSharedValue(1);
   const discScale = useSharedValue(1);
   const ring = useSharedValue(0);
+  const ending = useSharedValue(0);
   const beatAt = playing ? beat?.at : undefined;
   const accent = beat?.accent ?? false;
   const level = beat ? accentLevelOf(beat) : "beat";
@@ -48,6 +50,29 @@ export function BeatPulse({ beat, playing, idle }: Props) {
     ring.value = withTiming(1, { duration: level === "beat" ? 380 : 520, easing: Easing.out(Easing.quad) });
   }, [beatAt, level, scale, discScale, ring]);
 
+  const lastBar = playing && beat !== null && beat.barInSection === beat.barsInSection;
+  const endingFrom = lastBar ? (beat.beatInBar - 1) / beat.beatsPerBar : 0;
+  const endingTo = lastBar ? beat.beatInBar / beat.beatsPerBar : 0;
+  const beatMs = beat?.beatMs ?? 0;
+
+  useEffect(() => {
+    if (!lastBar) {
+      ending.value = withTiming(0, { duration: 180 });
+      return;
+    }
+    ending.value = endingFrom;
+    ending.value = withTiming(endingTo, { duration: beatMs, easing: Easing.linear });
+  }, [lastBar, endingFrom, endingTo, beatMs, beatAt, ending]);
+
+  const background = theme.backgroundElement;
+  const endingBackground = theme.warningTint;
+  const border = theme.accent;
+  const endingBorder = theme.warning;
+  const endingStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(ending.value, [0, 1], [background, endingBackground]),
+    borderColor: interpolateColor(ending.value, [0, 1], [border, endingBorder]),
+  }));
+
   const countStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const discStyle = useAnimatedStyle(() => ({
     opacity: 1 - (1 - ring.value) * (accent ? 0.18 : 0.08),
@@ -63,7 +88,15 @@ export function BeatPulse({ beat, playing, idle }: Props) {
     <View style={styles.stage}>
       <View style={styles.circleBox}>
         <Animated.View
-          style={[styles.disc, { backgroundColor: theme.backgroundElement, borderColor: live ? theme.accent : theme.border }, live ? styles.discLive : null, live ? discStyle : null]}
+          testID="beat-disc"
+          aria-label={lastBar ? "Last bar of this Section" : undefined}
+          style={[
+            styles.disc,
+            { backgroundColor: theme.backgroundElement, borderColor: live ? theme.accent : theme.border },
+            live ? styles.discLive : null,
+            live ? discStyle : null,
+            live ? endingStyle : null,
+          ]}
         >
           {live ? (
             <Animated.Text

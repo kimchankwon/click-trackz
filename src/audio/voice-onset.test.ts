@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_VOICE_LEAD_MS, perceivedOnsetMs } from "./voice-onset";
+import { MAX_VOICE_LEAD_MS, perceivedOnsetMs, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
 
 const RATE = 1_000;
 
@@ -34,5 +34,14 @@ describe("perceivedOnsetMs", () => {
       { ms: 100, level: 0.9 },
     ]);
     expect(perceivedOnsetMs(late, RATE)).toBe(MAX_VOICE_LEAD_MS);
+  });
+
+  it("starts every Voice clip a little before its onset so the word lands on the beat", () => {
+    const word = clip([
+      { ms: 40, level: 0.05 },
+      { ms: 200, level: 0.8 },
+    ]);
+    expect(voiceLeadMs(word, RATE)).toBe(40 + VOICE_EARLY_MS);
+    expect(voiceLeadMs(clip([{ ms: 100, level: 0.5 }]), RATE)).toBe(VOICE_EARLY_MS);
   });
 });

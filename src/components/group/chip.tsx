@@ -14,8 +14,14 @@ export function Chip({
   icon,
   disabled,
   strong,
+  compact,
+  queued,
+  accessibleName,
 }: {
   strong?: boolean;
+  compact?: boolean;
+  queued?: boolean;
+  accessibleName?: string;
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -30,6 +36,7 @@ export function Chip({
   return (
     <Pressable
       role={role}
+      aria-label={accessibleName}
       aria-checked={role === "button" ? undefined : selected}
       aria-pressed={role === "button" ? selected : undefined}
       testID={testID}
@@ -39,9 +46,11 @@ export function Chip({
         styles.chip,
         {
           backgroundColor: selected ? (strong ? theme.accent : theme.accentTint) : theme.backgroundSelected,
-          borderColor: selected ? theme.accent : "transparent",
+          borderColor: queued ? (selected ? theme.text : theme.accent) : selected ? theme.accent : "transparent",
         },
         strong ? styles.strongChip : null,
+        compact ? styles.compactChip : null,
+        queued ? styles.queuedChip : null,
         pressed ? styles.pressed : null,
       ]}
     >
@@ -65,6 +74,8 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   strongChip: { minHeight: 48, paddingHorizontal: 20 },
+  compactChip: { minHeight: 44, minWidth: 44, paddingHorizontal: Spacing.two, justifyContent: "center" },
+  queuedChip: { borderWidth: 3 },
   label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
   selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
 });

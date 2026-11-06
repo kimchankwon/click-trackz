@@ -10,7 +10,7 @@ import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
-import { MAX_VOICE_LEAD_MS, perceivedOnsetMs } from "./voice-onset";
+import { MAX_VOICE_LEAD_MS, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -332,7 +332,7 @@ export class CueAudioEngine {
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
       this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
@@ -388,7 +388,7 @@ export class CueAudioEngine {
   private onsetOf(buffer: AudioBuffer): number {
     const known = this.onsets.get(buffer);
     if (known !== undefined) return known;
-    const onset = perceivedOnsetMs(buffer.getChannelData(0), buffer.sampleRate);
+    const onset = voiceLeadMs(buffer.getChannelData(0), buffer.sampleRate);
     this.onsets.set(buffer, onset);
     return onset;
   }
