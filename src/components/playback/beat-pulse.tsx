@@ -89,7 +89,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
           const active = position === index + 1;
           const past = position > index + 1;
           return (
-            <View key={index} style={[styles.dotSlot, dense ? styles.denseSlot : null, startsGroup ? styles.groupGap : null]}>
+            <View key={index} style={[styles.dotSlot, dense ? styles.denseSlot : null, startsGroup ? (dense ? styles.denseGroupGap : styles.groupGap) : null]}>
               <View
                 style={[
                   styles.dot,
@@ -146,11 +146,12 @@ const styles = StyleSheet.create({
   dotsIdle: { opacity: 0.6 },
   dotSlot: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   dot: { width: 22, height: 22, borderRadius: 11 },
-  denseDots: { gap: Spacing.one },
-  denseSlot: { width: 22, height: 22 },
+  denseDots: { gap: Spacing.half },
+  denseSlot: { width: 18, height: 22 },
   denseDot: { width: 14, height: 14, borderRadius: 7 },
   activeDot: { transform: [{ scale: 1.35 }] },
   groupGap: { marginLeft: Spacing.two },
+  denseGroupGap: { marginLeft: Spacing.one },
   pastDot: { opacity: 0.35 },
   downbeat: { borderWidth: 2 },
 });
