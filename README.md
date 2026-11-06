@@ -1,4 +1,4 @@
-# Cue Tracker
+# Click Trackz
 
 A shared cue track for bands. Every musician runs the app on their own phone or browser, an Admin presses Start, and everyone hears the same Click, sees the same Count (`VERSE1 2 3 4 | 2 2 3 4`) and gets the same spoken Voice cue one bar before each Section, aligned to one server clock.
 

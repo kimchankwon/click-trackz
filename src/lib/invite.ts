@@ -11,5 +11,5 @@ export function inviteLink(siteUrl: string, code: string): string {
 }
 
 export function inviteText(groupName: string): string {
-  return `Join ${groupName} on Cue Tracker`;
+  return `Join ${groupName} on Click Trackz`;
 }

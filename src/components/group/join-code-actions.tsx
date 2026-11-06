@@ -39,7 +39,7 @@ export function JoinCodeActions({
       const browser = navigator as WebShare;
       if (typeof browser.share === "function") {
         try {
-          await browser.share({ title: "Cue Tracker", text, url: link });
+          await browser.share({ title: "Click Trackz", text, url: link });
           return;
         } catch (error) {
           if (isCancelledShare(error)) return;
