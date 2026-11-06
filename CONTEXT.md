@@ -31,7 +31,7 @@ A word from the Group's Cue vocabulary plus an optional number, naming a Section
 _Avoid_: Label, tag, name
 
 **Cue vocabulary**:
-The words a Group can use as Section types: the built-in ones (Intro, Verse, Chorus, Bridge, …) plus any an Admin has added with their own recording.
+The words a Group can use as Section types: the built-in ones (Intro, Verse, Chorus, Bridge, …), plus any other word a Song in the Group already uses.
 _Avoid_: Word list, dictionary
 
 **Custom label**:
@@ -69,7 +69,7 @@ One of the built-in voices that reads Voice cues and spoken counts; each Member 
 _Avoid_: Voice, narrator, announcer
 
 **Voice pack**:
-The set of recordings a Group uses for Voice cues and spoken counts: the chosen Speaker's built-in recordings, with any an Admin has uploaded taking their place or adding new words.
+The built-in recordings of the chosen Speaker that play the Voice cues and spoken counts.
 _Avoid_: Samples, voice, sound bank
 
 **Latency nudge**:

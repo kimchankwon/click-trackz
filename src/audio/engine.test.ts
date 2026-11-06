@@ -95,7 +95,7 @@ const song: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 8,
 const NOW = 1_000_000;
 const serverNow = () => NOW;
 const contexts = () => fake.FakeAudioContext.instances;
-const CHORUS = "https://example.com/chorus.wav";
+const VERSE = "verse.wav";
 const loadsOf = (source: unknown) => fake.loadClip.mock.calls.filter(([, loaded]) => loaded === source).length;
 
 async function startStuck(engine: InstanceType<typeof CueAudioEngine>) {
@@ -188,43 +188,26 @@ describe("sound recovery", () => {
     engine.dispose();
   });
 
-  it("reloads recordings when the new context runs at a different sample rate", async () => {
+  it("reloads Speaker clips when the new context runs at a different sample rate", async () => {
     const engine = new CueAudioEngine();
     await startStuck(engine);
-    await engine.setUploads([{ key: "chorus", url: CHORUS }]);
-    expect(loadsOf(CHORUS)).toBe(1);
+    await engine.setSpeaker("adam");
+    expect(loadsOf(VERSE)).toBe(1);
 
     fake.FakeAudioContext.sampleRates.push(44_100);
     await engine.wake();
     await vi.advanceTimersByTimeAsync(0);
-    expect(loadsOf(CHORUS)).toBe(2);
+    expect(loadsOf(VERSE)).toBe(2);
     engine.dispose();
   });
 
-  it("keeps decoded recordings when the sample rate is unchanged", async () => {
+  it("keeps decoded Speaker clips when the sample rate is unchanged", async () => {
     const engine = new CueAudioEngine();
     await startStuck(engine);
-    await engine.setUploads([{ key: "chorus", url: CHORUS }]);
+    await engine.setSpeaker("adam");
     await engine.wake();
     await vi.advanceTimersByTimeAsync(0);
-    expect(loadsOf(CHORUS)).toBe(1);
-    engine.dispose();
-  });
-
-  it("drops a recording decoded at the old sample rate that finishes after the reload", async () => {
-    const engine = new CueAudioEngine();
-    await startStuck(engine);
-    const finishOldLoad = holdNextLoad();
-    const loadingOld = engine.setUploads([{ key: "chorus", url: CHORUS }]);
-
-    fake.FakeAudioContext.sampleRates.push(44_100);
-    await engine.wake();
-    await vi.advanceTimersByTimeAsync(0);
-    finishOldLoad(48_000);
-    await loadingOld;
-
-    engine.previewUpload("chorus");
-    expect(contexts()[1].played.map((buffer) => buffer.sampleRate)).toEqual([44_100]);
+    expect(loadsOf(VERSE)).toBe(1);
     engine.dispose();
   });
 

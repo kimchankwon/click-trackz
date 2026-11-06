@@ -7,7 +7,7 @@ import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
-import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
@@ -29,6 +29,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { SpeakerPicker } from "@/components/sound/speaker-picker";
 import { Segmented } from "@/components/ui/segmented";
 import { AccentPicker } from "@/components/ui/accent-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -173,7 +174,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
-  const recordings = useQuery(api.recordings.list, { groupId });
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -234,9 +234,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
     engine.current?.setSpeaker(speaker).catch((e: unknown) => setError(errorText(e)));
   }, [speaker, soundOn]);
 
-  useEffect(() => {
-    if (soundOn && recordings) void engine.current?.setUploads(recordings);
-  }, [recordings, soundOn]);
 
   useEffect(
     () => () => {
@@ -670,13 +667,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </Card>
       ) : null}
       <Card title="Speaker" plain>
-        <Segmented
-          label="Speaker"
-          testID="speaker-picker"
-          value={speaker}
-          onChange={chooseSpeaker}
-          options={speakers.map((option) => ({ value: option.id, label: option.name }))}
-        />
+        <SpeakerPicker value={speaker} onChange={chooseSpeaker} />
         {soundOn ? null : (
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>
             Enable sound to hear each Speaker as you choose.

@@ -248,7 +248,7 @@ export default function SongEditorScreen() {
   const songId = params.songId as Id<"songs">;
   const groupId = params.groupId as Id<"groups">;
   const song = useQuery(api.songs.get, { songId });
-  const vocabulary = useQuery(api.recordings.vocabulary, { groupId });
+  const vocabulary = useQuery(api.vocabulary.list, { groupId });
   if (!song || !vocabulary) return <ThemedView style={styles.container} />;
   return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} />;
 }

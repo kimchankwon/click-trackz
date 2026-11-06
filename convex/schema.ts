@@ -63,16 +63,6 @@ export default defineSchema({
     ),
     revision: v.optional(v.number()),
   }).index("by_group", ["groupId"]),
-  recordings: defineTable({
-    groupId: v.id("groups"),
-    key: v.string(),
-    word: v.string(),
-    number: v.optional(v.number()),
-    storageId: v.id("_storage"),
-  })
-    .index("by_group", ["groupId"])
-    .index("by_group_key", ["groupId", "key"])
-    .index("by_storage", ["storageId"]),
   playbacks: defineTable({
     groupId: v.id("groups"),
     songId: v.id("songs"),
