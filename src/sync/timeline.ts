@@ -45,6 +45,9 @@ export type Beat = {
   beatInBar: number;
   beatsPerBar: number;
   beatUnit: number;
+  beatMs: number;
+  barInSection: number;
+  barsInSection: number;
   sectionIndex: number | null;
   accent: boolean;
   groupStart: boolean;
@@ -149,6 +152,9 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
         beatInBar: beat,
         beatsPerBar: bar.beatsPerBar,
         beatUnit: bar.beatUnit,
+        beatMs: bar.beatMs,
+        barInSection: bar.barNumber,
+        barsInSection: bar.section?.bars ?? 1,
         sectionIndex: bar.sectionIndex,
         accent: beat === 1,
         groupStart: beat > 1 && (beat - 1) % groupSize === 0,

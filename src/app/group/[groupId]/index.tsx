@@ -12,6 +12,7 @@ import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { SectionProgress } from "@/components/playback/section-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
 import { Card, Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
@@ -423,6 +424,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           >
             {currentSection}
           </ThemedText>
+          {beat ? <SectionProgress beat={beat} /> : null}
         </View>
       ) : (
         <View style={[styles.stageHead, styles.titleBlock]}>
