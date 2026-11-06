@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: "auto", minHeight: 44 },
-  bottomRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
+  bottomRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", columnGap: Spacing.four, rowGap: Spacing.two },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
   indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
