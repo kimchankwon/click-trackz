@@ -29,15 +29,17 @@ export function readPendingGoogleSignIn(): PendingGoogleSignIn | null {
 export function claimReturnedGoogleCode(): boolean {
   if (storage() === null) return true;
   const claim = claimReturnedCode(readPendingGoogleSignIn());
-  if (claim.exchange) writePendingGoogleSignIn(claim.pending);
-  return claim.exchange;
+  return claim.exchange && writePendingGoogleSignIn(claim.pending);
 }
 
-export function writePendingGoogleSignIn(pending: PendingGoogleSignIn | null) {
+export function writePendingGoogleSignIn(pending: PendingGoogleSignIn | null): boolean {
   try {
-    if (pending === null) storage()?.removeItem(KEY);
-    else storage()?.setItem(KEY, JSON.stringify(pending));
+    const store = storage();
+    if (store === null) return false;
+    if (pending === null) store.removeItem(KEY);
+    else store.setItem(KEY, JSON.stringify(pending));
+    return true;
   } catch {
-    return;
+    return false;
   }
 }
