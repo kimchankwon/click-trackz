@@ -10,6 +10,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
+import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -125,7 +126,7 @@ function SetlistForm({
             right={
               <ActionButton
                 small
-                variant="link"
+                variant="pill"
                 icon="star"
                 label="Make current"
                 testID="make-current"
@@ -192,20 +193,17 @@ function SetlistForm({
                         placeholder="Led by"
                         compact
                       />
-                      <IconButton icon="up" size={40} color="textTertiary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
-                      <IconButton
-                        icon="down"
-                        size={40}
-                        color="textTertiary"
-                        label={`Move ${entry.title} down`}
-                        disabled={index === entries.length - 1}
-                        onPress={() => move(index, 1)}
+                      <ReorderControl
+                        name={entry.title}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < entries.length - 1}
+                        onMove={(by) => move(index, by)}
                       />
                       <View style={styles.trashGap} />
                       <IconButton
                         icon="trash"
                         size={40}
-                        color="textTertiary"
+                        color="danger"
                         label={`Remove ${entry.title}`}
                         testID={`entry-${index}-remove`}
                         onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
@@ -317,7 +315,7 @@ const styles = StyleSheet.create({
   groupLabel: { paddingHorizontal: Spacing.one },
   entries: { borderRadius: Radius.lg, overflow: "hidden" },
   entry: { gap: Spacing.two, paddingVertical: 10, paddingLeft: 12, paddingRight: Spacing.one },
-  trashGap: { width: Spacing.one },
+  trashGap: { width: Spacing.two },
   addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },

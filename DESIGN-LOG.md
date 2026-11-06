@@ -281,3 +281,39 @@ Applied (votes in brackets):
 12. Dark Stop: solid #3A3A3C, no border (compromise, see above).
 
 Not applied (one vote, or votes in conflict): one Start form on every tab vs a slimmer mini player; footer in scrolling content; one button face for all labels (body vs display split 1:1); filled play and stop glyphs; neutral destructive actions (round 6 chose red); amber sound banner; avatar hue spacing; sign-in vertical position; folding the library card into its label; stepper and Voice cue on one row; neutral selected preset fill.
+
+## Round 8
+
+Reviewed: `design-shots/round-7/`. Reviewers: three Opus reviewers at high effort, in parallel.
+
+| App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|---|
+| **Cue Tracker** | 1 | **8** | **7** | **7** | **7** | **7** | **7** |
+| **Cue Tracker** | 2 | **7** | **7** | **7** | **8** | **7** | **6** |
+| **Cue Tracker** | 3 | **7** | **7** | **7** | **8** | **6** | **6** |
+| REF-A | 1 / 2 / 3 | 7 / 7 / 6 | 7 / 6 / 6 | 6 / 6 / 6 | 7 / 7 / 7 | 5 / 5 / 5 | 7 / 7 / 7 |
+| REF-B | 1 / 2 / 3 | 6 / 6 / 7 | 4 / 4 / 5 | 6 / 5 / 6 | 7 / 6 / 6 | 7 / 6 / 7 | 5 / 5 / 7 |
+| REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 8 / 7 / 7 | 7 / 8 / 7 | 8 / 8 / 8 |
+| REF-D | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 6 / 7 | 7 / 7 / 7 | 8 / 7 / 6 | 6 / 7 / 6 | 7 / 7 / 7 |
+
+Votes flipped again on the next cue (round 7: smaller and grey, 3 of 3; round 8: larger and black, 3 of 3). It is now set at the midpoint, 24 px bold in primary text. The dark Stop follows rounds 7 and 8 (light fill, black text) over round 6.
+
+Applied (votes in brackets):
+
+1. Next cue 24 px bold, primary text, 22 px coral arrow (3/3, midpoint).
+2. Dark Stop #F2F2F7 with black text (3/3).
+3. All button labels in the body face, 17 px semibold, 15 px on small buttons (2/3).
+4. Make Member as an outlined pill with primary text (3/3).
+5. Song editor: Number and Voice cue on one row, no divider (3/3); up and down in one two-segment pill with red trash set apart (3/3 on grouping, 2/3 on red).
+6. Setlist editor: the same reorder pill and red trash; Make current as a filled pill (3/3).
+7. Missing Keys on the Songs tab as a plain dash (3/3).
+8. No-Song state above the tabs as one line with no disabled button (2/3).
+9. Tap pad without an outline at rest (2/3); chosen preset tinted with border and check (2/3).
+10. Downbeat ring on beat 1 (2/3).
+11. Idle Song title 34 px (2/3).
+12. Drawn metronome glyph for Click (2/3).
+13. Voice pack fields labelled Word and Number (2/3).
+14. Latency slider: tick at 0 ms, fill from zero to the thumb (2/3).
+15. Attribution footer 11 px with tighter padding.
+
+Not applied: footer inside the scrolling content (not possible while it stays in the static HTML outside the app root); chevrons on Setlist rows (tapping a row picks it for Start, it does not navigate); neutral avatars (round 6 chose colour 3 of 3); a separate Guest icon; moving the join code to the Group tab; Edit and New as eyebrow links; editor header subtitles removed; Title and Key on one row; white slider thumbs; a bigger tap target for Edit and New.

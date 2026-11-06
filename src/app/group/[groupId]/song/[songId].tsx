@@ -12,6 +12,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
+import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Switch } from "@/components/ui/switch";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
@@ -90,10 +91,16 @@ function SectionRow({
           </ThemedText>
           <Icon name="expand" size={20} color="textSecondary" />
         </Pressable>
-        <IconButton icon="up" color="textSecondary" label={`Move Section ${index + 1} up`} disabled={index === 0} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <IconButton icon="down" color="textSecondary" label={`Move Section ${index + 1} down`} disabled={index === count - 1} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <ReorderControl
+          name={`Section ${index + 1}`}
+          canMoveUp={index > 0}
+          canMoveDown={index < count - 1}
+          onMove={onMove}
+          upTestID={`section-${index}-up`}
+          downTestID={`section-${index}-down`}
+        />
         <View style={styles.trashGap} />
-        <IconButton icon="trash" color="textSecondary" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        <IconButton icon="trash" color="danger" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
@@ -122,32 +129,35 @@ function SectionRow({
         />
         <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
       </View>
-      <View style={styles.numberGroup}>
-        <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-          Number
-        </ThemedText>
-        <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
-          <IconButton
-            icon="minus"
-            size={36}
-            label={`Lower the number of Section ${index + 1}`}
-            testID={`section-${index}-number-down`}
-            onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
-          />
-          <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
-            {section.number ?? "None"}
+      <View style={styles.bottomRow}>
+        <View style={styles.numberGroup}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Number
           </ThemedText>
-          <IconButton
-            icon="add"
-            size={36}
-            label={`Raise the number of Section ${index + 1}`}
-            testID={`section-${index}-number-up`}
-            onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
-          />
+          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
+            <IconButton
+              icon="minus"
+              size={36}
+              label={`Lower the number of Section ${index + 1}`}
+              testID={`section-${index}-number-down`}
+              onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+            />
+            <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
+              {section.number ?? "None"}
+            </ThemedText>
+            <IconButton
+              icon="add"
+              size={36}
+              label={`Raise the number of Section ${index + 1}`}
+              testID={`section-${index}-number-up`}
+              onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
+            />
+          </View>
+        </View>
+        <View style={styles.grow}>
+          <Switch label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
         </View>
       </View>
-      <Divider />
-      <Switch label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
     </View>
   );
 }
@@ -370,7 +380,8 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
-  trashGap: { width: Spacing.two },
+  trashGap: { width: Spacing.three },
+  bottomRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
   indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },

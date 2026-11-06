@@ -84,8 +84,8 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
       ) : null}
       <Divider />
       <View style={styles.row}>
-        <Field testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" compact inset />
-        <Field testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="No." inputMode="numeric" compact inset />
+        <Field label="Word" testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="e.g. Chorus" compact />
+        <Field label="Number" testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="1-9" inputMode="numeric" compact />
       </View>
       <ActionButton icon="upload" variant="secondary" label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
       {status ? (
@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
   separator: { position: "absolute", top: 0, left: 0, right: 0, height: StyleSheet.hairlineWidth },
   word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },
-  numberInput: { width: 72 },
+  numberInput: { width: 88 },
 });

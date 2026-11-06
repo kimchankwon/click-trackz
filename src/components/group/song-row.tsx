@@ -74,7 +74,7 @@ export function SongRow({
             </ThemedText>
           </View>
         ) : (
-          <View style={[styles.keyPill, styles.keyEmpty, { borderColor: theme.inputBorder }]} aria-label="No Key">
+          <View style={styles.keyPill} aria-label="No Key">
             <ThemedText type="smallBold" themeColor="textTertiary" style={styles.keyText}>
               –
             </ThemedText>
@@ -94,7 +94,6 @@ const styles = StyleSheet.create({
   index: { width: 24, textAlign: "right", fontSize: 13, fontVariant: ["tabular-nums"] },
   text: { flex: 1, minWidth: 0 },
   title: { fontWeight: 600, fontSize: 17 },
-  keyEmpty: { borderWidth: 1, borderStyle: "dashed" },
   keyText: { fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },

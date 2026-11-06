@@ -19,9 +19,10 @@ type Props = {
   icon?: IconName;
   hideValue?: boolean;
   bare?: boolean;
+  origin?: number;
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue, bare }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue, bare, origin = 0 }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
@@ -68,8 +69,16 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         style={[styles.hitArea, { borderColor: focused ? theme.text : "transparent" }]}
       >
         <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-          <View style={[styles.fill, { width: `${value * 100}%`, backgroundColor: theme.accent }]} />
+          <View
+            style={[
+              styles.fill,
+              { left: `${Math.min(origin, value) * 100}%`, width: `${Math.abs(value - origin) * 100}%`, backgroundColor: theme.accent },
+            ]}
+          />
         </View>
+        {origin > 0 ? (
+          <View pointerEvents="none" style={[styles.originTick, { left: 12 + Math.max(0, width - 28) * origin, backgroundColor: theme.textTertiary }]} />
+        ) : null}
         <View
           pointerEvents="none"
           style={[styles.thumb, { left: Math.max(0, width - 32) * value, backgroundColor: theme.accent, borderColor: theme.background }]}
@@ -89,7 +98,8 @@ const styles = StyleSheet.create({
   label: { width: 52 },
   hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, marginHorizontal: -12 },
   track: { height: 6, borderRadius: 3, overflow: "hidden" },
-  fill: { height: "100%", borderRadius: 3 },
+  fill: { position: "absolute", top: 0, bottom: 0, borderRadius: 3 },
+  originTick: { position: "absolute", bottom: 4, width: 2, height: 12, borderRadius: 1 },
   thumb: { position: "absolute", width: 28, height: 28, borderRadius: 14, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
   value: { minWidth: 40, textAlign: "right", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
 });

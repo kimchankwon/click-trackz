@@ -145,6 +145,7 @@ export default function LatencyScreen() {
               valueText={`${nudge} ms`}
               hideValue
               bare
+              origin={-LATENCY_MIN_MS / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
               onChange={(fraction) => setNudge(LATENCY_MIN_MS + fraction * (LATENCY_MAX_MS - LATENCY_MIN_MS))}
             />
             <View style={styles.steps}>
@@ -177,7 +178,7 @@ export default function LatencyScreen() {
                     }}
                     style={[
                       styles.preset,
-                      { backgroundColor: theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
+                      { backgroundColor: selected ? theme.accentTint : theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
                     ]}
                   >
                     <View style={styles.presetTop}>
@@ -253,7 +254,7 @@ export default function LatencyScreen() {
                 }}
                 style={[
                   styles.pad,
-                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.inputFill, borderColor: theme.accent },
+                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: "transparent" },
                 ]}
               >
                 <Icon name="touch" size={32} color={listening ? "onAccent" : "accent"} />

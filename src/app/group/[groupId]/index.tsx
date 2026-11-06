@@ -22,6 +22,7 @@ import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
+import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
@@ -319,8 +320,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
             {upcoming ? "Next, in one bar" : "Next"}
           </ThemedText>
           <View style={styles.nextRow}>
-            <Icon name="next" size={18} color="accent" />
-            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "textSecondary"} style={styles.nextText}>
+            <Icon name="next" size={22} color="accent" />
+            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
               {nextLine}
             </ThemedText>
           </View>
@@ -390,7 +391,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         <Card title="Mix">
           <View style={styles.mixRow}>
             <View style={styles.mixHead}>
-              <Icon name="metronome" size={22} color="textSecondary" />
+              <MetronomeIcon size={22} />
               <View style={styles.grow}>
                 <Switch label="Click" value={mix.click} onChange={(on) => setMix({ ...mix, click: on })} />
               </View>
@@ -511,7 +512,15 @@ function GroupScreen({ group }: { group: MyGroup }) {
               )}
             </View>
           ) : null}
-          {isAdmin && tab !== "play" ? (
+          {isAdmin && tab !== "play" && startBlocker === "noSong" && !playing ? (
+            <View style={styles.miniEmpty}>
+              <Icon name="songs" size={20} color="textTertiary" />
+              <ThemedText type="small" themeColor="textSecondary">
+                Pick a Song to start
+              </ThemedText>
+            </View>
+          ) : null}
+          {isAdmin && tab !== "play" && (startBlocker !== "noSong" || playing) ? (
             <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement }]}>
               <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
               <View style={styles.grow}>
@@ -556,20 +565,21 @@ const styles = StyleSheet.create({
   sectionHeading: { fontSize: 56, lineHeight: 62 },
   sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  idleTitle: { fontSize: 40, lineHeight: 46 },
+  idleTitle: { fontSize: 34, lineHeight: 40 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
   titleBlock: { minHeight: 96, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
-  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 600 },
+  nextText: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: 700 },
   mixSlider: { paddingLeft: MIX_TEXT_INSET },
   mixRow: { gap: Spacing.one },
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   plainHint: { paddingHorizontal: Spacing.one },
   latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
+  miniEmpty: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 44, marginTop: Spacing.one, paddingHorizontal: Spacing.one },
   soundPrompt: {
     flexDirection: "row",
     alignItems: "center",
