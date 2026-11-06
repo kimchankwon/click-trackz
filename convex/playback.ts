@@ -21,14 +21,14 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, jumps, stopsAt } = playback;
-    return { songId, song, startsAt, startSection, jumps, stopsAt };
+    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt } = playback;
+    return { songId, song, startsAt, startSection, startBar: startBar ?? 1, jumps, stopsAt };
   },
 });
 
 export const start = mutation({
-  args: { groupId: v.id("groups"), songId: v.id("songs"), fromSection: v.optional(v.number()) },
-  handler: async (ctx, { groupId, songId, fromSection }) => {
+  args: { groupId: v.id("groups"), songId: v.id("songs"), fromSection: v.optional(v.number()), fromBar: v.optional(v.number()) },
+  handler: async (ctx, { groupId, songId, fromSection, fromBar }) => {
     const { user } = await requireAdmin(ctx, groupId);
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
@@ -36,12 +36,17 @@ export const start = mutation({
     if (fromSection !== undefined && (!Number.isInteger(fromSection) || fromSection < 0 || fromSection >= song.sections.length)) {
       throw new ConvexError("That Section is not in the Song");
     }
+    const startSectionBars = song.sections[fromSection ?? 0].bars;
+    if (fromBar !== undefined && (!Number.isInteger(fromBar) || fromBar < 1 || fromBar > startSectionBars)) {
+      throw new ConvexError(`That Section only has ${startSectionBars} bars`);
+    }
     const fields = {
       groupId,
       songId,
-      song: { countIn: fromSection === undefined ? song.countIn : true, sections: song.sections },
+      song: { countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true, sections: song.sections },
       startsAt: Date.now() + LEAD_IN_MS,
       startSection: fromSection ?? 0,
+      startBar: fromBar ?? 1,
       jumps: [],
       stopsAt: null,
       startedBy: user._id,

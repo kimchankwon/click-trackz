@@ -10,7 +10,6 @@
 
 import type * as access from "../access.js";
 import type * as auth from "../auth.js";
-import type * as bpm from "../bpm.js";
 import type * as clock from "../clock.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
@@ -31,7 +30,6 @@ import type {
 declare const fullApi: ApiFromModules<{
   access: typeof access;
   auth: typeof auth;
-  bpm: typeof bpm;
   clock: typeof clock;
   groups: typeof groups;
   http: typeof http;

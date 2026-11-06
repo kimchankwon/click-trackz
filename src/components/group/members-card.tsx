@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { presenceOf, type MemberPresence, type PresenceRow } from "@/presence/online";
+import { memberPresence, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -30,10 +30,7 @@ export function MembersCard({
   const setRole = useMutation(api.groups.setRole);
   const theme = useTheme();
   const list = members ?? [];
-  const statusOf = (userId: string): MemberPresence => {
-    const status = presenceOf(presence.rows, userId, presence.nowMs);
-    return userId === viewer?.id && status === "offline" ? "online" : status;
-  };
+  const statusOf = (userId: string) => memberPresence(presence.rows, userId, presence.nowMs, viewer?.id);
   const onlineCount = list.filter((member) => statusOf(member.userId) !== "offline").length;
   return (
     <Card title={`Members · ${list.length} · ${onlineCount} online`}>

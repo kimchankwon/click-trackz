@@ -13,5 +13,10 @@ export function presenceOf(rows: readonly PresenceRow[], userId: string, nowMs: 
   return screens.some((r) => r.onPlay) ? "onPlay" : "online";
 }
 
+export function memberPresence(rows: readonly PresenceRow[], userId: string, nowMs: number, viewerId: string | undefined): MemberPresence {
+  const status = presenceOf(rows, userId, nowMs);
+  return userId === viewerId && status === "offline" ? "online" : status;
+}
+
 export const countOnPlay = (rows: readonly PresenceRow[], nowMs: number) =>
   new Set(fresh(rows, nowMs).filter((r) => r.onPlay).map((r) => r.userId)).size;

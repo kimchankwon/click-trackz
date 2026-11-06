@@ -1,7 +1,7 @@
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ActionButton } from "@/components/action-button";
@@ -28,8 +28,6 @@ const MIN_SAVING_MS = 400;
 
 type EditableSection = Section & { customLabel?: string };
 type SectionRowState = { id: number; section: EditableSection };
-
-type LookupResult = { title: string; artist: string | null; bpm: number | null; beatsPerBar: number | null; key: string | null };
 
 function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -202,8 +200,6 @@ function SongForm({
 }) {
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
-  const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
-  const lookup = useAction(api.bpm.lookup);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.three);
   const [title, setTitle] = useState(song.title);
@@ -212,7 +208,6 @@ function SongForm({
   const [rows, setRows] = useState<SectionRowState[]>(() => song.sections.map((section, id) => ({ id, section })));
   const [nextRowId, setNextRowId] = useState(song.sections.length);
   const sections = rows.map((row) => row.section);
-  const [results, setResults] = useState<LookupResult[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -247,22 +242,6 @@ function SongForm({
     setRows(next);
   };
 
-  const applyLookup = (result: LookupResult) => {
-    if (result.key) setSongKey(result.key);
-    setRows(
-      rows.map((row) => ({
-        id: row.id,
-        section: {
-          ...row.section,
-          ...(result.bpm ? { bpm: result.bpm } : {}),
-          ...(result.beatsPerBar ? { beatsPerBar: result.beatsPerBar } : {}),
-        },
-      })),
-    );
-    setResults(null);
-    setMessage(`Applied ${result.bpm ?? "?"} BPM to every Section`);
-  };
-
   const save = () =>
     run(async () => {
       setSaving(true);
@@ -293,50 +272,6 @@ function SongForm({
             <Divider />
             <Switch label="Count-in" hint="One bar of beat numbers before the first Section" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
           </View>
-
-          {lookupAvailable ? (
-            <View style={styles.group}>
-              <ActionButton
-                icon="speed"
-                label="Look up BPM and key"
-                testID="lookup-bpm"
-                disabled={title.trim() === ""}
-                onPress={() => run(async () => setResults(await lookup({ groupId, title })))}
-              />
-              {(results ?? []).map((result, index) => (
-                <Pressable
-                  key={index}
-                  role="button"
-                  onPress={() => applyLookup(result)}
-                  style={[styles.result, { backgroundColor: theme.backgroundElement }]}
-                >
-                  <View style={styles.grow}>
-                    <ThemedText type="smallBold" numberOfLines={1}>
-                      {result.title}
-                    </ThemedText>
-                    <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-                      {[result.artist, `${result.bpm ?? "?"} BPM`, result.beatsPerBar ? `${result.beatsPerBar}/4` : null, result.key]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </ThemedText>
-                  </View>
-                  <ThemedText type="smallBold" themeColor="accent">
-                    Use
-                  </ThemedText>
-                </Pressable>
-              ))}
-              {results?.length === 0 ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  No matches
-                </ThemedText>
-              ) : null}
-              <Pressable role="link" onPress={() => void Linking.openURL("https://getsongbpm.com")}>
-                <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
-                  BPM data from GetSongBPM
-                </ThemedText>
-              </Pressable>
-            </View>
-          ) : null}
 
           <View style={styles.group}>
             <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
@@ -436,8 +371,6 @@ const styles = StyleSheet.create({
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
   numberInput: { fontVariant: ["tabular-nums"] },
-  result: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md },
-  credit: { textDecorationLine: "underline" },
   centeredText: { textAlign: "center" },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

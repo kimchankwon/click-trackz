@@ -20,6 +20,7 @@ export type Jump = {
 export type Playback = {
   startsAt: number;
   startSection: number;
+  startBar?: number;
   jumps?: readonly Jump[];
   stopsAt?: number | null;
 };
@@ -55,6 +56,7 @@ type Bar = {
 type Segment = {
   startsAt: number;
   startSection: number;
+  startBar: number;
   countIn: boolean;
   endsAt: number;
 };
@@ -63,10 +65,10 @@ const beatMsOf = (section: Section) => 60_000 / section.bpm;
 
 function segmentsOf(song: Song, playback: Playback): Segment[] {
   const starts = [
-    { startsAt: playback.startsAt, startSection: playback.startSection, countIn: song.countIn },
+    { startsAt: playback.startsAt, startSection: playback.startSection, startBar: playback.startBar ?? 1, countIn: song.countIn },
     ...[...(playback.jumps ?? [])]
       .sort((x, y) => x.at - y.at)
-      .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, countIn: false })),
+      .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, startBar: 1, countIn: false })),
   ];
   return starts.map((start, index) => ({ ...start, endsAt: starts[index + 1]?.startsAt ?? Infinity }));
 }
@@ -92,7 +94,7 @@ function barsOf(song: Song, segment: Segment): Bar[] {
   if (segment.countIn && sections.length > 0) push(sections[0], null, null, 1);
   sections.forEach((section, offset) => {
     const sectionIndex = segment.startSection + offset;
-    for (let barNumber = 1; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber);
+    for (let barNumber = offset === 0 ? segment.startBar : 1; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber);
   });
   return bars;
 }

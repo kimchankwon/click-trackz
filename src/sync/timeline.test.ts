@@ -140,4 +140,16 @@ describe("playbackEndsAt", () => {
   it("ends at Stop when Stop comes first", () => {
     expect(playbackEndsAt(song, { startsAt: 10_000, startSection: 0, stopsAt: 12_000 })).toBe(12_000);
   });
+
+  it("starts part-way through a Section, counting in at that Section's tempo", () => {
+    const song: Song = { countIn: true, sections: [{ ...intro, bars: 4 }, { sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 120 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 3 }, 0, 60_000).filter((b) => b.accent);
+    expect(beats.map((b) => [b.at, b.count])).toEqual([
+      [0, "1"],
+      [2_000, "3"],
+      [4_000, "4"],
+      [6_000, "VERSE"],
+    ]);
+    expect(playbackEndsAt(song, { startsAt: 0, startSection: 0, startBar: 3 })).toBe(8_000);
+  });
 });

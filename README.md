@@ -46,16 +46,6 @@ npx convex env set AUTH_GOOGLE_SECRET <client secret>
 
 For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment only and start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. Never set `DEV_LOGIN_SECRET` on production.
 
-## BPM lookup
-
-The Song editor can look up BPM, time signature and key by title through [GetSongBPM](https://getsongbpm.com). Register for a free key, then:
-
-```bash
-npx convex env set GETSONGBPM_API_KEY <key>
-```
-
-The editor shows "BPM data from GetSongBPM" with a link back, as their terms require.
-
 ## Seed the first Setlist
 
 Once your real Group exists, copy its id from the Group page URL (`/group/<id>`) and run:

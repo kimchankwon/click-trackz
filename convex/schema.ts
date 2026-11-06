@@ -65,6 +65,7 @@ export default defineSchema({
     song: v.object({ countIn: v.boolean(), sections: v.array(sectionFields) }),
     startsAt: v.number(),
     startSection: v.number(),
+    startBar: v.optional(v.number()),
     jumps: v.array(v.object({ at: v.number(), toSection: v.number() })),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
