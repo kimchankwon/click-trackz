@@ -27,6 +27,8 @@ export function Avatar({ name, size = 40, position }: { name: string; size?: num
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.background }]}>
       <ThemedText
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
         style={[styles.initials, { color: colors.text, fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.55) }]}
       >
         {initialsOf(name)}
@@ -36,6 +38,6 @@ export function Avatar({ name, size = 40, position }: { name: string; size?: num
 }
 
 const styles = StyleSheet.create({
-  avatar: { alignItems: "center", justifyContent: "center" },
+  avatar: { alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
   initials: { fontFamily: Fonts.display, fontWeight: 700, letterSpacing: -0.3 },
 });
