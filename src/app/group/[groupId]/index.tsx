@@ -584,12 +584,22 @@ function GroupScreen({ group }: { group: MyGroup }) {
     </View>
   );
 
+  const showTab = (next: GroupTab) => {
+    setTab(next);
+    scroller.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  const playSong = (songId: Id<"songs">) => {
+    setSelectedSongId(songId);
+    showTab("play");
+  };
+
   const setlistTab = (
     <SetlistCard
       groupId={groupId}
       isAdmin={isAdmin}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
-      onSelect={setSelectedSongId}
+      onSelect={playSong}
       run={run}
     />
   );
@@ -600,7 +610,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         groupId={groupId}
         isAdmin={isAdmin}
         selectedSongId={selectedSongId ?? playback?.songId ?? null}
-        onSelect={setSelectedSongId}
+        onPlay={playSong}
         run={run}
       />
     </>
@@ -804,13 +814,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
               )}
             </View>
           ) : null}
-          <TabBar
-            active={tab}
-            onChange={(next) => {
-              setTab(next);
-              scroller.current?.scrollTo({ y: 0, animated: false });
-            }}
-          />
+          <TabBar active={tab} onChange={showTab} />
         </View>
       </SafeAreaView>
       <Toast message={toast.message} bottom={dockInset + ControlHeight.large * 2 + Spacing.four} />

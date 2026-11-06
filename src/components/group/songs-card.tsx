@@ -17,13 +17,13 @@ export function SongsCard({
   groupId,
   isAdmin,
   selectedSongId,
-  onSelect,
+  onPlay,
   run,
 }: {
   groupId: Id<"groups">;
   isAdmin: boolean;
   selectedSongId: Id<"songs"> | null;
-  onSelect: (songId: Id<"songs">) => void;
+  onPlay: (songId: Id<"songs">) => void;
   run: (action: () => Promise<unknown>) => void;
 }) {
   const songs = useQuery(api.songs.list, { groupId });
@@ -46,18 +46,20 @@ export function SongsCard({
               meta={song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`}
               songKey={song.key}
               needsSections={song.sectionCount === 0}
-              selected={selectedSongId === song.songId}
+              selected={false}
               selectable={isAdmin}
-              onSelect={() => onSelect(song.songId)}
-              testID={`song-${song.title}`}
+              opens
+              label={`Edit ${song.title}`}
+              onSelect={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })}
+              testID={`edit-${song.title}`}
               trailing={
                 isAdmin ? (
                   <IconButton
-                    icon="forward"
-                    label={`Edit ${song.title}`}
-                    testID={`edit-${song.title}`}
-                    color="textSecondary"
-                    onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })}
+                    icon="play"
+                    label={`Play ${song.title}`}
+                    testID={`play-${song.title}`}
+                    color={selectedSongId === song.songId ? "accent" : "textSecondary"}
+                    onPress={() => onPlay(song.songId)}
                   />
                 ) : null
               }
