@@ -15,8 +15,10 @@ export function IconButton({
   size = 44,
   round,
   onCard,
+  outlined,
 }: {
   onCard?: boolean;
+  outlined?: boolean;
   icon: IconName;
   label: string;
   onPress: () => void;
@@ -40,6 +42,7 @@ export function IconButton({
         styles.button,
         { width: size, height: size, backgroundColor: filled ? (onCard ? theme.backgroundSelected : theme.backgroundElement) : "transparent" },
         round ? { borderRadius: size / 2 } : null,
+        outlined ? { borderWidth: 1, borderColor: theme.inputBorder } : null,
         disabled ? styles.disabled : null,
         pressed ? styles.pressed : null,
       ]}

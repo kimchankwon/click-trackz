@@ -151,7 +151,7 @@ export default function LatencyScreen() {
             <View style={styles.steps}>
               {[-10, -1, 1, 10].map((step) => (
                 <View key={step} style={styles.stepCell}>
-                  <ActionButton full medium label={step > 0 ? `+${step}` : String(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
+                  <ActionButton full medium label={step > 0 ? `+${step}` : `\u2212${-step}`} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
                 </View>
               ))}
             </View>
@@ -235,7 +235,7 @@ export default function LatencyScreen() {
                       onPress={() => run(() => startRound(round))}
                       style={[styles.roundSegment, next ? [styles.roundRaised, { backgroundColor: theme.raised }] : null]}
                     >
-                      <Icon name={round === "speaker" ? "play" : "headphones"} size={18} color={next ? "accent" : available ? "textSecondary" : "textTertiary"} />
+                      <Icon name={round === "speaker" ? "phone" : "headphones"} size={18} color={next ? "onRaised" : available ? "textSecondary" : "textTertiary"} />
                       <ThemedText type="smallBold" themeColor={next ? "onRaised" : available ? "textSecondary" : "textTertiary"}>
                         {round === "speaker" ? "Round 1" : "Round 2"}
                       </ThemedText>

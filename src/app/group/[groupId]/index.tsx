@@ -246,10 +246,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <Icon
             name="ping"
             size={12}
-            color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "success"}
+            color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "textTertiary"}
           />
           <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
-            {estimate ? `Ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
+            {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
           </ThemedText>
         </View>
       }
@@ -267,7 +267,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   );
 
   const playTab = (
-    <>
+    <View style={styles.playColumn}>
       {soundPrompt}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
@@ -344,25 +344,27 @@ function GroupScreen({ group }: { group: MyGroup }) {
           {isAdmin ? (
             <>
               <View style={styles.jumpMode}>
-                <ThemedText type="caption" themeColor="textSecondary">
+                <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
                   When I tap a Section, go
                 </ThemedText>
-                <Segmented
-                  compact
-                  label="When I tap a Section, go"
-                  value={jumpMode}
-                  onChange={setJumpMode}
-                  options={[
-                    { value: "endOfSection", label: "After this Section" },
-                    { value: "nextBar", label: "At the next bar" },
-                  ]}
-                />
+                <View style={styles.jumpControl}>
+                  <Segmented
+                    compact
+                    label="When I tap a Section, go"
+                    value={jumpMode}
+                    onChange={setJumpMode}
+                    options={[
+                      { value: "endOfSection", label: "After it" },
+                      { value: "nextBar", label: "Next bar" },
+                    ]}
+                  />
+                </View>
               </View>
             </>
           ) : null}
         </Card>
       ) : null}
-    </>
+    </View>
   );
 
   const songsTab = (
@@ -492,7 +494,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background }]}>
           {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
               {playing ? (
@@ -554,13 +556,14 @@ const styles = StyleSheet.create({
   pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, height: 28 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
+  playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
   sectionHeading: { fontSize: 56, lineHeight: 62 },
   sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 34, lineHeight: 40 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
-  titleBlock: { minHeight: 96, justifyContent: "center" },
+  titleBlock: { minHeight: 88, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
@@ -588,8 +591,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
-    marginTop: 12,
-    minHeight: 60,
+    marginTop: Spacing.two,
+    minHeight: 56,
     paddingVertical: Spacing.two,
     paddingHorizontal: 14,
     borderRadius: Radius.lg,
@@ -599,12 +602,14 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
-  jumpMode: { gap: Spacing.two, paddingTop: Spacing.two },
+  jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
+  jumpCaption: { flex: 1 },
+  jumpControl: { width: 196 },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
-  dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
+  dock: { paddingHorizontal: Spacing.four },
   transport: { flexDirection: "row", paddingTop: 12, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

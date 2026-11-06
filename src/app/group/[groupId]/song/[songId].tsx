@@ -154,8 +154,13 @@ function SectionRow({
             />
           </View>
         </View>
-        <View style={styles.grow}>
-          <Switch label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
+        <View style={styles.numberGroup}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Voice cue
+          </ThemedText>
+          <View style={styles.switchSlot}>
+            <Switch bare label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
+          </View>
         </View>
       </View>
     </View>
@@ -404,6 +409,7 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
   stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
   numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
+  switchSlot: { minHeight: 44, justifyContent: "center" },
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
   numberInput: { fontVariant: ["tabular-nums"] },

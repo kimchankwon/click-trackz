@@ -63,11 +63,13 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
                 {recording.number ? ` ${recording.number}` : ""}
               </ThemedText>
               {canPreview ? (
-                <IconButton icon="play" color="text" filled onCard round size={36} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+                <IconButton icon="play" color="text" filled onCard round size={40} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
               ) : null}
               <IconButton
                 icon="trash"
-                size={36}
+                size={40}
+                round
+                outlined
                 label={`Remove ${recording.word}`}
                 color="textTertiary"
                 testID={`remove-${recording.key}`}
@@ -87,7 +89,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
         <Field label="Word" testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="e.g. Chorus" compact />
         <Field label="Number" testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="1-9" inputMode="numeric" compact />
       </View>
-      <ActionButton icon="upload" variant="secondary" label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
+      <ActionButton icon="upload" accent label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
       {status ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="recording-status">
           {status}
@@ -99,7 +101,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.two, height: 56 },
+  recording: { flexDirection: "row", alignItems: "center", gap: 12, height: 56 },
   separator: { position: "absolute", top: 0, left: 0, right: 0, height: StyleSheet.hairlineWidth },
   word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },

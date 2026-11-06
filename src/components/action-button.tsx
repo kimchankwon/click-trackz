@@ -27,6 +27,7 @@ type Props = {
   accent?: boolean;
   variant?: ButtonVariant;
   small?: boolean;
+  tiny?: boolean;
   medium?: boolean;
   rounded?: boolean;
   large?: boolean;
@@ -53,12 +54,12 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   pill: { background: "backgroundSelected", text: "text" },
 };
 
-export function ActionButton({ label, onPress, testID, accent, variant, small, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
+export function ActionButton({ label, onPress, testID, accent, variant, small, tiny, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled }: Props) {
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
-  const textColor = disabled ? "textTertiary" : look.text;
-  const background = disabled ? (look.background ? theme.backgroundSelected : "transparent") : look.background ? theme[look.background] : "transparent";
-  const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : small ? ControlHeight.small : ControlHeight.regular;
+  const textColor = look.text;
+  const background = look.background ? theme[look.background] : "transparent";
+  const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : tiny ? 32 : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
       role="button"
@@ -69,8 +70,9 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
-        look.border ? { borderWidth: 1, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
+        { minHeight: height, backgroundColor: background, paddingHorizontal: tiny ? 12 : small ? Spacing.three : Spacing.four },
+        look.border ? { borderWidth: 1, borderColor: theme[look.border] } : null,
+        disabled ? styles.disabled : null,
         full ? styles.full : null,
         rounded ? { borderRadius: height / 2 } : null,
         pressed && !disabled ? styles.pressed : null,
@@ -84,6 +86,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
         style={[
           styles.label,
           small || medium ? styles.smallLabel : null,
+          tiny ? styles.tinyLabel : null,
           variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" || variant === "quiet" || variant === "subtle"
             ? styles.quietLabel
             : null,
@@ -106,8 +109,10 @@ const styles = StyleSheet.create({
   },
   full: { alignSelf: "stretch", flexGrow: 1 },
   pressed: { opacity: 0.75 },
+  disabled: { opacity: 0.4 },
   label: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 17, lineHeight: 22, flexShrink: 1 },
   smallLabel: { fontSize: 15, lineHeight: 20 },
+  tinyLabel: { fontSize: 13, lineHeight: 18 },
   quietLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 15 },
   dangerLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 17 },
 });

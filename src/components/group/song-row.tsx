@@ -74,11 +74,7 @@ export function SongRow({
             </ThemedText>
           </View>
         ) : (
-          <View style={[styles.keyPill, { backgroundColor: theme.backgroundSelected }]} aria-label="No Key">
-            <ThemedText type="smallBold" themeColor="textTertiary" style={styles.keyText}>
-              –
-            </ThemedText>
-          </View>
+          <View style={styles.keyPill} aria-label="No Key" />
         )}
         {selected && selectable ? <Icon name="check" size={20} color="accent" /> : null}
       </Pressable>

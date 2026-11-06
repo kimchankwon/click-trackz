@@ -350,3 +350,44 @@ Applied (votes in brackets):
 12. 10 px of space above the attribution footer (2/3).
 
 Not applied: a quieter next cue (one vote this round after round 8 asked for a louder one); bigger or smaller disc (one vote each way); bigger Section chips; flat dock vs no hairline (split); join code moved to the Group tab; tab label weights; neutral avatars; white slider thumbs; filled play and stop glyphs; zero tick end labels; equal Join and Create widths; sign-in vertical position.
+
+## Round 10
+
+Reviewed: `design-shots/round-9/`. Reviewers: three Opus reviewers at high effort, in parallel.
+
+| App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|---|
+| **Cue Tracker** | 1 | **8** | **8** | **7** | **7** | **7** | **8** |
+| **Cue Tracker** | 2 | **8** | **7** | **7** | **8** | **7** | **7** |
+| **Cue Tracker** | 3 | **8** | **7** | **7** | **7** | **7** | **7** |
+| REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 6 / 6 / 6 | 6 / 6 / 6 | 7 / 7 / 7 | 5 / 6 / 5 | 8 / 7 / 7 |
+| REF-B | 1 / 2 / 3 | 7 / 7 / 7 | 4 / 5 / 5 | 5 / 6 / 6 | 6 / 6 / 5 | 6 / 7 / 7 | 6 / 5 / 6 |
+| REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 6 | 7 / 7 / 7 | 8 / 8 / 7 | 8 / 8 / 7 |
+| REF-D | 1 / 2 / 3 | 6 / 7 / 7 | 7 / 7 / 6 | 7 / 7 / 6 | 6 / 7 / 5 | 6 / 6 / 6 | 7 / 7 / 7 |
+
+Applied (votes in brackets):
+
+1. Dark Stop #F2F2F7 with black text (2/3; across rounds 6 to 10 the light version has the most votes).
+2. Beat dots: one 22 px size, the current beat scales up in place, downbeat ring, past beats faded coral, unlit #545458 in dark and #C7C7CC in light (2/3 on each point).
+3. Jump control on one row with its caption, labels "After it" and "Next bar"; tighter Play column so the Sections card clears the dock (3/3).
+4. Disabled buttons: their enabled look at 40%; Join, Create and Upload recording are coral primaries (3/3 on separating disabled from secondary, 2/3 on this treatment).
+5. Dark selected segment #48484A (2/3).
+6. Voice pack play and trash as matching 40 px round buttons (2/3).
+7. Voice cue as a field label above its switch (2/3). This was logged in round 9 but the edit had not applied; it is now in place.
+8. Round 1 phone icon, Round 2 headphones, both in the label colour (3/3).
+9. Empty Keys leave the slot blank on the Songs tab (2/3).
+10. Avatars cycle five hues by position, no red (2/3).
+11. Ping readout without the word "Ping", grey until weak (2/3).
+12. Make Member 32 px with 13 px text (2/3).
+13. True minus sign on the latency steps (2/3).
+14. No hairline above the dock; mini player 56 px (3/3).
+
+Not applied: footer inside the scrolling content (not possible while it stays in the static HTML outside the app root); "Current Setlist" capitalisation (the glossary term in CONTEXT.md is "Current setlist"); a bigger count ring; a column header in the Setlist editor; removing editor subtitles; tab label weights; filled play and stop glyphs.
+
+## Where the loop stopped
+
+The loop was planned to run until every reviewer rated Cue Tracker 9 or more in every category and above every reference. After ten rounds no reviewer had given any app a 9, and the panel kept reversing a few choices between rounds (the dark Stop, the next-cue size, empty Key chips, switch colour). The user chose to finish after round 10.
+
+Final position (round 10 panel): Cue Tracker scores 7 to 8 in every category from every reviewer. It is at or above REF-A, REF-B and REF-D in every category, and at or above REF-C in hierarchy, typography, iconography and color. REF-C stays one point ahead on spacing for two reviewers and on consistency for one.
+
+`design-shots/final/` pairs each screen before the loop with its round 10 version.

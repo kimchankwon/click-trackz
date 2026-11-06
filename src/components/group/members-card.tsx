@@ -24,7 +24,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
         return (
           <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
             {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-            <Avatar name={member.displayName} />
+            <Avatar name={member.displayName} position={index} />
             <View style={styles.name}>
               <ThemedText numberOfLines={1} style={styles.memberName}>
                 {member.displayName}
@@ -39,7 +39,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
             </View>
             {isAdmin && !member.isGuest ? (
               <ActionButton
-                small
+                tiny
                 variant="pill"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}

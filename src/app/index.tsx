@@ -59,7 +59,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
             >
               {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-              <Avatar name={group.name} />
+              <Avatar name={group.name} position={index} />
               <View style={styles.grow}>
                 <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
                   {group.name}
