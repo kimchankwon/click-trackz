@@ -22,6 +22,7 @@ if (deployKey) {
   run(EXPORT, { ...buildEnv, EXPO_PUBLIC_CONVEX_URL: DEV_CONVEX_URL });
 }
 
+writeFileSync("dist/.vercelignore", "!/assets/node_modules\n!/assets/node_modules/**\n");
 writeFileSync(
   "dist/vercel.json",
   `${JSON.stringify({ framework: null, rewrites: [{ source: "/((?!_expo/|assets/).*)", destination: "/index.html" }] }, null, 2)}\n`,
