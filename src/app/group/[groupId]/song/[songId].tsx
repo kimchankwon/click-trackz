@@ -102,6 +102,7 @@ function SectionRow({
   vocabulary,
   onChange,
   onMove,
+  onDuplicate,
   onRemove,
 }: {
   section: EditableSection;
@@ -110,6 +111,7 @@ function SectionRow({
   vocabulary: readonly string[];
   onChange: (next: EditableSection) => void;
   onMove: (by: -1 | 1) => void;
+  onDuplicate: () => void;
   onRemove: () => void;
 }) {
   const theme = useTheme();
@@ -150,8 +152,6 @@ function SectionRow({
           upTestID={`section-${index}-up`}
           downTestID={`section-${index}-down`}
         />
-        <View style={styles.trashGap} />
-        <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
@@ -230,6 +230,10 @@ function SectionRow({
             <Switch bare label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
           </View>
         </View>
+        <View style={styles.rowActions}>
+          <IconButton icon="copy" color="textTertiary" size={40} label={`Duplicate Section ${index + 1}`} onPress={onDuplicate} testID={`section-${index}-duplicate`} />
+          <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        </View>
       </View>
     </View>
   );
@@ -300,6 +304,11 @@ function SongForm({
     action().catch((e: unknown) => setMessage(errorText(e)));
   };
 
+  const duplicateSection = (index: number) => {
+    setRows(insertAt(rows, index + 1, { id: nextRowId, section: { ...rows[index].section } }));
+    setNextRowId(nextRowId + 1);
+  };
+
   const insertSection = (at: number) => {
     setRows(insertAt(rows, at, { id: nextRowId, section: newSectionAfter(sections[at - 1], song.tempoHint) }));
     setNextRowId(nextRowId + 1);
@@ -358,6 +367,7 @@ function SongForm({
                   vocabulary={vocabulary}
                   onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
                   onMove={(by) => move(index, by)}
+                  onDuplicate={() => duplicateSection(index)}
                   onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
                 />
               </Fragment>
@@ -425,7 +435,7 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
-  trashGap: { width: Spacing.three },
+  rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: "auto", minHeight: 44 },
   bottomRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
