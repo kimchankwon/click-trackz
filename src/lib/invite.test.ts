@@ -18,11 +18,11 @@ describe("invite links", () => {
   });
 
   it("builds a join link on the site, with or without a trailing slash", () => {
-    expect(inviteLink("https://cue-tracker-six.vercel.app", "BZFYM9")).toBe("https://cue-tracker-six.vercel.app/join/BZFYM9");
-    expect(inviteLink("https://cue-tracker-six.vercel.app/", "BZFYM9")).toBe("https://cue-tracker-six.vercel.app/join/BZFYM9");
+    expect(inviteLink("https://click-trackz.vercel.app", "BZFYM9")).toBe("https://click-trackz.vercel.app/join/BZFYM9");
+    expect(inviteLink("https://click-trackz.vercel.app/", "BZFYM9")).toBe("https://click-trackz.vercel.app/join/BZFYM9");
   });
 
   it("names the Group in the message", () => {
-    expect(inviteText("Worship Band")).toBe("Join Worship Band on Cue Tracker");
+    expect(inviteText("Worship Band")).toBe("Join Worship Band on Click Trackz");
   });
 });

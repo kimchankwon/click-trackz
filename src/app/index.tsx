@@ -218,7 +218,7 @@ export default function HomeScreen() {
                   <Icon name="pulse" size={40} color="onAccent" />
                 </View>
                 <ThemedText type="title" role="heading" style={styles.centered}>
-                  Cue Tracker
+                  Click Trackz
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.centered}>
                   Every device in the Group on the same beat.

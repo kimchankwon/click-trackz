@@ -1,4 +1,4 @@
-# Cue Tracker
+# Click Trackz
 
 A shared cue track for musicians playing in the same room. Every musician follows the same click, count and voice guide on their own device, started by an Admin and aligned to one shared clock.
 

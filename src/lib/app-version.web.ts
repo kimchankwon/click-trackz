@@ -1,6 +1,6 @@
 import { entryScriptIn } from "./stale-app";
 
-const RELOADED_AT_KEY = "cue-tracker:stale-reload-at";
+const RELOADED_AT_KEY = "click-trackz:stale-reload-at";
 const RELOAD_AGAIN_AFTER_MS = 60_000;
 
 const runningEntry = () =>
