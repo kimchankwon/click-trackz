@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -68,14 +68,23 @@ export function BeatPulse({ beat, playing, idle }: Props) {
             <Animated.Text
               testID="playback-count"
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={MIN_FONT_SCALE}
               style={[styles.count, countFontFor(label), { color: accent ? theme.accent : theme.text }, countStyle]}
             >
               {label}
             </Animated.Text>
           ) : (
             <View style={styles.idle} testID="playback-count">
-              <ThemedText style={[styles.idleValue, { color: idle ? theme.text : theme.textTertiary }]}>{idle?.value ?? "--"}</ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.idleUnit}>
+              <ThemedText
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={MIN_FONT_SCALE}
+                style={[styles.idleValue, { color: idle ? theme.text : theme.textTertiary }]}
+              >
+                {idle?.value ?? "--"}
+              </ThemedText>
+              <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={MIN_FONT_SCALE} themeColor="textSecondary" style={styles.idleUnit}>
                 {[idle?.unit ?? "No Song picked", idle?.detail].filter(Boolean).join(" · ")}
               </ThemedText>
             </View>
@@ -111,11 +120,13 @@ export function BeatPulse({ beat, playing, idle }: Props) {
 export const DISC = 212;
 const DENSE_FROM = 7;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
+const COUNT_TEXT_WIDTH = Math.floor(DISC_TEXT_WIDTH / COUNT_SCALE.bar);
 const MAX_COUNT_FONT = 124;
-const CONDENSED_WIDTH_PER_FONT_PX = 0.6;
+const MIN_FONT_SCALE = 0.2;
+const WIDTH_PER_FONT_PX = Platform.select({ web: 0.6, default: 0.5 });
 
 function countFontFor(label: string) {
-  const fontSize = Math.min(MAX_COUNT_FONT, Math.floor(DISC_TEXT_WIDTH / (label.length * CONDENSED_WIDTH_PER_FONT_PX)));
+  const fontSize = Math.min(MAX_COUNT_FONT, Math.floor(COUNT_TEXT_WIDTH / (label.length * WIDTH_PER_FONT_PX)));
   return { fontSize, lineHeight: Math.round(fontSize * 1.1) };
 }
 
@@ -132,13 +143,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   count: {
+    maxWidth: COUNT_TEXT_WIDTH,
     fontFamily: Fonts.condensed,
     fontWeight: "700",
     textAlign: "center",
     fontVariant: ["tabular-nums"],
     letterSpacing: -1,
   },
-  idle: { alignItems: "center", gap: Spacing.one },
+  idle: { alignSelf: "stretch", alignItems: "center", gap: Spacing.one },
   discLive: { borderWidth: 6 },
   idleValue: { fontFamily: Fonts.condensed, fontSize: 76, lineHeight: 80, fontWeight: "700", fontVariant: ["tabular-nums"] },
   idleUnit: { fontSize: 18, lineHeight: 24, fontWeight: 600, marginTop: Spacing.one },

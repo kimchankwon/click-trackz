@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Cue Tracker",
+    "name": "Click Trackz",
     "slug": "cue-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cuetracker",
+    "scheme": "clicktrackz",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -46,7 +46,7 @@
         {
           "iosBackgroundMode": false,
           "androidForegroundService": false,
-          "iosMicrophonePermission": "Cue Tracker never records or listens through your microphone. The audio engine that plays the Click, Count and Voice cues also supports recording, so iOS asks every app that uses it to explain microphone access."
+          "iosMicrophonePermission": "Click Trackz never records or listens through your microphone. The audio engine that plays the Click, Count and Voice cues also supports recording, so iOS asks every app that uses it to explain microphone access."
         }
       ]
     ],
