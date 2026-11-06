@@ -34,7 +34,7 @@ export function JoinCodeActions({
     const text = inviteText(groupName);
     try {
       if (Platform.OS !== "web") {
-        await Share.share(Platform.OS === "ios" ? { message: text, url: link } : { message: `${text}: ${link}` });
+        await Share.share({ message: `${text}: ${link}` });
         return;
       }
       const browser = navigator as WebShare;
