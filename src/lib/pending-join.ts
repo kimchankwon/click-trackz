@@ -4,8 +4,16 @@ import { normalizeJoinCode } from "./invite";
 
 const PENDING_JOIN_KEY = "pendingJoinCode";
 
-export const readPendingJoin = (): string | null => normalizeJoinCode(deviceStore.getSync(PENDING_JOIN_KEY));
+let remembered: string | null = null;
 
-export const savePendingJoin = (code: string) => deviceStore.set(PENDING_JOIN_KEY, code).catch(() => undefined);
+export const readPendingJoin = (): string | null => remembered ?? normalizeJoinCode(deviceStore.getSync(PENDING_JOIN_KEY));
 
-export const clearPendingJoin = () => deviceStore.set(PENDING_JOIN_KEY, "").catch(() => undefined);
+export function savePendingJoin(code: string) {
+  remembered = code;
+  return deviceStore.set(PENDING_JOIN_KEY, code).catch(() => undefined);
+}
+
+export function clearPendingJoin() {
+  remembered = null;
+  return deviceStore.set(PENDING_JOIN_KEY, "").catch(() => undefined);
+}

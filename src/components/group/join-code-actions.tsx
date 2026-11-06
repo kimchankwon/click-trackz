@@ -53,7 +53,7 @@ export function JoinCodeActions({
   };
 
   return (
-    <View style={styles.row}>
+    <View style={styles.actions}>
       <Pressable role="button" aria-label={`Copy join code ${code}`} testID="copy-join-code" hitSlop={8} onPress={copyCode} style={styles.row}>
         <ThemedText type="caption" themeColor="textSecondary">
           Join code
@@ -74,7 +74,8 @@ export function JoinCodeActions({
 }
 
 const styles = StyleSheet.create({
+  actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: Spacing.three, rowGap: Spacing.half },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   code: { fontWeight: 700, letterSpacing: 0.5 },
-  share: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: Spacing.two },
+  share: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
 });
