@@ -248,3 +248,36 @@ Applied (votes in brackets):
 20. Idle BPM 88 px with an 18 px meter line (2/3).
 
 Not applied (one vote only): footer moved into scrolling content, Edit and New moved to the eyebrow row, idle heading without the green pill, a transparent idle disc, a single badge style on Latency, Round 1 and 2 as a segmented control, a neutral slider fill, a higher-contrast unfilled slider track, header title size alignment, a different Click icon, a dashed Tap pad edge.
+
+## Round 7
+
+Reviewed: `design-shots/round-6/`. Reviewers: three Opus reviewers at high effort, in parallel. Fixes raised by at least two are applied.
+
+| App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|---|
+| **Cue Tracker** | 1 | **7** | **8** | **7** | **7** | **7** | **7** |
+| **Cue Tracker** | 2 | **7** | **7** | **7** | **7** | **7** | **6** |
+| **Cue Tracker** | 3 | **7** | **7** | **7** | **6** | **7** | **6** |
+| REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 6 / 6 | 5 / 7 / 6 | 7 / 7 / 7 | 5 / 6 / 6 | 7 / 7 / 7 |
+| REF-B | 1 / 2 / 3 | 6 / 6 / 6 | 4 / 5 / 5 | 6 / 6 / 6 | 5 / 7 / 6 | 7 / 7 / 7 | 5 / 6 / 7 |
+| REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 7 / 8 / 7 | 8 / 8 / 8 | 8 / 8 / 8 |
+| REF-D | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 7 / 7 | 7 / 7 / 7 | 6 / 6 / 6 | 6 / 6 / 7 | 7 / 7 / 7 |
+
+Panel votes still flip between rounds on a few points: switches (round 6: green, 2 of 3; round 7: accent, 3 of 3) and the dark Stop (round 6: dim it, 3 of 3; round 7: brighten it, 2 of 3). The switches follow round 7. The dark Stop takes the one middle option a reviewer offered, a solid #3A3A3C with no border, so it is neither glaring nor ghosted.
+
+Applied (votes in brackets):
+
+1. Next cue 20 px semibold grey with an 18 px arrow; Section name 56 px, 40 px for long names (3/3).
+2. Shorter stage: disc 212 px, count 124 px, idle BPM 76 px, so the Section chips clear the dock (3/3).
+3. Beat dots: one grey for every beat except the current one; 24 px dots and a 32 px current dot (3/3).
+4. Switches in the accent colour (3/3).
+5. Disabled buttons: borderless grey fill with grey text (3/3).
+6. Setlist editor Key field: 60 px, centred, dash placeholder (3/3); arrow and trash icons lighter grey (2/3).
+7. Voice pack rows grouped at 56 px, 36 px round play, 20 px grey trash (3/3); Upload recording as a 15 px secondary button (3/3).
+8. Secondary text darkened (#6B6F78 light); the jump caption and ping readout use the secondary grey (3/3).
+9. Make Member as grey text without a border (2/3).
+10. Divider above Count-in in the Song editor (2/3).
+11. Latency: Round 1 and Round 2 as one segmented control; the tap pad is the only coral-bordered element (3/3 on the control, 2/3 on a calmer pad).
+12. Dark Stop: solid #3A3A3C, no border (compromise, see above).
+
+Not applied (one vote, or votes in conflict): one Start form on every tab vs a slimmer mini player; footer in scrolling content; one button face for all labels (body vs display split 1:1); filled play and stop glyphs; neutral destructive actions (round 6 chose red); amber sound banner; avatar hue spacing; sign-in vertical position; folding the library card into its label; stepper and Voice cue on one row; neutral selected preset fill.

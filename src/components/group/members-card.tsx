@@ -40,7 +40,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
             {isAdmin && !member.isGuest ? (
               <ActionButton
                 small
-                variant="quiet"
+                variant="subtle"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}
                 onPress={() =>

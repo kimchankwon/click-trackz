@@ -179,7 +179,9 @@ function SetlistForm({
                         containerStyle={styles.keyInput}
                         value={entry.key}
                         onChangeText={(key) => update(index, { key })}
-                        placeholder="Key"
+                        placeholder="–"
+                        aria-label={`Key for ${entry.title}`}
+                        style={styles.keyText}
                         compact
                       />
                       <Field
@@ -190,11 +192,11 @@ function SetlistForm({
                         placeholder="Led by"
                         compact
                       />
-                      <IconButton icon="up" size={40} color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                      <IconButton icon="up" size={40} color="textTertiary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
                       <IconButton
                         icon="down"
                         size={40}
-                        color="textSecondary"
+                        color="textTertiary"
                         label={`Move ${entry.title} down`}
                         disabled={index === entries.length - 1}
                         onPress={() => move(index, 1)}
@@ -203,7 +205,7 @@ function SetlistForm({
                       <IconButton
                         icon="trash"
                         size={40}
-                        color="textSecondary"
+                        color="textTertiary"
                         label={`Remove ${entry.title}`}
                         testID={`entry-${index}-remove`}
                         onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
@@ -323,7 +325,8 @@ const styles = StyleSheet.create({
   entryIndex: { width: 22, lineHeight: 22, fontVariant: ["tabular-nums"] },
   entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 16, lineHeight: 22 },
   entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingLeft: 26, paddingRight: Spacing.one },
-  keyInput: { width: 52 },
+  keyInput: { width: 60 },
+  keyText: { textAlign: "center", paddingHorizontal: 6 },
   grow: { flex: 1, minWidth: 0 },
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },

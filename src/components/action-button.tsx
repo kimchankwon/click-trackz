@@ -14,6 +14,7 @@ export type ButtonVariant =
   | "link"
   | "selected"
   | "quiet"
+  | "subtle"
   | "danger"
   | "outline"
   | "stop"
@@ -45,6 +46,7 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   link: { background: null, text: "text" },
   selected: { background: "accentTint", text: "accent", border: "accent" },
   quiet: { background: null, text: "textSecondary", border: "inputBorder" },
+  subtle: { background: null, text: "textSecondary" },
   danger: { background: null, text: "danger" },
   outline: { background: "inputFill", text: "text", border: "inputBorder" },
   stop: { background: "stopFill", text: "onStop", border: "stopBorder" },
@@ -55,7 +57,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
   const textColor = disabled ? "textTertiary" : look.text;
-  const background = disabled ? "transparent" : look.background ? theme[look.background] : "transparent";
+  const background = disabled ? (look.background ? theme.backgroundSelected : "transparent") : look.background ? theme[look.background] : "transparent";
   const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
@@ -68,7 +70,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
       style={({ pressed }) => [
         styles.button,
         { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
-        look.border || disabled ? { borderWidth: 1, borderColor: disabled ? theme.inputBorder : theme[look.border ?? "border"] } : null,
+        look.border ? { borderWidth: 1, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
         full ? styles.full : null,
         rounded ? { borderRadius: height / 2 } : null,
         pressed && !disabled ? styles.pressed : null,
@@ -82,7 +84,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
         style={[
           styles.label,
           small || medium ? styles.smallLabel : null,
-          variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" || variant === "quiet"
+          variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" || variant === "quiet" || variant === "subtle"
             ? styles.quietLabel
             : null,
           variant === "danger" ? styles.dangerLabel : null,

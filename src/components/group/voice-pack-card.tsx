@@ -53,25 +53,30 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
       <ThemedText type="caption" themeColor="textSecondary">
         Your recordings replace the Speaker for every Member. A new word becomes a Section type for this Group.
       </ThemedText>
-      {(recordings ?? []).map((recording, index) => (
-        <View key={recording.key} style={styles.recording} testID={`recording-${recording.key}`}>
-          {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-          <ThemedText style={[styles.grow, styles.word]}>
-            {recording.word}
-            {recording.number ? ` ${recording.number}` : ""}
-          </ThemedText>
-          {canPreview ? (
-            <IconButton icon="play" color="text" filled onCard round size={40} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
-          ) : null}
-          <IconButton
-            icon="trash"
-            label={`Remove ${recording.word}`}
-            color="textSecondary"
-            testID={`remove-${recording.key}`}
-            onPress={() => run(() => remove({ groupId, key: recording.key }))}
-          />
+      {(recordings ?? []).length > 0 ? (
+        <View>
+          {(recordings ?? []).map((recording, index) => (
+            <View key={recording.key} style={styles.recording} testID={`recording-${recording.key}`}>
+              {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
+              <ThemedText style={[styles.grow, styles.word]}>
+                {recording.word}
+                {recording.number ? ` ${recording.number}` : ""}
+              </ThemedText>
+              {canPreview ? (
+                <IconButton icon="play" color="text" filled onCard round size={36} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+              ) : null}
+              <IconButton
+                icon="trash"
+                size={36}
+                label={`Remove ${recording.word}`}
+                color="textTertiary"
+                testID={`remove-${recording.key}`}
+                onPress={() => run(() => remove({ groupId, key: recording.key }))}
+              />
+            </View>
+          ))}
         </View>
-      ))}
+      ) : null}
       {!canPreview && (recordings ?? []).length > 0 ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="voice-pack-preview-hint">
           Enable sound to play these recordings.
@@ -82,7 +87,7 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
         <Field testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" compact inset />
         <Field testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="No." inputMode="numeric" compact inset />
       </View>
-      <ActionButton icon="upload" accent label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
+      <ActionButton icon="upload" variant="secondary" label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
       {status ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="recording-status">
           {status}

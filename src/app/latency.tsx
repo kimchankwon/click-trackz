@@ -26,17 +26,6 @@ type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
 
-function RoundBadge({ n, muted }: { n: number; muted?: boolean }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.roundBadge, { backgroundColor: muted ? theme.textTertiary : theme.accent }]}>
-      <ThemedText type="smallBold" themeColor={muted ? "background" : "onAccent"} style={styles.roundBadgeText}>
-        {n}
-      </ThemedText>
-    </View>
-  );
-}
-
 export default function LatencyScreen() {
   const theme = useTheme();
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
@@ -230,23 +219,28 @@ export default function LatencyScreen() {
                   reaction time cancels out.
                 </ThemedText>
               </View>
-              <View style={styles.steps}>
-                <View style={styles.stepCell}>
-                  <ActionButton full medium variant={speakerDone ? "quiet" : "selected"} leading={<RoundBadge n={1} muted={speakerDone} />} label="Round 1" accessibleName="Round 1: phone speaker" testID="round-speaker" onPress={() => run(() => startRound("speaker"))} />
-                </View>
-                <View style={styles.stepCell}>
-                  <ActionButton
-                    full
-                    medium
-                    variant={speakerDone ? "selected" : "quiet"}
-                    leading={<RoundBadge n={2} muted={!speakerDone} />}
-                    label="Round 2"
-                    accessibleName="Round 2: your output"
-                    testID="round-output"
-                    disabled={!speakerDone}
-                    onPress={() => run(() => startRound("output"))}
-                  />
-                </View>
+              <View style={[styles.roundTrack, { backgroundColor: theme.backgroundSelected }]}>
+                {(["speaker", "output"] as const).map((round) => {
+                  const next = round === "speaker" ? !speakerDone : speakerDone;
+                  const available = round === "speaker" || speakerDone;
+                  return (
+                    <Pressable
+                      key={round}
+                      role="button"
+                      aria-disabled={!available}
+                      aria-label={round === "speaker" ? "Round 1: phone speaker" : "Round 2: your output"}
+                      testID={round === "speaker" ? "round-speaker" : "round-output"}
+                      disabled={!available}
+                      onPress={() => run(() => startRound(round))}
+                      style={[styles.roundSegment, next ? [styles.roundRaised, { backgroundColor: theme.raised }] : null]}
+                    >
+                      <Icon name={round === "speaker" ? "play" : "headphones"} size={18} color={next ? "accent" : available ? "textSecondary" : "textTertiary"} />
+                      <ThemedText type="smallBold" themeColor={next ? "onRaised" : available ? "textSecondary" : "textTertiary"}>
+                        {round === "speaker" ? "Round 1" : "Round 2"}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
               </View>
               <Pressable
                 role="button"
@@ -259,7 +253,7 @@ export default function LatencyScreen() {
                 }}
                 style={[
                   styles.pad,
-                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: theme.accent },
+                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.inputFill, borderColor: theme.accent },
                 ]}
               >
                 <Icon name="touch" size={32} color={listening ? "onAccent" : "accent"} />
@@ -321,8 +315,9 @@ const styles = StyleSheet.create({
   stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1, minWidth: 0 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
-  roundBadge: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  roundBadgeText: { fontSize: 12, lineHeight: 14 },
+  roundTrack: { flexDirection: "row", borderRadius: Radius.md, padding: 3, gap: 3 },
+  roundSegment: { flex: 1, flexDirection: "row", gap: Spacing.two, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm },
+  roundRaised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

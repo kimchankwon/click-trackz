@@ -247,7 +247,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             size={12}
             color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "success"}
           />
-          <ThemedText type="caption" themeColor="textTertiary" testID="clock-status" style={styles.pillText}>
+          <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
             {estimate ? `Ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
           </ThemedText>
         </View>
@@ -273,7 +273,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
             {shownTitle ?? " "}
           </ThemedText>
-          <ThemedText type="title" testID="current-section" style={[styles.centered, styles.sectionHeading]}>
+          <ThemedText
+            type="title"
+            testID="current-section"
+            numberOfLines={1}
+            style={[styles.centered, styles.sectionHeading, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
+          >
             {currentSection}
           </ThemedText>
         </View>
@@ -314,8 +319,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
             {upcoming ? "Next, in one bar" : "Next"}
           </ThemedText>
           <View style={styles.nextRow}>
-            <Icon name="next" size={24} color="accent" />
-            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
+            <Icon name="next" size={18} color="accent" />
+            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "textSecondary"} style={styles.nextText}>
               {nextLine}
             </ThemedText>
           </View>
@@ -338,7 +343,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           {isAdmin ? (
             <>
               <View style={styles.jumpMode}>
-                <ThemedText type="caption" themeColor="textTertiary">
+                <ThemedText type="caption" themeColor="textSecondary">
                   When I tap a Section, go
                 </ThemedText>
                 <Segmented
@@ -548,16 +553,17 @@ const styles = StyleSheet.create({
   pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, height: 28 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
-  sectionHeading: { fontSize: 52, lineHeight: 58 },
+  sectionHeading: { fontSize: 56, lineHeight: 62 },
+  sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 40, lineHeight: 46 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
-  titleBlock: { minHeight: 104, justifyContent: "center" },
+  titleBlock: { minHeight: 96, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
-  nextLabel: { fontSize: 13, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 32 },
-  nextText: { fontFamily: Fonts.display, fontSize: 26, lineHeight: 32, fontWeight: 700 },
+  nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
+  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 600 },
   mixSlider: { paddingLeft: MIX_TEXT_INSET },
   mixRow: { gap: Spacing.one },
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
