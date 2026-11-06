@@ -1,11 +1,12 @@
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { describeAudioError } from "@/audio/audio-failure";
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
@@ -29,6 +30,11 @@ import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
+import { AccentPicker } from "@/components/ui/accent-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Toast, useToast } from "@/components/ui/toast";
+import { AudioDebug } from "@/components/audio-debug";
+import { JoinCodeActions } from "@/components/group/join-code-actions";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -36,7 +42,7 @@ import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/consta
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { neighbourSong } from "@/lib/song-order";
-import { countOnPlay, memberPing, memberPresence } from "@/presence/online";
+import { countOnPlay, memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
@@ -61,9 +67,20 @@ function upcomingVoiceCue(recent: readonly Beat[]): Beat["voiceCue"] {
 const sameVoiceCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
   a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
 
-function KeepAwake() {
-  useKeepAwake();
+function ScreenWakeLock() {
+  useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   return null;
+}
+
+function KeepAwake() {
+  const [returns, setReturns] = useState(0);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setReturns((count) => count + 1);
+    });
+    return () => subscription.remove();
+  }, []);
+  return <ScreenWakeLock key={returns} />;
 }
 
 const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
@@ -160,6 +177,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
+  const [soundProblem, setSoundProblem] = useState<string | null>(null);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
   const [clickVolume, setClickVolume, clickVolumeUnsaved] = useDeviceSetting("clickVolume", "0.8", isVolume);
   const [voiceVolume, setVoiceVolume, voiceVolumeUnsaved] = useDeviceSetting("voiceVolume", "0.9", isVolume);
@@ -174,6 +192,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
+  const toast = useToast();
+  const [askLeave, setAskLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  usePreventRemove(playing && !leaving, () => setAskLeave(true));
+  useEffect(() => {
+    if (leaving) router.replace("/");
+  }, [leaving]);
   useHeartbeat(groupId, tab === "play");
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
@@ -228,9 +253,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
         if (cancelled) return;
         setSoundOn(running);
         setSoundBlocked(!running);
+        setSoundProblem(running ? null : (engine.current?.failure ?? null));
       })
-      .catch(() => {
-        if (!cancelled) setSoundBlocked(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setSoundBlocked(true);
+        setSoundProblem(describeAudioError(error));
       });
     return () => {
       cancelled = true;
@@ -245,6 +273,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       void current.resume().then((running) => {
         setSoundOn(running);
         setSoundBlocked(!running);
+        setSoundProblem(running ? null : current.failure);
       });
     });
     return () => subscription.remove();
@@ -253,7 +282,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
   useEffect(() => {
     if (soundOn) return;
     return onUserGesture(() => {
-      void engine.current?.resume().then((running) => {
+      const current = engine.current;
+      if (!current) return;
+      void current.wake().then((running) => {
+        setSoundProblem(running ? null : current.failure);
         if (!running) return;
         setSoundOn(true);
         setSoundBlocked(false);
@@ -296,8 +328,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const enableSound = () =>
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
-      const running = await engine.current.enable(serverNow, speaker);
+      const current = engine.current;
+      const running = await (current.enabled ? current.wake() : current.enable(serverNow, speaker)).catch((error: unknown) => {
+        setSoundProblem(describeAudioError(error));
+        throw error;
+      });
+      if (running) await current.setSpeaker(speaker);
       setSoundOn(running);
+      setSoundProblem(running ? null : current.failure);
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
@@ -367,7 +405,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       userId: member.userId,
       name: member.displayName,
       position,
-      pingMs: isAdmin ? memberPing(presence.rows, member.userId, presence.nowMs) : null,
+      pingMs: isAdmin ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null,
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
@@ -375,7 +413,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const header = (
     <ScreenHeader
       title={group.name}
-      subtitle={group.joinCode ? `Join code ${group.joinCode}` : isAdmin ? "Admin" : "Member"}
+      subtitle={
+        group.joinCode ? <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} /> : isAdmin ? "Admin" : "Member"
+      }
       onBack={() => router.replace("/")}
       backLabel="Your Groups"
       backTestID="groups-back"
@@ -391,17 +431,25 @@ function GroupScreen({ group }: { group: MyGroup }) {
   );
 
   const soundPromptFor = (testID: string) => (soundOn ? null : (
-    <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
-      <Icon name="sound" size={20} color="accent" />
-      <ThemedText type="smallBold" style={styles.grow}>
-        {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
-      </ThemedText>
-      <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
-    </View>
+    <>
+      <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
+        <Icon name="sound" size={20} color="accent" />
+        <ThemedText type="smallBold" style={styles.grow}>
+          {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
+        </ThemedText>
+        <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
+      </View>
+      {soundProblem !== null && Platform.OS !== "web" ? (
+        <ThemedText type="caption" themeColor="textSecondary" testID={`${testID}-problem`} selectable>
+          {soundProblem}
+        </ThemedText>
+      ) : null}
+    </>
   ));
 
   const playTab = (
     <View style={styles.playColumn}>
+      <AudioDebug engine={engine} soundOn={soundOn} />
       {soundPromptFor("enable-sound")}
       {isAdmin ? (
         <View style={[styles.audience, { backgroundColor: theme.backgroundElement }]} testID="on-play-count">
@@ -624,6 +672,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
       </Card>
+      <AccentPicker />
       {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="setting-unsaved">
           This device could not save your choice, so it will reset when you reopen the app.
@@ -764,6 +813,20 @@ function GroupScreen({ group }: { group: MyGroup }) {
           />
         </View>
       </SafeAreaView>
+      <Toast message={toast.message} bottom={dockInset + ControlHeight.large * 2 + Spacing.four} />
+      <ConfirmDialog
+        visible={askLeave && !leaving}
+        title="Leave Playback?"
+        message={
+          isAdmin
+            ? "The Click and Voice cues stop on this device. Playback keeps going for everyone else until you come back and stop it."
+            : "The Click and Voice cues stop on this device. Playback keeps going for everyone else."
+        }
+        confirmLabel="Leave"
+        testID="leave-playback-dialog"
+        onConfirm={() => setLeaving(true)}
+        onCancel={() => setAskLeave(false)}
+      />
     </ThemedView>
   );
 }

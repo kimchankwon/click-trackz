@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accents from "../accents.js";
 import type * as access from "../access.js";
 import type * as auth from "../auth.js";
 import type * as clock from "../clock.js";
@@ -29,6 +30,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accents: typeof accents;
   access: typeof access;
   auth: typeof auth;
   clock: typeof clock;

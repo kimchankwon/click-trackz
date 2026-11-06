@@ -2,7 +2,8 @@ import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audi
 
 import { accentLevelOf, beatsBetween, type AccentLevel, type Beat, type Playback, type Song } from "@/sync/timeline";
 
-import { preferPlaybackSession } from "./audio-session";
+import { describeAudioError, describeAudioFailure } from "./audio-failure";
+import { preferPlaybackSession, probeAudioSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
@@ -59,9 +60,11 @@ export class CueAudioEngine {
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
   private enabling: Promise<boolean> | null = null;
+  private needsFreshContext = false;
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
+  failure: string | null = null;
 
   get enabled() {
     return this.context !== null;
@@ -81,23 +84,26 @@ export class CueAudioEngine {
     return enabling;
   }
 
-  private async startAudio(speaker: SpeakerId | null): Promise<boolean> {
-    if (this.context === null) {
-      preferPlaybackSession();
-      const context = new AudioContext();
-      if (this.disposed) {
-        void context.close();
-        return false;
-      }
-      const clickBus = context.createGain();
-      const voiceBus = context.createGain();
-      clickBus.connect(context.destination);
-      voiceBus.connect(context.destination);
-      this.context = context;
-      this.clickBus = clickBus;
-      this.voiceBus = voiceBus;
-      this.setVolumes(this.volumes);
+  private openContext(): boolean {
+    preferPlaybackSession();
+    const context = new AudioContext();
+    if (this.disposed) {
+      void context.close();
+      return false;
     }
+    const clickBus = context.createGain();
+    const voiceBus = context.createGain();
+    clickBus.connect(context.destination);
+    voiceBus.connect(context.destination);
+    this.context = context;
+    this.clickBus = clickBus;
+    this.voiceBus = voiceBus;
+    this.setVolumes(this.volumes);
+    return true;
+  }
+
+  private async startAudio(speaker: SpeakerId | null): Promise<boolean> {
+    if (this.context === null && !this.openContext()) return false;
     const running = await this.resume();
     try {
       if (speaker !== null) await this.setSpeaker(speaker);
@@ -110,12 +116,69 @@ export class CueAudioEngine {
   async resume(): Promise<boolean> {
     const context = this.context;
     if (context === null) return false;
-    if (context.state !== "running") {
-      preferPlaybackSession();
-      const resumed = context.resume().catch(() => undefined);
-      await Promise.race([resumed, new Promise((done) => setTimeout(done, RESUME_WAIT_MS))]);
+    const isRunning = () => context.state === "running";
+    if (isRunning()) {
+      this.failure = null;
+      this.needsFreshContext = false;
+      return true;
     }
-    return context.state === "running";
+    preferPlaybackSession();
+    let resumeError: string | null = null;
+    const startedAt = performance.now();
+    const resumed = context.resume().then(
+      () => "resumed" as const,
+      (error: unknown) => {
+        resumeError = describeAudioError(error);
+        return "failed" as const;
+      },
+    );
+    const timeout = new Promise<"timeout">((done) => setTimeout(() => done("timeout"), RESUME_WAIT_MS));
+    const outcome = await Promise.race([resumed, timeout]);
+    if (isRunning()) {
+      this.failure = null;
+      this.needsFreshContext = false;
+      return true;
+    }
+    this.needsFreshContext = true;
+    const sessionError = await probeAudioSession();
+    this.failure = describeAudioFailure({
+      state: context.state,
+      waitedMs: Math.round(performance.now() - startedAt),
+      timedOut: outcome === "timeout",
+      resumeError,
+      sessionError,
+    });
+    return false;
+  }
+
+  wake(): Promise<boolean> {
+    const context = this.context;
+    if (context === null) return Promise.resolve(false);
+    if (context.state === "running") return Promise.resolve(true);
+    return this.needsFreshContext || context.state !== "suspended" ? this.renew() : this.resume();
+  }
+
+  private renew(): Promise<boolean> {
+    const previous = this.context;
+    if (!this.openContext()) return Promise.resolve(false);
+    this.mapping = null;
+    this.scheduledUntil = -Infinity;
+    this.voiceBusyUntil = -Infinity;
+    previous?.close().catch(() => undefined);
+    return this.resume();
+  }
+
+  debugSnapshot() {
+    const context = this.context;
+    const now = this.serverNow();
+    return {
+      state: context?.state ?? "none",
+      currentTime: context?.currentTime ?? null,
+      aheadMs: now === null || !Number.isFinite(this.scheduledUntil) ? null : Math.round(this.scheduledUntil - now),
+      latencyMs: context ? outputLatencyMs(context) : null,
+      needsFreshContext: this.needsFreshContext,
+      failure: this.failure,
+    };
   }
 
   async setSpeaker(speaker: SpeakerId) {

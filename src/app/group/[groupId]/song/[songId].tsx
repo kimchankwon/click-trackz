@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,6 +21,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -90,6 +91,29 @@ function NumberField({ label, value, onChange, testID }: { label: string; value:
       compact
       inset
     />
+  );
+}
+
+function InsertSectionGap({ after, onPress }: { after: number; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.insertGap}>
+      <View style={[styles.insertLine, { backgroundColor: theme.border }]} />
+      <Pressable
+        role="button"
+        aria-label={`Add a Section between Sections ${after} and ${after + 1}`}
+        testID={`insert-section-${after}`}
+        hitSlop={8}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.insertButton,
+          { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border },
+        ]}
+      >
+        <Icon name="add" size={16} color="accent" />
+      </Pressable>
+      <View style={[styles.insertLine, { backgroundColor: theme.border }]} />
+    </View>
   );
 }
 
@@ -298,21 +322,8 @@ function SongForm({
     action().catch((e: unknown) => setMessage(errorText(e)));
   };
 
-  const addSection = () => {
-    const last = sections.at(-1);
-    setRows([
-      ...rows,
-      {
-        id: nextRowId,
-        section: {
-          sectionType: last ? "Verse" : "Intro",
-          bars: 4,
-          beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
-          beatUnit: last?.beatUnit ?? 4,
-          bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
-        },
-      },
-    ]);
+  const insertSection = (at: number) => {
+    setRows(insertAt(rows, at, { id: nextRowId, section: newSectionAfter(sections[at - 1], song.tempoHint) }));
     setNextRowId(nextRowId + 1);
   };
 
@@ -360,18 +371,20 @@ function SongForm({
               Sections · {rows.length}
             </ThemedText>
             {rows.map((row, index) => (
-              <SectionRow
-                key={row.id}
-                section={row.section}
-                index={index}
-                count={rows.length}
-                vocabulary={vocabulary}
-                onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
-                onMove={(by) => move(index, by)}
-                onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
-              />
+              <Fragment key={row.id}>
+                {index > 0 ? <InsertSectionGap after={index} onPress={() => insertSection(index)} /> : null}
+                <SectionRow
+                  section={row.section}
+                  index={index}
+                  count={rows.length}
+                  vocabulary={vocabulary}
+                  onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
+                  onMove={(by) => move(index, by)}
+                  onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
+                />
+              </Fragment>
             ))}
-            <ActionButton icon="add" label="Add Section" testID="add-section" onPress={addSection} />
+            <ActionButton icon="add" label="Add Section" testID="add-section" onPress={() => insertSection(rows.length)} />
           </View>
 
           {message ? (
@@ -432,6 +445,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   group: { gap: Spacing.three },
+  insertGap: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginVertical: -Spacing.two },
+  insertLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  insertButton: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   trashGap: { width: Spacing.three },

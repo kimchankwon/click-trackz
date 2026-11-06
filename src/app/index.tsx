@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { AccentPicker } from "@/components/ui/accent-picker";
 import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
@@ -17,6 +18,7 @@ import { Icon } from "@/components/ui/icon";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { api } from "../../convex/_generated/api";
 
 function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }) {
@@ -28,7 +30,8 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
   const signInWithGoogle = useGoogleSignIn();
   const theme = useTheme();
   const [displayName, setDisplayName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
+  const [invited] = useState(readPendingJoin);
+  const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
 
@@ -78,6 +81,11 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
       )}
 
       <Card title="Join a Group">
+        {invited !== null && joinCode === invited ? (
+          <ThemedText type="caption" themeColor="accent" testID="invite-ready">
+            Your invite code is filled in. Add your name and tap Join.
+          </ThemedText>
+        ) : null}
         <Field
           label="Your name in the Group"
           testID="display-name"
@@ -106,6 +114,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
             onPress={() =>
               run(async () => {
                 const groupId = await joinGroup({ joinCode, displayName });
+                void clearPendingJoin();
                 router.push({ pathname: "/group/[groupId]", params: { groupId } });
               })
             }
@@ -149,6 +158,8 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
         )}
       </Card>
 
+      <AccentPicker />
+
       <ActionButton variant="ghost" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
     </>
   );
@@ -162,6 +173,7 @@ export default function HomeScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
+  const [invite] = useState(readPendingJoin);
 
   const run = useCallback((action: () => Promise<unknown>) => {
     setBusy(true);
@@ -213,6 +225,11 @@ export default function HomeScreen() {
                 <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
                   Guests can join a Group. Sign in with Google to create one.
                 </ThemedText>
+                {invite !== null ? (
+                  <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
+                    You have an invite to join a Group. Continue as a guest or sign in, then add your name.
+                  </ThemedText>
+                ) : null}
               </View>
             </>
           )}

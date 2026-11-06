@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { memberPing, memberPresence, type MemberPresence, type PresenceRow } from "@/presence/online";
+import { memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -94,7 +94,8 @@ export function MembersCard({
       {list.map((member, index) => {
         const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
         const status = statusOf(member.userId);
-        const pingMs = isAdmin && status !== "offline" ? memberPing(presence.rows, member.userId, presence.nowMs) : null;
+        const pingMs =
+          isAdmin && status !== "offline" ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null;
         return (
           <View key={member.userId} style={styles.item} testID={`member-${member.displayName}`}>
             {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
