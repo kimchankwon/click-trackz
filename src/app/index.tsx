@@ -1,13 +1,16 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
 import { ActionButton } from "@/components/action-button";
+import { useSpeakerPreview } from "@/audio/use-speaker-preview";
 import { Card } from "@/components/group/card";
+import { panelId, TabBar, tabId, type TabItem } from "@/components/group/tab-bar";
+import { SoundSettings } from "@/components/sound/sound-settings";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AccentPicker } from "@/components/ui/accent-picker";
@@ -15,18 +18,31 @@ import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
+import { SwipeTabs } from "@/components/ui/swipe-tabs";
+import { useDockInset } from "@/components/ui/use-dock-inset";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
+import { useSoundSettings } from "@/settings/use-sound-settings";
 import { api } from "../../convex/_generated/api";
 
-function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }) {
+type HomeTab = "groups" | "sound" | "settings";
+
+const homeTabs: readonly TabItem<HomeTab>[] = [
+  { id: "groups", label: "Groups", icon: "group" },
+  { id: "sound", label: "Sound", icon: "sound" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
+const homeTabIds = homeTabs.map((item) => item.id);
+
+type Run = (action: () => Promise<unknown>) => void;
+
+function GroupsTab({ run }: { run: Run }) {
   const viewer = useQuery(api.users.viewer, {});
   const groups = useQuery(api.groups.myGroups, {});
   const createGroup = useMutation(api.groups.createGroup);
   const joinGroup = useMutation(api.groups.joinGroup);
-  const { signOut } = useAuthActions();
   const signInWithGoogle = useGoogleSignIn();
   const theme = useTheme();
   const [displayName, setDisplayName] = useState("");
@@ -163,9 +179,89 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
         )}
       </Card>
 
-      <AccentPicker />
+    </>
+  );
+}
 
-      <ActionButton variant="ghost" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
+function SoundTab({ active }: { active: boolean }) {
+  const { sound, update, saveError } = useSoundSettings();
+  const preview = useSpeakerPreview(active, sound.voiceVolume);
+  return (
+    <>
+      <View style={styles.pageHead}>
+        <ThemedText type="title" role="heading">
+          Sound
+        </ThemedText>
+      </View>
+      <SoundSettings sound={sound} update={update} saveError={saveError} speakerHint="Tap a Speaker to hear it." onSpeaker={preview} />
+    </>
+  );
+}
+
+function SettingsTab({ run }: { run: Run }) {
+  const viewer = useQuery(api.users.viewer, {});
+  const { signOut } = useAuthActions();
+  const signInWithGoogle = useGoogleSignIn();
+  const isGuest = viewer?.isAnonymous ?? true;
+  return (
+    <>
+      <View style={styles.pageHead}>
+        <ThemedText type="title" role="heading">
+          Settings
+        </ThemedText>
+      </View>
+      <Card title="Account">
+        <View style={styles.account}>
+          <Icon name="person" size={18} color="textSecondary" />
+          <ThemedText testID="settings-account" style={styles.grow}>
+            {viewer ? (isGuest ? "Signed in as a guest" : "Signed in with Google") : "Loading…"}
+          </ThemedText>
+        </View>
+        {viewer && isGuest ? (
+          <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="settings-google-sign-in" onPress={() => run(signInWithGoogle)} />
+        ) : null}
+      </Card>
+      <AccentPicker />
+      <ActionButton variant="danger" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
+    </>
+  );
+}
+
+function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
+  const theme = useTheme();
+  const dockInset = useDockInset(Spacing.one);
+  const [tab, setTab] = useState<HomeTab>("groups");
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  const showTab = useCallback((next: HomeTab) => {
+    setTab(next);
+    scroller.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+  const panes: readonly [HomeTab, ReactNode][] = [
+    ["groups", <GroupsTab key="groups" run={run} />],
+    ["sound", <SoundTab key="sound" active={tab === "sound"} />],
+    ["settings", <SettingsTab key="settings" run={run} />],
+  ];
+  return (
+    <>
+      <SwipeTabs tabs={homeTabIds} active={tab} onChange={showTab}>
+        <ScrollView ref={scroller} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {panes.map(([pane, content]) => (
+            <View
+              key={pane}
+              role="tabpanel"
+              id={panelId(pane, "home")}
+              aria-labelledby={tabId(pane, "home")}
+              style={tab === pane ? styles.pane : styles.hidden}
+            >
+              {content}
+            </View>
+          ))}
+          {footer}
+        </ScrollView>
+      </SwipeTabs>
+      <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
+        <TabBar tabs={homeTabs} active={tab} onChange={showTab} scope="home" />
+      </View>
     </>
   );
 }
@@ -200,51 +296,56 @@ export default function HomeScreen() {
     onGiveUp: explainGoogle,
   });
 
+  const feedback = (
+    <>
+      {busy ? <ActivityIndicator /> : null}
+      {error ? (
+        <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
+          {error}
+        </ThemedText>
+      ) : null}
+    </>
+  );
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={[styles.content, isAuthenticated ? null : styles.welcome]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {isLoading ? (
-            <ActivityIndicator />
-          ) : isAuthenticated ? (
-            <SignedInHome run={run} />
-          ) : (
-            <>
-              <View style={styles.brand}>
-                <View style={[styles.logo, { backgroundColor: theme.accent }]}>
-                  <Icon name="pulse" size={40} color="onAccent" />
-                </View>
-                <ThemedText type="title" role="heading" style={styles.centered}>
-                  Click Trackz
-                </ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.centered}>
-                  Every device in the Group on the same beat.
-                </ThemedText>
-              </View>
-              <View style={styles.signInButtons}>
-                <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
-                <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-                <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
-                  Guests can join a Group. Sign in with Google to create one.
-                </ThemedText>
-                {invite !== null ? (
-                  <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
-                    You have an invite to join a Group. Continue as a guest or sign in, then add your name.
+      <SafeAreaView style={styles.safeArea} edges={isAuthenticated ? ["top", "left", "right"] : undefined}>
+        {isAuthenticated && !isLoading ? (
+          <SignedInHome run={run} footer={feedback} />
+        ) : (
+          <ScrollView contentContainerStyle={[styles.content, styles.welcome]} keyboardShouldPersistTaps="handled">
+            {isLoading ? (
+              <ActivityIndicator />
+            ) : (
+              <>
+                <View style={styles.brand}>
+                  <View style={[styles.logo, { backgroundColor: theme.accent }]}>
+                    <Icon name="pulse" size={40} color="onAccent" />
+                  </View>
+                  <ThemedText type="title" role="heading" style={styles.centered}>
+                    Click Trackz
                   </ThemedText>
-                ) : null}
-              </View>
-            </>
-          )}
-          {busy ? <ActivityIndicator /> : null}
-          {error ? (
-            <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
-              {error}
-            </ThemedText>
-          ) : null}
-        </ScrollView>
+                  <ThemedText themeColor="textSecondary" style={styles.centered}>
+                    Every device in the Group on the same beat.
+                  </ThemedText>
+                </View>
+                <View style={styles.signInButtons}>
+                  <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
+                  <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
+                  <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
+                    Guests can join a Group. Sign in with Google to create one.
+                  </ThemedText>
+                  {invite !== null ? (
+                    <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
+                      You have an invite to join a Group. Continue as a guest or sign in, then add your name.
+                    </ThemedText>
+                  ) : null}
+                </View>
+              </>
+            )}
+            {feedback}
+          </ScrollView>
+        )}
       </SafeAreaView>
     </ThemedView>
   );
@@ -261,6 +362,9 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
+  pane: { gap: Spacing.four },
+  hidden: { display: "none" },
+  dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
   welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
   helper: { maxWidth: 300, alignSelf: "center" },
   brand: { alignItems: "center", gap: Spacing.three },

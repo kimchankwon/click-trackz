@@ -100,7 +100,6 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? `${timeSignature
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-const MIX_TEXT_INSET = 38;
 const STAGE_HEAD_HEIGHT = 136;
 
 const groupTabIds = groupTabs.map((item) => item.id);
@@ -841,13 +840,7 @@ const styles = StyleSheet.create({
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
   nextText: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: 700 },
-  mixSlider: { paddingLeft: MIX_TEXT_INSET },
-  mixRow: { gap: Spacing.one },
-  mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
-  plainHint: { paddingHorizontal: Spacing.one },
-  latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
   soundPrompt: {
     flexDirection: "row",
     alignItems: "center",
@@ -859,7 +852,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
-  switches: { gap: Spacing.three },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {
@@ -882,9 +874,7 @@ const styles = StyleSheet.create({
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },
   jumpControl: { width: 196 },
-  linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
-  tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
   dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
   floatLayer: { position: "absolute", left: 0, right: 0, paddingHorizontal: Spacing.three, paddingBottom: Spacing.two, alignItems: "center" },

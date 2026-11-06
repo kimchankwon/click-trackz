@@ -7,6 +7,7 @@ import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field } from "@/components/ui/field";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
@@ -62,6 +63,23 @@ export function MembersCard({
   const viewer = useQuery(api.users.viewer, {});
   const setRole = useMutation(api.groups.setRole);
   const removeMember = useMutation(api.groups.removeMember);
+  const setDisplayName = useMutation(api.groups.setDisplayName);
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const saveName = async () => {
+    if (nameDraft === null || nameSaving) return;
+    setNameError(null);
+    setNameSaving(true);
+    try {
+      await setDisplayName({ groupId, displayName: nameDraft });
+      setNameDraft(null);
+    } catch (error) {
+      setNameError(errorText(error));
+    } finally {
+      setNameSaving(false);
+    }
+  };
   const [action, setAction] = useState<MemberAction | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -135,6 +153,53 @@ export function MembersCard({
                 </View>
               </View>
             </View>
+            {member.userId === viewer?.id && nameDraft === null ? (
+              <View style={styles.actions}>
+                <ActionButton
+                  tiny
+                  variant="pill"
+                  icon="edit"
+                  label="Change your name"
+                  testID="change-name"
+                  onPress={() => {
+                    setNameError(null);
+                    setNameDraft(member.displayName);
+                  }}
+                />
+              </View>
+            ) : null}
+            {member.userId === viewer?.id && nameDraft !== null ? (
+              <View style={styles.nameEditor}>
+                <Field
+                  label="Your name in this Group"
+                  testID="my-name-input"
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  autoCapitalize="words"
+                  autoFocus
+                  inset
+                  onSubmitEditing={() => void saveName()}
+                />
+                {nameError ? (
+                  <ThemedText type="caption" themeColor="danger" testID="my-name-error">
+                    {nameError}
+                  </ThemedText>
+                ) : null}
+                <View style={styles.nameButtons}>
+                  <ActionButton small label="Cancel" testID="my-name-cancel" disabled={nameSaving} onPress={() => setNameDraft(null)} />
+                  <ActionButton
+                    small
+                    accent
+                    label={nameSaving ? "Saving…" : "Save name"}
+                    accessibleName="Save name"
+                    testID="my-name-save"
+                    pending={nameSaving}
+                    disabled={nameDraft.trim().length === 0}
+                    onPress={() => void saveName()}
+                  />
+                </View>
+              </View>
+            ) : null}
             {isAdmin && member.userId !== viewer?.id ? (
               <View style={styles.actions}>
                 {!member.isGuest ? (
@@ -180,6 +245,8 @@ export function MembersCard({
 const styles = StyleSheet.create({
   item: { gap: Spacing.two },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 60 },
+  nameEditor: { gap: Spacing.two, paddingLeft: 40 + Spacing.three },
+  nameButtons: { flexDirection: "row", justifyContent: "flex-end", gap: Spacing.two },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, paddingLeft: 40 + Spacing.three },
   separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
   name: { flex: 1, minWidth: 0 },

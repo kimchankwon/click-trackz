@@ -2,6 +2,8 @@ import { useState } from "react";
 import { StyleSheet, View, type KeyDownEvent } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 
+import { holdSwipe, releaseSwipe } from "@/components/ui/swipe-hold";
+
 import { ThemedText } from "@/components/themed-text";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
@@ -34,7 +36,11 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   const drag = usePanGesture({
     minDistance: 0,
     runOnJS: true,
-    onBegin: (event) => setFromX(event.x),
+    onBegin: (event) => {
+      holdSwipe();
+      setFromX(event.x);
+    },
+    onFinalize: () => releaseSwipe(),
     onUpdate: (event) => setFromX(event.x),
   });
   const keyboard = {
