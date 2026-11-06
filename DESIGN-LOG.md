@@ -4,7 +4,7 @@ A loop to raise the app's UI quality. Each round: screenshot the main screens in
 
 Reviewers run read-only and are not told a target score. Rounds 1 and 2 used one Sonnet reviewer; from round 3 the reviewer is Opus at high effort.
 
-Screenshots live in `design-shots/round-N/` (402 px wide at 2x, full scroll length). Annotated before/after sheets live in `design-shots/round-N/compare/`.
+Screenshots were captured into `design-shots/` (402 px wide at 2x, full scroll length). That folder is git-ignored and kept on the author's machine only: round 0 and round 10 in full, `final/` for the overall before/after, and `round-N/compare/` for each round's annotated sheets.
 
 References (`design-refs/`):
 
