@@ -3,7 +3,7 @@ import { AudioManager } from "react-native-audio-api";
 import { describeAudioError } from "./audio-failure";
 
 export function preferPlaybackSession() {
-  AudioManager.setAudioSessionOptions({ iosCategory: "playback", iosMode: "default", iosOptions: ["mixWithOthers", "allowBluetoothA2DP"] });
+  AudioManager.setAudioSessionOptions({ iosCategory: "playback", iosMode: "default", iosOptions: ["mixWithOthers"] });
 }
 
 export async function probeAudioSession(): Promise<string | null> {
