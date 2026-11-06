@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  statuses: read
 
 concurrency:
   group: eas-update
@@ -21,7 +22,7 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       COMMIT_SHA: ${{ github.event.sha || github.sha }}
     steps:
-      - name: Check this is main's newest commit and the token is set
+      - name: Check the token, that this is main's newest commit, and that Vercel built it
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
@@ -36,6 +37,14 @@ jobs:
             echo "::notice::${COMMIT_SHA} is not main's newest commit (${main_sha}), so it is not published."
             echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            vercel_state="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT_SHA}/statuses" --jq '[.[] | select(.context == "Vercel")][0].state // "missing"')"
+            if [ "$vercel_state" != "success" ]; then
+              echo "::warning::Vercel's production build of ${COMMIT_SHA} is ${vercel_state}, so it is not published. Run this again once it succeeds."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
       - if: steps.gate.outputs.publish == 'true'
@@ -59,4 +68,11 @@ jobs:
         if: steps.gate.outputs.publish == 'true'
         env:
           EAS_CLI: eas
-        run: npm run update:production -- --non-interactive
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$main_sha" != "$COMMIT_SHA" ]; then
+            echo "::notice::main moved on to ${main_sha} while this run was setting up, so ${COMMIT_SHA} is not published."
+            exit 0
+          fi
+          npm run update:production -- --non-interactive
