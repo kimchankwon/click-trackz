@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { AccentPicker } from "@/components/ui/accent-picker";
 import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
@@ -148,6 +149,8 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
           </View>
         )}
       </Card>
+
+      <AccentPicker />
 
       <ActionButton variant="ghost" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
     </>

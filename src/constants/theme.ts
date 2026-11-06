@@ -2,6 +2,8 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+import { accentPalettes } from '@/theme/accents';
+
 export const Colors = {
   light: {
     text: '#111214',
@@ -25,10 +27,7 @@ export const Colors = {
     successTint: '#E8F5EC',
     warningTint: '#FFF4E0',
     warningText: '#8A5A00',
-    accent: '#CF3B22',
-    onAccent: '#FFFFFF',
-    accentSoft: '#F8D3CB',
-    accentTint: '#FCEAE5',
+    ...accentPalettes.red.light,
     inverse: '#111214',
     onInverse: '#FFFFFF',
     danger: '#B3261E',
@@ -56,10 +55,7 @@ export const Colors = {
     successTint: '#12301C',
     warningTint: '#3A2A0A',
     warningText: '#FFC56B',
-    accent: '#FF6A4D',
-    onAccent: '#000000',
-    accentSoft: '#4A2018',
-    accentTint: '#2E1510',
+    ...accentPalettes.red.dark,
     inverse: '#F4F4F5',
     onInverse: '#000000',
     danger: '#FF8A80',

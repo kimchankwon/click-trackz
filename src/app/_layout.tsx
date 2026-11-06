@@ -9,12 +9,14 @@ import { useTheme } from "@/hooks/use-theme";
 import { authStorage, convex } from "@/lib/convex";
 import { errorText } from "@/lib/error-text";
 import { useStaleAppRecovery } from "@/lib/use-stale-app-recovery";
+import { AccentSync } from "@/theme/accent-sync";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <ConvexAuthProvider client={convex} storage={authStorage}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <AccentSync />
         <Stack screenOptions={{ headerShown: false }} />
         <UpdateBanner />
       </ThemeProvider>

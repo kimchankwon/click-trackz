@@ -30,6 +30,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
+import { AccentPicker } from "@/components/ui/accent-picker";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -642,6 +643,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
       </Card>
+      <AccentPicker />
       {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="setting-unsaved">
           This device could not save your choice, so it will reset when you reopen the app.
