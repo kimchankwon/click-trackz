@@ -9,6 +9,7 @@ import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
+import { MAX_VOICE_LEAD_MS, perceivedOnsetMs } from "./voice-onset";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -48,6 +49,7 @@ export class CueAudioEngine {
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private voiceBusyUntil = -Infinity;
+  private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
@@ -237,7 +239,7 @@ export class CueAudioEngine {
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
       this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
@@ -253,13 +255,14 @@ export class CueAudioEngine {
       const buffer =
         choice?.source === "upload" ? this.uploads.get(choice.ref) : choice ? this.clips.get(choice.ref as BuiltinClipKey) : undefined;
       if (buffer) {
-        this.playBuffer(context, buffer, when);
-        this.voiceBusyUntil = beat.at + buffer.duration * 1000;
+        const leadMs = this.playOnBeat(context, buffer, when);
+        this.voiceBusyUntil = beat.at - leadMs + buffer.duration * 1000;
       }
     }
     if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil - SPOKEN_COUNT_OVERLAP_MS) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
-      if (key) this.play(context, key, when);
+      const buffer = key ? this.clips.get(key) : undefined;
+      if (buffer) this.playOnBeat(context, buffer, when);
     }
   }
 
@@ -280,6 +283,20 @@ export class CueAudioEngine {
     if (!buffer) return null;
     this.playBuffer(context, buffer, when);
     return buffer.duration;
+  }
+
+  private playOnBeat(context: AudioContext, buffer: AudioBuffer, beatAt: number): number {
+    const leadMs = this.onsetOf(buffer);
+    this.playBuffer(context, buffer, Math.max(context.currentTime, beatAt - leadMs / 1000));
+    return leadMs;
+  }
+
+  private onsetOf(buffer: AudioBuffer): number {
+    const known = this.onsets.get(buffer);
+    if (known !== undefined) return known;
+    const onset = perceivedOnsetMs(buffer.getChannelData(0), buffer.sampleRate);
+    this.onsets.set(buffer, onset);
+    return onset;
   }
 
   private playBuffer(context: AudioContext, buffer: AudioBuffer, when: number) {

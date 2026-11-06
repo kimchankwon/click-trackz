@@ -27,25 +27,9 @@
         flex: 1;
         min-height: 0;
       }
-      #credits {
-        flex: none;
-        padding: 10px 16px calc(8px + env(safe-area-inset-bottom, 0px));
-        font: 11px/1.4 Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        text-align: center;
-        color: #5e626b;
-        letter-spacing: 0.01em;
-        background: #ffffff;
-      }
-      #credits a {
-        color: inherit;
-      }
       @media (prefers-color-scheme: dark) {
-        body,
-        #credits {
+        body {
           background: #000000;
-        }
-        #credits {
-          color: #a8acb3;
         }
       }
     </style>
@@ -54,6 +38,5 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <footer id="credits">BPM data from <a href="https://getsongbpm.com">GetSongBPM</a></footer>
   </body>
 </html>
