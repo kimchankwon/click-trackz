@@ -39,7 +39,7 @@ import { countOnPlay, memberPing, memberPresence } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
-import { beatsBetween, playbackEndsAt, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { beatsBetween, playbackEndsAt, timeSignatureOf, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
 import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { useServerClock } from "@/sync/use-server-clock";
@@ -72,14 +72,17 @@ type LoadedSong = { title: string; key: string | null; tempoHint: { bpm: number;
 
 function idleReadoutFor(song: LoadedSong | null | undefined, fromSection: number): IdleReadout | null {
   if (!song) return null;
-  const bpm = song.sections[fromSection]?.bpm ?? song.tempoHint?.bpm;
-  return bpm ? { value: String(Math.round(bpm)), unit: "BPM" } : { value: "--", unit: "No Sections yet" };
+  const section = song.sections[fromSection];
+  const bpm = section?.bpm ?? song.tempoHint?.bpm;
+  const time = { beatsPerBar: section?.beatsPerBar ?? song.tempoHint?.beatsPerBar, beatUnit: section?.beatUnit };
+  return bpm ? { value: String(Math.round(bpm)), unit: "BPM", ...time } : { value: "--", unit: "No Sections yet" };
 }
 
 function songFactsFor(song: LoadedSong | null | undefined, fromSection: number) {
   if (!song) return null;
-  const beatsPerBar = song.sections[fromSection]?.beatsPerBar ?? song.tempoHint?.beatsPerBar;
-  return [beatsPerBar ? `${beatsPerBar}/4` : null, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ") || null;
+  const section = song.sections[fromSection];
+  const time = section ? timeSignatureOf(section) : song.tempoHint ? timeSignatureOf(song.tempoHint) : null;
+  return [time, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ") || null;
 }
 
 const emptySong: Song = { countIn: false, sections: [] };

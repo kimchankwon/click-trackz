@@ -47,7 +47,16 @@ describe("Songs", () => {
     await expect(bad({ bpm: 301 })).rejects.toThrow(/BPM/);
     await expect(bad({ sectionType: "Spontaneous" })).rejects.toThrow(/Section type/);
     await expect(bad({ bars: 2.5 })).rejects.toThrow(/Bars/);
+    await expect(bad({ beatUnit: 3 })).rejects.toThrow(/time signature/);
     await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
+  });
+
+  it("keeps each Section's time signature, such as 6/8", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    const sixEight = { sectionType: "Verse", bars: 4, beatsPerBar: 6, beatUnit: 8, bpm: 150 };
+    await admin.mutation(api.songs.updateSong, { songId, sections: [sixEight, verse] });
+    expect((await member.query(api.songs.get, { songId }))?.sections).toEqual([sixEight, verse]);
   });
 
   it("ends the Group's Playback when the playing Song is deleted", async () => {

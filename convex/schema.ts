@@ -7,6 +7,7 @@ export const sectionFields = v.object({
   number: v.optional(v.number()),
   bars: v.number(),
   beatsPerBar: v.number(),
+  beatUnit: v.optional(v.number()),
   bpm: v.number(),
   voiceCueEnabled: v.optional(v.boolean()),
   customLabel: v.optional(v.string()),

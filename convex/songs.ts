@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./recordings";
+import { BEAT_UNITS } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 
 const cleanTitle = (title: string) => {
@@ -57,6 +58,9 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlySet<s
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
   if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
+  if (section.beatUnit !== undefined && !BEAT_UNITS.some((unit) => unit === section.beatUnit)) {
+    throw new ConvexError(`${where}: The time signature must count halves, quarters, eighths or sixteenths`);
+  }
   if (!(section.bpm >= 30 && section.bpm <= 300)) throw new ConvexError(`${where}: BPM must be from 30 to 300`);
   if (section.customLabel !== undefined && section.customLabel.trim().length > 20) {
     throw new ConvexError(`${where}: Custom label must be 20 characters or fewer`);

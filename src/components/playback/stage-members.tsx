@@ -7,7 +7,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { useTheme } from "@/hooks/use-theme";
-import type { Beat } from "@/sync/timeline";
+import { accentLevelOf, type AccentLevel, type Beat } from "@/sync/timeline";
 
 export type StageMember = { userId: string; name: string; position: number; pingMs: number | null };
 
@@ -17,17 +17,19 @@ const SIDE_GAP = 14;
 const COLUMN = AVATAR + RING * 2 + 4;
 const MAX_PER_SIDE = 5;
 
+const PULSE_SCALE: Record<AccentLevel, number> = { bar: 1.14, group: 1.1, beat: 1.07 };
+
 function usePulse(beat: Beat | null, playing: boolean) {
   const scale = useSharedValue(1);
   const beatAt = playing ? beat?.at : undefined;
-  const accent = beat?.accent ?? false;
+  const level = beat ? accentLevelOf(beat) : "beat";
   useEffect(() => {
     if (beatAt === undefined) return;
     scale.value = withSequence(
-      withTiming(accent ? 1.14 : 1.07, { duration: 50 }),
+      withTiming(PULSE_SCALE[level], { duration: 50 }),
       withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) }),
     );
-  }, [beatAt, accent, scale]);
+  }, [beatAt, level, scale]);
   return useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 }
 

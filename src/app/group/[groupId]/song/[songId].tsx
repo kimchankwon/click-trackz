@@ -20,13 +20,53 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import type { Section } from "@/sync/timeline";
+import { timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MIN_SAVING_MS = 400;
 
 type EditableSection = Section & { customLabel?: string };
+
+const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [6, 4],
+  [7, 4],
+  [2, 2],
+  [3, 8],
+  [5, 8],
+  [6, 8],
+  [7, 8],
+  [9, 8],
+  [12, 8],
+];
+
+const beatUnitName: Record<number, string> = { 2: "half notes", 8: "eighth notes", 16: "sixteenth notes" };
+
+function TimeSignatureField({ section, open, onToggle, testID }: { section: EditableSection; open: boolean; onToggle: () => void; testID: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.numberField, styles.timeField]}>
+      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+        Time
+      </ThemedText>
+      <Pressable
+        role="button"
+        aria-expanded={open}
+        aria-label={`Time signature, ${timeSignatureOf(section)}`}
+        testID={testID}
+        onPress={onToggle}
+        style={[styles.timeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
+      >
+        <ThemedText style={styles.timeText}>{timeSignatureOf(section)}</ThemedText>
+        <Icon name="expand" size={18} color="textSecondary" />
+      </Pressable>
+    </View>
+  );
+}
 type SectionRowState = { id: number; section: EditableSection };
 
 function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
@@ -71,6 +111,12 @@ function SectionRow({
 }) {
   const theme = useTheme();
   const [choosing, setChoosing] = useState(false);
+  const [choosingTime, setChoosingTime] = useState(false);
+  const current = [section.beatsPerBar, section.beatUnit ?? 4] as const;
+  const timeOptions = COMMON_TIME_SIGNATURES.some(([beats, unit]) => beats === current[0] && unit === current[1])
+    ? COMMON_TIME_SIGNATURES
+    : [current, ...COMMON_TIME_SIGNATURES];
+  const countedUnit = beatUnitName[section.beatUnit ?? 4];
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
       <View style={styles.sectionTop}>
@@ -123,14 +169,31 @@ function SectionRow({
       ) : null}
       <View style={styles.fields}>
         <NumberField label="Bars" value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
-        <NumberField
-          label="Beats/bar"
-          value={section.beatsPerBar}
-          testID={`section-${index}-beats`}
-          onChange={(beatsPerBar) => onChange({ ...section, beatsPerBar })}
-        />
+        <TimeSignatureField section={section} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`section-${index}-time`} />
         <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
       </View>
+      {choosingTime ? (
+        <View style={styles.wrap} role="radiogroup" aria-label="Time signature">
+          {timeOptions.map(([beatsPerBar, beatUnit]) => (
+            <Chip
+              key={`${beatsPerBar}/${beatUnit}`}
+              role="radio"
+              label={`${beatsPerBar}/${beatUnit}`}
+              selected={beatsPerBar === current[0] && beatUnit === current[1]}
+              testID={`section-${index}-time-${beatsPerBar}-${beatUnit}`}
+              onPress={() => {
+                onChange({ ...section, beatsPerBar, beatUnit });
+                setChoosingTime(false);
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+      {countedUnit ? (
+        <ThemedText type="caption" themeColor="textSecondary" testID={`section-${index}-bpm-unit`}>
+          BPM counts {countedUnit}, and every one gets a Click.
+        </ThemedText>
+      ) : null}
       <View style={styles.bottomRow}>
         <View style={styles.numberGroup}>
           <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
@@ -227,6 +290,7 @@ function SongForm({
           sectionType: last ? "Verse" : "Intro",
           bars: 4,
           beatsPerBar: last?.beatsPerBar ?? song.tempoHint?.beatsPerBar ?? 4,
+          beatUnit: last?.beatUnit ?? 4,
           bpm: last?.bpm ?? song.tempoHint?.bpm ?? 72,
         },
       },
@@ -371,6 +435,9 @@ const styles = StyleSheet.create({
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
   numberInput: { fontVariant: ["tabular-nums"] },
+  timeField: { gap: Spacing.one + 2 },
+  timeButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
+  timeText: { fontSize: 17, fontVariant: ["tabular-nums"] },
   centeredText: { textAlign: "center" },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });
