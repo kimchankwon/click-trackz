@@ -124,16 +124,13 @@ function SetlistForm({
     setSaving(true);
     run(async () => {
       try {
-        await Promise.all([
-          save({
-            setlistId,
-            revision,
-            name,
-            entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
-          }),
-          new Promise((done) => setTimeout(done, MIN_SAVING_MS)),
-        ]);
-        setRevision(revision + 1);
+        const saved = save({
+          setlistId,
+          revision,
+          name,
+          entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
+        }).then(() => setRevision(revision + 1));
+        await Promise.all([saved, new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
         toast.show("Setlist saved");
       } finally {
         saveInFlight.current = false;

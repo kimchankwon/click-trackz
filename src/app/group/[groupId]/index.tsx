@@ -187,7 +187,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
   const [nextIndex, setNextIndex] = useState<number | null>(null);
-  const [queuedIndex, setQueuedIndex] = useState<number | null>(null);
+  const [queuedKey, setQueuedKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<GroupTab>("play");
   const [dockHeight, setDockHeight] = useState(0);
@@ -310,14 +310,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
         const following = nextSectionIndex(ahead);
         setNextIndex((previous) => (previous === following ? previous : following));
-        const queued = playback.jumps?.findLast((j) => j.at > now)?.toSection ?? null;
-        setQueuedIndex((previous) => (previous === queued ? previous : queued));
+        const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
+        setQueuedKey((previous) => (previous === queued ? previous : queued));
         setPlaying(now < endsAt);
       } else {
         setBeat(null);
         setUpcoming(null);
         setNextIndex(null);
-        setQueuedIndex(null);
+        setQueuedKey("");
         setPlaying(false);
       }
       handle = requestAnimationFrame(draw);
@@ -359,6 +359,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong, startSection);
+  const queuedSections = queuedKey === "" ? [] : queuedKey.split(",").map(Number);
   const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
   const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
   const tempo = tempoText(tempoSection ?? (playing ? null : startSong?.tempoHint));
@@ -549,7 +550,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 compact
                 label={shortTitleOf(section)}
                 accessibleName={titleOf(section)}
-                queued={playing && queuedIndex === index}
+                queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}
                 selected={playing ? beat?.sectionIndex === index : isAdmin && startSection === index && startBlocker === null}
                 onPress={() => tapSection(index)}

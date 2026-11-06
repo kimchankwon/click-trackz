@@ -20,5 +20,7 @@ describe("shortTitleOf", () => {
     expect(shortTitleOf({ sectionType: "spontaneous", number: 3 })).toBe("Sp3");
     expect(shortTitleOf({ sectionType: "X" })).toBe("X");
     expect(shortTitleOf({ sectionType: "--" })).toBe("?");
+    expect(shortTitleOf({ sectionType: "constructor" })).toBe("Co");
+    expect(shortTitleOf({ sectionType: "toString", number: 2 })).toBe("To2");
   });
 });

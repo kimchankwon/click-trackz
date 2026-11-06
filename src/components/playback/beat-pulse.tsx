@@ -50,14 +50,14 @@ export function BeatPulse({ beat, playing, idle }: Props) {
     ring.value = withTiming(1, { duration: level === "beat" ? 380 : 520, easing: Easing.out(Easing.quad) });
   }, [beatAt, level, scale, discScale, ring]);
 
-  const lastBar = playing && beat !== null && beat.barInSection === beat.barsInSection;
+  const lastBar = playing && beat !== null && beat.sectionIndex !== null && beat.barInSection === beat.barsInSection;
   const endingFrom = lastBar ? (beat.beatInBar - 1) / beat.beatsPerBar : 0;
   const endingTo = lastBar ? beat.beatInBar / beat.beatsPerBar : 0;
   const beatMs = beat?.beatMs ?? 0;
 
   useEffect(() => {
     if (!lastBar) {
-      ending.value = withTiming(0, { duration: 180 });
+      ending.value = 0;
       return;
     }
     ending.value = endingFrom;
@@ -89,7 +89,6 @@ export function BeatPulse({ beat, playing, idle }: Props) {
       <View style={styles.circleBox}>
         <Animated.View
           testID="beat-disc"
-          aria-label={lastBar ? "Last bar of this Section" : undefined}
           style={[
             styles.disc,
             { backgroundColor: theme.backgroundElement, borderColor: live ? theme.accent : theme.border },
@@ -101,6 +100,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
           {live ? (
             <Animated.Text
               testID="playback-count"
+              aria-label={lastBar ? `${label}, last bar of this Section` : label}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={MIN_FONT_SCALE}

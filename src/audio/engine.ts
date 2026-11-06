@@ -11,6 +11,7 @@ import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
 import { MAX_VOICE_LEAD_MS, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
+import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -35,7 +36,6 @@ export type CueVolumes = {
 
 type Plan = { song: Song; playback: Playback | null };
 
-const SPOKEN_COUNT_OVERLAP_MS = 100;
 
 let tapTestOwner: CueAudioEngine | null = null;
 
@@ -349,13 +349,13 @@ export class CueAudioEngine {
         choice?.source === "upload" ? this.uploads.get(choice.ref) : choice ? this.clips.get(choice.ref as BuiltinClipKey) : undefined;
       if (buffer) {
         const leadMs = this.playOnBeat(context, buffer, when);
-        this.voiceBusyUntil = beat.at - leadMs + buffer.duration * 1000;
+        this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
       }
     }
-    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil - SPOKEN_COUNT_OVERLAP_MS) {
+    if (this.mix.spokenCounts && beat.spokenCount !== null) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer) this.playOnBeat(context, buffer, when);
+      if (buffer && spokenCountFits(beat.at, this.onsetOf(buffer), this.voiceBusyUntil)) this.playOnBeat(context, buffer, when);
     }
   }
 

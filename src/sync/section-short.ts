@@ -1,6 +1,6 @@
 import type { Section } from "./timeline";
 
-const builtinShort: Record<string, string> = {
+const builtinShort = new Map<string, string>(Object.entries({
   Intro: "I",
   Verse: "V",
   "Pre-Chorus": "Pr",
@@ -17,10 +17,10 @@ const builtinShort: Record<string, string> = {
   Build: "Bu",
   Outro: "O",
   Ending: "E",
-};
+}));
 
 function shortType(sectionType: string): string {
-  const builtin = builtinShort[sectionType];
+  const builtin = builtinShort.get(sectionType);
   if (builtin) return builtin;
   const letters = Array.from(sectionType.replace(/[^\p{L}\p{N}]/gu, ""));
   if (letters.length === 0) return "?";
