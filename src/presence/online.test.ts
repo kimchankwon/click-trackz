@@ -30,14 +30,15 @@ describe("Member presence", () => {
     expect(memberPing(pings, "b", NOW)).toBeNull();
   });
 
-  it("shows other Members' ping but never the viewer's own", () => {
+  it("shows other Members' ping but never the viewer's own, and nothing until the viewer is known", () => {
     const pings = [
       { userId: "a", onPlay: true, seenAt: NOW - 1_000, roundTripMs: 35 },
       { userId: "b", onPlay: false, seenAt: NOW - 2_000, roundTripMs: 60 },
     ];
     expect(otherMemberPing(pings, "a", "a", NOW)).toBeNull();
     expect(otherMemberPing(pings, "b", "a", NOW)).toBe(60);
-    expect(otherMemberPing(pings, "a", undefined, NOW)).toBe(35);
+    expect(otherMemberPing(pings, "a", undefined, NOW)).toBeNull();
+    expect(otherMemberPing(pings, "b", undefined, NOW)).toBeNull();
   });
 
   it("is on Play when any of a Member's screens is, counting each Member once", () => {

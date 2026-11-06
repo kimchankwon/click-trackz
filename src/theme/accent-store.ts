@@ -1,16 +1,14 @@
 import { useSyncExternalStore } from "react";
 
+import { deviceStore } from "@/settings/device-store";
+
 import { defaultAccent, isAccentId, type AccentId } from "./accents";
 
 export const ACCENT_KEY = "accent";
 
 function readInitial(): AccentId {
-  try {
-    const stored = typeof window !== "undefined" ? window.localStorage?.getItem(ACCENT_KEY) : null;
-    return stored && isAccentId(stored) ? stored : defaultAccent;
-  } catch {
-    return defaultAccent;
-  }
+  const stored = deviceStore.getSync(ACCENT_KEY);
+  return stored !== null && isAccentId(stored) ? stored : defaultAccent;
 }
 
 let current: AccentId = readInitial();

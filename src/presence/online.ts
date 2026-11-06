@@ -31,7 +31,7 @@ export function otherMemberPing(
   viewerId: string | undefined,
   nowMs: number,
 ): number | null {
-  return userId === viewerId ? null : memberPing(rows, userId, nowMs);
+  return viewerId === undefined || userId === viewerId ? null : memberPing(rows, userId, nowMs);
 }
 
 export const countOnPlay =(rows: readonly PresenceRow[], nowMs: number) =>
