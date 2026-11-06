@@ -12,7 +12,7 @@ import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
-import { MAX_PER_SIDE, StageMembers, type StageMember } from "@/components/playback/stage-members";
+import { StageMembers, type StageMember } from "@/components/playback/stage-members";
 import { Card, Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
@@ -358,17 +358,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const pickedTitle =
     pickedSection !== null && startSong ? `${titleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
 
-  const stageMembers: StageMember[] = (members ?? [])
-    .map((member, position) => ({
-      userId: member.userId,
-      name: member.displayName,
-      online: memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline",
-      position,
-    }))
-    .sort((a, b) => Number(b.online) - Number(a.online));
-  const shownStageMembers = stageMembers.slice(0, MAX_PER_SIDE * 2 - (stageMembers.length > MAX_PER_SIDE * 2 ? 1 : 0));
-  const leftMembers = shownStageMembers.filter((_, index) => index % 2 === 0);
-  const rightMembers = shownStageMembers.filter((_, index) => index % 2 === 1);
+  const onlineMembers: StageMember[] = (members ?? [])
+    .map((member, position) => ({ userId: member.userId, name: member.displayName, position }))
+    .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? (startSong ? `Start ${startSong.title}${pickedTitle ? ` from ${pickedTitle}` : ""}` : "Start");
 
   const header = (
@@ -464,9 +456,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </View>
       )}
       <View style={styles.stageRow}>
-        <StageMembers members={leftMembers} />
         <BeatPulse beat={beat} playing={playing} idle={idle} />
-        <StageMembers members={rightMembers} extra={stageMembers.length - shownStageMembers.length} />
+        <StageMembers members={onlineMembers} beat={beat} playing={playing} />
       </View>
       {nextLine ? (
         <View style={styles.nextBlock}>
@@ -840,7 +831,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
   wrapTight: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   barPicker: { gap: Spacing.two },
-  stageRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: Spacing.three, width: "100%" },
+  stageRow: { alignItems: "center", width: "100%" },
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },
   jumpControl: { width: 196 },

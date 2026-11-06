@@ -152,4 +152,15 @@ describe("playbackEndsAt", () => {
     ]);
     expect(playbackEndsAt(song, { startsAt: 0, startSection: 0, startBar: 3 })).toBe(8_000);
   });
+
+  it("announces the Section during a Count-in into a later bar", () => {
+    const song: Song = { countIn: true, sections: [{ ...intro, bars: 4 }] };
+    const countIn = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 3 }, 0, 2_000);
+    expect(countIn.map((b) => [b.voiceCue, b.spokenCount])).toEqual([
+      [{ sectionType: "Intro" }, null],
+      [null, 2],
+      [null, 3],
+      [null, 4],
+    ]);
+  });
 });

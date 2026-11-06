@@ -111,7 +111,8 @@ const voiceCueOf = (section: Section): VoiceCue =>
 
 function upcomingSection(bars: readonly Bar[], index: number): Section | null {
   const next = bars[index + 1];
-  if (!next?.section || next.barNumber !== 1 || next.section.voiceCueEnabled === false) return null;
+  const entersSection = next?.barNumber === 1 || bars[index].section === null;
+  if (!next?.section || !entersSection || next.section.voiceCueEnabled === false) return null;
   return next.section;
 }
 
