@@ -33,6 +33,7 @@ type Props = {
   large?: boolean;
   huge?: boolean;
   full?: boolean;
+  compact?: boolean;
   icon?: IconName;
   leading?: ReactNode;
   accessibleName?: string;
@@ -55,7 +56,7 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   pill: { background: "backgroundSelected", text: "text" },
 };
 
-export function ActionButton({ label, onPress, testID, accent, variant, small, tiny, medium, rounded, large, huge, full, icon, leading, accessibleName, disabled, pending }: Props) {
+export function ActionButton({ label, onPress, testID, accent, variant, small, tiny, medium, rounded, large, huge, full, compact, icon, leading, accessibleName, disabled, pending }: Props) {
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
   const textColor = look.text;
@@ -73,7 +74,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, t
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { minHeight: height, backgroundColor: background, paddingHorizontal: tiny ? 12 : small ? Spacing.three : Spacing.four },
+        { minHeight: height, backgroundColor: background, paddingHorizontal: compact ? Spacing.one : tiny ? 12 : small ? Spacing.three : Spacing.four },
         look.border ? { borderWidth: 1, borderColor: theme[look.border] } : null,
         disabled ? styles.disabled : null,
         pending ? styles.pending : null,
