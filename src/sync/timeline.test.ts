@@ -195,3 +195,15 @@ describe("time signatures", () => {
     expect(timeSignatureOf({ beatsPerBar: 3 })).toBe("3/4");
   });
 });
+
+describe("section progress", () => {
+  it("tells each beat which bar of its Section it is in, and how long a beat lasts", () => {
+    const song: Song = { countIn: true, sections: [{ ...intro, bars: 3 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 2 }, 0, 60_000).filter((b) => b.accent);
+    expect(beats.map((b) => [b.sectionIndex, b.barInSection, b.barsInSection, b.beatMs])).toEqual([
+      [null, 1, 1, 500],
+      [0, 2, 3, 500],
+      [0, 3, 3, 500],
+    ]);
+  });
+});
