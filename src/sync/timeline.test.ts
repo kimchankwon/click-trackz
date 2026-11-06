@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beatsBetween, playbackEndsAt, type Song } from "./timeline";
+import { beatGroupSize, beatsBetween, playbackEndsAt, timeSignatureOf, type Song } from "./timeline";
 
 const intro = { sectionType: "Intro", bars: 1, beatsPerBar: 4, bpm: 120 };
 
@@ -162,5 +162,36 @@ describe("playbackEndsAt", () => {
       [null, 3],
       [null, 4],
     ]);
+  });
+});
+
+describe("time signatures", () => {
+  it("counts every written beat in 6/8 and marks where each group of three starts", () => {
+    const song: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 6, beatUnit: 8, bpm: 180 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 10_000);
+    expect(beats.map((b) => [b.at, b.count, b.accent, b.groupStart])).toEqual([
+      [0, "VERSE", true, false],
+      [333.3333333333333, "2", false, false],
+      [666.6666666666666, "3", false, false],
+      [1000, "4", false, true],
+      [1333.3333333333333, "5", false, false],
+      [1666.6666666666665, "6", false, false],
+    ]);
+    expect(beats.every((b) => b.beatUnit === 8)).toBe(true);
+  });
+
+  it("groups compound meters in threes and leaves simple meters whole", () => {
+    expect(beatGroupSize(6, 8)).toBe(3);
+    expect(beatGroupSize(9, 8)).toBe(3);
+    expect(beatGroupSize(12, 8)).toBe(3);
+    expect(beatGroupSize(3, 8)).toBe(3);
+    expect(beatGroupSize(7, 8)).toBe(7);
+    expect(beatGroupSize(6, 4)).toBe(6);
+    expect(beatGroupSize(4)).toBe(4);
+  });
+
+  it("names the time signature, assuming quarter notes when none is stored", () => {
+    expect(timeSignatureOf({ beatsPerBar: 6, beatUnit: 8 })).toBe("6/8");
+    expect(timeSignatureOf({ beatsPerBar: 3 })).toBe("3/4");
   });
 });

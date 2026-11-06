@@ -1,6 +1,6 @@
 import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audio-api";
 
-import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
+import { accentLevelOf, beatsBetween, type AccentLevel, type Beat, type Playback, type Song } from "@/sync/timeline";
 
 import { preferPlaybackSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
@@ -14,6 +14,11 @@ import { MAX_VOICE_LEAD_MS, perceivedOnsetMs } from "./voice-onset";
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
 const CLICK_MS = 40;
+const CLICK_SOUND: Record<AccentLevel, { hz: number; gain: number }> = {
+  bar: { hz: 1_760, gain: 0.9 },
+  group: { hz: 1_480, gain: 0.75 },
+  beat: { hz: 1_175, gain: 0.6 },
+};
 const RESUME_WAIT_MS = 1_000;
 
 export type CueMix = {
@@ -181,7 +186,7 @@ export class CueAudioEngine {
     const clickTimesMs: number[] = [];
     for (let index = 0; index < clicks; index++) {
       const when = firstAt + (index * intervalMs) / 1000;
-      this.click(context, when, index % 4 === 0);
+      this.click(context, when, index % 4 === 0 ? "bar" : "beat");
       clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
     }
     return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
@@ -248,7 +253,7 @@ export class CueAudioEngine {
   }
 
   private schedule(context: AudioContext, beat: Beat, when: number) {
-    if (this.mix.click) this.click(context, when, beat.accent);
+    if (this.mix.click) this.click(context, when, accentLevelOf(beat));
     if (this.mix.voiceCues && beat.voiceCue) {
       const uploadRefs = Object.fromEntries([...this.uploads.keys()].map((key) => [key, key]));
       const choice = chooseClip(beat.voiceCue, uploadRefs, this.builtinKeys);
@@ -266,11 +271,12 @@ export class CueAudioEngine {
     }
   }
 
-  private click(context: AudioContext, when: number, accent: boolean) {
+  private click(context: AudioContext, when: number, level: AccentLevel) {
+    const sound = CLICK_SOUND[level];
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    oscillator.frequency.value = accent ? 1_760 : 1_175;
-    gain.gain.setValueAtTime(accent ? 0.9 : 0.6, when);
+    oscillator.frequency.value = sound.hz;
+    gain.gain.setValueAtTime(sound.gain, when);
     gain.gain.exponentialRampToValueAtTime(0.001, when + CLICK_MS / 1000);
     oscillator.connect(gain);
     gain.connect(this.clickBus ?? context.destination);

@@ -11,15 +11,18 @@ import Animated, {
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import type { Beat } from "@/sync/timeline";
+import { accentLevelOf, beatGroupSize, type AccentLevel, type Beat } from "@/sync/timeline";
 
-export type IdleReadout = { value: string; unit: string; detail?: string };
+export type IdleReadout = { value: string; unit: string; detail?: string; beatsPerBar?: number; beatUnit?: number };
 
 type Props = {
   beat: Beat | null;
   playing: boolean;
   idle?: IdleReadout | null;
 };
+
+const COUNT_SCALE: Record<AccentLevel, number> = { bar: 1.16, group: 1.11, beat: 1.07 };
+const DISC_SCALE: Record<AccentLevel, number> = { bar: 1.06, group: 1.045, beat: 1.03 };
 
 export function BeatPulse({ beat, playing, idle }: Props) {
   const theme = useTheme();
@@ -28,20 +31,21 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   const ring = useSharedValue(0);
   const beatAt = playing ? beat?.at : undefined;
   const accent = beat?.accent ?? false;
+  const level = beat ? accentLevelOf(beat) : "beat";
 
   useEffect(() => {
     if (beatAt === undefined) return;
     scale.value = withSequence(
-      withTiming(accent ? 1.16 : 1.07, { duration: 45 }),
+      withTiming(COUNT_SCALE[level], { duration: 45 }),
       withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
     );
     discScale.value = withSequence(
-      withTiming(accent ? 1.06 : 1.03, { duration: 50 }),
+      withTiming(DISC_SCALE[level], { duration: 50 }),
       withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) }),
     );
     ring.value = 0;
-    ring.value = withTiming(1, { duration: accent ? 520 : 380, easing: Easing.out(Easing.quad) });
-  }, [beatAt, accent, scale, discScale, ring]);
+    ring.value = withTiming(1, { duration: level === "beat" ? 380 : 520, easing: Easing.out(Easing.quad) });
+  }, [beatAt, level, scale, discScale, ring]);
 
   const countStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const discStyle = useAnimatedStyle(() => ({
@@ -49,7 +53,8 @@ export function BeatPulse({ beat, playing, idle }: Props) {
     transform: [{ scale: discScale.value }],
   }));
 
-  const beatsPerBar = beat?.beatsPerBar ?? 4;
+  const beatsPerBar = (playing ? beat?.beatsPerBar : undefined) ?? idle?.beatsPerBar ?? 4;
+  const groupSize = beatGroupSize(beatsPerBar, (playing ? beat?.beatUnit : undefined) ?? idle?.beatUnit);
   const dense = beatsPerBar > DENSE_FROM;
   const live = playing && beat !== null;
   const label = live ? beat.count : "";
@@ -79,11 +84,12 @@ export function BeatPulse({ beat, playing, idle }: Props) {
       </View>
       <View style={[styles.dots, dense ? styles.denseDots : null, live ? null : styles.dotsIdle]} testID="beat-dots">
         {Array.from({ length: beatsPerBar }, (_, index) => {
+          const startsGroup = index > 0 && index % groupSize === 0;
           const position = live ? beat.beatInBar : 0;
           const active = position === index + 1;
           const past = position > index + 1;
           return (
-            <View key={index} style={[styles.dotSlot, dense ? styles.denseSlot : null]}>
+            <View key={index} style={[styles.dotSlot, dense ? styles.denseSlot : null, startsGroup ? styles.groupGap : null]}>
               <View
                 style={[
                   styles.dot,
@@ -144,6 +150,7 @@ const styles = StyleSheet.create({
   denseSlot: { width: 22, height: 22 },
   denseDot: { width: 14, height: 14, borderRadius: 7 },
   activeDot: { transform: [{ scale: 1.35 }] },
+  groupGap: { marginLeft: Spacing.two },
   pastDot: { opacity: 0.35 },
   downbeat: { borderWidth: 2 },
 });

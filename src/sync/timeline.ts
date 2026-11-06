@@ -3,9 +3,18 @@ export type Section = {
   number?: number;
   bars: number;
   beatsPerBar: number;
+  beatUnit?: number;
   bpm: number;
   voiceCueEnabled?: boolean;
 };
+
+export const BEAT_UNITS = [2, 4, 8, 16] as const;
+
+export const timeSignatureOf = (section: Pick<Section, "beatsPerBar" | "beatUnit">) => `${section.beatsPerBar}/${section.beatUnit ?? 4}`;
+
+export function beatGroupSize(beatsPerBar: number, beatUnit = 4): number {
+  return beatUnit >= 8 && beatsPerBar > 3 && beatsPerBar % 3 === 0 ? 3 : beatsPerBar;
+}
 
 export type Song = {
   countIn: boolean;
@@ -35,11 +44,18 @@ export type Beat = {
   count: string;
   beatInBar: number;
   beatsPerBar: number;
+  beatUnit: number;
   sectionIndex: number | null;
   accent: boolean;
+  groupStart: boolean;
   voiceCue: VoiceCue | null;
   spokenCount: number | null;
 };
+
+export type AccentLevel = "bar" | "group" | "beat";
+
+export const accentLevelOf = (beat: Pick<Beat, "accent" | "groupStart">): AccentLevel =>
+  beat.accent ? "bar" : beat.groupStart ? "group" : "beat";
 
 const labelOf = (section: Section) => `${section.sectionType.toUpperCase()}${section.number ?? ""}`;
 
@@ -47,6 +63,7 @@ type Bar = {
   startsAt: number;
   beatMs: number;
   beatsPerBar: number;
+  beatUnit: number;
   section: Section | null;
   sectionIndex: number | null;
   barNumber: number;
@@ -84,6 +101,7 @@ function barsOf(song: Song, segment: Segment): Bar[] {
       startsAt,
       beatMs,
       beatsPerBar: section.beatsPerBar,
+      beatUnit: section.beatUnit ?? 4,
       section: barSection,
       sectionIndex,
       barNumber,
@@ -121,6 +139,7 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
   const beats: Beat[] = [];
   bars.forEach((bar, index) => {
     const upcoming = upcomingSection(bars, index);
+    const groupSize = beatGroupSize(bar.beatsPerBar, bar.beatUnit);
     for (let beat = 1; beat <= bar.beatsPerBar; beat++) {
       const at = bar.startsAt + (beat - 1) * bar.beatMs;
       if (at >= bar.segmentEndsAt) break;
@@ -129,8 +148,10 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
         count: countOf(bar, beat),
         beatInBar: beat,
         beatsPerBar: bar.beatsPerBar,
+        beatUnit: bar.beatUnit,
         sectionIndex: bar.sectionIndex,
         accent: beat === 1,
+        groupStart: beat > 1 && (beat - 1) % groupSize === 0,
         voiceCue: upcoming && beat === 1 ? voiceCueOf(upcoming) : null,
         spokenCount: upcoming && beat > 1 ? beat : null,
       });
