@@ -56,6 +56,18 @@ npx convex env set GETSONGBPM_API_KEY <key>
 
 The editor shows "BPM data from GetSongBPM" with a link back, as their terms require.
 
+## iOS app
+
+iOS builds run on [EAS](https://expo.dev/accounts/xtectra/projects/cue-tracker). The `production` profile in `eas.json` uses the production Convex deployment. The `preview` profile uses the dev deployment with dev login turned on.
+
+Build and upload to TestFlight:
+
+```bash
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+
+The first run asks for your Apple ID. It then creates the App Store Connect app, the distribution certificate and the provisioning profile, and stores them on EAS. Each build gets the next build number automatically. Once Apple finishes processing the build, add testers in App Store Connect under TestFlight.
+
 ## Seed the first Setlist
 
 Once your real Group exists, copy its id from the Group page URL (`/group/<id>`) and run:
