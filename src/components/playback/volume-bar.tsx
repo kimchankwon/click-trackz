@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { StyleSheet, View, type GestureResponderEvent, type KeyDownEvent } from "react-native";
+import { StyleSheet, View, type KeyDownEvent } from "react-native";
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 
 import { ThemedText } from "@/components/themed-text";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -27,9 +28,15 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
   const travel = Math.max(0, width - THUMB_INSET * 2);
-  const setFromTouch = (event: GestureResponderEvent) => {
-    if (travel > 0) onChange(clampVolume((event.nativeEvent.locationX - THUMB_INSET) / travel));
+  const setFromX = (x: number) => {
+    if (travel > 0) onChange(clampVolume((x - THUMB_INSET) / travel));
   };
+  const drag = usePanGesture({
+    minDistance: 0,
+    runOnJS: true,
+    onBegin: (event) => setFromX(event.x),
+    onUpdate: (event) => setFromX(event.x),
+  });
   const keyboard = {
     tabIndex: 0 as const,
     onKeyDown: (event: KeyDownEvent) => {
@@ -49,42 +56,40 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
           {label}
         </ThemedText>
       )}
-      <View
-        testID={testID}
-        role="slider"
-        aria-label={accessibleName ?? `${label} volume`}
-        aria-valuemin={accessibleRange?.min ?? 0}
-        aria-valuemax={accessibleRange?.max ?? 100}
-        aria-valuenow={accessibleRange?.now ?? Math.round(value * 100)}
-        aria-valuetext={valueText}
-        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-        onAccessibilityAction={(event) =>
-          onChange(clampVolume(value + (event.nativeEvent.actionName === "increment" ? VOLUME_STEP : -VOLUME_STEP)))
-        }
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={setFromTouch}
-        onResponderMove={setFromTouch}
-        {...keyboard}
-        style={[styles.hitArea, { borderColor: focused ? theme.text : "transparent" }]}
-      >
-        <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+      <GestureDetector gesture={drag} touchAction="pan-y">
+        <View
+          testID={testID}
+          role="slider"
+          aria-label={accessibleName ?? `${label} volume`}
+          aria-valuemin={accessibleRange?.min ?? 0}
+          aria-valuemax={accessibleRange?.max ?? 100}
+          aria-valuenow={accessibleRange?.now ?? Math.round(value * 100)}
+          aria-valuetext={valueText}
+          accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+          onAccessibilityAction={(event) =>
+            onChange(clampVolume(value + (event.nativeEvent.actionName === "increment" ? VOLUME_STEP : -VOLUME_STEP)))
+          }
+          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+          {...keyboard}
+          style={[styles.hitArea, { borderColor: focused ? theme.text : "transparent" }]}
+        >
+          <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+            <View
+              style={[
+                styles.fill,
+                { left: `${Math.min(origin, value) * 100}%`, width: `${Math.abs(value - origin) * 100}%`, backgroundColor: theme.accent },
+              ]}
+            />
+          </View>
+          {origin > 0 ? (
+            <View pointerEvents="none" style={[styles.originTick, { left: THUMB_INSET - BORDER - 1 + travel * origin, backgroundColor: theme.textTertiary }]} />
+          ) : null}
           <View
-            style={[
-              styles.fill,
-              { left: `${Math.min(origin, value) * 100}%`, width: `${Math.abs(value - origin) * 100}%`, backgroundColor: theme.accent },
-            ]}
+            pointerEvents="none"
+            style={[styles.thumb, { left: THUMB_INSET - BORDER - THUMB / 2 + travel * value, backgroundColor: theme.accent, borderColor: theme.background }]}
           />
         </View>
-        {origin > 0 ? (
-          <View pointerEvents="none" style={[styles.originTick, { left: THUMB_INSET - BORDER - 1 + travel * origin, backgroundColor: theme.textTertiary }]} />
-        ) : null}
-        <View
-          pointerEvents="none"
-          style={[styles.thumb, { left: THUMB_INSET - BORDER - THUMB / 2 + travel * value, backgroundColor: theme.accent, borderColor: theme.background }]}
-        />
-      </View>
+      </GestureDetector>
       {hideValue ? null : (
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.value}>
           {valueText ?? Math.round(value * 100)}

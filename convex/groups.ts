@@ -137,6 +137,14 @@ export const removeMember = mutation({
   },
 });
 
+export const setDisplayName = mutation({
+  args: { groupId: v.id("groups"), displayName: v.string() },
+  handler: async (ctx, { groupId, displayName }) => {
+    const { membership } = await requireMember(ctx, groupId);
+    await ctx.db.patch(membership._id, { displayName: cleanName(displayName, "Your name") });
+  },
+});
+
 export const leaveGroup = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {

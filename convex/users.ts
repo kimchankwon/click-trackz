@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import { isAccentId } from "./accents";
+import { cleanSound, soundFields } from "./sound";
 import { mutation, query } from "./_generated/server";
 
 export const viewer = query({
@@ -15,6 +16,7 @@ export const viewer = query({
       id: user._id,
       isAnonymous: user.isAnonymous === true,
       accent: isAccentId(user.accent) ? user.accent : null,
+      sound: user.sound ?? null,
     };
   },
 });
@@ -29,5 +31,15 @@ export const setAccent = mutation({
     if (user === null) throw new ConvexError("Sign in to save your colour");
     if (user.isAnonymous === true) throw new ConvexError("Sign in with Google to save your colour to your profile");
     await ctx.db.patch(userId, { accent });
+  },
+});
+
+export const setSound = mutation({
+  args: { sound: soundFields },
+  handler: async (ctx, { sound }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new ConvexError("Sign in to save your sound settings");
+    if ((await ctx.db.get(userId)) === null) throw new ConvexError("Sign in to save your sound settings");
+    await ctx.db.patch(userId, { sound: cleanSound(sound) });
   },
 });

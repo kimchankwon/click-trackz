@@ -7,36 +7,33 @@ import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
-import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
-import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
-import { Card, Divider } from "@/components/group/card";
+import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
-import { panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
-import { VolumeBar } from "@/components/playback/volume-bar";
+import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
-import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
-import { AccentPicker } from "@/components/ui/accent-picker";
+import { SoundSettings } from "@/components/sound/sound-settings";
+import { SwipeTabs } from "@/components/ui/swipe-tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Toast, useToast } from "@/components/ui/toast";
 import { AudioDebug } from "@/components/audio-debug";
 import { JoinCodeActions } from "@/components/group/join-code-actions";
 import { SignalBars } from "@/components/ui/signal-bars";
-import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -46,6 +43,7 @@ import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
+import { useSoundSettings } from "@/settings/use-sound-settings";
 import { beatsBetween, playbackEndsAt, timeSignatureOf, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
@@ -56,8 +54,6 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
-
-const isVolume = (value: string): value is string => /^(0(\.\d+)?|1(\.0+)?)$/.test(value);
 
 function upcomingVoiceCue(recent: readonly Beat[]): Beat["voiceCue"] {
   const cueIndex = recent.findLastIndex((b) => b.voiceCue !== null);
@@ -106,6 +102,8 @@ const emptySong: Song = { countIn: false, sections: [] };
 
 const MIX_TEXT_INSET = 38;
 const STAGE_HEAD_HEIGHT = 136;
+
+const groupTabIds = groupTabs.map((item) => item.id);
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -178,10 +176,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [soundProblem, setSoundProblem] = useState<string | null>(null);
-  const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
-  const [clickVolume, setClickVolume, clickVolumeUnsaved] = useDeviceSetting("clickVolume", "0.8", isVolume);
-  const [voiceVolume, setVoiceVolume, voiceVolumeUnsaved] = useDeviceSetting("voiceVolume", "0.9", isVolume);
-  const [speaker, setSpeaker, speakerUnsaved] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
+  const { sound, update: updateSound, saveError: soundSaveError } = useSoundSettings();
+  const { speaker, clickVolume, voiceVolume } = sound;
+  const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
@@ -222,7 +219,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   }, [mix, soundOn]);
 
   useEffect(() => {
-    engine.current?.setVolumes({ click: Number(clickVolume), voice: Number(voiceVolume) });
+    engine.current?.setVolumes({ click: clickVolume, voice: voiceVolume });
   }, [clickVolume, voiceVolume, soundOn]);
 
   useEffect(() => {
@@ -346,8 +343,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
-  const chooseSpeaker = (next: SpeakerId) => {
-    setSpeaker(next);
+  const previewSpeaker = (next: SpeakerId) => {
     const current = engine.current;
     if (!current?.enabled) return;
     run(async () => {
@@ -633,78 +629,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
   );
 
   const soundTab = (
-    <>
-      {soundPromptFor("enable-sound-settings")}
-      {soundOn ? (
-        <Card title="Mix">
-          <View style={styles.mixRow}>
-            <View style={styles.mixHead}>
-              <MetronomeIcon size={22} />
-              <View style={styles.grow}>
-                <Switch label="Click" value={mix.click} onChange={(on) => setMix({ ...mix, click: on })} />
-              </View>
-            </View>
-            <View style={styles.mixSlider}>
-              <VolumeBar label="Click" bare testID="click-volume" value={Number(clickVolume)} onChange={(next) => setClickVolume(next.toFixed(2))} />
-            </View>
-          </View>
-          <Divider inset={MIX_TEXT_INSET} />
-          <View style={styles.mixRow}>
-            <View style={styles.mixHead}>
-              <Icon name="speaking" size={22} color="textSecondary" />
-              <View style={styles.grow}>
-                <Switch label="Voice cues" value={mix.voiceCues} onChange={(on) => setMix({ ...mix, voiceCues: on })} />
-              </View>
-            </View>
-            <View style={styles.mixSlider}>
-              <VolumeBar label="Voice" bare testID="voice-volume" value={Number(voiceVolume)} onChange={(next) => setVoiceVolume(next.toFixed(2))} />
-            </View>
-          </View>
-          <Divider inset={MIX_TEXT_INSET} />
-          <View style={styles.mixHead}>
-            <Icon name="numbered" size={22} color="textSecondary" />
-            <View style={styles.grow}>
-              <Switch label="Spoken counts" hint="Uses the Voice volume" value={mix.spokenCounts} onChange={(on) => setMix({ ...mix, spokenCounts: on })} />
-            </View>
-          </View>
-        </Card>
-      ) : null}
-      <Card title="Speaker" plain>
-        <Segmented
-          label="Speaker"
-          testID="speaker-picker"
-          value={speaker}
-          onChange={chooseSpeaker}
-          options={speakers.map((option) => ({ value: option.id, label: option.name }))}
-        />
-        {soundOn ? null : (
-          <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>
-            Enable sound to hear each Speaker as you choose.
-          </ThemedText>
-        )}
-      </Card>
-      <Card title="Timing" tight>
-        <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")} style={styles.linkRow}>
-          <Icon name="headphones" size={22} color="textSecondary" />
-          <View style={styles.grow}>
-            <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              For Bluetooth audio
-            </ThemedText>
-          </View>
-          <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
-            {latencyNudge} ms
-          </ThemedText>
-          <Icon name="forward" size={20} color="textTertiary" />
-        </Pressable>
-      </Card>
-      <AccentPicker />
-      {clickVolumeUnsaved || voiceVolumeUnsaved || speakerUnsaved ? (
-        <ThemedText type="caption" themeColor="textSecondary" testID="setting-unsaved">
-          This device could not save your choice, so it will reset when you reopen the app.
-        </ThemedText>
-      ) : null}
-    </>
+    <SoundSettings
+      sound={sound}
+      update={updateSound}
+      saveError={soundSaveError}
+      prompt={soundPromptFor("enable-sound-settings")}
+      speakerHint={soundOn ? null : "Enable sound to hear each Speaker as you choose."}
+      onSpeaker={previewSpeaker}
+    />
   );
 
   const groupTab = (
@@ -832,6 +764,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <SwipeTabs tabs={groupTabIds} active={tab} onChange={showTab}>
         <ScrollView ref={scroller} contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}>
           {header}
           {(
@@ -853,13 +786,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
         </ScrollView>
+        </SwipeTabs>
         {floating ? (
           <View pointerEvents="box-none" style={[styles.floatLayer, { bottom: dockHeight }]} onLayout={(event) => setFloatHeight(event.nativeEvent.layout.height)}>
             {floating}
           </View>
         ) : null}
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]} onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}>
-          <TabBar active={tab} onChange={showTab} />
+          <TabBar tabs={groupTabs} active={tab} onChange={showTab} />
         </View>
       </SafeAreaView>
       <Toast message={toast.message} bottom={dockHeight + (floating ? floatHeight : 0) + Spacing.two} />
