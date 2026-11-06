@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useIsFocused } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
@@ -19,25 +19,39 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
   const [active, setActive] = useState(AppState.currentState === "active");
   const visible = focused && active;
   const onPlayRef = useRef(onPlay);
+  const pingRef = useRef<number | null>(null);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
     return () => subscription.remove();
   }, []);
 
+  const beat = useCallback(
+    (onPlayNow: boolean) => {
+      const sentAt = performance.now();
+      void heartbeat({ groupId, screenId, onPlay: onPlayNow, roundTripMs: pingRef.current ?? undefined }).then(
+        () => {
+          pingRef.current = performance.now() - sentAt;
+        },
+        () => undefined,
+      );
+    },
+    [groupId, screenId, heartbeat],
+  );
+
   useEffect(() => {
     onPlayRef.current = onPlay;
-    if (visible) void heartbeat({ groupId, screenId, onPlay }).catch(() => undefined);
-  }, [groupId, screenId, onPlay, visible, heartbeat]);
+    if (visible) beat(onPlay);
+  }, [onPlay, visible, beat]);
 
   useEffect(() => {
     if (!visible) return;
-    const timer = setInterval(() => void heartbeat({ groupId, screenId, onPlay: onPlayRef.current }).catch(() => undefined), HEARTBEAT_MS);
+    const timer = setInterval(() => beat(onPlayRef.current), HEARTBEAT_MS);
     return () => {
       clearInterval(timer);
       void leave({ groupId, screenId }).catch(() => undefined);
     };
-  }, [groupId, screenId, visible, heartbeat, leave]);
+  }, [groupId, screenId, visible, beat, leave]);
 }
 
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null) {

@@ -25,6 +25,7 @@ export default defineSchema({
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("member")),
     displayName: v.string(),
+    lastSeenAt: v.optional(v.number()),
   })
     .index("by_group", ["groupId"])
     .index("by_user", ["userId"])
@@ -65,6 +66,7 @@ export default defineSchema({
     song: v.object({ countIn: v.boolean(), sections: v.array(sectionFields) }),
     startsAt: v.number(),
     startSection: v.number(),
+    startBar: v.optional(v.number()),
     jumps: v.array(v.object({ at: v.number(), toSection: v.number() })),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
@@ -74,6 +76,7 @@ export default defineSchema({
     userId: v.id("users"),
     screenId: v.string(),
     onPlay: v.boolean(),
+    roundTripMs: v.optional(v.number()),
     seenAt: v.number(),
   })
     .index("by_group", ["groupId"])

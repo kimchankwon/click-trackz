@@ -1,14 +1,18 @@
 import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SignalBars } from "@/components/ui/signal-bars";
 import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { presenceOf, type MemberPresence, type PresenceRow } from "@/presence/online";
+import { errorText } from "@/lib/error-text";
+import { memberPing, memberPresence, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -16,11 +20,13 @@ const presenceText: Record<MemberPresence, string> = { onPlay: "On Play", online
 
 export function MembersCard({
   groupId,
+  groupName,
   isAdmin,
   run,
   presence,
 }: {
   groupId: Id<"groups">;
+  groupName: string;
   isAdmin: boolean;
   run: (action: () => Promise<unknown>) => void;
   presence: { rows: readonly PresenceRow[]; nowMs: number };
@@ -28,70 +34,128 @@ export function MembersCard({
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
   const setRole = useMutation(api.groups.setRole);
+  const removeMember = useMutation(api.groups.removeMember);
+  const [removing, setRemoving] = useState<{ userId: Id<"users">; name: string } | null>(null);
+  const [removePending, setRemovePending] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const askToRemove = (userId: Id<"users">, name: string) => {
+    setRemoveError(null);
+    setRemoving({ userId, name });
+  };
+  const confirmRemove = async () => {
+    const target = removing;
+    if (!target || removePending) return;
+    setRemoveError(null);
+    setRemovePending(true);
+    try {
+      await removeMember({ groupId, userId: target.userId });
+      setRemoving((current) => (current?.userId === target.userId ? null : current));
+    } catch (error) {
+      setRemoveError(errorText(error));
+    } finally {
+      setRemovePending(false);
+    }
+  };
   const theme = useTheme();
   const list = members ?? [];
-  const statusOf = (userId: string): MemberPresence => {
-    const status = presenceOf(presence.rows, userId, presence.nowMs);
-    return userId === viewer?.id && status === "offline" ? "online" : status;
-  };
+  const statusOf = (userId: string) => memberPresence(presence.rows, userId, presence.nowMs, viewer?.id);
   const onlineCount = list.filter((member) => statusOf(member.userId) !== "offline").length;
   return (
     <Card title={`Members · ${list.length} · ${onlineCount} online`}>
       {list.map((member, index) => {
         const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
         const status = statusOf(member.userId);
+        const pingMs = isAdmin && status !== "offline" ? memberPing(presence.rows, member.userId, presence.nowMs) : null;
         return (
-          <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
+          <View key={member.userId} style={styles.item} testID={`member-${member.displayName}`}>
             {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-            <View>
-              <Avatar name={member.displayName} position={index} />
-              <View
-                testID={`presence-${member.displayName}`}
-                aria-label={presenceText[status]}
-                style={[
-                  styles.presenceDot,
-                  { borderColor: theme.backgroundElement, backgroundColor: status === "offline" ? theme.dotInactive : theme.switchOn },
-                ]}
-              />
-            </View>
-            <View style={styles.name}>
-              <ThemedText numberOfLines={1} style={styles.memberName}>
-                {member.displayName}
-                {member.userId === viewer?.id ? " (you)" : ""}
-              </ThemedText>
-              <View style={styles.roleRow}>
-                <Icon name={member.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
-                <ThemedText type="small" themeColor="textSecondary">
-                  {role} ·{" "}
+            <View style={styles.row}>
+              <View>
+                <Avatar name={member.displayName} position={index} />
+                <View
+                  testID={`presence-${member.displayName}`}
+                  aria-label={presenceText[status]}
+                  style={[
+                    styles.presenceDot,
+                    { borderColor: theme.backgroundElement, backgroundColor: status === "offline" ? theme.dotInactive : theme.switchOn },
+                  ]}
+                />
+              </View>
+              <View style={styles.name}>
+                <ThemedText numberOfLines={1} style={styles.memberName}>
+                  {member.displayName}
+                  {member.userId === viewer?.id ? " (you)" : ""}
                 </ThemedText>
-                <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"}>
-                  {presenceText[status]}
-                </ThemedText>
+                <View style={styles.roleRow}>
+                  <Icon name={member.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {role} ·{" "}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"}>
+                    {presenceText[status]}
+                  </ThemedText>
+                  {pingMs !== null ? (
+                    <View style={styles.ping}>
+                      <SignalBars roundTripMs={pingMs} size={11} testID={`ping-${member.displayName}`} />
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.pingText}>
+                        {Math.round(pingMs)} ms
+                      </ThemedText>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </View>
-            {isAdmin && !member.isGuest ? (
-              <ActionButton
-                tiny
-                variant="pill"
-                label={member.role === "admin" ? "Make Member" : "Make Admin"}
-                testID={`toggle-admin-${member.displayName}`}
-                onPress={() =>
-                  run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
-                }
-              />
+            {isAdmin && member.userId !== viewer?.id ? (
+              <View style={styles.actions}>
+                {!member.isGuest ? (
+                  <ActionButton
+                    tiny
+                    variant="pill"
+                    label={member.role === "admin" ? "Make Member" : "Make Admin"}
+                    testID={`toggle-admin-${member.displayName}`}
+                    onPress={() =>
+                      run(() => setRole({ groupId, userId: member.userId, role: member.role === "admin" ? "member" : "admin" }))
+                    }
+                  />
+                ) : null}
+                <ActionButton
+                  tiny
+                  variant="pill"
+                  icon="trash"
+                  label="Remove"
+                  accessibleName={`Remove ${member.displayName} from the Group`}
+                  testID={`remove-${member.displayName}`}
+                  onPress={() => askToRemove(member.userId, member.displayName)}
+                />
+              </View>
             ) : null}
           </View>
         );
       })}
+      <ConfirmDialog
+        visible={removing !== null}
+        title={`Remove ${removing?.name ?? ""}?`}
+        message={`${removing?.name ?? "They"} will be taken out of ${groupName} straight away. They can rejoin with the join code.`}
+        confirmLabel="Remove"
+        pending={removePending}
+        error={removeError}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoving(null)}
+        testID="remove-member-dialog"
+      />
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
+  item: { gap: Spacing.two },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 60 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, paddingLeft: 40 + Spacing.three },
   separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
   name: { flex: 1, minWidth: 0 },
-  roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  roleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.one },
   presenceDot: { position: "absolute", right: -1, bottom: -1, width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
+  ping: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: Spacing.two },
+  pingText: { fontVariant: ["tabular-nums"] },
   memberName: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
 });

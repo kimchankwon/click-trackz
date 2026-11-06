@@ -12,6 +12,7 @@ import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { StageMembers, type StageMember } from "@/components/playback/stage-members";
 import { Card, Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
@@ -27,18 +28,20 @@ import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
+import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { neighbourSong } from "@/lib/song-order";
-import { countOnPlay } from "@/presence/online";
+import { countOnPlay, memberPing, memberPresence } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { beatsBetween, playbackEndsAt, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
+import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -82,8 +85,6 @@ function songFactsFor(song: LoadedSong | null | undefined, fromSection: number) 
 const emptySong: Song = { countIn: false, sections: [] };
 
 const MIX_TEXT_INSET = 38;
-const WEAK_PING_MS = 80;
-const BAD_PING_MS = 150;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -131,9 +132,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const startSongId = selectedSongId ?? playback?.songId ?? null;
   const startSong = selectedSongId ? selectedSong : playingSong;
   const shownSections = playing && playback ? playback.song.sections : (startSong?.sections ?? []);
-  const [startPick, setStartPick] = useState<{ songId: Id<"songs">; index: number } | null>(null);
+  const [startPick, setStartPick] = useState<{ songId: Id<"songs">; index: number; bar: number } | null>(null);
   const pickedSection = startPick !== null && startPick.songId === startSongId && startPick.index < (startSong?.sections.length ?? 0) ? startPick.index : null;
   const startSection = pickedSection ?? 0;
+  const startSectionBars = startSong?.sections[startSection]?.bars ?? 0;
+  const pickedBar = pickedSection !== null && startPick !== null && startPick.bar > 1 && startPick.bar <= startSectionBars ? startPick.bar : null;
+  const startBar = pickedBar ?? 1;
   const [stopPending, setStopPending] = useState(false);
   const currentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
   const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
@@ -168,6 +172,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const dockInset = useDockInset(Spacing.one);
   useHeartbeat(groupId, tab === "play");
   const presence = usePresence(groupId, serverNow);
+  const members = useQuery(api.groups.members, { groupId });
+  const viewer = useQuery(api.users.viewer, {});
   const onPlayCount = countOnPlay(presence.rows, presence.nowMs);
   const stopping = playing && (stopPending || (playback?.stopsAt ?? null) !== null);
 
@@ -317,7 +323,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const startPlayback = () =>
     run(async () => {
       if (!startSongId) return;
-      await start({ groupId, songId: startSongId, fromSection: pickedSection ?? undefined });
+      await start({ groupId, songId: startSongId, fromSection: pickedSection ?? undefined, fromBar: pickedBar ?? undefined });
       setStartPick(null);
     });
 
@@ -342,11 +348,25 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const tapSection = (index: number) => {
     if (!isAdmin) return;
     if (playing) run(() => jump({ groupId, toSection: index, mode: jumpMode }));
-    else if (startSongId) setStartPick({ songId: startSongId, index });
+    else if (startSongId) setStartPick({ songId: startSongId, index, bar: 1 });
   };
 
-  const pickedTitle = pickedSection !== null && startSong ? titleOf(startSong.sections[pickedSection]) : null;
-  const startLabel = startHint ?? (startSong ? `Start ${startSong.title}${pickedTitle ? ` from ${pickedTitle}` : ""}` : "Start");
+  const tapBar = (bar: number) => {
+    if (isAdmin && startSongId) setStartPick({ songId: startSongId, index: startSection, bar });
+  };
+
+  const pickedTitle =
+    pickedSection !== null && startSong ? `${titleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
+
+  const onlineMembers: StageMember[] = (members ?? [])
+    .map((member, position) => ({
+      userId: member.userId,
+      name: member.displayName,
+      position,
+      pingMs: isAdmin ? memberPing(presence.rows, member.userId, presence.nowMs) : null,
+    }))
+    .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
+  const startLabel = startHint ?? "Start";
 
   const header = (
     <ScreenHeader
@@ -357,11 +377,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       backTestID="groups-back"
       right={
         <View style={styles.pill}>
-          <Icon
-            name="ping"
-            size={12}
-            color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "textTertiary"}
-          />
+          <SignalBars roundTripMs={estimate?.roundTripMs ?? null} />
           <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
             {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
           </ThemedText>
@@ -440,7 +456,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
           ) : null}
         </View>
       )}
-      <BeatPulse beat={beat} playing={playing} idle={idle} />
+      <View style={styles.stageRow}>
+        <BeatPulse beat={beat} playing={playing} idle={idle} />
+        <StageMembers members={onlineMembers} beat={beat} playing={playing} />
+      </View>
       {nextLine ? (
         <View style={styles.nextBlock}>
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
@@ -469,11 +488,23 @@ function GroupScreen({ group }: { group: MyGroup }) {
               />
             ))}
           </View>
+          {isAdmin && !playing && startBlocker === null && startSectionBars > 1 ? (
+            <View style={styles.barPicker}>
+              <ThemedText type="caption" themeColor="textSecondary">
+                Start at bar
+              </ThemedText>
+              <View style={styles.wrapTight} role="radiogroup" aria-label="Start at bar">
+                {Array.from({ length: startSectionBars }, (_, offset) => offset + 1).map((bar) => (
+                  <Chip key={bar} role="radio" label={String(bar)} testID={`play-bar-${bar}`} selected={startBar === bar} onPress={() => tapBar(bar)} />
+                ))}
+              </View>
+            </View>
+          ) : null}
           {isAdmin ? (
             <>
               {!playing ? (
                 <ThemedText type="caption" themeColor="textSecondary" testID="start-from-hint">
-                  Tap a Section to start from it with a one-bar Count-in.
+                  Tap a Section and bar to start there with a one-bar Count-in.
                 </ThemedText>
               ) : null}
               <View style={styles.jumpMode}>
@@ -598,7 +629,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const groupTab = (
     <>
-      <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} presence={presence} />
+      <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} run={run} presence={presence} />
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
@@ -799,6 +830,9 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
+  wrapTight: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
+  barPicker: { gap: Spacing.two },
+  stageRow: { alignItems: "center", width: "100%" },
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },
   jumpControl: { width: 196 },

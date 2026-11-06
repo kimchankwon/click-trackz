@@ -59,6 +59,14 @@ describe("Group Playback", () => {
     expect(playback).toMatchObject({ startsAt: NOW + 2_000, startSection: 3, song: { countIn: true } });
   });
 
+  it("starts from a chosen bar of a Section", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId, fromSection: 3, fromBar: 2 });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ startSection: 3, startBar: 2, song: { countIn: true } });
+    await expect(admin.mutation(api.playback.start, { groupId, songId, fromSection: 3, fromBar: 9 })).rejects.toThrow(/only has 4 bars/);
+  });
+
   it("refuses to start from a Section that is not in the Song", async () => {
     const { admin, groupId, songId } = await setupGroup();
     await expect(admin.mutation(api.playback.start, { groupId, songId, fromSection: 99 })).rejects.toThrow(/not in the Song/);

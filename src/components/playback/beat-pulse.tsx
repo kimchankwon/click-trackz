@@ -24,6 +24,7 @@ type Props = {
 export function BeatPulse({ beat, playing, idle }: Props) {
   const theme = useTheme();
   const scale = useSharedValue(1);
+  const discScale = useSharedValue(1);
   const ring = useSharedValue(0);
   const beatAt = playing ? beat?.at : undefined;
   const accent = beat?.accent ?? false;
@@ -34,12 +35,19 @@ export function BeatPulse({ beat, playing, idle }: Props) {
       withTiming(accent ? 1.16 : 1.07, { duration: 45 }),
       withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
     );
+    discScale.value = withSequence(
+      withTiming(accent ? 1.06 : 1.03, { duration: 50 }),
+      withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) }),
+    );
     ring.value = 0;
     ring.value = withTiming(1, { duration: accent ? 520 : 380, easing: Easing.out(Easing.quad) });
-  }, [beatAt, accent, scale, ring]);
+  }, [beatAt, accent, scale, discScale, ring]);
 
   const countStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const discStyle = useAnimatedStyle(() => ({ opacity: 1 - (1 - ring.value) * (accent ? 0.18 : 0.08) }));
+  const discStyle = useAnimatedStyle(() => ({
+    opacity: 1 - (1 - ring.value) * (accent ? 0.18 : 0.08),
+    transform: [{ scale: discScale.value }],
+  }));
 
   const beatsPerBar = beat?.beatsPerBar ?? 4;
   const dense = beatsPerBar > DENSE_FROM;
@@ -94,7 +102,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   );
 }
 
-const DISC = 212;
+export const DISC = 212;
 const DENSE_FROM = 7;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
 const MAX_COUNT_FONT = 124;

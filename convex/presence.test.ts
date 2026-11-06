@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -19,7 +19,7 @@ async function setupGroup() {
   const member = await as({ isAnonymous: true });
   await member.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Member" });
   const outsider = await as({ isAnonymous: true });
-  return { admin, member, outsider, groupId };
+  return { t, admin, member, outsider, groupId };
 }
 
 describe("Presence", () => {
@@ -34,7 +34,7 @@ describe("Presence", () => {
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: false });
     vi.setSystemTime(NOW + 5_000);
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true });
-    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([{ userId: member.userId, onPlay: true, seenAt: NOW + 5_000 }]);
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([{ userId: member.userId, onPlay: true, seenAt: NOW + 5_000, roundTripMs: null }]);
   });
 
   it("forgets a Member who leaves the screen or the Group", async () => {
@@ -61,6 +61,38 @@ describe("Presence", () => {
     vi.setSystemTime(NOW + 11 * 60_000);
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "new", onPlay: false });
     expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: member.userId, onPlay: false })]);
+  });
+
+  it("shows each screen's ping to Admins only", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 42.6 });
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "laptop", onPlay: true, roundTripMs: 18 });
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual(
+      expect.arrayContaining([expect.objectContaining({ userId: member.userId, roundTripMs: 43 })]),
+    );
+    expect((await member.client.query(api.presence.list, { groupId })).map((row) => row.roundTripMs)).toEqual([null, null]);
+  });
+
+  it("removes guests who have been away for an hour, but not signed-in Members or guests still around", async () => {
+    const { t, admin, member, groupId } = await setupGroup();
+    const signedIn = await t.run((ctx) => ctx.db.insert("users", { email: "joanne@example.com" }));
+    const returning = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    const signedInClient = t.withIdentity({ subject: `${signedIn}|session` });
+    const returningClient = t.withIdentity({ subject: `${returning}|session` });
+    const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
+    await signedInClient.mutation(api.groups.joinGroup, { joinCode, displayName: "Joanne" });
+    await returningClient.mutation(api.groups.joinGroup, { joinCode, displayName: "Minwoo" });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: "phone" });
+
+    vi.setSystemTime(NOW + 50 * 60_000);
+    await returningClient.mutation(api.presence.heartbeat, { groupId, screenId: "tablet", onPlay: false });
+    vi.setSystemTime(NOW + 61 * 60_000);
+    await t.mutation(internal.presence.removeAbsentGuests, {});
+
+    const names = (await admin.client.query(api.groups.members, { groupId })).map((m) => m.displayName);
+    expect(names).toEqual(["Admin", "Joanne", "Minwoo"]);
+    await expect(member.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
   });
 
   it("is only visible to and written by people in the Group", async () => {
