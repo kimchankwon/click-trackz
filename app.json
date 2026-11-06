@@ -3,6 +3,9 @@
     "name": "Click Trackz",
     "slug": "cue-tracker",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "clicktrackz",
@@ -59,6 +62,11 @@
         "projectId": "03233056-f381-42e9-bbed-5c4f123f10af"
       }
     },
-    "owner": "xtectra"
+    "owner": "xtectra",
+    "updates": {
+      "url": "https://u.expo.dev/03233056-f381-42e9-bbed-5c4f123f10af",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
