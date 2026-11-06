@@ -41,7 +41,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         <Pressable
           role="button"
           testID="back-to-groups"
-          onPress={() => router.replace("/")}
+          onPress={() => router.dismissTo("/")}
           style={[styles.button, { backgroundColor: theme.accent }]}
         >
           <ThemedText style={{ color: theme.onAccent }}>Back to your Groups</ThemedText>

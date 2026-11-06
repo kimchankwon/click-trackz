@@ -126,7 +126,7 @@ export default function GroupRoute() {
         <Pressable
           role="button"
           testID="back-to-groups"
-          onPress={() => router.replace("/")}
+          onPress={() => router.dismissTo("/")}
           style={[styles.backButton, { backgroundColor: theme.accent }]}
         >
           <ThemedText style={{ color: theme.onAccent }}>Back to your Groups</ThemedText>
@@ -197,7 +197,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [leaving, setLeaving] = useState(false);
   usePreventRemove(playing && !leaving, () => setAskLeave(true));
   useEffect(() => {
-    if (leaving) router.replace("/");
+    if (leaving) router.dismissTo("/");
   }, [leaving]);
   useHeartbeat(groupId, tab === "play");
   const presence = usePresence(groupId, serverNow);
@@ -416,7 +416,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       subtitle={
         group.joinCode ? <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} /> : isAdmin ? "Admin" : "Member"
       }
-      onBack={() => router.replace("/")}
+      onBack={() => (playing && !leaving ? setAskLeave(true) : router.dismissTo("/"))}
       backLabel="Your Groups"
       backTestID="groups-back"
       right={
@@ -694,7 +694,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           onPress={() =>
             run(async () => {
               await leave({ groupId });
-              router.replace("/");
+              router.dismissTo("/");
             })
           }
         />
