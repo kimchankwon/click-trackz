@@ -128,7 +128,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               testID="group-name-input"
               value={groupName}
               onChangeText={setGroupName}
-              placeholder="e.g. Sunday band"
+              placeholder="e.g. Sunday worship"
               autoCapitalize="words"
               containerStyle={styles.grow}
               inset
@@ -204,7 +204,7 @@ export default function HomeScreen() {
                   Cue Tracker
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.centered}>
-                  Every phone in the band on the same beat.
+                  Every phone in the Group on the same beat.
                 </ThemedText>
               </View>
               <View style={styles.signInButtons}>

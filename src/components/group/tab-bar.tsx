@@ -7,6 +7,9 @@ import { useTheme } from "@/hooks/use-theme";
 
 export type GroupTab = "play" | "songs" | "sound" | "group";
 
+export const tabId = (tab: GroupTab) => `group-tab-${tab}`;
+export const panelId = (tab: GroupTab) => `group-panel-${tab}`;
+
 const tabs: { id: GroupTab; label: string; icon: IconName }[] = [
   { id: "play", label: "Play", icon: "playCircle" },
   { id: "songs", label: "Songs", icon: "songs" },
@@ -24,7 +27,9 @@ export function TabBar({ active, onChange }: { active: GroupTab; onChange: (tab:
           <Pressable
             key={tab.id}
             role="tab"
+            id={tabId(tab.id)}
             aria-selected={selected}
+            aria-controls={panelId(tab.id)}
             testID={`tab-${tab.id}`}
             onPress={() => onChange(tab.id)}
             style={styles.tab}

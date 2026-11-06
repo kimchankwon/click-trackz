@@ -62,7 +62,7 @@ export function SongsCard({
               divider={index > 0}
               key={song.songId}
               title={song.title}
-              meta={song.sectionCount === 0 ? null : `${song.sectionCount} Sections`}
+              meta={song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`}
               songKey={song.key}
               needsSections={song.sectionCount === 0}
               selected={selectedSongId === song.songId}

@@ -16,7 +16,7 @@ import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
-import { TabBar, type GroupTab } from "@/components/group/tab-bar";
+import { panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
 import { VoicePackCard } from "@/components/group/voice-pack-card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
@@ -494,10 +494,18 @@ function GroupScreen({ group }: { group: MyGroup }) {
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content}>
           {header}
-          <View style={tab === "play" ? styles.tabPane : styles.hidden}>{playTab}</View>
-          <View style={tab === "songs" ? styles.tabPane : styles.hidden}>{songsTab}</View>
-          <View style={tab === "sound" ? styles.tabPane : styles.hidden}>{soundTab}</View>
-          <View style={tab === "group" ? styles.tabPane : styles.hidden}>{groupTab}</View>
+          {(
+            [
+              ["play", playTab],
+              ["songs", songsTab],
+              ["sound", soundTab],
+              ["group", groupTab],
+            ] as const
+          ).map(([pane, content]) => (
+            <View key={pane} role="tabpanel" id={panelId(pane)} aria-labelledby={tabId(pane)} style={tab === pane ? styles.tabPane : styles.hidden}>
+              {content}
+            </View>
+          ))}
           {error ? (
             <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
               {error}

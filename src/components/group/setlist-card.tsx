@@ -77,7 +77,7 @@ export function SetlistCard({
       }
     >
       {setlists.length > 1 ? (
-        <View style={styles.wrap}>
+        <View style={styles.wrap} role="radiogroup" aria-label="Setlists">
           {setlists.map((option) => (
             <Chip
               key={option.setlistId}
@@ -95,7 +95,7 @@ export function SetlistCard({
         <ThemedText type="small" themeColor="textSecondary">
           No Setlists yet. Tap + to plan what the Group plays.
         </ThemedText>
-      ) : entries.length === 0 ? (
+      ) : setlist === undefined ? null : entries.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           This Setlist is empty. Tap Edit to add Songs.
         </ThemedText>
