@@ -11,6 +11,7 @@ export function ConfirmDialog({
   message,
   confirmLabel,
   pending,
+  error,
   onConfirm,
   onCancel,
   testID,
@@ -20,15 +21,19 @@ export function ConfirmDialog({
   message: string;
   confirmLabel: string;
   pending?: boolean;
+  error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
 }) {
   const theme = useTheme();
+  const cancel = () => {
+    if (!pending) onCancel();
+  };
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
       <View style={styles.layer}>
-        <Pressable aria-label="Cancel" style={[StyleSheet.absoluteFill, styles.scrim]} onPress={onCancel} />
+        <Pressable aria-label="Cancel" style={[StyleSheet.absoluteFill, styles.scrim]} onPress={cancel} />
         <View role="alertdialog" aria-modal aria-label={title} testID={testID} style={[styles.dialog, { backgroundColor: theme.backgroundElement }]}>
           <ThemedText type="subtitle" style={styles.title}>
             {title}
@@ -36,8 +41,13 @@ export function ConfirmDialog({
           <ThemedText type="small" themeColor="textSecondary">
             {message}
           </ThemedText>
+          {error ? (
+            <ThemedText type="small" themeColor="danger" role="alert" testID={testID ? `${testID}-error` : undefined}>
+              {error}
+            </ThemedText>
+          ) : null}
           <View style={styles.actions}>
-            <ActionButton full label="Cancel" testID={testID ? `${testID}-cancel` : undefined} onPress={onCancel} />
+            <ActionButton full label="Cancel" testID={testID ? `${testID}-cancel` : undefined} disabled={pending} onPress={cancel} />
             <ActionButton
               full
               accent

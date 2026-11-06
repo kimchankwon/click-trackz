@@ -170,7 +170,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
-  useHeartbeat(groupId, tab === "play", estimate?.roundTripMs ?? null);
+  useHeartbeat(groupId, tab === "play");
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
