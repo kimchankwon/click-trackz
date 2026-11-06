@@ -38,13 +38,14 @@ export function SongRow({
   divider?: boolean;
 }) {
   const theme = useTheme();
+  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, meta, songKey ? `Key of ${songKey}` : "No Key"].filter(Boolean).join(", ") : undefined;
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
       {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
       <Pressable
         role={selectable ? (opens ? "button" : "radio") : undefined}
         aria-checked={selectable && !opens ? selected : undefined}
-        aria-label={selectable ? label : undefined}
+        aria-label={selectable ? spokenLabel : undefined}
         disabled={!selectable}
         testID={testID}
         onPress={onSelect}

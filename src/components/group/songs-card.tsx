@@ -43,7 +43,14 @@ export function SongsCard({
               divider={index > 0}
               key={song.songId}
               title={song.title}
-              meta={song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`}
+              meta={
+                [
+                  selectedSongId === song.songId ? "On Play" : null,
+                  song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || null
+              }
               songKey={song.key}
               needsSections={song.sectionCount === 0}
               selected={false}
@@ -56,7 +63,7 @@ export function SongsCard({
                 isAdmin ? (
                   <IconButton
                     icon="play"
-                    label={`Play ${song.title}`}
+                    label={selectedSongId === song.songId ? `Play ${song.title}, already on Play` : `Play ${song.title}`}
                     testID={`play-${song.title}`}
                     color={selectedSongId === song.songId ? "accent" : "textSecondary"}
                     onPress={() => onPlay(song.songId)}
