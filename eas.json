@@ -7,6 +7,7 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_CONVEX_URL": "https://small-buffalo-715.ap-southeast-2.convex.cloud",
         "EXPO_PUBLIC_WEB_URL": "https://click-trackz.vercel.app"
@@ -15,6 +16,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "environment": "preview",
       "env": {
         "EXPO_PUBLIC_CONVEX_URL": "https://groovy-grouse-274.ap-southeast-2.convex.cloud",
         "EXPO_PUBLIC_DEV_LOGIN": "1",

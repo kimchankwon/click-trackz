@@ -60,7 +60,7 @@ The first run asks for your Apple ID. It then creates the App Store Connect app,
 
 ## Over-the-air updates
 
-A JavaScript-only change can reach phones without a new store build. Each build profile in `eas.json` has an EAS Update channel of the same name (`production`, `preview`), and the runtime version is the native fingerprint, so an update only goes to builds with the same native code. A change to native code (a new native package, a config plugin, `app.json` native settings) still needs a new build.
+A JavaScript-only change can reach phones without a new store build. Each build profile in `eas.json` has an EAS Update channel and an EAS environment of the same name (`production`, `preview`), and the runtime version is the native fingerprint, so an update only goes to builds with the same native code. A change to native code (a new native package, a config plugin, `app.json` native settings) still needs a new build.
 
 Publish the current commit by hand:
 
