@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     borderRadius: Radius.md + 2,
   },
-  full: { alignSelf: "stretch", flexGrow: 1 },
+  full: { alignSelf: "stretch", flexGrow: 1, flexShrink: 1, minWidth: 0 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.4 },
   pending: { opacity: 0.6 },

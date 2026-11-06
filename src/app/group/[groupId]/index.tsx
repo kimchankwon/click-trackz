@@ -361,7 +361,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const onlineMembers: StageMember[] = (members ?? [])
     .map((member, position) => ({ userId: member.userId, name: member.displayName, position }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
-  const startLabel = startHint ?? (startSong ? `Start ${startSong.title}${pickedTitle ? ` from ${pickedTitle}` : ""}` : "Start");
+  const startLabel = startHint ?? "Start";
 
   const header = (
     <ScreenHeader
