@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
@@ -28,6 +29,7 @@ const ignorePress = () => undefined;
 
 export default function LatencyScreen() {
   const theme = useTheme();
+  const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const nudge = Number(stored);
   const engine = useRef<CueAudioEngine | null>(null);
@@ -280,7 +282,7 @@ export default function LatencyScreen() {
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
           <ActionButton large full accent icon="check" label="Done" testID="latency-done" onPress={() => router.back()} />
         </View>
       </SafeAreaView>

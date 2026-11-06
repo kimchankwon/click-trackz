@@ -14,6 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Switch } from "@/components/ui/switch";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -201,6 +202,7 @@ function SongForm({
   const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
   const lookup = useAction(api.bpm.lookup);
   const theme = useTheme();
+  const dockInset = useDockInset(Spacing.three);
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
@@ -363,7 +365,7 @@ function SongForm({
             }
           />
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
           <ActionButton large full accent icon="check" label="Save Song" accessibleName="Save" testID="save-song" onPress={save} />
         </View>
       </SafeAreaView>

@@ -12,6 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { useDockInset } from "@/components/ui/use-dock-inset";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
@@ -61,6 +62,7 @@ function SetlistForm({
   const setCurrent = useMutation(api.setlists.setCurrent);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const theme = useTheme();
+  const dockInset = useDockInset(Spacing.three);
   const [name, setName] = useState(live.name);
   const [entries, setEntriesState] = useState<Entry[]>(() => toEntries(live));
   const [revision, setRevision] = useState(live.revision);
@@ -171,6 +173,21 @@ function SetlistForm({
                       <ThemedText type="default" style={styles.entryTitle} numberOfLines={2}>
                         {entry.title}
                       </ThemedText>
+                      <ReorderControl
+                        name={entry.title}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < entries.length - 1}
+                        onMove={(by) => move(index, by)}
+                      />
+                      <View style={styles.trashGap} />
+                      <IconButton
+                        icon="trash"
+                        size={40}
+                        color="textTertiary"
+                        label={`Remove ${entry.title}`}
+                        testID={`entry-${index}-remove`}
+                        onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
+                      />
                     </View>
                     <View style={styles.entryFields}>
                       <Field
@@ -190,21 +207,6 @@ function SetlistForm({
                         onChangeText={(leader) => update(index, { leader })}
                         placeholder="Led by"
                         compact
-                      />
-                      <ReorderControl
-                        name={entry.title}
-                        canMoveUp={index > 0}
-                        canMoveDown={index < entries.length - 1}
-                        onMove={(by) => move(index, by)}
-                      />
-                      <View style={styles.trashGap} />
-                      <IconButton
-                        icon="trash"
-                        size={40}
-                        color="textTertiary"
-                        label={`Remove ${entry.title}`}
-                        testID={`entry-${index}-remove`}
-                        onPress={() => setEntriesState(entries.filter((_, i) => i !== index))}
                       />
                     </View>
                   </View>
@@ -279,7 +281,7 @@ function SetlistForm({
             }
           />
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
           <ActionButton
             large
             full
@@ -318,10 +320,10 @@ const styles = StyleSheet.create({
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },
   keyBadge: { width: 40, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
-  entryTop: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.one, paddingRight: 12 },
-  entryIndex: { width: 24, fontSize: 13, lineHeight: 22, fontWeight: 600, textAlign: "right", marginRight: Spacing.one, fontVariant: ["tabular-nums"] },
+  entryTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  entryIndex: { width: 24, fontSize: 13, lineHeight: 22, fontWeight: 600, textAlign: "right", fontVariant: ["tabular-nums"] },
   entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17, lineHeight: 22 },
-  entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingLeft: 26, paddingRight: Spacing.one },
+  entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingLeft: 28, paddingRight: 12 },
   keyInput: { width: 60 },
   keyText: { textAlign: "center", paddingHorizontal: 6 },
   grow: { flex: 1, minWidth: 0 },

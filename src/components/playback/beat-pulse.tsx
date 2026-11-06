@@ -42,6 +42,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   const discStyle = useAnimatedStyle(() => ({ opacity: 1 - (1 - ring.value) * (accent ? 0.18 : 0.08) }));
 
   const beatsPerBar = beat?.beatsPerBar ?? 4;
+  const dense = beatsPerBar > DENSE_FROM;
   const live = playing && beat !== null;
   const label = live ? beat.count : "";
   return (
@@ -68,16 +69,17 @@ export function BeatPulse({ beat, playing, idle }: Props) {
           )}
         </Animated.View>
       </View>
-      <View style={[styles.dots, live ? null : styles.dotsIdle]} testID="beat-dots">
+      <View style={[styles.dots, dense ? styles.denseDots : null, live ? null : styles.dotsIdle]} testID="beat-dots">
         {Array.from({ length: beatsPerBar }, (_, index) => {
           const position = live ? beat.beatInBar : 0;
           const active = position === index + 1;
           const past = position > index + 1;
           return (
-            <View key={index} style={styles.dotSlot}>
+            <View key={index} style={[styles.dotSlot, dense ? styles.denseSlot : null]}>
               <View
                 style={[
                   styles.dot,
+                  dense ? styles.denseDot : null,
                   active ? styles.activeDot : null,
                   { backgroundColor: active || past ? theme.accent : theme.dotInactive },
                   past && !active ? styles.pastDot : null,
@@ -93,6 +95,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
 }
 
 const DISC = 212;
+const DENSE_FROM = 7;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
 const MAX_COUNT_FONT = 124;
 const CONDENSED_WIDTH_PER_FONT_PX = 0.6;
@@ -129,6 +132,9 @@ const styles = StyleSheet.create({
   dotsIdle: { opacity: 0.6 },
   dotSlot: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   dot: { width: 22, height: 22, borderRadius: 11 },
+  denseDots: { gap: Spacing.one },
+  denseSlot: { width: 22, height: 22 },
+  denseDot: { width: 14, height: 14, borderRadius: 7 },
   activeDot: { transform: [{ scale: 1.35 }] },
   pastDot: { opacity: 0.35 },
   downbeat: { borderWidth: 2 },

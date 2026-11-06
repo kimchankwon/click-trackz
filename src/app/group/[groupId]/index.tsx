@@ -26,12 +26,14 @@ import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
+import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { beatsBetween, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { nextSectionIndex } from "@/sync/next-section";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -137,9 +139,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
+  const [nextIndex, setNextIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<GroupTab>("play");
   const theme = useTheme();
+  const dockInset = useDockInset(Spacing.one);
 
   useEffect(() => {
     engine.current?.setServerClock(serverNow);
@@ -183,10 +187,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setBeat((previous) => (previous?.at === latest?.at ? previous : latest));
         const nextCue = upcomingVoiceCue(recent);
         setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
+        const following = nextSectionIndex(ahead);
+        setNextIndex((previous) => (previous === following ? previous : following));
         setPlaying(ahead.length > 0 || (recent.length > 0 && now < (playback.stopsAt ?? Infinity)));
       } else {
         setBeat(null);
         setUpcoming(null);
+        setNextIndex(null);
         setPlaying(false);
       }
       handle = requestAnimationFrame(draw);
@@ -220,7 +227,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong);
-  const followingSection = playing && beat ? song.sections[beat.sectionIndex === null ? 0 : beat.sectionIndex + 1] : undefined;
+  const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
   const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
   const startHint =
     startBlocker === "noSong"
@@ -256,19 +263,19 @@ function GroupScreen({ group }: { group: MyGroup }) {
     />
   );
 
-  const soundPrompt = soundOn ? null : (
+  const soundPromptFor = (testID: string) => (soundOn ? null : (
     <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
       <Icon name="sound" size={20} color="accent" />
       <ThemedText type="smallBold" style={styles.grow}>
         Sound is off on this phone
       </ThemedText>
-      <ActionButton small accent label="Enable" testID="enable-sound" onPress={enableSound} />
+      <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
     </View>
-  );
+  ));
 
   const playTab = (
     <View style={styles.playColumn}>
-      {soundPrompt}
+      {soundPromptFor("enable-sound")}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
@@ -388,7 +395,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const soundTab = (
     <>
-      {soundPrompt}
+      {soundPromptFor("enable-sound-settings")}
       {soundOn ? (
         <Card title="Mix">
           <View style={styles.mixRow}>
@@ -487,14 +494,17 @@ function GroupScreen({ group }: { group: MyGroup }) {
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content}>
           {header}
-          {tab === "play" ? playTab : tab === "songs" ? songsTab : tab === "sound" ? soundTab : groupTab}
+          <View style={tab === "play" ? styles.tabPane : styles.hidden}>{playTab}</View>
+          <View style={tab === "songs" ? styles.tabPane : styles.hidden}>{songsTab}</View>
+          <View style={tab === "sound" ? styles.tabPane : styles.hidden}>{soundTab}</View>
+          <View style={tab === "group" ? styles.tabPane : styles.hidden}>{groupTab}</View>
           {error ? (
             <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
               {error}
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background, paddingBottom: dockInset }]}>
           {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
               {playing ? (
@@ -557,6 +567,8 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
+  tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
+  hidden: { display: "none" },
   sectionHeading: { fontSize: 56, lineHeight: 62 },
   sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },

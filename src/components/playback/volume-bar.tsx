@@ -26,8 +26,9 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
+  const travel = Math.max(0, width - THUMB_INSET * 2);
   const setFromTouch = (event: GestureResponderEvent) => {
-    if (width > 0) onChange(clampVolume(event.nativeEvent.locationX / width));
+    if (travel > 0) onChange(clampVolume((event.nativeEvent.locationX - THUMB_INSET) / travel));
   };
   const keyboard = {
     tabIndex: 0 as const,
@@ -77,11 +78,11 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
           />
         </View>
         {origin > 0 ? (
-          <View pointerEvents="none" style={[styles.originTick, { left: 12 + Math.max(0, width - 28) * origin, backgroundColor: theme.textTertiary }]} />
+          <View pointerEvents="none" style={[styles.originTick, { left: THUMB_INSET - BORDER - 1 + travel * origin, backgroundColor: theme.textTertiary }]} />
         ) : null}
         <View
           pointerEvents="none"
-          style={[styles.thumb, { left: Math.max(0, width - 32) * value, backgroundColor: theme.accent, borderColor: theme.background }]}
+          style={[styles.thumb, { left: THUMB_INSET - BORDER - THUMB / 2 + travel * value, backgroundColor: theme.accent, borderColor: theme.background }]}
         />
       </View>
       {hideValue ? null : (
@@ -93,13 +94,17 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   );
 }
 
+const BORDER = 2;
+const THUMB = 28;
+const THUMB_INSET = 16;
+
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%" },
   label: { width: 52 },
   hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, marginHorizontal: -12 },
-  track: { height: 6, borderRadius: 3, overflow: "hidden" },
+  track: { height: 6, borderRadius: 3, overflow: "hidden", marginHorizontal: THUMB_INSET - BORDER - 12 },
   fill: { position: "absolute", top: 0, bottom: 0, borderRadius: 3 },
   originTick: { position: "absolute", bottom: 4, width: 2, height: 12, borderRadius: 1 },
-  thumb: { position: "absolute", width: 28, height: 28, borderRadius: 14, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
+  thumb: { position: "absolute", width: THUMB, height: THUMB, borderRadius: THUMB / 2, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
   value: { minWidth: 40, textAlign: "right", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
 });
