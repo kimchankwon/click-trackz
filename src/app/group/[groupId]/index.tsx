@@ -244,10 +244,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
         <View style={styles.pill}>
           <Icon
             name="ping"
-            size={16}
+            size={12}
             color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "success"}
           />
-          <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
+          <ThemedText type="caption" themeColor="textTertiary" testID="clock-status" style={styles.pillText}>
             {estimate ? `Ping ${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
           </ThemedText>
         </View>
@@ -338,7 +338,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           {isAdmin ? (
             <>
               <View style={styles.jumpMode}>
-                <ThemedText type="caption" themeColor="textSecondary">
+                <ThemedText type="caption" themeColor="textTertiary">
                   When I tap a Section, go
                 </ThemedText>
                 <Segmented
@@ -486,7 +486,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background }]}>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
           {isAdmin && tab === "play" ? (
             <View style={styles.transport}>
               {playing ? (
@@ -507,7 +507,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </View>
           ) : null}
           {isAdmin && tab !== "play" ? (
-            <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+            <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement }]}>
               <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
               <View style={styles.grow}>
                 <ThemedText numberOfLines={1} style={styles.miniTitle}>
@@ -546,14 +546,14 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, height: 28 },
-  pillText: { fontSize: 13, fontWeight: 600, fontVariant: ["tabular-nums"] },
+  pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   sectionHeading: { fontSize: 52, lineHeight: 58 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 40, lineHeight: 46 },
   statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
   statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
-  titleBlock: { minHeight: 120, justifyContent: "center" },
+  titleBlock: { minHeight: 104, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 13, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 32 },
@@ -574,29 +574,29 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "flex-start" },
+  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
   switches: { gap: Spacing.three },
   miniBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
-    marginTop: Spacing.two,
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.three,
+    marginTop: 12,
+    minHeight: 60,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: 14,
     borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
     maxWidth: MaxContentWidth,
     width: "100%",
     alignSelf: "center",
   },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
-  jumpMode: { gap: Spacing.two, paddingTop: Spacing.one },
+  jumpMode: { gap: Spacing.two, paddingTop: Spacing.two },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
-  dock: { paddingHorizontal: Spacing.four },
-  transport: { flexDirection: "row", paddingTop: Spacing.two, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
+  dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
+  transport: { flexDirection: "row", paddingTop: 12, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

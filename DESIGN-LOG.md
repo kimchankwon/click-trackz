@@ -209,3 +209,42 @@ Skipped or changed:
 
 - Key column as plain text: rounds 2 to 4 asked for chips, so chips stay and only the empty case changed.
 - A Material "metronome" icon: not in the installed Material Symbols set; Click keeps the tempo dial on Android and web and the SF Symbols metronome on iOS.
+
+## Round 6
+
+Reviewed: `design-shots/round-5/`. Reviewers: three Opus reviewers at high effort, run independently in parallel. Only fixes raised by at least two of them were applied.
+
+| App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
+|---|---|---|---|---|---|---|---|
+| **Cue Tracker** | 1 | **7** | **8** | **6** | **7** | **6** | **7** |
+| **Cue Tracker** | 2 | **7** | **7** | **7** | **6** | **7** | **6** |
+| **Cue Tracker** | 3 | **7** | **7** | **7** | **6** | **6** | **7** |
+| REF-A | 1 / 2 / 3 | 7 / 7 / 8 | 6 / 6 / 8 | 6 / 7 / 7 | 7 / 7 / 8 | 5 / 6 / 7 | 7 / 8 / 8 |
+| REF-B | 1 / 2 / 3 | 7 / 7 / 7 | 5 / 5 / 5 | 6 / 6 / 7 | 5 / 6 / 6 | 7 / 8 / 7 | 7 / 7 / 8 |
+| REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 8 / 7 / 8 | 8 / 7 / 8 | 8 / 8 / 8 |
+| REF-D | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 6 / 7 | 7 / 6 / 7 | 7 / 5 / 8 | 6 / 6 / 6 | 7 / 7 / 7 |
+
+Applied (votes in brackets):
+
+1. Shorter stage: disc 248 px, count 150 px, tighter gaps, so NEXT and the Section chips fit above the dock (3/3).
+2. Dark Stop: #2C2C2E fill, white text, grey edge (3/3).
+3. One style for Leave Group, Delete Song and Delete Setlist: centred, 17 px semibold red with an icon; Sign out stays neutral (3/3; 2 of 3 wanted red).
+4. Disabled buttons: transparent with a 1 px border and readable grey text (3/3; 2 of 3 wanted this treatment).
+5. Avatars coloured from one of six soft pairs chosen by the name (3/3).
+6. Missing Keys: a dashed chip with a dash (3/3); inset dividers between Setlist rows (2/3).
+7. The "no Sections" warning moved out of the list with a warning icon (3/3).
+8. Setlist editor rows: 10 px padding, 16 px titles, 52 px Key field, 40 px icon targets, trash set apart (3/3).
+9. Tap pad: coral tint with a solid coral edge and a dark label (3/3; 2 of 3 wanted the coral treatment).
+10. Voice pack rows: 56 px and centred, round play button, grey trash (3/3 on rows; 2/3 on the round play and grey trash).
+11. Switches green when on (2/3).
+12. Ping readout 13 px grey with 12 px bars (2/3).
+13. Beat dots: past dark grey, upcoming light grey (2/3).
+14. Jump control about 32 px with 13 px labels (2/3).
+15. Hairline above the dock and 12 px above the button (2/3).
+16. Mini player without a border, 60 px tall (2/3).
+17. Field labels 13 px semibold (2/3).
+18. Make Member as a quiet outlined button (2/3).
+19. Chosen latency preset: coral border and check on a neutral fill (2/3).
+20. Idle BPM 88 px with an 18 px meter line (2/3).
+
+Not applied (one vote only): footer moved into scrolling content, Edit and New moved to the eyebrow row, idle heading without the green pill, a transparent idle disc, a single badge style on Latency, Round 1 and 2 as a segmented control, a neutral slider fill, a higher-contrast unfilled slider track, header title size alignment, a different Click icon, a dashed Tap pad edge.

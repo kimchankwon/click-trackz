@@ -14,7 +14,9 @@ export function IconButton({
   disabled,
   size = 44,
   round,
+  onCard,
 }: {
+  onCard?: boolean;
   icon: IconName;
   label: string;
   onPress: () => void;
@@ -36,7 +38,7 @@ export function IconButton({
       hitSlop={4}
       style={({ pressed }) => [
         styles.button,
-        { width: size, height: size, backgroundColor: filled ? theme.backgroundElement : "transparent" },
+        { width: size, height: size, backgroundColor: filled ? (onCard ? theme.backgroundSelected : theme.backgroundElement) : "transparent" },
         round ? { borderRadius: size / 2 } : null,
         disabled ? styles.disabled : null,
         pressed ? styles.pressed : null,
@@ -49,6 +51,6 @@ export function IconButton({
 
 const styles = StyleSheet.create({
   button: { alignItems: "center", justifyContent: "center", borderRadius: Radius.sm },
-  disabled: { opacity: 0.35 },
+  disabled: { opacity: 0.22 },
   pressed: { opacity: 0.6 },
 });

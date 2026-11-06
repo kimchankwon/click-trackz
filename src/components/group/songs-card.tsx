@@ -57,8 +57,9 @@ export function SongsCard({
         </ThemedText>
       ) : (
         <View style={styles.list}>
-          {list.map((song) => (
+          {list.map((song, index) => (
             <SongRow
+              divider={index > 0}
               key={song.songId}
               title={song.title}
               meta={song.sectionCount === 0 ? null : `${song.sectionCount} Sections`}

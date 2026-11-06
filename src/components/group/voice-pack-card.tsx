@@ -7,7 +7,6 @@ import { ActionButton } from "@/components/action-button";
 import { Card, Divider } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
-import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -57,13 +56,12 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
       {(recordings ?? []).map((recording, index) => (
         <View key={recording.key} style={styles.recording} testID={`recording-${recording.key}`}>
           {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-          <Icon name="mic" size={20} color="textSecondary" />
           <ThemedText style={[styles.grow, styles.word]}>
             {recording.word}
             {recording.number ? ` ${recording.number}` : ""}
           </ThemedText>
           {canPreview ? (
-            <IconButton icon="play" color="text" label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+            <IconButton icon="play" color="text" filled onCard round size={40} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
           ) : null}
           <IconButton
             icon="trash"
@@ -96,8 +94,8 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 56 },
-  separator: { position: "absolute", top: 0, left: 36, right: 0, height: StyleSheet.hairlineWidth },
+  recording: { flexDirection: "row", alignItems: "center", gap: Spacing.two, height: 56 },
+  separator: { position: "absolute", top: 0, left: 0, right: 0, height: StyleSheet.hairlineWidth },
   word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },
   numberInput: { width: 72 },

@@ -41,5 +41,5 @@ const styles = StyleSheet.create({
     fontWeight: 400,
     borderRadius: 12,
   },
-  label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
+  label: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
 });

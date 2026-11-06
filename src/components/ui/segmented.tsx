@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
   track: { flexDirection: "row", borderRadius: Radius.md, padding: 3, gap: 3, alignSelf: "stretch" },
   label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
   selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  compactLabel: { fontSize: 14, fontWeight: 600 },
-  compactSegment: { minHeight: 30 },
+  compactLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
+  compactSegment: { minHeight: 26 },
   segment: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm, paddingHorizontal: 8 },
   raised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
 });

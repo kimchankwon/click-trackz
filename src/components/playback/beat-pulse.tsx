@@ -86,9 +86,9 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   );
 }
 
-const DISC = 320;
+const DISC = 248;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
-const MAX_COUNT_FONT = 190;
+const MAX_COUNT_FONT = 150;
 const CONDENSED_WIDTH_PER_FONT_PX = 0.6;
 
 function countFontFor(label: string) {
@@ -97,7 +97,7 @@ function countFontFor(label: string) {
 }
 
 const styles = StyleSheet.create({
-  stage: { alignItems: "center", gap: Spacing.four },
+  stage: { alignItems: "center", gap: Spacing.three },
   circleBox: { width: DISC, height: DISC, alignItems: "center", justifyContent: "center" },
   disc: {
     width: DISC,
@@ -117,8 +117,8 @@ const styles = StyleSheet.create({
   },
   idle: { alignItems: "center", gap: Spacing.one },
   discLive: { borderWidth: 6 },
-  idleValue: { fontFamily: Fonts.condensed, fontSize: 96, lineHeight: 100, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  idleUnit: { fontSize: 15, lineHeight: 20, fontWeight: 600, marginTop: Spacing.two },
+  idleValue: { fontFamily: Fonts.condensed, fontSize: 88, lineHeight: 92, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  idleUnit: { fontSize: 18, lineHeight: 24, fontWeight: 600, marginTop: Spacing.one },
   dots: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 28 },
   dotsIdle: { opacity: 0.6 },
   dotSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },

@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
@@ -58,9 +59,7 @@ function SignedInHome({ run }: { run: (action: () => Promise<unknown>) => void }
               style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
             >
               {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-              <View style={[styles.groupMark, { backgroundColor: theme.backgroundSelected }]}>
-                <ThemedText style={styles.initial}>{group.name.slice(0, 1).toUpperCase()}</ThemedText>
-              </View>
+              <Avatar name={group.name} />
               <View style={styles.grow}>
                 <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
                   {group.name}
@@ -252,10 +251,8 @@ const styles = StyleSheet.create({
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
   groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },
-  groupMark: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
   groupName: { fontWeight: 600, fontSize: 17 },
   role: { fontSize: 15, lineHeight: 20, fontWeight: 400 },
   roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   separator: { position: "absolute", top: 0, left: 72, right: Spacing.three, height: StyleSheet.hairlineWidth },
-  initial: { fontSize: 17, fontWeight: 600 },
 });

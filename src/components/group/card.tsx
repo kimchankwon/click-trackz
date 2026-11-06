@@ -12,8 +12,10 @@ export function Card({
   children,
   plain,
   tight,
+  banner,
 }: {
   tight?: boolean;
+  banner?: ReactNode;
   title: string;
   heading?: string;
   action?: ReactNode;
@@ -37,6 +39,7 @@ export function Card({
         {action && !heading ? action : null}
       </View>
       {action && heading ? <View style={styles.actionRow}>{action}</View> : null}
+      {banner}
       <View
         style={[
           styles.body,

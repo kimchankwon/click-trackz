@@ -8,6 +8,7 @@ import { Chip } from "@/components/group/chip";
 import { SongRow } from "@/components/group/song-row";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
+import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
@@ -44,6 +45,16 @@ export function SetlistCard({
     });
   return (
     <Card
+      banner={
+        allNeedSections ? (
+          <View style={[styles.banner, { backgroundColor: theme.warningTint }]}>
+            <Icon name="warning" size={18} color="warning" />
+            <ThemedText type="small" style={[styles.bannerText, { color: theme.warningText }]}>
+              None of these Songs have Sections yet, so none can start. Add them in the Song library.
+            </ThemedText>
+          </View>
+        ) : null
+      }
       title={shown?.isCurrent ? "Current setlist" : "Setlist"}
       heading={shown?.name}
       action={
@@ -86,17 +97,11 @@ export function SetlistCard({
         </ThemedText>
       ) : entries.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
-          This Setlist is empty. Tap the pencil to add Songs.
+          This Setlist is empty. Tap Edit to add Songs.
         </ThemedText>
       ) : (
         <View style={styles.list}>
-          {allNeedSections ? (
-            <View style={[styles.banner, { backgroundColor: theme.warningTint }]}>
-              <ThemedText type="caption" style={[styles.bannerText, { color: theme.warningText }]}>
-                None of these Songs have Sections yet, so none can start. Add them in the Song library.
-              </ThemedText>
-            </View>
-          ) : someNeedSections ? (
+          {!allNeedSections && someNeedSections ? (
             <View style={styles.legend}>
               <View style={[styles.legendDot, { backgroundColor: theme.warning }]} />
               <ThemedText type="caption" themeColor="textSecondary">
@@ -113,6 +118,7 @@ export function SetlistCard({
               songKey={entry.key}
               needsSections={!allNeedSections && entry.needsStructure}
               warningAsDot
+              divider={index > 0}
               selected={selectedSongId === entry.songId}
               selectable={isAdmin}
               onSelect={() => onSelect(entry.songId)}
@@ -126,11 +132,11 @@ export function SetlistCard({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", gap: Spacing.two },
+  actions: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.one },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   list: { marginHorizontal: -Spacing.two, gap: 2 },
-  banner: { marginHorizontal: Spacing.two, marginBottom: Spacing.one, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
-  bannerText: { fontWeight: 500 },
+  banner: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 12, borderRadius: 12, marginTop: Spacing.one },
+  bannerText: { flex: 1, fontWeight: 500 },
   legend: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingHorizontal: Spacing.two, paddingBottom: Spacing.one },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
 });

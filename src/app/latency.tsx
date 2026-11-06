@@ -188,11 +188,11 @@ export default function LatencyScreen() {
                     }}
                     style={[
                       styles.preset,
-                      { backgroundColor: selected ? theme.accentTint : theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
+                      { backgroundColor: theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
                     ]}
                   >
                     <View style={styles.presetTop}>
-                      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"} style={styles.grow}>
+                      <ThemedText type="smallBold" style={styles.grow}>
                         {preset.label}
                       </ThemedText>
                       {selected ? <Icon name="check" size={18} color="accent" /> : null}
@@ -259,11 +259,11 @@ export default function LatencyScreen() {
                 }}
                 style={[
                   styles.pad,
-                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.inputFill, borderColor: theme.inputBorder },
+                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: theme.accent },
                 ]}
               >
-                <Icon name="touch" size={36} color={listening ? "onAccent" : "textTertiary"} />
-                <ThemedText type="heading" themeColor={listening ? "onAccent" : "textSecondary"}>
+                <Icon name="touch" size={32} color={listening ? "onAccent" : "accent"} />
+                <ThemedText type="heading" themeColor={listening ? "onAccent" : "text"}>
                   {listening ? `Tap on every click · ${tapCount}` : "Tap pad"}
                 </ThemedText>
                 {listening ? (
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   steps: { flexDirection: "row", gap: Spacing.two },
   stepCell: { flex: 1, flexDirection: "row" },
   presets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  preset: { width: "48.5%", flexGrow: 1, gap: 2, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 1.5, minHeight: 64 },
+  preset: { width: "48.5%", flexGrow: 1, gap: 2, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
   tabular: { fontVariant: ["tabular-nums"] },
   roundStep: { flexDirection: "row", gap: Spacing.three, alignItems: "flex-start" },
   stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },

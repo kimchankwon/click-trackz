@@ -4,8 +4,9 @@ import { StyleSheet, View } from "react-native";
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
+import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
-import { Radius, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -23,11 +24,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
         return (
           <View key={member.userId} style={styles.row} testID={`member-${member.displayName}`}>
             {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-            <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
-              <ThemedText style={styles.initial}>
-                {member.displayName.slice(0, 1).toUpperCase()}
-              </ThemedText>
-            </View>
+            <Avatar name={member.displayName} />
             <View style={styles.name}>
               <ThemedText numberOfLines={1} style={styles.memberName}>
                 {member.displayName}
@@ -43,7 +40,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
             {isAdmin && !member.isGuest ? (
               <ActionButton
                 small
-                variant="pill"
+                variant="quiet"
                 label={member.role === "admin" ? "Make Member" : "Make Admin"}
                 testID={`toggle-admin-${member.displayName}`}
                 onPress={() =>
@@ -61,9 +58,7 @@ export function MembersCard({ groupId, isAdmin, run }: { groupId: Id<"groups">; 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 60 },
   separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
-  avatar: { width: 40, height: 40, borderRadius: Radius.pill, alignItems: "center", justifyContent: "center" },
   name: { flex: 1, minWidth: 0 },
   roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   memberName: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
-  initial: { fontSize: 17, fontWeight: 600 },
 });

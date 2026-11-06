@@ -47,7 +47,7 @@ const fills: Record<ButtonVariant, { background: ThemeColor | null; text: ThemeC
   quiet: { background: null, text: "textSecondary", border: "inputBorder" },
   danger: { background: null, text: "danger" },
   outline: { background: "inputFill", text: "text", border: "inputBorder" },
-  stop: { background: "stopFill", text: "onStop" },
+  stop: { background: "stopFill", text: "onStop", border: "stopBorder" },
   pill: { background: "backgroundSelected", text: "text" },
 };
 
@@ -55,7 +55,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
   const theme = useTheme();
   const look = fills[variant ?? (accent ? "primary" : "secondary")];
   const textColor = disabled ? "textTertiary" : look.text;
-  const background = disabled && look.background ? theme.backgroundSelected : look.background ? theme[look.background] : "transparent";
+  const background = disabled ? "transparent" : look.background ? theme[look.background] : "transparent";
   const height = huge ? 64 : large ? ControlHeight.large : medium ? 44 : small ? ControlHeight.small : ControlHeight.regular;
   return (
     <Pressable
@@ -68,7 +68,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
       style={({ pressed }) => [
         styles.button,
         { minHeight: height, backgroundColor: background, paddingHorizontal: small ? Spacing.three : Spacing.four },
-        look.border ? { borderWidth: 1, borderColor: disabled ? theme.backgroundSelected : theme[look.border] } : null,
+        look.border || disabled ? { borderWidth: 1, borderColor: disabled ? theme.inputBorder : theme[look.border ?? "border"] } : null,
         full ? styles.full : null,
         rounded ? { borderRadius: height / 2 } : null,
         pressed && !disabled ? styles.pressed : null,
@@ -82,7 +82,10 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, m
         style={[
           styles.label,
           small || medium ? styles.smallLabel : null,
-          variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" ? styles.quietLabel : null,
+          variant === "outline" || variant === "ghost" || variant === "link" || variant === "pill" || variant === "secondary" || variant === "quiet"
+            ? styles.quietLabel
+            : null,
+          variant === "danger" ? styles.dangerLabel : null,
         ]}
       >
         {label}
@@ -104,4 +107,5 @@ const styles = StyleSheet.create({
   label: { fontFamily: Fonts.display, fontWeight: 700, fontSize: 17, lineHeight: 22, flexShrink: 1 },
   smallLabel: { fontSize: 15, lineHeight: 20 },
   quietLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 15 },
+  dangerLabel: { fontFamily: Fonts.body, fontWeight: 600, fontSize: 17 },
 });

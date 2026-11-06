@@ -190,18 +190,19 @@ function SetlistForm({
                         placeholder="Led by"
                         compact
                       />
-                      <IconButton icon="up" size={36} color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
+                      <IconButton icon="up" size={40} color="textSecondary" label={`Move ${entry.title} up`} disabled={index === 0} onPress={() => move(index, -1)} />
                       <IconButton
                         icon="down"
-                        size={36}
+                        size={40}
                         color="textSecondary"
                         label={`Move ${entry.title} down`}
                         disabled={index === entries.length - 1}
                         onPress={() => move(index, 1)}
                       />
+                      <View style={styles.trashGap} />
                       <IconButton
                         icon="trash"
-                        size={36}
+                        size={40}
                         color="textSecondary"
                         label={`Remove ${entry.title}`}
                         testID={`entry-${index}-remove`}
@@ -313,15 +314,16 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
   entries: { borderRadius: Radius.lg, overflow: "hidden" },
-  entry: { gap: Spacing.two, paddingVertical: 12, paddingLeft: 12, paddingRight: Spacing.one },
+  entry: { gap: Spacing.two, paddingVertical: 10, paddingLeft: 12, paddingRight: Spacing.one },
+  trashGap: { width: Spacing.one },
   addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
   added: { opacity: 0.5 },
   entryTop: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.one, paddingRight: 12 },
   entryIndex: { width: 22, lineHeight: 22, fontVariant: ["tabular-nums"] },
-  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 17, lineHeight: 22 },
+  entryTitle: { flex: 1, minWidth: 0, fontWeight: 600, fontSize: 16, lineHeight: 22 },
   entryFields: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingLeft: 26, paddingRight: Spacing.one },
-  keyInput: { width: 60 },
+  keyInput: { width: 52 },
   grow: { flex: 1, minWidth: 0 },
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },

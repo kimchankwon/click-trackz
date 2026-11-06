@@ -28,7 +28,7 @@ export function Switch({
           </ThemedText>
         ) : null}
       </View>
-      <View style={[styles.track, { backgroundColor: value ? theme.accent : theme.backgroundSelected }]}>
+      <View style={[styles.track, { backgroundColor: value ? theme.switchOn : theme.backgroundSelected }]}>
         <View style={[styles.thumb, value ? styles.thumbOn : null]} />
       </View>
     </Pressable>

@@ -92,6 +92,7 @@ function SectionRow({
         </Pressable>
         <IconButton icon="up" color="textSecondary" label={`Move Section ${index + 1} up`} disabled={index === 0} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
         <IconButton icon="down" color="textSecondary" label={`Move Section ${index + 1} down`} disabled={index === count - 1} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
+        <View style={styles.trashGap} />
         <IconButton icon="trash" color="textSecondary" label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
@@ -368,10 +369,11 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
+  trashGap: { width: Spacing.two },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
   indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
-  fieldLabel: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
+  fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },

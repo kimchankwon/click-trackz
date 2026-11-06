@@ -18,6 +18,7 @@ export function SongRow({
   trailing,
   testID,
   warningAsDot,
+  divider,
 }: {
   index?: number;
   title: string;
@@ -30,10 +31,12 @@ export function SongRow({
   trailing?: ReactNode;
   testID?: string;
   warningAsDot?: boolean;
+  divider?: boolean;
 }) {
   const theme = useTheme();
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
+      {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
       <Pressable
         role={selectable ? "radio" : undefined}
         aria-checked={selectable ? selected : undefined}
@@ -71,7 +74,7 @@ export function SongRow({
             </ThemedText>
           </View>
         ) : (
-          <View style={styles.keyPill} aria-label="No Key">
+          <View style={[styles.keyPill, styles.keyEmpty, { borderColor: theme.inputBorder }]} aria-label="No Key">
             <ThemedText type="smallBold" themeColor="textTertiary" style={styles.keyText}>
               –
             </ThemedText>
@@ -86,10 +89,12 @@ export function SongRow({
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, paddingRight: Spacing.one },
+  divider: { position: "absolute", top: -1, right: Spacing.two, height: StyleSheet.hairlineWidth },
   main: { flex: 1, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 56, paddingHorizontal: Spacing.two },
-  index: { width: 22, textAlign: "right", fontVariant: ["tabular-nums"] },
+  index: { width: 24, textAlign: "right", fontSize: 13, fontVariant: ["tabular-nums"] },
   text: { flex: 1, minWidth: 0 },
   title: { fontWeight: 600, fontSize: 17 },
+  keyEmpty: { borderWidth: 1, borderStyle: "dashed" },
   keyText: { fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
