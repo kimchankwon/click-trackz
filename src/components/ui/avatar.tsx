@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { initialsOf } from "@/lib/initials";
 
 const palette = [
   { light: ["#DDEBFF", "#1F5FBF"], dark: ["#7FB0FF38", "#7FB0FF"] },
@@ -24,12 +25,19 @@ export function Avatar({ name, size = 40, position }: { name: string; size?: num
   const colors = avatarColorsFor(name, scheme, position);
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.background }]}>
-      <ThemedText style={[styles.initial, { color: colors.text }]}>{name.trim().slice(0, 1).toUpperCase() || "?"}</ThemedText>
+      <ThemedText
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
+        style={[styles.initials, { color: colors.text, fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.55) }]}
+      >
+        {initialsOf(name)}
+      </ThemedText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: { alignItems: "center", justifyContent: "center" },
-  initial: { fontFamily: Fonts.display, fontSize: 17, lineHeight: 22, fontWeight: 700 },
+  avatar: { alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  initials: { fontFamily: Fonts.display, fontWeight: 700, letterSpacing: -0.3 },
 });
