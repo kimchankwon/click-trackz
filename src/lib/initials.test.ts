@@ -24,6 +24,11 @@ describe("initialsOf", () => {
     expect(initialsOf("𝒜da 김찬")).toBe("𝒜김");
   });
 
+  it("keeps one letter per word when uppercasing expands it", () => {
+    expect(initialsOf("\uFB01ona Smith")).toBe("FS");
+    expect(initialsOf("\u00DFam")).toBe("S");
+  });
+
   it("falls back to a question mark for a blank name", () => {
     expect(initialsOf("   ")).toBe("?");
   });
