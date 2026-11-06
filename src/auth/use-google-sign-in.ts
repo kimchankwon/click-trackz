@@ -1,5 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import * as Linking from "expo-linking";
+import { useNavigation } from "expo-router";
+import type { NavigationProp } from "expo-router/react-navigation";
 import { maybeCompleteAuthSession, openAuthSessionAsync } from "expo-web-browser";
 import { useEffect } from "react";
 import { Platform } from "react-native";
@@ -36,17 +38,17 @@ export function useGoogleReturn({
   onRetry: () => void;
   onGiveUp: () => void;
 }) {
+  const navigation = useNavigation<NavigationProp<{ index: { code?: string } }, "index">>();
   useEffect(() => {
     if (!settled || returnChecked) return;
-    const hasCode = Platform.OS === "web" && new URLSearchParams(window.location.search).has("code");
-    if (hasCode) return;
     returnChecked = true;
-    const action = googleReturnAction({ pending: readPendingGoogleSignIn(), now: Date.now(), isAuthenticated: signedInWithGoogle, hasCode });
+    if (Platform.OS === "web" && new URLSearchParams(window.location.search).has("code")) navigation.setParams({ code: undefined });
+    const action = googleReturnAction({ pending: readPendingGoogleSignIn(), now: Date.now(), isAuthenticated: signedInWithGoogle });
     if (action === "clear") writePendingGoogleSignIn(null);
     if (action === "retry") onRetry();
     if (action === "explain") {
       writePendingGoogleSignIn(null);
       onGiveUp();
     }
-  }, [settled, signedInWithGoogle, onRetry, onGiveUp]);
+  }, [settled, signedInWithGoogle, onRetry, onGiveUp, navigation]);
 }

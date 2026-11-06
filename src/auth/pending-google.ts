@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { PendingGoogleSignIn } from "./google-return";
+import { claimReturnedCode, type PendingGoogleSignIn } from "./google-return";
 
 const KEY = "clickTrackz.pendingGoogleSignIn";
 
@@ -18,17 +18,28 @@ export function readPendingGoogleSignIn(): PendingGoogleSignIn | null {
     const raw = storage()?.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PendingGoogleSignIn>;
-    return typeof parsed.startedAt === "number" ? { startedAt: parsed.startedAt, retried: parsed.retried === true } : null;
+    return typeof parsed.startedAt === "number"
+      ? { startedAt: parsed.startedAt, retried: parsed.retried === true, codeClaimed: parsed.codeClaimed === true }
+      : null;
   } catch {
     return null;
   }
 }
 
-export function writePendingGoogleSignIn(pending: PendingGoogleSignIn | null) {
+export function claimReturnedGoogleCode(): boolean {
+  if (storage() === null) return true;
+  const claim = claimReturnedCode(readPendingGoogleSignIn());
+  return claim.exchange && writePendingGoogleSignIn(claim.pending);
+}
+
+export function writePendingGoogleSignIn(pending: PendingGoogleSignIn | null): boolean {
   try {
-    if (pending === null) storage()?.removeItem(KEY);
-    else storage()?.setItem(KEY, JSON.stringify(pending));
+    const store = storage();
+    if (store === null) return false;
+    if (pending === null) store.removeItem(KEY);
+    else store.setItem(KEY, JSON.stringify(pending));
+    return true;
   } catch {
-    return;
+    return false;
   }
 }
