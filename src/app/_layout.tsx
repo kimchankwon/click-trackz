@@ -2,6 +2,7 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type ErrorBoundaryProps } from "expo-router";
 import { Pressable, StyleSheet, useColorScheme, View } from "react-native";
 
+import { claimReturnedGoogleCode } from "@/auth/pending-google";
 import { ThemedText } from "@/components/themed-text";
 import { UpdateBanner } from "@/components/update-banner";
 import { Spacing } from "@/constants/theme";
@@ -14,7 +15,7 @@ import { AccentSync } from "@/theme/accent-sync";
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
-    <ConvexAuthProvider client={convex} storage={authStorage}>
+    <ConvexAuthProvider client={convex} storage={authStorage} shouldHandleCode={claimReturnedGoogleCode}>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <AccentSync />
         <Stack screenOptions={{ headerShown: false }} />
