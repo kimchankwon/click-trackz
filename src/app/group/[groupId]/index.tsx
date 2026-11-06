@@ -171,7 +171,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
-  const recordings = useQuery(api.recordings.list, { groupId });
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -231,9 +230,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
     engine.current?.setSpeaker(speaker).catch((e: unknown) => setError(errorText(e)));
   }, [speaker, soundOn]);
 
-  useEffect(() => {
-    if (soundOn && recordings) void engine.current?.setUploads(recordings);
-  }, [recordings, soundOn]);
 
   useEffect(
     () => () => {

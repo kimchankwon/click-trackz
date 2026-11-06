@@ -9,6 +9,8 @@ const speakers = [
   { id: "alice", name: "Alice", voiceId: "Xb7hH8MSUJpSbSDYk0k2" },
   { id: "charlie", name: "Charlie", voiceId: "IKne3meq5aSn9XLyUdCD" },
   { id: "sarah", name: "Sarah", voiceId: "EXAVITQu4vr4xnSDxMaL" },
+  { id: "george", name: "George", voiceId: "JBFqnCBsd6RMkjVDRZzb" },
+  { id: "river", name: "River", voiceId: "SAz9YHcvj6GT2YYXdXww" },
 ];
 const SAMPLE_RATE = 22_050;
 const SILENCE_THRESHOLD = 330;

@@ -2,13 +2,13 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
+import { SpeakerPicker } from "@/components/sound/speaker-picker";
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
-import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Spacing } from "@/constants/theme";
 import { isLatencySetting } from "@/settings/latency";
@@ -69,15 +69,12 @@ export function SoundSettings({
         </View>
       </Card>
       <Card title="Speaker" plain>
-        <Segmented
-          label="Speaker"
-          testID="speaker-picker"
+        <SpeakerPicker
           value={sound.speaker}
-          onChange={(speaker: SpeakerId) => {
+          onChange={(speaker) => {
             update({ speaker });
             onSpeaker?.(speaker);
           }}
-          options={speakers.map((option) => ({ value: option.id, label: option.name }))}
         />
         {speakerHint ? (
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>

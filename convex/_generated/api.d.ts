@@ -17,12 +17,12 @@ import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as playback from "../playback.js";
 import type * as presence from "../presence.js";
-import type * as recordings from "../recordings.js";
 import type * as seed from "../seed.js";
 import type * as setlists from "../setlists.js";
 import type * as songs from "../songs.js";
 import type * as sound from "../sound.js";
 import type * as users from "../users.js";
+import type * as vocabulary from "../vocabulary.js";
 
 import type {
   ApiFromModules,
@@ -40,12 +40,12 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   playback: typeof playback;
   presence: typeof presence;
-  recordings: typeof recordings;
   seed: typeof seed;
   setlists: typeof setlists;
   songs: typeof songs;
   sound: typeof sound;
   users: typeof users;
+  vocabulary: typeof vocabulary;
 }>;
 
 /**
