@@ -52,6 +52,7 @@ export class CueAudioEngine {
   private speaker: SpeakerId = defaultSpeaker;
   private clipsSpeaker: SpeakerId | null = null;
   private loadingSpeaker: { speaker: SpeakerId; done: Promise<void> } | null = null;
+  private clipGeneration = 0;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private voiceBusyUntil = -Infinity;
@@ -179,6 +180,7 @@ export class CueAudioEngine {
 
   private reloadClips() {
     const uploads = [...this.wantedUploadUrls].map(([key, url]) => ({ key, url }));
+    this.clipGeneration += 1;
     this.clips = new Map();
     this.clipsSpeaker = null;
     this.loadingSpeaker = null;
@@ -209,6 +211,7 @@ export class CueAudioEngine {
     if (this.loadingSpeaker?.speaker === speaker) return this.loadingSpeaker.done;
     this.clips = new Map();
     this.clipsSpeaker = null;
+    const generation = this.clipGeneration;
     const done = (async () => {
       const loaded = new Map<BuiltinClipKey, AudioBuffer>();
       await Promise.all(
@@ -216,7 +219,7 @@ export class CueAudioEngine {
           loaded.set(key, await loadClip(context, builtinVoiceClips[speaker][key]));
         }),
       );
-      if (this.speaker !== speaker) return;
+      if (this.speaker !== speaker || this.clipGeneration !== generation) return;
       this.clips = loaded;
       this.clipsSpeaker = speaker;
     })();
@@ -240,12 +243,13 @@ export class CueAudioEngine {
     }
     const context = this.context;
     if (context === null) return;
+    const generation = this.clipGeneration;
     await Promise.all(
       [...wanted].map(async ([key, url]) => {
         if (this.uploadUrls.get(key) === url) return;
         try {
           const buffer = await loadClip(context, url);
-          if (this.wantedUploadUrls.get(key) !== url) return;
+          if (this.clipGeneration !== generation || this.wantedUploadUrls.get(key) !== url) return;
           this.uploads.set(key, buffer);
           this.uploadUrls.set(key, url);
         } catch {

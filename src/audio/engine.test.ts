@@ -48,6 +48,20 @@ const fake = vi.hoisted(() => {
       this.oscillators += 1;
       return new FakeOscillator();
     }
+    played: FakeBuffer[] = [];
+    createBufferSource() {
+      const played = this.played;
+      const source = {
+        buffer: null as FakeBuffer | null,
+        connect() {
+          return source;
+        },
+        start() {
+          if (source.buffer) played.push(source.buffer);
+        },
+      };
+      return source;
+    }
     resume() {
       if (this.mode === "hang") return new Promise<void>(() => undefined);
       return Promise.resolve().then(() => {
@@ -59,13 +73,20 @@ const fake = vi.hoisted(() => {
       return Promise.resolve();
     }
   }
-  const loadClip = vi.fn(async () => ({ duration: 0.5, sampleRate: 48_000, getChannelData: () => new Float32Array(16) }));
-  return { FakeAudioContext, loadClip };
+  const fakeBuffer = (sampleRate: number, source: unknown) => ({
+    duration: 0.5,
+    sampleRate,
+    source,
+    getChannelData: () => new Float32Array(16),
+  });
+  type FakeBuffer = ReturnType<typeof fakeBuffer>;
+  const loadClip = vi.fn(async (context: { sampleRate: number }, source: unknown) => fakeBuffer(context.sampleRate, source));
+  return { FakeAudioContext, loadClip, fakeBuffer };
 });
 
 vi.mock("react-native-audio-api", () => ({ AudioContext: fake.FakeAudioContext }));
 vi.mock("./audio-session", () => ({ preferPlaybackSession: () => undefined, probeAudioSession: async () => null }));
-vi.mock("./builtin-voice-clips", () => ({ speakers: [{ id: "adam", name: "Adam" }], builtinVoiceClips: { adam: {} } }));
+vi.mock("./builtin-voice-clips", () => ({ speakers: [{ id: "adam", name: "Adam" }], builtinVoiceClips: { adam: { verse: "verse.wav" } } }));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
 
 const { CueAudioEngine } = await import("./engine");
@@ -74,12 +95,25 @@ const song: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 8,
 const NOW = 1_000_000;
 const serverNow = () => NOW;
 const contexts = () => fake.FakeAudioContext.instances;
+const CHORUS = "https://example.com/chorus.wav";
+const loadsOf = (source: unknown) => fake.loadClip.mock.calls.filter(([, loaded]) => loaded === source).length;
 
 async function startStuck(engine: InstanceType<typeof CueAudioEngine>) {
   fake.FakeAudioContext.resumeModes.push("hang");
   const started = engine.enable(serverNow, null);
   await vi.advanceTimersByTimeAsync(1_000);
   return started;
+}
+
+function holdNextLoad() {
+  let finish: (sampleRate: number) => void = () => undefined;
+  fake.loadClip.mockImplementationOnce(
+    (_context, source) =>
+      new Promise((done) => {
+        finish = (sampleRate) => done(fake.fakeBuffer(sampleRate, source));
+      }),
+  );
+  return (sampleRate: number) => finish(sampleRate);
 }
 
 beforeEach(() => {
@@ -157,23 +191,58 @@ describe("sound recovery", () => {
   it("reloads recordings when the new context runs at a different sample rate", async () => {
     const engine = new CueAudioEngine();
     await startStuck(engine);
-    await engine.setUploads([{ key: "chorus", url: "https://example.com/chorus.wav" }]);
-    expect(fake.loadClip).toHaveBeenCalledTimes(1);
+    await engine.setUploads([{ key: "chorus", url: CHORUS }]);
+    expect(loadsOf(CHORUS)).toBe(1);
 
     fake.FakeAudioContext.sampleRates.push(44_100);
     await engine.wake();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.loadClip).toHaveBeenCalledTimes(2);
+    expect(loadsOf(CHORUS)).toBe(2);
     engine.dispose();
   });
 
   it("keeps decoded recordings when the sample rate is unchanged", async () => {
     const engine = new CueAudioEngine();
     await startStuck(engine);
-    await engine.setUploads([{ key: "chorus", url: "https://example.com/chorus.wav" }]);
+    await engine.setUploads([{ key: "chorus", url: CHORUS }]);
     await engine.wake();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.loadClip).toHaveBeenCalledTimes(1);
+    expect(loadsOf(CHORUS)).toBe(1);
+    engine.dispose();
+  });
+
+  it("drops a recording decoded at the old sample rate that finishes after the reload", async () => {
+    const engine = new CueAudioEngine();
+    await startStuck(engine);
+    const finishOldLoad = holdNextLoad();
+    const loadingOld = engine.setUploads([{ key: "chorus", url: CHORUS }]);
+
+    fake.FakeAudioContext.sampleRates.push(44_100);
+    await engine.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    finishOldLoad(48_000);
+    await loadingOld;
+
+    engine.previewUpload("chorus");
+    expect(contexts()[1].played.map((buffer) => buffer.sampleRate)).toEqual([44_100]);
+    engine.dispose();
+  });
+
+  it("drops voice clips decoded at the old sample rate that finish after the reload", async () => {
+    const engine = new CueAudioEngine();
+    await startStuck(engine);
+    const finishOldLoad = holdNextLoad();
+    const loadingOld = engine.setSpeaker("adam");
+
+    fake.FakeAudioContext.sampleRates.push(44_100);
+    await engine.wake();
+    await vi.advanceTimersByTimeAsync(0);
+    finishOldLoad(48_000);
+    await loadingOld;
+
+    engine.preview("verse" as Parameters<typeof engine.preview>[0]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(contexts()[1].played.map((buffer) => buffer.sampleRate)).toEqual([44_100]);
     engine.dispose();
   });
 
