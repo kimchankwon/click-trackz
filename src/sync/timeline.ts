@@ -20,6 +20,7 @@ export type Jump = {
 export type Playback = {
   startsAt: number;
   startSection: number;
+  countIn?: boolean;
   jumps?: readonly Jump[];
   stopsAt?: number | null;
 };
@@ -63,7 +64,7 @@ const beatMsOf = (section: Section) => 60_000 / section.bpm;
 
 function segmentsOf(song: Song, playback: Playback): Segment[] {
   const starts = [
-    { startsAt: playback.startsAt, startSection: playback.startSection, countIn: song.countIn },
+    { startsAt: playback.startsAt, startSection: playback.startSection, countIn: playback.countIn ?? song.countIn },
     ...[...(playback.jumps ?? [])]
       .sort((x, y) => x.at - y.at)
       .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, countIn: false })),
@@ -114,7 +115,7 @@ function upcomingSection(bars: readonly Bar[], index: number): Section | null {
 }
 
 export function beatsBetween(song: Song, playback: Playback, fromMs: number, toMs: number): Beat[] {
-  const bars = segmentsOf(song, playback).flatMap((segment) => barsOf(song, segment));
+  const bars = barsOfPlayback(song, playback);
   const beats: Beat[] = [];
   bars.forEach((bar, index) => {
     const upcoming = upcomingSection(bars, index);
@@ -145,11 +146,21 @@ export type CommandTiming = {
 
 const startsSection = (bar: Bar) => bar.section !== null && bar.barNumber === 1;
 
+const barsOfPlayback = (song: Song, playback: Playback) => segmentsOf(song, playback).flatMap((segment) => barsOf(song, segment));
+
+function songEndOf(bars: readonly Bar[]): number | null {
+  const last = bars.at(-1);
+  return last ? last.startsAt + last.beatMs * last.beatsPerBar : null;
+}
+
+export function playbackEndsAt(song: Song, playback: Playback): number {
+  return Math.min(songEndOf(barsOfPlayback(song, playback)) ?? playback.startsAt, playback.stopsAt ?? Infinity);
+}
+
 export function commandBoundary(song: Song, playback: Playback, timing: CommandTiming): number | null {
   const earliest = timing.nowMs + timing.minLeadMs;
-  const bars = segmentsOf(song, playback).flatMap((segment) => barsOf(song, segment));
-  const last = bars.at(-1);
-  const songEndsAt = last ? last.startsAt + last.beatMs * last.beatsPerBar : null;
+  const bars = barsOfPlayback(song, playback);
+  const songEndsAt = songEndOf(bars);
   const candidates = bars
     .filter((bar) => timing.mode === "nextBar" || startsSection(bar))
     .map((bar) => bar.startsAt);

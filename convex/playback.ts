@@ -21,24 +21,28 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, jumps, stopsAt } = playback;
-    return { songId, song, startsAt, startSection, jumps, stopsAt };
+    const { songId, song, startsAt, startSection, countIn, jumps, stopsAt } = playback;
+    return { songId, song, startsAt, startSection, countIn: countIn ?? song.countIn, jumps, stopsAt };
   },
 });
 
 export const start = mutation({
-  args: { groupId: v.id("groups"), songId: v.id("songs") },
-  handler: async (ctx, { groupId, songId }) => {
+  args: { groupId: v.id("groups"), songId: v.id("songs"), fromSection: v.optional(v.number()) },
+  handler: async (ctx, { groupId, songId, fromSection }) => {
     const { user } = await requireAdmin(ctx, groupId);
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
     if (song.sections.length === 0) throw new ConvexError(`${song.title} needs structure: add at least one Section first`);
+    if (fromSection !== undefined && (!Number.isInteger(fromSection) || fromSection < 0 || fromSection >= song.sections.length)) {
+      throw new ConvexError("That Section is not in the Song");
+    }
     const fields = {
       groupId,
       songId,
       song: { countIn: song.countIn, sections: song.sections },
       startsAt: Date.now() + LEAD_IN_MS,
-      startSection: 0,
+      startSection: fromSection ?? 0,
+      countIn: fromSection === undefined ? song.countIn : true,
       jumps: [],
       stopsAt: null,
       startedBy: user._id,

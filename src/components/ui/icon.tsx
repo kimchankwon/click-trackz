@@ -43,6 +43,8 @@ const symbols = {
   member: { ios: "person.fill", material: "person" },
   warning: { ios: "exclamationmark.triangle.fill", material: "warning" },
   stopFilled: { ios: "stop.fill", material: "stop_circle" },
+  previousSong: { ios: "backward.end.fill", material: "skip_previous" },
+  nextSong: { ios: "forward.end.fill", material: "skip_next" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

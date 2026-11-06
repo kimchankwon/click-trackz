@@ -2,6 +2,7 @@ import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audi
 
 import { beatsBetween, type Beat, type Playback, type Song } from "@/sync/timeline";
 
+import { preferPlaybackSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
@@ -12,6 +13,7 @@ import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clip
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
 const CLICK_MS = 40;
+const RESUME_WAIT_MS = 1_000;
 
 export type CueMix = {
   click: boolean;
@@ -49,7 +51,7 @@ export class CueAudioEngine {
   private plan: Plan | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
-  private enabling: Promise<void> | null = null;
+  private enabling: Promise<boolean> | null = null;
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
@@ -58,7 +60,11 @@ export class CueAudioEngine {
     return this.context !== null;
   }
 
-  async enable(serverNow: () => number | null, speaker: SpeakerId | null) {
+  get running() {
+    return this.context?.state === "running";
+  }
+
+  async enable(serverNow: () => number | null, speaker: SpeakerId | null): Promise<boolean> {
     this.serverNow = serverNow;
     if (this.enabling) return this.enabling;
     const enabling = this.startAudio(speaker).finally(() => {
@@ -68,19 +74,13 @@ export class CueAudioEngine {
     return enabling;
   }
 
-  private async startAudio(speaker: SpeakerId | null) {
-    const firstTime = this.context === null;
-    if (firstTime) {
+  private async startAudio(speaker: SpeakerId | null): Promise<boolean> {
+    if (this.context === null) {
+      preferPlaybackSession();
       const context = new AudioContext();
-      try {
-        await context.resume();
-      } catch (error) {
-        void context.close();
-        throw error;
-      }
       if (this.disposed) {
         void context.close();
-        return;
+        return false;
       }
       const clickBus = context.createGain();
       const voiceBus = context.createGain();
@@ -91,9 +91,22 @@ export class CueAudioEngine {
       this.voiceBus = voiceBus;
       this.setVolumes(this.volumes);
     }
+    const running = await this.resume();
     if (speaker !== null) await this.setSpeaker(speaker);
-    if (this.disposed || this.context === null) return;
+    if (this.disposed || this.context === null) return false;
     if (this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
+    return running;
+  }
+
+  async resume(): Promise<boolean> {
+    const context = this.context;
+    if (context === null) return false;
+    if (context.state !== "running") {
+      preferPlaybackSession();
+      const resumed = context.resume().catch(() => undefined);
+      await Promise.race([resumed, new Promise((done) => setTimeout(done, RESUME_WAIT_MS))]);
+    }
+    return context.state === "running";
   }
 
   async setSpeaker(speaker: SpeakerId) {
@@ -216,7 +229,7 @@ export class CueAudioEngine {
   private tick() {
     const context = this.context;
     const now = this.serverNow();
-    if (context === null || now === null) return;
+    if (context === null || now === null || context.state !== "running") return;
     this.mapping = slewMapping(this.mapping, context.currentTime * 1000 - now);
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;

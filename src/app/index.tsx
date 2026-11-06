@@ -204,7 +204,7 @@ export default function HomeScreen() {
                   Cue Tracker
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.centered}>
-                  Every phone in the Group on the same beat.
+                  Every device in the Group on the same beat.
                 </ThemedText>
               </View>
               <View style={styles.signInButtons}>

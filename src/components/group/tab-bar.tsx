@@ -5,14 +5,15 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-export type GroupTab = "play" | "songs" | "sound" | "group";
+export type GroupTab = "play" | "setlist" | "songs" | "sound" | "group";
 
 export const tabId = (tab: GroupTab) => `group-tab-${tab}`;
 export const panelId = (tab: GroupTab) => `group-panel-${tab}`;
 
 const tabs: { id: GroupTab; label: string; icon: IconName }[] = [
   { id: "play", label: "Play", icon: "playCircle" },
-  { id: "songs", label: "Songs", icon: "songs" },
+  { id: "setlist", label: "Setlist", icon: "songs" },
+  { id: "songs", label: "Songs", icon: "library" },
   { id: "sound", label: "Sound", icon: "sound" },
   { id: "group", label: "Group", icon: "group" },
 ];
@@ -50,6 +51,6 @@ export function TabBar({ active, onChange }: { active: GroupTab; onChange: (tab:
 const styles = StyleSheet.create({
   bar: { flexDirection: "row", paddingTop: Spacing.two, paddingBottom: Spacing.one },
   tab: { flex: 1, alignItems: "center", gap: 2, minHeight: 52 },
-  iconWrap: { width: 56, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  iconWrap: { width: 52, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   label: { fontWeight: 700, fontSize: 12, lineHeight: 16 },
 });

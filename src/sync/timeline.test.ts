@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beatsBetween, type Song } from "./timeline";
+import { beatsBetween, playbackEndsAt, type Song } from "./timeline";
 
 const intro = { sectionType: "Intro", bars: 1, beatsPerBar: 4, bpm: 120 };
 
@@ -127,5 +127,23 @@ describe("beatsBetween", () => {
       [2, 3, 0],
       [3, 3, 0],
     ]);
+  });
+});
+
+describe("playbackEndsAt", () => {
+  const song: Song = { countIn: false, sections: [{ ...intro, bars: 2 }] };
+
+  it("ends when the last bar of the Song finishes", () => {
+    expect(playbackEndsAt(song, { startsAt: 10_000, startSection: 0 })).toBe(14_000);
+  });
+
+  it("ends at Stop when Stop comes first", () => {
+    expect(playbackEndsAt(song, { startsAt: 10_000, startSection: 0, stopsAt: 12_000 })).toBe(12_000);
+  });
+
+  it("adds a Count-in bar when Playback asks for one even if the Song has none", () => {
+    const playback = { startsAt: 10_000, startSection: 0, countIn: true };
+    expect(playbackEndsAt(song, playback)).toBe(16_000);
+    expect(beatsBetween(song, playback, 0, 20_000)[0]).toMatchObject({ at: 10_000, count: "1", sectionIndex: null });
   });
 });
