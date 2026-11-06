@@ -16,16 +16,21 @@ export type Sound = Omit<SoundSettings, "speaker"> & { speaker: SpeakerId };
 
 export function useSoundSettings() {
   const viewer = useQuery(api.users.viewer, {});
-  const save = useMutation(api.users.setSound).withOptimisticUpdate((store, { sound }) => {
-    const current = store.getQuery(api.users.viewer, {});
-    if (current) store.setQuery(api.users.viewer, {}, { ...current, sound });
-  });
+  const setSound = useMutation(api.users.setSound);
+  const save = useMemo(
+    () =>
+      setSound.withOptimisticUpdate((store, { sound }) => {
+        const current = store.getQuery(api.users.viewer, {});
+        if (current) store.setQuery(api.users.viewer, {}, { ...current, sound });
+      }),
+    [setSound],
+  );
   const [deviceClick] = useDeviceSetting("clickVolume", String(defaultSound.clickVolume), isVolume);
   const [deviceVoice] = useDeviceSetting("voiceVolume", String(defaultSound.voiceVolume), isVolume);
   const [deviceSpeaker] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
   const [draft, setDraft] = useState<SoundSettings | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const pending = useRef<{ sound: SoundSettings; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const pending = useRef<{ sound: SoundSettings; timer: ReturnType<typeof setTimeout> | null } | null>(null);
 
   const profileSound = viewer?.sound ?? null;
   const sound = useMemo<Sound>(() => {
@@ -52,21 +57,30 @@ export function useSoundSettings() {
       const next = { ...(pending.current?.sound ?? sound), ...patch };
       setSaveError(null);
       setDraft(next);
-      if (pending.current) clearTimeout(pending.current.timer);
-      if (!canSave) return;
-      pending.current = { sound: next, timer: setTimeout(() => send(next), SAVE_AFTER_MS) };
+      if (pending.current?.timer) clearTimeout(pending.current.timer);
+      pending.current = { sound: next, timer: canSave ? setTimeout(() => send(next), SAVE_AFTER_MS) : null };
     },
     [sound, canSave, send],
   );
 
+  useEffect(() => {
+    const waiting = pending.current;
+    if (canSave && waiting !== null && waiting.timer === null) send(waiting.sound);
+  }, [canSave, send]);
+
+  const latestSend = useRef(send);
+  useEffect(() => {
+    latestSend.current = send;
+  }, [send]);
+
   useEffect(
     () => () => {
       const waiting = pending.current;
-      if (!waiting) return;
+      if (!waiting || waiting.timer === null) return;
       clearTimeout(waiting.timer);
-      send(waiting.sound);
+      latestSend.current(waiting.sound);
     },
-    [send],
+    [],
   );
 
   return { sound, update, saveError };

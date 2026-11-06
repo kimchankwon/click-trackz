@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useCallback, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -185,7 +185,8 @@ function GroupsTab({ run }: { run: Run }) {
 
 function SoundTab({ active }: { active: boolean }) {
   const { sound, update, saveError } = useSoundSettings();
-  const preview = useSpeakerPreview(active, sound.voiceVolume);
+  const focused = useIsFocused();
+  const preview = useSpeakerPreview(active && focused, sound.voiceVolume);
   return (
     <>
       <View style={styles.pageHead}>
