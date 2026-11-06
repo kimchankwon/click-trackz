@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -31,7 +31,10 @@ import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { AccentPicker } from "@/components/ui/accent-picker";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Toast, useToast } from "@/components/ui/toast";
 import { AudioDebug } from "@/components/audio-debug";
+import { JoinCodeActions } from "@/components/group/join-code-actions";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -189,6 +192,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
+  const toast = useToast();
+  const [askLeave, setAskLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  usePreventRemove(playing && !leaving, () => setAskLeave(true));
+  useEffect(() => {
+    if (leaving) router.replace("/");
+  }, [leaving]);
   useHeartbeat(groupId, tab === "play");
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
@@ -403,7 +413,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const header = (
     <ScreenHeader
       title={group.name}
-      subtitle={group.joinCode ? `Join code ${group.joinCode}` : isAdmin ? "Admin" : "Member"}
+      subtitle={
+        group.joinCode ? <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} /> : isAdmin ? "Admin" : "Member"
+      }
       onBack={() => router.replace("/")}
       backLabel="Your Groups"
       backTestID="groups-back"
@@ -801,6 +813,20 @@ function GroupScreen({ group }: { group: MyGroup }) {
           />
         </View>
       </SafeAreaView>
+      <Toast message={toast.message} bottom={dockInset + ControlHeight.large * 2 + Spacing.four} />
+      <ConfirmDialog
+        visible={askLeave && !leaving}
+        title="Leave Playback?"
+        message={
+          isAdmin
+            ? "The Click and Voice cues stop on this device. Playback keeps going for everyone else until you come back and stop it."
+            : "The Click and Voice cues stop on this device. Playback keeps going for everyone else."
+        }
+        confirmLabel="Leave"
+        testID="leave-playback-dialog"
+        onConfirm={() => setLeaving(true)}
+        onCancel={() => setAskLeave(false)}
+      />
     </ThemedView>
   );
 }

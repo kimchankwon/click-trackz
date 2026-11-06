@@ -45,6 +45,8 @@ const symbols = {
   stopFilled: { ios: "stop.fill", material: "stop_circle" },
   previousSong: { ios: "backward.end.fill", material: "skip_previous" },
   nextSong: { ios: "forward.end.fill", material: "skip_next" },
+  copy: { ios: "doc.on.doc", material: "content_copy" },
+  share: { ios: "square.and.arrow.up", material: "share" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

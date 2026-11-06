@@ -14,7 +14,7 @@ export function ScreenHeader({
   right,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   onBack?: () => void;
   backLabel?: string;
   backTestID?: string;
@@ -27,11 +27,13 @@ export function ScreenHeader({
         <ThemedText type="heading" numberOfLines={1} role="heading">
           {title}
         </ThemedText>
-        {subtitle ? (
+        {typeof subtitle === "string" && subtitle.length > 0 ? (
           <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
             {subtitle}
           </ThemedText>
-        ) : null}
+        ) : typeof subtitle === "string" ? null : (
+          subtitle
+        )}
       </View>
       {right}
     </View>
