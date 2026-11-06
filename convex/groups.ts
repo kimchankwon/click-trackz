@@ -108,17 +108,32 @@ export const setRole = mutation({
     role: v.union(v.literal("admin"), v.literal("member")),
   },
   handler: async (ctx, { groupId, userId, role }) => {
-    await requireAdmin(ctx, groupId);
+    const { user: caller } = await requireAdmin(ctx, groupId);
+    if (userId === caller._id) throw new ConvexError("You cannot change your own role; ask another Admin");
     const target = await membershipOf(ctx, groupId, userId);
     if (target === null) throw new ConvexError("That person is not in this Group");
     if (target.role === role) return;
     if (role === "admin") {
       const user = await ctx.db.get(userId);
       if (user === null || isGuest(user)) throw new ConvexError("Admins must sign in with Google first");
-    } else if ((await adminCount(ctx, groupId)) <= 1) {
-      throw new ConvexError("A Group needs at least one Admin; promote someone else before stepping down as the last Admin");
     }
     await ctx.db.patch(target._id, { role });
+  },
+});
+
+export const removeMember = mutation({
+  args: { groupId: v.id("groups"), userId: v.id("users") },
+  handler: async (ctx, { groupId, userId }) => {
+    const { user } = await requireAdmin(ctx, groupId);
+    if (userId === user._id) throw new ConvexError("Use Leave Group to leave yourself");
+    const target = await membershipOf(ctx, groupId, userId);
+    if (target === null) throw new ConvexError("That person is not in this Group");
+    await ctx.db.delete(target._id);
+    const presence = await ctx.db
+      .query("presence")
+      .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
+      .collect();
+    await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
   },
 });
 
