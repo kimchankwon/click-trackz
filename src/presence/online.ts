@@ -25,5 +25,14 @@ export function memberPing(rows: readonly PresenceRow[], userId: string, nowMs: 
   return latest?.roundTripMs ?? null;
 }
 
-export const countOnPlay = (rows: readonly PresenceRow[], nowMs: number) =>
+export function otherMemberPing(
+  rows: readonly PresenceRow[],
+  userId: string,
+  viewerId: string | undefined,
+  nowMs: number,
+): number | null {
+  return userId === viewerId ? null : memberPing(rows, userId, nowMs);
+}
+
+export const countOnPlay =(rows: readonly PresenceRow[], nowMs: number) =>
   new Set(fresh(rows, nowMs).filter((r) => r.onPlay).map((r) => r.userId)).size;

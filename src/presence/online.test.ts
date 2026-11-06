@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countOnPlay, memberPing, presenceOf, ONLINE_WITHIN_MS } from "./online";
+import { countOnPlay, memberPing, otherMemberPing, presenceOf, ONLINE_WITHIN_MS } from "./online";
 
 const NOW = 1_000_000;
 const rows = [
@@ -28,6 +28,16 @@ describe("Member presence", () => {
     ];
     expect(memberPing(pings, "a", NOW)).toBe(35);
     expect(memberPing(pings, "b", NOW)).toBeNull();
+  });
+
+  it("shows other Members' ping but never the viewer's own", () => {
+    const pings = [
+      { userId: "a", onPlay: true, seenAt: NOW - 1_000, roundTripMs: 35 },
+      { userId: "b", onPlay: false, seenAt: NOW - 2_000, roundTripMs: 60 },
+    ];
+    expect(otherMemberPing(pings, "a", "a", NOW)).toBeNull();
+    expect(otherMemberPing(pings, "b", "a", NOW)).toBe(60);
+    expect(otherMemberPing(pings, "a", undefined, NOW)).toBe(35);
   });
 
   it("is on Play when any of a Member's screens is, counting each Member once", () => {

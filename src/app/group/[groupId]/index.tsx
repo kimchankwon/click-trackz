@@ -36,7 +36,7 @@ import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/consta
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { neighbourSong } from "@/lib/song-order";
-import { countOnPlay, memberPing, memberPresence } from "@/presence/online";
+import { countOnPlay, memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
@@ -367,7 +367,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       userId: member.userId,
       name: member.displayName,
       position,
-      pingMs: isAdmin ? memberPing(presence.rows, member.userId, presence.nowMs) : null,
+      pingMs: isAdmin ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null,
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
