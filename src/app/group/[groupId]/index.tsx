@@ -31,6 +31,7 @@ import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { AccentPicker } from "@/components/ui/accent-picker";
+import { AudioDebug } from "@/components/audio-debug";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -63,9 +64,20 @@ function upcomingVoiceCue(recent: readonly Beat[]): Beat["voiceCue"] {
 const sameVoiceCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
   a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
 
-function KeepAwake() {
-  useKeepAwake();
+function ScreenWakeLock() {
+  useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   return null;
+}
+
+function KeepAwake() {
+  const [returns, setReturns] = useState(0);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setReturns((count) => count + 1);
+    });
+    return () => subscription.remove();
+  }, []);
+  return <ScreenWakeLock key={returns} />;
 }
 
 const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
@@ -260,7 +272,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
   useEffect(() => {
     if (soundOn) return;
     return onUserGesture(() => {
-      void engine.current?.resume().then((running) => {
+      const current = engine.current;
+      if (!current) return;
+      void current.wake().then((running) => {
+        setSoundProblem(running ? null : current.failure);
         if (!running) return;
         setSoundOn(true);
         setSoundBlocked(false);
@@ -304,10 +319,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
       const current = engine.current;
-      const running = await current.enable(serverNow, speaker).catch((error: unknown) => {
+      const running = await (current.enabled ? current.wake() : current.enable(serverNow, speaker)).catch((error: unknown) => {
         setSoundProblem(describeAudioError(error));
         throw error;
       });
+      if (running) await current.setSpeaker(speaker);
       setSoundOn(running);
       setSoundProblem(running ? null : current.failure);
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
@@ -421,6 +437,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const playTab = (
     <View style={styles.playColumn}>
+      <AudioDebug engine={engine} soundOn={soundOn} />
       {soundPromptFor("enable-sound")}
       {isAdmin ? (
         <View style={[styles.audience, { backgroundColor: theme.backgroundElement }]} testID="on-play-count">

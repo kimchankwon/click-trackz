@@ -60,6 +60,7 @@ export class CueAudioEngine {
   private timer: ReturnType<typeof setInterval> | null = null;
   private serverNow: () => number | null = () => null;
   private enabling: Promise<boolean> | null = null;
+  private needsFreshContext = false;
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
@@ -83,23 +84,26 @@ export class CueAudioEngine {
     return enabling;
   }
 
-  private async startAudio(speaker: SpeakerId | null): Promise<boolean> {
-    if (this.context === null) {
-      preferPlaybackSession();
-      const context = new AudioContext();
-      if (this.disposed) {
-        void context.close();
-        return false;
-      }
-      const clickBus = context.createGain();
-      const voiceBus = context.createGain();
-      clickBus.connect(context.destination);
-      voiceBus.connect(context.destination);
-      this.context = context;
-      this.clickBus = clickBus;
-      this.voiceBus = voiceBus;
-      this.setVolumes(this.volumes);
+  private openContext(): boolean {
+    preferPlaybackSession();
+    const context = new AudioContext();
+    if (this.disposed) {
+      void context.close();
+      return false;
     }
+    const clickBus = context.createGain();
+    const voiceBus = context.createGain();
+    clickBus.connect(context.destination);
+    voiceBus.connect(context.destination);
+    this.context = context;
+    this.clickBus = clickBus;
+    this.voiceBus = voiceBus;
+    this.setVolumes(this.volumes);
+    return true;
+  }
+
+  private async startAudio(speaker: SpeakerId | null): Promise<boolean> {
+    if (this.context === null && !this.openContext()) return false;
     const running = await this.resume();
     try {
       if (speaker !== null) await this.setSpeaker(speaker);
@@ -115,6 +119,7 @@ export class CueAudioEngine {
     const isRunning = () => context.state === "running";
     if (isRunning()) {
       this.failure = null;
+      this.needsFreshContext = false;
       return true;
     }
     preferPlaybackSession();
@@ -131,8 +136,10 @@ export class CueAudioEngine {
     const outcome = await Promise.race([resumed, timeout]);
     if (isRunning()) {
       this.failure = null;
+      this.needsFreshContext = false;
       return true;
     }
+    this.needsFreshContext = true;
     const sessionError = await probeAudioSession();
     this.failure = describeAudioFailure({
       state: context.state,
@@ -142,6 +149,36 @@ export class CueAudioEngine {
       sessionError,
     });
     return false;
+  }
+
+  wake(): Promise<boolean> {
+    const context = this.context;
+    if (context === null) return Promise.resolve(false);
+    if (context.state === "running") return Promise.resolve(true);
+    return this.needsFreshContext || context.state !== "suspended" ? this.renew() : this.resume();
+  }
+
+  private renew(): Promise<boolean> {
+    const previous = this.context;
+    if (!this.openContext()) return Promise.resolve(false);
+    this.mapping = null;
+    this.scheduledUntil = -Infinity;
+    this.voiceBusyUntil = -Infinity;
+    previous?.close().catch(() => undefined);
+    return this.resume();
+  }
+
+  debugSnapshot() {
+    const context = this.context;
+    const now = this.serverNow();
+    return {
+      state: context?.state ?? "none",
+      currentTime: context?.currentTime ?? null,
+      aheadMs: now === null || !Number.isFinite(this.scheduledUntil) ? null : Math.round(this.scheduledUntil - now),
+      latencyMs: context ? outputLatencyMs(context) : null,
+      needsFreshContext: this.needsFreshContext,
+      failure: this.failure,
+    };
   }
 
   async setSpeaker(speaker: SpeakerId) {

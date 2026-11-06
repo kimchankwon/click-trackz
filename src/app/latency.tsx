@@ -63,9 +63,11 @@ export default function LatencyScreen() {
     }
     let started: ReturnType<CueAudioEngine["tapTestRound"]>;
     try {
-      if (!engine.current) engine.current = new CueAudioEngine();
-      if (!(await engine.current.enable(() => null, null))) throw new Error("This device blocked sound. Tap again to allow it.");
-      started = engine.current.tapTestRound(CLICKS, INTERVAL_MS);
+      const current = engine.current ?? new CueAudioEngine();
+      engine.current = current;
+      const running = current.enabled ? await current.wake() : await current.enable(() => null, null);
+      if (!running) throw new Error(`This device blocked sound${current.failure ? ` (${current.failure})` : ""}. Tap again to allow it.`);
+      started = current.tapTestRound(CLICKS, INTERVAL_MS);
     } catch (error) {
       roundBusy.current = false;
       throw error;
@@ -245,6 +247,11 @@ export default function LatencyScreen() {
                   );
                 })}
               </View>
+              {message ? (
+                <ThemedText testID="latency-message" type="smallBold" role="status" aria-live="polite">
+                  {message}
+                </ThemedText>
+              ) : null}
               <Pressable
                 role="button"
                 testID="tap-pad"
@@ -271,11 +278,6 @@ export default function LatencyScreen() {
               </Pressable>
             </View>
           </View>
-          {message ? (
-            <ThemedText testID="latency-message" type="small" themeColor="textSecondary">
-              {message}
-            </ThemedText>
-          ) : null}
           {nudgeUnsaved ? (
             <ThemedText testID="setting-unsaved" type="small" themeColor="textSecondary">
               This device could not save your Latency nudge, so it will reset when you reopen the app.
