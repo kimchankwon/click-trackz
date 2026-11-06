@@ -13,12 +13,15 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { Toast, useToast } from "@/components/ui/toast";
 import { useDockInset } from "@/components/ui/use-dock-inset";
-import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+
+const MIN_SAVING_MS = 400;
 
 type Entry = { songId: Id<"songs">; title: string; key: string; leader: string };
 type LiveSetlist = {
@@ -69,6 +72,7 @@ function SetlistForm({
   const [revision, setRevision] = useState(live.revision);
   const [saving, setSaving] = useState(false);
   const saveInFlight = useRef(false);
+  const toast = useToast();
   const changedElsewhere = live.revision !== revision;
   const loadLatest = () => {
     setName(live.name);
@@ -120,14 +124,14 @@ function SetlistForm({
     setSaving(true);
     run(async () => {
       try {
-        await save({
+        const saved = save({
           setlistId,
           revision,
           name,
           entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
-        });
-        setRevision(revision + 1);
-        setMessage("Saved");
+        }).then(() => setRevision(revision + 1));
+        await Promise.all([saved, new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
+        toast.show("Setlist saved");
       } finally {
         saveInFlight.current = false;
         setSaving(false);
@@ -305,11 +309,12 @@ function SetlistForm({
             icon="check"
             label={saving ? "Saving…" : "Save Setlist"}
             accessibleName="Save"
-            disabled={saving}
+            pending={saving}
             testID="save-setlist"
             onPress={saveSetlist}
           />
         </View>
+        <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
       <ConfirmDialog
         visible={confirmingDelete}

@@ -2,18 +2,19 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
-import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
 import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
 import { SectionProgress } from "@/components/playback/section-progress";
+import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
 import { Card, Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
@@ -21,7 +22,6 @@ import { MembersCard } from "@/components/group/members-card";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
 import { panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
-import { VoicePackCard } from "@/components/group/voice-pack-card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -29,6 +29,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { SpeakerPicker } from "@/components/sound/speaker-picker";
 import { Segmented } from "@/components/ui/segmented";
 import { AccentPicker } from "@/components/ui/accent-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -42,12 +43,14 @@ import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/consta
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { neighbourSong } from "@/lib/song-order";
-import { countOnPlay, memberPresence, otherMemberPing } from "@/presence/online";
+import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { beatsBetween, playbackEndsAt, timeSignatureOf, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
+import { shortTitleOf } from "@/sync/section-short";
+import { playbackSpan, songLengthMs } from "@/sync/song-span";
 import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
@@ -96,16 +99,14 @@ function idleReadoutFor(song: LoadedSong | null | undefined, fromSection: number
   return bpm ? { value: String(Math.round(bpm)), unit: "BPM", ...time } : { value: "--", unit: "No Sections yet" };
 }
 
-function songFactsFor(song: LoadedSong | null | undefined, fromSection: number) {
-  if (!song) return null;
-  const section = song.sections[fromSection];
-  const time = section ? timeSignatureOf(section) : song.tempoHint ? timeSignatureOf(song.tempoHint) : null;
-  return [time, song.key ? `Key of ${song.key}` : null].filter(Boolean).join(" · ") || null;
-}
+type Tempo = { bpm: number; beatsPerBar: number; beatUnit?: number };
+
+const tempoText = (tempo: Tempo | null | undefined) => (tempo ? `${timeSignatureOf(tempo)} · ${Math.round(tempo.bpm)} BPM` : null);
 
 const emptySong: Song = { countIn: false, sections: [] };
 
 const MIX_TEXT_INSET = 38;
+const STAGE_HEAD_HEIGHT = 136;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -173,7 +174,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
-  const recordings = useQuery(api.recordings.list, { groupId });
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -187,8 +187,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [beat, setBeat] = useState<Beat | null>(null);
   const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
   const [nextIndex, setNextIndex] = useState<number | null>(null);
+  const [queuedKey, setQueuedKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<GroupTab>("play");
+  const [dockHeight, setDockHeight] = useState(0);
+  const [floatHeight, setFloatHeight] = useState(0);
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
@@ -204,7 +207,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
-  const onPlayCount = countOnPlay(presence.rows, presence.nowMs);
   const stopping = playing && (stopPending || (playback?.stopsAt ?? null) !== null);
 
   useEffect(() => {
@@ -232,9 +234,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
     engine.current?.setSpeaker(speaker).catch((e: unknown) => setError(errorText(e)));
   }, [speaker, soundOn]);
 
-  useEffect(() => {
-    if (soundOn && recordings) void engine.current?.setUploads(recordings);
-  }, [recordings, soundOn]);
 
   useEffect(
     () => () => {
@@ -308,11 +307,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
         const following = nextSectionIndex(ahead);
         setNextIndex((previous) => (previous === following ? previous : following));
+        const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
+        setQueuedKey((previous) => (previous === queued ? previous : queued));
         setPlaying(now < endsAt);
       } else {
         setBeat(null);
         setUpcoming(null);
         setNextIndex(null);
+        setQueuedKey("");
         setPlaying(false);
       }
       handle = requestAnimationFrame(draw);
@@ -354,7 +356,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
   const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong, startSection);
-  const songFacts = songFactsFor(startSong, startSection);
+  const queuedSections = queuedKey === "" ? [] : queuedKey.split(",").map(Number);
+  const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
+  const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
+  const tempo = tempoText(tempoSection ?? (playing ? null : startSong?.tempoHint));
   const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
   const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
   const startHint =
@@ -411,6 +416,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
+  const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
+  const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, sections: startSong.sections }, startSection, startBar) : 0;
 
   const header = (
     <ScreenHeader
@@ -422,11 +429,21 @@ function GroupScreen({ group }: { group: MyGroup }) {
       backLabel="Your Groups"
       backTestID="groups-back"
       right={
-        <View style={styles.pill}>
-          <SignalBars roundTripMs={estimate?.roundTripMs ?? null} />
-          <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
-            {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
-          </ThemedText>
+        <View style={styles.headerRight}>
+          {tab === "play" && tempo ? (
+            <ThemedText testID="tempo" numberOfLines={1} style={styles.tempo}>
+              {tempo}
+            </ThemedText>
+          ) : null}
+          <View style={styles.pill}>
+            <SignalBars roundTripMs={estimate?.roundTripMs ?? null} />
+            <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
+              {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
+            </ThemedText>
+            <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
+              · {onlineMembers.length} online
+            </ThemedText>
+          </View>
         </View>
       }
     />
@@ -453,14 +470,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
       {soundPromptFor("enable-sound")}
-      {isAdmin ? (
-        <View style={[styles.audience, { backgroundColor: theme.backgroundElement }]} testID="on-play-count">
-          <Icon name="group" size={16} color="textSecondary" />
-          <ThemedText type="caption" themeColor="textSecondary" style={styles.audienceText}>
-            {onPlayCount === 1 ? "1 Member on Play" : `${onPlayCount} Members on Play`}
-          </ThemedText>
-        </View>
-      ) : null}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
@@ -478,11 +487,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </View>
       ) : (
         <View style={[styles.stageHead, styles.titleBlock]}>
-          <View style={[styles.statusPill, { backgroundColor: startBlocker === null ? theme.successTint : theme.backgroundElement }]}>
-            <ThemedText testID="current-section" themeColor={startBlocker === null ? "success" : "textSecondary"} style={styles.statusText}>
-              {startBlocker === null ? "Ready" : startBlocker === "noSong" ? "No Song picked" : startBlocker === "loading" ? "Loading" : "Needs Sections"}
-            </ThemedText>
-          </View>
           <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
             {shownTitle ?? (isAdmin ? "Pick a Song" : "Waiting for an Admin")}
           </ThemedText>
@@ -491,6 +495,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
               {songFacts}
             </ThemedText>
           ) : null}
+        </View>
+      )}
+      <View style={styles.stageRow}>
+        <BeatPulse beat={beat} playing={playing} idle={idle} />
+        <StageMembers members={onlineMembers} beat={beat} playing={playing} />
+      </View>
+      {playing ? null : (
+        <View style={styles.nextBlock}>
           {!isAdmin ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               An Admin starts and steers Playback.
@@ -511,10 +523,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
           ) : null}
         </View>
       )}
-      <View style={styles.stageRow}>
-        <BeatPulse beat={beat} playing={playing} idle={idle} />
-        <StageMembers members={onlineMembers} beat={beat} playing={playing} />
-      </View>
       {nextLine ? (
         <View style={styles.nextBlock}>
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
@@ -536,7 +544,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 key={index}
                 role="button"
                 strong
-                label={titleOf(section)}
+                compact
+                label={shortTitleOf(section)}
+                accessibleName={titleOf(section)}
+                queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}
                 selected={playing ? beat?.sectionIndex === index : isAdmin && startSection === index && startBlocker === null}
                 onPress={() => tapSection(index)}
@@ -656,13 +667,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </Card>
       ) : null}
       <Card title="Speaker" plain>
-        <Segmented
-          label="Speaker"
-          testID="speaker-picker"
-          value={speaker}
-          onChange={chooseSpeaker}
-          options={speakers.map((option) => ({ value: option.id, label: option.name }))}
-        />
+        <SpeakerPicker value={speaker} onChange={chooseSpeaker} />
         {soundOn ? null : (
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>
             Enable sound to hear each Speaker as you choose.
@@ -696,7 +701,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const groupTab = (
     <>
       <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
-      {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
           variant="danger"
@@ -720,11 +724,106 @@ function GroupScreen({ group }: { group: MyGroup }) {
     </>
   );
 
+  const playCard =
+    tab === "play" && (isAdmin || songSpan !== null || startLength > 0) ? (
+      <View style={[styles.floatCard, { backgroundColor: theme.background, borderColor: theme.border, shadowColor: theme.text }]} testID="play-controls">
+        {isAdmin ? (
+          <View style={styles.transport}>
+            <IconButton
+              icon="previousSong"
+              label="Previous Song"
+              testID="previous-song"
+              size={ControlHeight.large}
+              round
+              filled
+              disabled={playing || previousSong === null}
+              onPress={() => stepSong(previousSong)}
+            />
+            {playing ? (
+              <ActionButton
+                large
+                full
+                variant={stopping ? "secondary" : "stop"}
+                icon="stop"
+                label={stopping ? "Stopping…" : "Stop"}
+                accessibleName="Stop"
+                testID="stop"
+                pending={stopping}
+                onPress={stopPlayback}
+              />
+            ) : (
+              <ActionButton
+                large
+                full
+                accent
+                icon="play"
+                label={startLabel}
+                accessibleName="Start"
+                testID="start"
+                disabled={startBlocker !== null}
+                onPress={startPlayback}
+              />
+            )}
+            <IconButton
+              icon="nextSong"
+              label="Next Song"
+              testID="next-song"
+              size={ControlHeight.large}
+              round
+              filled
+              disabled={playing || nextSong === null}
+              onPress={() => stepSong(nextSong)}
+            />
+          </View>
+        ) : null}
+        <SongProgress span={songSpan} lengthMs={startLength} serverNow={serverNow} />
+      </View>
+    ) : null;
+
+  const miniCard =
+    isAdmin && tab !== "play" ? (
+      <View style={[styles.floatCard, styles.miniBar, { backgroundColor: theme.background, borderColor: theme.border, shadowColor: theme.text }]} testID="mini-bar">
+        <Pressable
+          role="button"
+          aria-label={`Open Play, ${shownTitle ?? "No Song picked"}`}
+          testID="mini-bar-open-play"
+          onPress={() => showTab("play")}
+          style={({ pressed }) => [styles.miniOpen, pressed ? styles.pressed : null]}
+        >
+          <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
+          <View style={styles.grow}>
+            <ThemedText numberOfLines={1} style={styles.miniTitle}>
+              {shownTitle ?? "No Song picked"}
+            </ThemedText>
+            <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+              {stopping ? "Stopping…" : playing ? currentSection : (startHint ?? (pickedTitle ? `Ready to start from ${pickedTitle}` : "Ready to start"))}
+            </ThemedText>
+          </View>
+        </Pressable>
+        {playing ? (
+          <ActionButton
+            medium
+            rounded
+            variant={stopping ? "secondary" : "stop"}
+            icon="stop"
+            label="Stop"
+            testID="stop"
+            pending={stopping}
+            onPress={stopPlayback}
+          />
+        ) : (
+          <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
+        )}
+      </View>
+    ) : null;
+
+  const floating = playCard ?? miniCard;
+
   return (
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <ScrollView ref={scroller} contentContainerStyle={styles.content}>
+        <ScrollView ref={scroller} contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}>
           {header}
           {(
             [
@@ -745,87 +844,16 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
         </ScrollView>
-        <View style={[styles.dock, { backgroundColor: theme.background, paddingBottom: dockInset }]}>
-          {isAdmin && tab === "play" ? (
-            <View style={styles.transport}>
-              <IconButton
-                icon="previousSong"
-                label="Previous Song"
-                testID="previous-song"
-                size={ControlHeight.large}
-                round
-                filled
-                disabled={playing || previousSong === null}
-                onPress={() => stepSong(previousSong)}
-              />
-              {playing ? (
-                <ActionButton
-                  large
-                  full
-                  variant={stopping ? "secondary" : "stop"}
-                  icon="stop"
-                  label={stopping ? "Stopping…" : "Stop"}
-                  accessibleName="Stop"
-                  testID="stop"
-                  pending={stopping}
-                  onPress={stopPlayback}
-                />
-              ) : (
-                <ActionButton
-                  large
-                  full
-                  accent
-                  icon="play"
-                  label={startLabel}
-                  accessibleName="Start"
-                  testID="start"
-                  disabled={startBlocker !== null}
-                  onPress={startPlayback}
-                />
-              )}
-              <IconButton
-                icon="nextSong"
-                label="Next Song"
-                testID="next-song"
-                size={ControlHeight.large}
-                round
-                filled
-                disabled={playing || nextSong === null}
-                onPress={() => stepSong(nextSong)}
-              />
-            </View>
-          ) : null}
-          {isAdmin && tab !== "play" ? (
-            <View style={[styles.miniBar, { backgroundColor: theme.backgroundElement }]}>
-              <Icon name={playing ? "pulse" : "songs"} size={20} color={playing ? "accent" : "textSecondary"} />
-              <View style={styles.grow}>
-                <ThemedText numberOfLines={1} style={styles.miniTitle}>
-                  {shownTitle ?? "No Song picked"}
-                </ThemedText>
-                <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-                  {stopping ? "Stopping…" : playing ? currentSection : (startHint ?? (pickedTitle ? `Ready to start from ${pickedTitle}` : "Ready to start"))}
-                </ThemedText>
-              </View>
-              {playing ? (
-                <ActionButton
-                  medium
-                  rounded
-                  variant={stopping ? "secondary" : "stop"}
-                  icon="stop"
-                  label="Stop"
-                  testID="stop"
-                  pending={stopping}
-                  onPress={stopPlayback}
-                />
-              ) : (
-                <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
-              )}
-            </View>
-          ) : null}
+        {floating ? (
+          <View pointerEvents="box-none" style={[styles.floatLayer, { bottom: dockHeight }]} onLayout={(event) => setFloatHeight(event.nativeEvent.layout.height)}>
+            {floating}
+          </View>
+        ) : null}
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]} onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}>
           <TabBar active={tab} onChange={showTab} />
         </View>
       </SafeAreaView>
-      <Toast message={toast.message} bottom={dockInset + ControlHeight.large * 2 + Spacing.four} />
+      <Toast message={toast.message} bottom={dockHeight + (floating ? floatHeight : 0) + Spacing.two} />
       <ConfirmDialog
         visible={askLeave && !leaving}
         title="Leave Playback?"
@@ -857,7 +885,9 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
-  pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, height: 28 },
+  headerRight: { alignItems: "flex-end", flexShrink: 0 },
+  tempo: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
+  pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one, height: 24 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
@@ -867,9 +897,7 @@ const styles = StyleSheet.create({
   sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 34, lineHeight: 40 },
-  statusPill: { paddingHorizontal: 12, height: 28, borderRadius: Radius.pill, justifyContent: "center" },
-  statusText: { fontSize: 13, lineHeight: 18, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" },
-  titleBlock: { minHeight: 88, justifyContent: "center" },
+  titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
@@ -891,15 +919,14 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  audience: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, paddingHorizontal: 12, height: 28, borderRadius: Radius.pill },
-  audienceText: { fontSize: 13, lineHeight: 18, fontWeight: 600, fontVariant: ["tabular-nums"] },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
   switches: { gap: Spacing.three },
+  miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
+  pressed: { opacity: 0.6 },
   miniBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
-    marginTop: Spacing.two,
     minHeight: 56,
     paddingVertical: Spacing.two,
     paddingHorizontal: 14,
@@ -909,7 +936,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   grow: { flex: 1, minWidth: 0 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "center" },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   wrapTight: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   barPicker: { gap: Spacing.two },
   stageRow: { alignItems: "center", width: "100%" },
@@ -920,7 +947,20 @@ const styles = StyleSheet.create({
   inlineLink: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44 },
   tabular: { fontVariant: ["tabular-nums"] },
   centered: { textAlign: "center" },
-  dock: { paddingHorizontal: Spacing.four },
-  transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingTop: 12, paddingBottom: Spacing.one, maxWidth: MaxContentWidth, width: "100%", alignSelf: "center" },
+  dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
+  floatLayer: { position: "absolute", left: 0, right: 0, paddingHorizontal: Spacing.three, paddingBottom: Spacing.two, alignItems: "center" },
+  floatCard: {
+    width: "100%",
+    maxWidth: MaxContentWidth,
+    gap: Spacing.two,
+    padding: Spacing.two,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, width: "100%" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
-import { groupVocabulary } from "./recordings";
+import { groupVocabulary } from "./vocabulary";
 import { BEAT_UNITS } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 

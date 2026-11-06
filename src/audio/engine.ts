@@ -10,7 +10,8 @@ import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
-import { MAX_VOICE_LEAD_MS, perceivedOnsetMs } from "./voice-onset";
+import { MAX_VOICE_LEAD_MS, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
+import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -35,7 +36,6 @@ export type CueVolumes = {
 
 type Plan = { song: Song; playback: Playback | null };
 
-const SPOKEN_COUNT_OVERLAP_MS = 100;
 
 let tapTestOwner: CueAudioEngine | null = null;
 
@@ -45,9 +45,6 @@ export class CueAudioEngine {
   private voiceBus: GainNode | null = null;
   private volumes: CueVolumes = { click: 0.8, voice: 0.9 };
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
-  private uploads = new Map<string, AudioBuffer>();
-  private uploadUrls = new Map<string, string>();
-  private wantedUploadUrls = new Map<string, string>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
   private clipsSpeaker: SpeakerId | null = null;
@@ -179,16 +176,12 @@ export class CueAudioEngine {
   }
 
   private reloadClips() {
-    const uploads = [...this.wantedUploadUrls].map(([key, url]) => ({ key, url }));
     this.clipGeneration += 1;
     this.clips = new Map();
     this.clipsSpeaker = null;
     this.loadingSpeaker = null;
     this.onsets = new WeakMap();
-    this.uploads.clear();
-    this.uploadUrls.clear();
     this.setSpeaker(this.speaker).catch(() => undefined);
-    void this.setUploads(uploads);
   }
 
   debugSnapshot() {
@@ -230,39 +223,6 @@ export class CueAudioEngine {
     } finally {
       if (this.loadingSpeaker === loading) this.loadingSpeaker = null;
     }
-  }
-
-  async setUploads(recordings: readonly { key: string; url: string | null }[]) {
-    const wanted = new Map(recordings.filter((r) => r.url !== null).map((r) => [r.key, r.url as string]));
-    this.wantedUploadUrls = wanted;
-    for (const key of [...this.uploads.keys()]) {
-      if (wanted.get(key) !== this.uploadUrls.get(key)) {
-        this.uploads.delete(key);
-        this.uploadUrls.delete(key);
-      }
-    }
-    const context = this.context;
-    if (context === null) return;
-    const generation = this.clipGeneration;
-    await Promise.all(
-      [...wanted].map(async ([key, url]) => {
-        if (this.uploadUrls.get(key) === url) return;
-        try {
-          const buffer = await loadClip(context, url);
-          if (this.clipGeneration !== generation || this.wantedUploadUrls.get(key) !== url) return;
-          this.uploads.set(key, buffer);
-          this.uploadUrls.set(key, url);
-        } catch {
-          return;
-        }
-      }),
-    );
-  }
-
-  previewUpload(key: string) {
-    const context = this.context;
-    const buffer = this.uploads.get(key);
-    if (context && buffer) this.playBuffer(context, buffer, context.currentTime);
   }
 
   tapTestRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
@@ -332,7 +292,7 @@ export class CueAudioEngine {
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
       this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
@@ -343,19 +303,17 @@ export class CueAudioEngine {
   private schedule(context: AudioContext, beat: Beat, when: number) {
     if (this.mix.click) this.click(context, when, accentLevelOf(beat));
     if (this.mix.voiceCues && beat.voiceCue) {
-      const uploadRefs = Object.fromEntries([...this.uploads.keys()].map((key) => [key, key]));
-      const choice = chooseClip(beat.voiceCue, uploadRefs, this.builtinKeys);
-      const buffer =
-        choice?.source === "upload" ? this.uploads.get(choice.ref) : choice ? this.clips.get(choice.ref as BuiltinClipKey) : undefined;
+      const key = chooseClip(beat.voiceCue, this.builtinKeys);
+      const buffer = key ? this.clips.get(key as BuiltinClipKey) : undefined;
       if (buffer) {
         const leadMs = this.playOnBeat(context, buffer, when);
-        this.voiceBusyUntil = beat.at - leadMs + buffer.duration * 1000;
+        this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
       }
     }
-    if (this.mix.spokenCounts && beat.spokenCount !== null && beat.at >= this.voiceBusyUntil - SPOKEN_COUNT_OVERLAP_MS) {
+    if (this.mix.spokenCounts && beat.spokenCount !== null) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer) this.playOnBeat(context, buffer, when);
+      if (buffer && spokenCountFits(beat.at, this.onsetOf(buffer), this.voiceBusyUntil)) this.playOnBeat(context, buffer, when);
     }
   }
 
@@ -388,7 +346,7 @@ export class CueAudioEngine {
   private onsetOf(buffer: AudioBuffer): number {
     const known = this.onsets.get(buffer);
     if (known !== undefined) return known;
-    const onset = perceivedOnsetMs(buffer.getChannelData(0), buffer.sampleRate);
+    const onset = voiceLeadMs(buffer.getChannelData(0), buffer.sampleRate);
     this.onsets.set(buffer, onset);
     return onset;
   }
