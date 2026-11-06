@@ -1,0 +1,78 @@
+name: EAS Update
+
+on:
+  status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: read
+
+concurrency:
+  group: eas-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to the production channel
+    if: github.event_name == 'workflow_dispatch' || (github.event.context == 'Vercel' && github.event.state == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      COMMIT_SHA: ${{ github.event.sha || github.sha }}
+    steps:
+      - name: Check the token, that this is main's newest commit, and that Vercel built it
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::EXPO_TOKEN is not set, so nothing is published over the air."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$main_sha" != "$COMMIT_SHA" ]; then
+            echo "::notice::${COMMIT_SHA} is not main's newest commit (${main_sha}), so it is not published."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            vercel_state="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT_SHA}/statuses" --jq '[.[] | select(.context == "Vercel")][0].state // "missing"')"
+            if [ "$vercel_state" != "success" ]; then
+              echo "::warning::Vercel's production build of ${COMMIT_SHA} is ${vercel_state}, so it is not published. Run this again once it succeeds."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.publish == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ env.COMMIT_SHA }}
+      - if: steps.gate.outputs.publish == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - if: steps.gate.outputs.publish == 'true'
+        run: npm ci
+      - if: steps.gate.outputs.publish == 'true'
+        uses: expo/expo-github-action@9da89d3617bb88139671bad31b09c65714c2ee06 # v9
+        with:
+          eas-version: latest
+          token: ${{ env.EXPO_TOKEN }}
+      - name: Publish
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          EAS_CLI: eas
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          if [ "$main_sha" != "$COMMIT_SHA" ]; then
+            echo "::notice::main moved on to ${main_sha} while this run was setting up, so ${COMMIT_SHA} is not published."
+            exit 0
+          fi
+          npm run update:production -- --non-interactive
