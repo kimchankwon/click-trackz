@@ -58,6 +58,21 @@ npx eas-cli@latest build --platform ios --profile production --auto-submit
 
 The first run asks for your Apple ID. It then creates the App Store Connect app, the distribution certificate and the provisioning profile, and stores them on EAS. Each build gets the next build number automatically. Once Apple finishes processing the build, add testers in App Store Connect under TestFlight.
 
+## Over-the-air updates
+
+A JavaScript-only change can reach phones without a new store build. Each build profile in `eas.json` has an EAS Update channel and an EAS environment of the same name (`production`, `preview`), and the runtime version is the native fingerprint, so an update only goes to builds with the same native code. A change to native code (a new native package, a config plugin, `app.json` native settings) still needs a new build.
+
+Publish the current commit by hand:
+
+```bash
+npm run update:production
+npm run update:preview
+```
+
+`scripts/eas-update.mjs` bundles with that profile's env from `eas.json` and ignores `.env.local`, so a dev Convex URL or dev login can't leak into a production update. Extra options go after `--`, for example `npm run update:production -- --message "Fix the Count"`.
+
+Builds made before over-the-air updates were added don't check for updates, so phones get them only after the next store build.
+
 ## Seed the first Setlist
 
 Once your real Group exists, copy its id from the Group page URL (`/group/<id>`) and run:
