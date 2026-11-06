@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentRef } from "rea
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { describeAudioError } from "@/audio/audio-failure";
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
@@ -160,6 +161,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
+  const [soundProblem, setSoundProblem] = useState<string | null>(null);
   const [mix, setMix] = useState<CueMix>({ click: true, voiceCues: true, spokenCounts: true });
   const [clickVolume, setClickVolume, clickVolumeUnsaved] = useDeviceSetting("clickVolume", "0.8", isVolume);
   const [voiceVolume, setVoiceVolume, voiceVolumeUnsaved] = useDeviceSetting("voiceVolume", "0.9", isVolume);
@@ -228,9 +230,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
         if (cancelled) return;
         setSoundOn(running);
         setSoundBlocked(!running);
+        setSoundProblem(running ? null : (engine.current?.failure ?? null));
       })
-      .catch(() => {
-        if (!cancelled) setSoundBlocked(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setSoundBlocked(true);
+        setSoundProblem(describeAudioError(error));
       });
     return () => {
       cancelled = true;
@@ -245,6 +250,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       void current.resume().then((running) => {
         setSoundOn(running);
         setSoundBlocked(!running);
+        setSoundProblem(running ? null : current.failure);
       });
     });
     return () => subscription.remove();
@@ -296,8 +302,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const enableSound = () =>
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
-      const running = await engine.current.enable(serverNow, speaker);
+      const current = engine.current;
+      const running = await current.enable(serverNow, speaker).catch((error: unknown) => {
+        setSoundProblem(describeAudioError(error));
+        throw error;
+      });
       setSoundOn(running);
+      setSoundProblem(running ? null : current.failure);
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
@@ -391,13 +402,20 @@ function GroupScreen({ group }: { group: MyGroup }) {
   );
 
   const soundPromptFor = (testID: string) => (soundOn ? null : (
-    <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
-      <Icon name="sound" size={20} color="accent" />
-      <ThemedText type="smallBold" style={styles.grow}>
-        {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
-      </ThemedText>
-      <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
-    </View>
+    <>
+      <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
+        <Icon name="sound" size={20} color="accent" />
+        <ThemedText type="smallBold" style={styles.grow}>
+          {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
+        </ThemedText>
+        <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
+      </View>
+      {soundProblem !== null && Platform.OS !== "web" ? (
+        <ThemedText type="caption" themeColor="textSecondary" testID={`${testID}-problem`} selectable>
+          {soundProblem}
+        </ThemedText>
+      ) : null}
+    </>
   ));
 
   const playTab = (

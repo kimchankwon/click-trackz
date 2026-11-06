@@ -2,7 +2,8 @@ import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audi
 
 import { accentLevelOf, beatsBetween, type AccentLevel, type Beat, type Playback, type Song } from "@/sync/timeline";
 
-import { preferPlaybackSession } from "./audio-session";
+import { describeAudioError, describeAudioFailure } from "./audio-failure";
+import { preferPlaybackSession, probeAudioSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
@@ -62,6 +63,7 @@ export class CueAudioEngine {
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
+  failure: string | null = null;
 
   get enabled() {
     return this.context !== null;
@@ -110,12 +112,36 @@ export class CueAudioEngine {
   async resume(): Promise<boolean> {
     const context = this.context;
     if (context === null) return false;
-    if (context.state !== "running") {
-      preferPlaybackSession();
-      const resumed = context.resume().catch(() => undefined);
-      await Promise.race([resumed, new Promise((done) => setTimeout(done, RESUME_WAIT_MS))]);
+    const isRunning = () => context.state === "running";
+    if (isRunning()) {
+      this.failure = null;
+      return true;
     }
-    return context.state === "running";
+    preferPlaybackSession();
+    let resumeError: string | null = null;
+    const startedAt = performance.now();
+    const resumed = context.resume().then(
+      () => "resumed" as const,
+      (error: unknown) => {
+        resumeError = describeAudioError(error);
+        return "failed" as const;
+      },
+    );
+    const timeout = new Promise<"timeout">((done) => setTimeout(() => done("timeout"), RESUME_WAIT_MS));
+    const outcome = await Promise.race([resumed, timeout]);
+    if (isRunning()) {
+      this.failure = null;
+      return true;
+    }
+    const sessionError = await probeAudioSession();
+    this.failure = describeAudioFailure({
+      state: context.state,
+      waitedMs: Math.round(performance.now() - startedAt),
+      timedOut: outcome === "timeout",
+      resumeError,
+      sessionError,
+    });
+    return false;
   }
 
   async setSpeaker(speaker: SpeakerId) {

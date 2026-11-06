@@ -4,3 +4,7 @@ export function preferPlaybackSession() {
   const session = (navigator as AudioSessionNavigator).audioSession;
   if (session && session.type !== "playback") session.type = "playback";
 }
+
+export async function probeAudioSession(): Promise<string | null> {
+  return null;
+}
