@@ -51,13 +51,11 @@ export function MembersCard({
   groupId,
   groupName,
   isAdmin,
-  run,
   presence,
 }: {
   groupId: Id<"groups">;
   groupName: string;
   isAdmin: boolean;
-  run: (action: () => Promise<unknown>) => void;
   presence: { rows: readonly PresenceRow[]; nowMs: number };
 }) {
   const members = useQuery(api.groups.members, { groupId });
