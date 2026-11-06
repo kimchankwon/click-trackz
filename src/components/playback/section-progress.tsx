@@ -5,19 +5,19 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { sectionProgressAt } from "@/sync/section-progress";
+import { sectionProgressFrom } from "@/sync/section-progress";
 import type { Beat } from "@/sync/timeline";
 
-export function SectionProgress({ beat }: { beat: Beat }) {
+export function SectionProgress({ beat, serverNow }: { beat: Beat; serverNow: () => number | null }) {
   const theme = useTheme();
   const progress = useSharedValue(0);
-  const { from, to } = sectionProgressAt(beat);
   const countIn = beat.sectionIndex === null;
 
   useEffect(() => {
-    progress.value = from;
-    progress.value = withTiming(to, { duration: beat.beatMs, easing: Easing.linear });
-  }, [beat.at, beat.beatMs, from, to, progress]);
+    const { start, to, durationMs } = sectionProgressFrom(beat, serverNow());
+    progress.value = start;
+    progress.value = withTiming(to, { duration: durationMs, easing: Easing.linear });
+  }, [beat, serverNow, progress]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 

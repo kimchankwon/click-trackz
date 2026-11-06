@@ -424,7 +424,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           >
             {currentSection}
           </ThemedText>
-          {beat ? <SectionProgress beat={beat} /> : null}
+          {beat ? <SectionProgress beat={beat} serverNow={serverNow} /> : null}
         </View>
       ) : (
         <View style={[styles.stageHead, styles.titleBlock]}>
