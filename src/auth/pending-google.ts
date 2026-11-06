@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { PendingGoogleSignIn } from "./google-return";
+import { claimReturnedCode, type PendingGoogleSignIn } from "./google-return";
 
 const KEY = "cueTracker.pendingGoogleSignIn";
 
@@ -18,10 +18,19 @@ export function readPendingGoogleSignIn(): PendingGoogleSignIn | null {
     const raw = storage()?.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PendingGoogleSignIn>;
-    return typeof parsed.startedAt === "number" ? { startedAt: parsed.startedAt, retried: parsed.retried === true } : null;
+    return typeof parsed.startedAt === "number"
+      ? { startedAt: parsed.startedAt, retried: parsed.retried === true, codeClaimed: parsed.codeClaimed === true }
+      : null;
   } catch {
     return null;
   }
+}
+
+export function claimReturnedGoogleCode(): boolean {
+  if (storage() === null) return true;
+  const claim = claimReturnedCode(readPendingGoogleSignIn());
+  if (claim.exchange) writePendingGoogleSignIn(claim.pending);
+  return claim.exchange;
 }
 
 export function writePendingGoogleSignIn(pending: PendingGoogleSignIn | null) {
