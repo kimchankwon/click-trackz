@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, View, type GestureResponderEvent, type KeyDownEvent } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -15,14 +16,19 @@ type Props = {
   valueText?: string;
   accessibleName?: string;
   accessibleRange?: { min: number; max: number; now: number };
+  icon?: IconName;
+  hideValue?: boolean;
+  bare?: boolean;
+  origin?: number;
 };
 
-export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange }: Props) {
+export function VolumeBar({ label, value, onChange, testID, valueText, accessibleName, accessibleRange, icon, hideValue, bare, origin = 0 }: Props) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
+  const travel = Math.max(0, width - THUMB_INSET * 2);
   const setFromTouch = (event: GestureResponderEvent) => {
-    if (width > 0) onChange(clampVolume(event.nativeEvent.locationX / width));
+    if (travel > 0) onChange(clampVolume((event.nativeEvent.locationX - THUMB_INSET) / travel));
   };
   const keyboard = {
     tabIndex: 0 as const,
@@ -37,9 +43,12 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
   };
   return (
     <View style={styles.row}>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
-        {label}
-      </ThemedText>
+      {icon ? <Icon name={icon} size={20} color="textSecondary" /> : null}
+      {bare ? null : (
+        <ThemedText type="smallBold" style={styles.label}>
+          {label}
+        </ThemedText>
+      )}
       <View
         testID={testID}
         role="slider"
@@ -58,24 +67,44 @@ export function VolumeBar({ label, value, onChange, testID, valueText, accessibl
         onResponderGrant={setFromTouch}
         onResponderMove={setFromTouch}
         {...keyboard}
-        style={[styles.track, { backgroundColor: theme.backgroundElement, borderColor: focused ? theme.text : "transparent" }]}
+        style={[styles.hitArea, { borderColor: focused ? theme.text : "transparent" }]}
       >
+        <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+          <View
+            style={[
+              styles.fill,
+              { left: `${Math.min(origin, value) * 100}%`, width: `${Math.abs(value - origin) * 100}%`, backgroundColor: theme.accent },
+            ]}
+          />
+        </View>
+        {origin > 0 ? (
+          <View pointerEvents="none" style={[styles.originTick, { left: THUMB_INSET - BORDER - 1 + travel * origin, backgroundColor: theme.textTertiary }]} />
+        ) : null}
         <View
           pointerEvents="none"
-          style={[styles.fill, { width: `${value * 100}%`, backgroundColor: theme.accent }]}
+          style={[styles.thumb, { left: THUMB_INSET - BORDER - THUMB / 2 + travel * value, backgroundColor: theme.accent, borderColor: theme.background }]}
         />
       </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.value}>
-        {valueText ?? Math.round(value * 100)}
-      </ThemedText>
+      {hideValue ? null : (
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.value}>
+          {valueText ?? Math.round(value * 100)}
+        </ThemedText>
+      )}
     </View>
   );
 }
 
+const BORDER = 2;
+const THUMB = 28;
+const THUMB_INSET = 16;
+
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%" },
-  label: { width: 56 },
-  track: { flex: 1, height: 28, borderRadius: Spacing.two, borderWidth: 2, overflow: "hidden", justifyContent: "center" },
-  fill: { height: "100%", borderRadius: Spacing.two },
-  value: { minWidth: 32, textAlign: "right" },
+  label: { width: 52 },
+  hitArea: { flex: 1, height: 44, justifyContent: "center", borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, marginHorizontal: -12 },
+  track: { height: 6, borderRadius: 3, overflow: "hidden", marginHorizontal: THUMB_INSET - BORDER - 12 },
+  fill: { position: "absolute", top: 0, bottom: 0, borderRadius: 3 },
+  originTick: { position: "absolute", bottom: 4, width: 2, height: 12, borderRadius: 1 },
+  thumb: { position: "absolute", width: THUMB, height: THUMB, borderRadius: THUMB / 2, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
+  value: { minWidth: 40, textAlign: "right", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
 });

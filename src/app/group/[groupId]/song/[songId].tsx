@@ -1,13 +1,22 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ActionButton } from "@/components/action-button";
+import { Divider } from "@/components/group/card";
+import { Chip } from "@/components/group/chip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
+import { ReorderControl } from "@/components/ui/reorder-control";
+import { ScreenHeader } from "@/components/ui/screen-header";
+import { useDockInset } from "@/components/ui/use-dock-inset";
+import { Switch } from "@/components/ui/switch";
+import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import type { Section } from "@/sync/timeline";
@@ -20,27 +29,25 @@ type SectionRowState = { id: number; section: EditableSection };
 type LookupResult = { title: string; artist: string | null; bpm: number | null; beatsPerBar: number | null; key: string | null };
 
 function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
-  const theme = useTheme();
   const [draft, setDraft] = useState<string | null>(null);
   return (
-    <View style={styles.numberField}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <TextInput
-        testID={testID}
-        value={draft ?? String(value)}
-        inputMode="decimal"
-        onFocus={() => setDraft(String(value))}
-        onBlur={() => setDraft(null)}
-        onChangeText={(next) => {
-          setDraft(next);
-          const parsed = Number(next);
-          if (next.trim() !== "" && Number.isFinite(parsed)) onChange(parsed);
-        }}
-        style={[styles.numberInput, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
-    </View>
+    <Field
+      label={label}
+      testID={testID}
+      value={draft ?? String(value)}
+      inputMode="decimal"
+      onFocus={() => setDraft(String(value))}
+      onBlur={() => setDraft(null)}
+      onChangeText={(next) => {
+        setDraft(next);
+        const parsed = Number(next);
+        if (next.trim() !== "" && Number.isFinite(parsed)) onChange(parsed);
+      }}
+      containerStyle={styles.numberField}
+      style={styles.numberInput}
+      compact
+      inset
+    />
   );
 }
 
@@ -64,33 +71,46 @@ function SectionRow({
   const theme = useTheme();
   const [choosing, setChoosing] = useState(false);
   return (
-    <View style={[styles.sectionRow, { borderColor: theme.backgroundSelected }]} testID={`section-${index}`}>
-      <View style={styles.inline}>
+    <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
+      <View style={styles.sectionTop}>
+        <View style={[styles.indexBadge, { backgroundColor: theme.backgroundSelected }]}>
+          <ThemedText type="smallBold" style={styles.indexText}>
+            {index + 1}
+          </ThemedText>
+        </View>
         <Pressable
           role="button"
+          aria-expanded={choosing}
+          aria-label={`Section type, ${section.sectionType}`}
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
-          style={[styles.typeButton, { backgroundColor: theme.accentSoft }]}
+          style={[styles.typeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
         >
-          <ThemedText type="smallBold">
+          <ThemedText type="default" style={styles.typeText} numberOfLines={1}>
             {section.sectionType}
             {section.number ? ` ${section.number}` : ""}
           </ThemedText>
+          <Icon name="expand" size={20} color="textSecondary" />
         </Pressable>
-        <ActionButton small label="−" accessibleName={`Lower the number of Section ${index + 1}`} testID={`section-${index}-number-down`} onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })} />
-        <ActionButton small label="#+" accessibleName={`Raise the number of Section ${index + 1}`} testID={`section-${index}-number-up`} onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })} />
-        <View style={styles.grow} />
-        <ActionButton small label="↑" accessibleName={`Move Section ${index + 1} up`} onPress={() => onMove(-1)} testID={index === 0 ? undefined : `section-${index}-up`} />
-        <ActionButton small label="↓" accessibleName={`Move Section ${index + 1} down`} onPress={() => onMove(1)} testID={index === count - 1 ? undefined : `section-${index}-down`} />
-        <ActionButton small label="✕" accessibleName={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        <ReorderControl
+          name={`Section ${index + 1}`}
+          canMoveUp={index > 0}
+          canMoveDown={index < count - 1}
+          onMove={onMove}
+          upTestID={`section-${index}-up`}
+          downTestID={`section-${index}-down`}
+        />
+        <View style={styles.trashGap} />
+        <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
       {choosing ? (
         <View style={styles.wrap}>
           {vocabulary.map((type) => (
-            <ActionButton small
+            <Chip
               key={type}
+              role="radio"
               label={type}
-              accent={type === section.sectionType}
+              selected={type === section.sectionType}
               testID={`section-${index}-type-${type}`}
               onPress={() => {
                 onChange({ ...section, sectionType: type });
@@ -100,7 +120,7 @@ function SectionRow({
           ))}
         </View>
       ) : null}
-      <View style={styles.inline}>
+      <View style={styles.fields}>
         <NumberField label="Bars" value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
         <NumberField
           label="Beats/bar"
@@ -110,15 +130,40 @@ function SectionRow({
         />
         <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
       </View>
-      <Pressable
-        role="switch"
-        aria-checked={section.voiceCueEnabled !== false}
-        onPress={() => onChange({ ...section, voiceCueEnabled: section.voiceCueEnabled === false })}
-      >
-        <ThemedText type="small" themeColor="textSecondary">
-          Voice cue {section.voiceCueEnabled === false ? "off" : "on"}
-        </ThemedText>
-      </Pressable>
+      <View style={styles.bottomRow}>
+        <View style={styles.numberGroup}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Number
+          </ThemedText>
+          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
+            <IconButton
+              icon="minus"
+              size={36}
+              label={`Lower the number of Section ${index + 1}`}
+              testID={`section-${index}-number-down`}
+              onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+            />
+            <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
+              {section.number ?? "None"}
+            </ThemedText>
+            <IconButton
+              icon="add"
+              size={36}
+              label={`Raise the number of Section ${index + 1}`}
+              testID={`section-${index}-number-up`}
+              onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
+            />
+          </View>
+        </View>
+        <View style={styles.numberGroup}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Voice cue
+          </ThemedText>
+          <View style={styles.switchSlot}>
+            <Switch bare label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
@@ -157,6 +202,7 @@ function SongForm({
   const lookupAvailable = useQuery(api.bpm.lookupAvailable, {});
   const lookup = useAction(api.bpm.lookup);
   const theme = useTheme();
+  const dockInset = useDockInset(Spacing.three);
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
@@ -212,114 +258,165 @@ function SongForm({
     setMessage(`Applied ${result.bpm ?? "?"} BPM to every Section`);
   };
 
-  const input = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
+  const save = () =>
+    run(async () => {
+      await updateSong({ songId, title, key: songKey, countIn, sections });
+      setMessage("Saved");
+    });
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ThemedText type="subtitle">Edit Song</ThemedText>
+          <ScreenHeader title="Edit Song" subtitle={song.title} onBack={() => router.back()} />
           {song.tempoHint && sections.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="tempo-hint">
-              Suggested tempo {song.tempoHint.bpm} BPM, {song.tempoHint.beatsPerBar} beats per bar
-            </ThemedText>
+            <View style={[styles.hint, { backgroundColor: theme.accentTint }]}>
+              <Icon name="speed" size={20} color="accent" />
+              <ThemedText type="small" testID="tempo-hint" style={styles.grow}>
+                Suggested tempo {song.tempoHint.bpm} BPM, {song.tempoHint.beatsPerBar} beats per bar
+              </ThemedText>
+            </View>
           ) : null}
-          <TextInput testID="song-title-input" style={input} value={title} onChangeText={setTitle} placeholder="Title" />
-          <View style={styles.inline}>
-            <TextInput testID="song-key-input" style={[input, styles.keyInput]} value={songKey} onChangeText={setSongKey} placeholder="Key" />
-            <Pressable role="switch" aria-checked={countIn} testID="count-in-toggle" onPress={() => setCountIn(!countIn)}>
-              <ThemedText>Count-in {countIn ? "on" : "off"}</ThemedText>
-            </Pressable>
+          <View style={[styles.detailsCard, { backgroundColor: theme.backgroundElement }]}>
+            <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
+            <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" />
+            <Divider />
+            <Switch label="Count-in" hint="One bar of beat numbers before the first Section" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
           </View>
 
           {lookupAvailable ? (
-            <View style={styles.lookup}>
-              <ActionButton small
-                label="Look up BPM"
+            <View style={styles.group}>
+              <ActionButton
+                icon="speed"
+                label="Look up BPM and key"
                 testID="lookup-bpm"
+                disabled={title.trim() === ""}
                 onPress={() => run(async () => setResults(await lookup({ groupId, title })))}
               />
-              <Pressable onPress={() => void Linking.openURL("https://getsongbpm.com")}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  BPM data from GetSongBPM
-                </ThemedText>
-              </Pressable>
               {(results ?? []).map((result, index) => (
-                <Pressable key={index} role="button" onPress={() => applyLookup(result)} style={[styles.result, { backgroundColor: theme.backgroundElement }]}>
-                  <ThemedText type="small">
-                    {result.title}
-                    {result.artist ? ` · ${result.artist}` : ""} · {result.bpm ?? "?"} BPM
-                    {result.beatsPerBar ? ` · ${result.beatsPerBar}/4` : ""}
-                    {result.key ? ` · ${result.key}` : ""}
+                <Pressable
+                  key={index}
+                  role="button"
+                  onPress={() => applyLookup(result)}
+                  style={[styles.result, { backgroundColor: theme.backgroundElement }]}
+                >
+                  <View style={styles.grow}>
+                    <ThemedText type="smallBold" numberOfLines={1}>
+                      {result.title}
+                    </ThemedText>
+                    <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+                      {[result.artist, `${result.bpm ?? "?"} BPM`, result.beatsPerBar ? `${result.beatsPerBar}/4` : null, result.key]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="smallBold" themeColor="accent">
+                    Use
                   </ThemedText>
                 </Pressable>
               ))}
-              {results?.length === 0 ? <ThemedText type="small">No matches</ThemedText> : null}
+              {results?.length === 0 ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  No matches
+                </ThemedText>
+              ) : null}
+              <Pressable role="link" onPress={() => void Linking.openURL("https://getsongbpm.com")}>
+                <ThemedText type="caption" themeColor="textSecondary" style={styles.credit}>
+                  BPM data from GetSongBPM
+                </ThemedText>
+              </Pressable>
             </View>
           ) : null}
 
-          {rows.map((row, index) => (
-            <SectionRow
-              key={row.id}
-              section={row.section}
-              index={index}
-              count={rows.length}
-              vocabulary={vocabulary}
-              onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
-              onMove={(by) => move(index, by)}
-              onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
-            />
-          ))}
-          <ActionButton small label="+ Add Section" testID="add-section" onPress={addSection} />
-
-          <View style={styles.inline}>
-            <ActionButton small
-              label="Save"
-              accent
-              testID="save-song"
-              onPress={() =>
-                run(async () => {
-                  await updateSong({ songId, title, key: songKey, countIn, sections });
-                  setMessage("Saved");
-                })
-              }
-            />
-            <ActionButton small label="Back" testID="back" onPress={() => router.back()} />
-            <View style={styles.grow} />
-            <ActionButton small
-              label="Delete Song"
-              testID="delete-song"
-              onPress={() =>
-                run(async () => {
-                  router.back();
-                  await deleteSong({ songId });
-                })
-              }
-            />
+          <View style={styles.group}>
+            <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
+              Sections · {rows.length}
+            </ThemedText>
+            {rows.map((row, index) => (
+              <SectionRow
+                key={row.id}
+                section={row.section}
+                index={index}
+                count={rows.length}
+                vocabulary={vocabulary}
+                onChange={(next) => setRows(rows.map((r) => (r.id === row.id ? { id: r.id, section: next } : r)))}
+                onMove={(by) => move(index, by)}
+                onRemove={() => setRows(rows.filter((r) => r.id !== row.id))}
+              />
+            ))}
+            <ActionButton icon="add" label="Add Section" testID="add-section" onPress={addSection} />
           </View>
+
           {message ? (
-            <ThemedText themeColor="textSecondary" testID="editor-message">
+            <ThemedText type="small" themeColor="textSecondary" testID="editor-message" style={styles.centeredText}>
               {message}
             </ThemedText>
           ) : null}
+          <ActionButton
+            variant="danger"
+            icon="trash"
+            label="Delete Song"
+            testID="delete-song"
+            onPress={() =>
+              run(async () => {
+                router.back();
+                await deleteSong({ songId });
+              })
+            }
+          />
         </ScrollView>
+        <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
+          <ActionButton large full accent icon="check" label="Save Song" accessibleName="Save" testID="save-song" onPress={save} />
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  typeButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
   container: { flex: 1 },
-  content: { gap: Spacing.three, padding: Spacing.four, maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
-  input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.three, borderRadius: Spacing.three, fontSize: 16 },
-  keyInput: { width: 96 },
-  inline: { flexDirection: "row", alignItems: "center", gap: Spacing.two, flexWrap: "wrap" },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.one },
-  grow: { flex: 1 },
-  sectionRow: { gap: Spacing.two, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.three },
-  numberField: { gap: Spacing.half, flex: 1, minWidth: 80 },
-  numberInput: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two, borderRadius: Spacing.two, fontSize: 16 },
-  lookup: { gap: Spacing.two },
-  result: { padding: Spacing.two, borderRadius: Spacing.two },
+  content: {
+    gap: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
+    maxWidth: MaxContentWidth,
+    alignSelf: "center",
+    width: "100%",
+  },
+  group: { gap: Spacing.three },
+  groupLabel: { paddingHorizontal: Spacing.one },
+  hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
+  trashGap: { width: Spacing.three },
+  bottomRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.four },
+  detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
+  indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
+  indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
+  fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  grow: { flex: 1, minWidth: 0 },
+  sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
+  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  typeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
+  stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
+  stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
+  numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
+  switchSlot: { minHeight: 44, justifyContent: "center" },
+  fields: { flexDirection: "row", gap: Spacing.two },
+  numberField: { flex: 1, minWidth: 0 },
+  numberInput: { fontVariant: ["tabular-nums"] },
+  result: { flexDirection: "row", alignItems: "center", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md },
+  credit: { textDecorationLine: "underline" },
+  centeredText: { textAlign: "center" },
+  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

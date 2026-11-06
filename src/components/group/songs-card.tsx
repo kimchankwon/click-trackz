@@ -1,14 +1,16 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
-import { Card } from "@/components/group/card";
-import { rowStyles } from "@/components/group/row-styles";
+import { Card, Divider } from "@/components/group/card";
+import { SongRow } from "@/components/group/song-row";
 import { ThemedText } from "@/components/themed-text";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -26,73 +28,101 @@ export function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const songs = useQuery(api.songs.list, { groupId });
+  const setlists = useQuery(api.setlists.list, { groupId });
+  const [expandedChoice, setExpandedChoice] = useState<boolean | null>(null);
+  const expanded = expandedChoice ?? (setlists !== undefined && setlists.length === 0);
   const createSong = useMutation(api.songs.createSong);
-  const theme = useTheme();
   const [title, setTitle] = useState("");
+  const list = songs ?? [];
   return (
-    <Card title="SONGS">
-      {(songs ?? []).map((song) => (
-        <View key={song.songId} style={rowStyles.row}>
-          <Pressable
-            role={isAdmin ? "radio" : undefined}
-            aria-checked={isAdmin ? selectedSongId === song.songId : undefined}
-            disabled={!isAdmin}
-            testID={`song-${song.title}`}
-            onPress={() => (isAdmin ? onSelect(song.songId) : undefined)}
-            style={rowStyles.name}
-          >
-            <ThemedText type={selectedSongId === song.songId ? "smallBold" : "default"}>
-              {selectedSongId === song.songId ? "▶ " : ""}
-              {song.title}
-              {song.key ? ` · ${song.key}` : ""}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {song.sectionCount === 0 ? "needs structure" : `${song.sectionCount} Sections`}
-            </ThemedText>
-          </Pressable>
-          {isAdmin ? (
-            <Pressable
-              role="link"
-              testID={`edit-${song.title}`}
-              onPress={() =>
-                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })
+    <Card
+      title="Song library"
+      action={
+        expanded ? (
+          <ActionButton small variant="link" icon="up" label="Hide" testID="toggle-library" onPress={() => setExpandedChoice(false)} />
+        ) : null
+      }
+    >
+      {!expanded ? (
+        <Pressable role="button" aria-expanded={false} testID="toggle-library" onPress={() => setExpandedChoice(true)} style={styles.collapsed}>
+          <Icon name="library" size={22} color="textSecondary" />
+          <ThemedText style={styles.collapsedText}>
+            {list.length} {list.length === 1 ? "Song" : "Songs"}
+          </ThemedText>
+          <Icon name="forward" size={22} color="textTertiary" />
+        </Pressable>
+      ) : list.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          No Songs yet.
+        </ThemedText>
+      ) : (
+        <View style={styles.list}>
+          {list.map((song, index) => (
+            <SongRow
+              divider={index > 0}
+              key={song.songId}
+              title={song.title}
+              meta={song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`}
+              songKey={song.key}
+              needsSections={song.sectionCount === 0}
+              selected={selectedSongId === song.songId}
+              selectable={isAdmin}
+              onSelect={() => onSelect(song.songId)}
+              testID={`song-${song.title}`}
+              trailing={
+                isAdmin ? (
+                  <IconButton
+                    icon="forward"
+                    label={`Edit ${song.title}`}
+                    testID={`edit-${song.title}`}
+                    color="textSecondary"
+                    onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })}
+                  />
+                ) : null
               }
-              style={[rowStyles.smallButton, { backgroundColor: theme.backgroundElement }]}
-            >
-              <ThemedText type="small">Edit</ThemedText>
-            </Pressable>
-          ) : null}
+            />
+          ))}
         </View>
-      ))}
-      {isAdmin ? (
-        <View style={rowStyles.row}>
-          <TextInput
-            testID="new-song-title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="New Song title"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-          />
-          <ActionButton
-            small
-            accent
-            label="Add"
-            testID="add-song"
-            onPress={() =>
-              run(async () => {
-                const songId = await createSong({ groupId, title });
-                setTitle("");
-                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
-              })
-            }
-          />
-        </View>
+      )}
+      {isAdmin && expanded ? (
+        <>
+          <Divider />
+          <View style={styles.addRow}>
+            <Field
+              testID="new-song-title"
+              value={title}
+              onChangeText={setTitle}
+              placeholder="New Song title"
+              containerStyle={styles.grow}
+              compact
+              inset
+            />
+            <ActionButton
+              small
+              accent
+              icon="add"
+              label="Add"
+              testID="add-song"
+              disabled={title.trim() === ""}
+              onPress={() =>
+                run(async () => {
+                  const songId = await createSong({ groupId, title });
+                  setTitle("");
+                  router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
+                })
+              }
+            />
+          </View>
+        </>
       ) : null}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  input: { flex: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
+  list: { marginHorizontal: -Spacing.two, gap: 2 },
+  addRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  grow: { flex: 1 },
+  collapsed: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 32 },
+  collapsedText: { flex: 1, fontSize: 17, fontWeight: 600 },
 });

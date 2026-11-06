@@ -1,9 +1,13 @@
 import { useMutation, useQuery } from "convex/react";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
+import { ActionButton } from "@/components/action-button";
+import { Card, Divider } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
+import { Field } from "@/components/ui/field";
+import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { api } from "../../../convex/_generated/api";
@@ -25,7 +29,6 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
   const [word, setWord] = useState("");
   const [number, setNumber] = useState("");
   const [status, setStatus] = useState<string | null>(null);
-  const input = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
 
   const upload = () =>
     run(async () => {
@@ -46,67 +49,61 @@ export function VoicePackCard({ groupId, onPreview, canPreview, run }: Props) {
     });
 
   return (
-    <View style={[styles.card, { borderColor: theme.backgroundSelected }]}>
-      <ThemedText type="smallBold" themeColor="textSecondary">
-        VOICE PACK
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Card title="Voice pack">
+      <ThemedText type="caption" themeColor="textSecondary">
         Your recordings replace the Speaker for every Member. A new word becomes a Section type for this Group.
       </ThemedText>
-      {(recordings ?? []).map((recording) => (
-        <View key={recording.key} style={styles.row} testID={`recording-${recording.key}`}>
-          <ThemedText style={styles.grow}>
-            {recording.word}
-            {recording.number ? ` ${recording.number}` : ""}
-          </ThemedText>
-          {canPreview ? (
-            <Pressable
-              role="button"
-              testID={`play-${recording.key}`}
-              onPress={() => onPreview(recording.key)}
-              style={[styles.small, { backgroundColor: theme.backgroundElement }]}
-            >
-              <ThemedText type="small">Play</ThemedText>
-            </Pressable>
-          ) : null}
-          <Pressable
-            role="button"
-            testID={`remove-${recording.key}`}
-            onPress={() => run(() => remove({ groupId, key: recording.key }))}
-            style={[styles.small, { backgroundColor: theme.backgroundElement }]}
-          >
-            <ThemedText type="small">Remove</ThemedText>
-          </Pressable>
+      {(recordings ?? []).length > 0 ? (
+        <View>
+          {(recordings ?? []).map((recording, index) => (
+            <View key={recording.key} style={styles.recording} testID={`recording-${recording.key}`}>
+              {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
+              <ThemedText style={[styles.grow, styles.word]}>
+                {recording.word}
+                {recording.number ? ` ${recording.number}` : ""}
+              </ThemedText>
+              {canPreview ? (
+                <IconButton icon="play" color="text" filled onCard round size={40} label={`Play ${recording.word}`} testID={`play-${recording.key}`} onPress={() => onPreview(recording.key)} />
+              ) : null}
+              <IconButton
+                icon="trash"
+                size={40}
+                round
+                outlined
+                label={`Remove ${recording.word}`}
+                color="textTertiary"
+                testID={`remove-${recording.key}`}
+                onPress={() => run(() => remove({ groupId, key: recording.key }))}
+              />
+            </View>
+          ))}
         </View>
-      ))}
+      ) : null}
       {!canPreview && (recordings ?? []).length > 0 ? (
-        <ThemedText type="small" themeColor="textSecondary" testID="voice-pack-preview-hint">
+        <ThemedText type="caption" themeColor="textSecondary" testID="voice-pack-preview-hint">
           Enable sound to play these recordings.
         </ThemedText>
       ) : null}
+      <Divider />
       <View style={styles.row}>
-        <TextInput testID="recording-word" style={[input, styles.grow]} value={word} onChangeText={setWord} placeholder="Word, e.g. Chorus" placeholderTextColor={theme.textSecondary} />
-        <TextInput testID="recording-number" style={[input, styles.numberInput]} value={number} onChangeText={setNumber} placeholder="#" inputMode="numeric" placeholderTextColor={theme.textSecondary} />
-        <Pressable role="button" testID="upload-recording" onPress={upload} style={[styles.small, { backgroundColor: theme.accent }]}>
-          <ThemedText type="small" style={{ color: theme.onAccent }}>
-            Upload
-          </ThemedText>
-        </Pressable>
+        <Field label="Word" testID="recording-word" containerStyle={styles.grow} value={word} onChangeText={setWord} placeholder="e.g. Chorus" compact />
+        <Field label="Number" testID="recording-number" containerStyle={styles.numberInput} value={number} onChangeText={setNumber} placeholder="1-9" inputMode="numeric" compact />
       </View>
+      <ActionButton icon="upload" accent label="Upload recording" testID="upload-recording" onPress={upload} disabled={word.trim() === ""} />
       {status ? (
-        <ThemedText type="small" themeColor="textSecondary" testID="recording-status">
+        <ThemedText type="caption" themeColor="textSecondary" testID="recording-status">
           {status}
         </ThemedText>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderWidth: 1, borderRadius: Spacing.four },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  recording: { flexDirection: "row", alignItems: "center", gap: 12, height: 56 },
+  separator: { position: "absolute", top: 0, left: 0, right: 0, height: StyleSheet.hairlineWidth },
+  word: { fontSize: 17, fontWeight: 600 },
   grow: { flex: 1, minWidth: 0 },
-  input: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three, fontSize: 16 },
-  numberInput: { width: 56 },
-  small: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.three },
+  numberInput: { width: 88 },
 });

@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Spacing } from "@/constants/theme";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
 export function Chip({
@@ -10,23 +11,42 @@ export function Chip({
   onPress,
   role = "switch",
   testID,
+  icon,
+  disabled,
+  strong,
 }: {
+  strong?: boolean;
   label: string;
   selected: boolean;
   onPress: () => void;
   role?: "switch" | "radio" | "button";
   testID?: string;
+  icon?: IconName;
+  disabled?: boolean;
 }) {
   const theme = useTheme();
+  const showCheck = selected && role !== "button";
+  const leading = showCheck ? "check" : icon;
   return (
     <Pressable
       role={role}
       aria-checked={role === "button" ? undefined : selected}
+      aria-pressed={role === "button" ? selected : undefined}
       testID={testID}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.chip, { backgroundColor: selected ? theme.accent : theme.backgroundElement }]}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: selected ? (strong ? theme.accent : theme.accentTint) : theme.backgroundSelected,
+          borderColor: selected ? theme.accent : "transparent",
+        },
+        strong ? styles.strongChip : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <ThemedText type="smallBold" style={selected ? { color: theme.onAccent } : null}>
+      {leading ? <Icon name={leading} size={16} color={selected ? (strong ? "onAccent" : "accent") : "textSecondary"} /> : null}
+      <ThemedText type="default" themeColor={selected ? (strong ? "onAccent" : "accent") : "text"} style={selected ? styles.selectedLabel : styles.label}>
         {label}
       </ThemedText>
     </Pressable>
@@ -34,5 +54,17 @@ export function Chip({
 }
 
 const styles = StyleSheet.create({
-  chip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.one + 2,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+  },
+  pressed: { opacity: 0.7 },
+  strongChip: { minHeight: 48, paddingHorizontal: 20 },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
+  selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
 });
