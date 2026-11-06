@@ -21,8 +21,8 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, countIn, jumps, stopsAt } = playback;
-    return { songId, song, startsAt, startSection, countIn: countIn ?? song.countIn, jumps, stopsAt };
+    const { songId, song, startsAt, startSection, jumps, stopsAt } = playback;
+    return { songId, song, startsAt, startSection, jumps, stopsAt };
   },
 });
 
@@ -39,10 +39,9 @@ export const start = mutation({
     const fields = {
       groupId,
       songId,
-      song: { countIn: song.countIn, sections: song.sections },
+      song: { countIn: fromSection === undefined ? song.countIn : true, sections: song.sections },
       startsAt: Date.now() + LEAD_IN_MS,
       startSection: fromSection ?? 0,
-      countIn: fromSection === undefined ? song.countIn : true,
       jumps: [],
       stopsAt: null,
       startedBy: user._id,

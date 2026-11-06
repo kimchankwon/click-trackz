@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useIsFocused } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
@@ -8,10 +9,16 @@ import { HEARTBEAT_MS, type PresenceRow } from "./online";
 
 const REFRESH_MS = 5_000;
 
+const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
 export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
   const heartbeat = useMutation(api.presence.heartbeat);
   const leave = useMutation(api.presence.leave);
+  const [screenId] = useState(newScreenId);
+  const focused = useIsFocused();
   const [active, setActive] = useState(AppState.currentState === "active");
+  const visible = focused && active;
+  const onPlayRef = useRef(onPlay);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
@@ -19,17 +26,18 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!active) {
-      void leave({ groupId }).catch(() => undefined);
-      return;
-    }
-    const beat = () => void heartbeat({ groupId, onPlay }).catch(() => undefined);
-    beat();
-    const timer = setInterval(beat, HEARTBEAT_MS);
-    return () => clearInterval(timer);
-  }, [groupId, onPlay, active, heartbeat, leave]);
+    onPlayRef.current = onPlay;
+    if (visible) void heartbeat({ groupId, screenId, onPlay }).catch(() => undefined);
+  }, [groupId, screenId, onPlay, visible, heartbeat]);
 
-  useEffect(() => () => void leave({ groupId }).catch(() => undefined), [groupId, leave]);
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setInterval(() => void heartbeat({ groupId, screenId, onPlay: onPlayRef.current }).catch(() => undefined), HEARTBEAT_MS);
+    return () => {
+      clearInterval(timer);
+      void leave({ groupId, screenId }).catch(() => undefined);
+    };
+  }, [groupId, screenId, visible, heartbeat, leave]);
 }
 
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null) {

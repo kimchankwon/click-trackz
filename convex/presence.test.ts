@@ -31,25 +31,41 @@ describe("Presence", () => {
 
   it("records each Member's latest heartbeat and whether they are on Play", async () => {
     const { admin, member, groupId } = await setupGroup();
-    await member.client.mutation(api.presence.heartbeat, { groupId, onPlay: false });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: false });
     vi.setSystemTime(NOW + 5_000);
-    await member.client.mutation(api.presence.heartbeat, { groupId, onPlay: true });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true });
     expect(await admin.client.query(api.presence.list, { groupId })).toEqual([{ userId: member.userId, onPlay: true, seenAt: NOW + 5_000 }]);
   });
 
   it("forgets a Member who leaves the screen or the Group", async () => {
     const { admin, member, groupId } = await setupGroup();
-    await admin.client.mutation(api.presence.heartbeat, { groupId, onPlay: true });
-    await member.client.mutation(api.presence.heartbeat, { groupId, onPlay: true });
-    await admin.client.mutation(api.presence.leave, { groupId });
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true });
+    await admin.client.mutation(api.presence.leave, { groupId, screenId: "s1" });
     await member.client.mutation(api.groups.leaveGroup, { groupId });
-    await admin.client.mutation(api.presence.heartbeat, { groupId, onPlay: false });
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: false });
     expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: admin.userId, onPlay: false })]);
+  });
+
+  it("keeps one row per open screen, so one device leaving does not hide another", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "laptop", onPlay: false });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: "laptop" });
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: member.userId, onPlay: true })]);
+  });
+
+  it("forgets screens that closed without saying so", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "old", onPlay: true });
+    vi.setSystemTime(NOW + 11 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "new", onPlay: false });
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: member.userId, onPlay: false })]);
   });
 
   it("is only visible to and written by people in the Group", async () => {
     const { outsider, groupId } = await setupGroup();
-    await expect(outsider.client.mutation(api.presence.heartbeat, { groupId, onPlay: true })).rejects.toThrow(/not in this Group/);
+    await expect(outsider.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true })).rejects.toThrow(/not in this Group/);
     await expect(outsider.client.query(api.presence.list, { groupId })).rejects.toThrow(/not in this Group/);
   });
 });

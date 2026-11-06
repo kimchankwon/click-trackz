@@ -133,8 +133,8 @@ export const leaveGroup = mutation({
     const presence = await ctx.db
       .query("presence")
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", membership.userId))
-      .unique();
-    if (presence) await ctx.db.delete(presence._id);
+      .collect();
+    await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
   },
 });
 

@@ -126,10 +126,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const song: Song = playback?.song ?? emptySong;
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
-  const shownSections = showPlayback ? playback.song.sections : (selectedSong?.sections ?? []);
+
   const isAdmin = group.role === "admin";
   const startSongId = selectedSongId ?? playback?.songId ?? null;
   const startSong = selectedSongId ? selectedSong : playingSong;
+  const shownSections = playing && playback ? playback.song.sections : (startSong?.sections ?? []);
   const [startPick, setStartPick] = useState<{ songId: Id<"songs">; index: number } | null>(null);
   const pickedSection = startPick !== null && startPick.songId === startSongId && startPick.index < (startSong?.sections.length ?? 0) ? startPick.index : null;
   const startSection = pickedSection ?? 0;
@@ -138,6 +139,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
   const library = useQuery(api.songs.list, { groupId });
   const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
+  const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
   const startBlocker: "noSong" | "needsSections" | "loading" | null =
@@ -322,10 +324,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
       }
     });
 
-  const previousSongId = neighbourSong(songOrder, startSongId, -1);
-  const nextSongId = neighbourSong(songOrder, startSongId, 1);
-  const stepSong = (songId: Id<"songs"> | null) => {
-    if (songId !== null) setSelectedSongId(songId);
+  const previousSong = neighbourSong(songOrder, startSongId, -1, orderAt);
+  const nextSong = neighbourSong(songOrder, startSongId, 1, orderAt);
+  const stepSong = (step: { item: Id<"songs">; at: number } | null) => {
+    if (step === null) return;
+    setSelectedSongId(step.item);
+    setOrderAt(step.at);
   };
 
   const tapSection = (index: number) => {
@@ -641,8 +645,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 size={ControlHeight.large}
                 round
                 filled
-                disabled={playing || previousSongId === null}
-                onPress={() => stepSong(previousSongId)}
+                disabled={playing || previousSong === null}
+                onPress={() => stepSong(previousSong)}
               />
               {playing ? (
                 <ActionButton
@@ -676,8 +680,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 size={ControlHeight.large}
                 round
                 filled
-                disabled={playing || nextSongId === null}
-                onPress={() => stepSong(nextSongId)}
+                disabled={playing || nextSong === null}
+                onPress={() => stepSong(nextSong)}
               />
             </View>
           ) : null}

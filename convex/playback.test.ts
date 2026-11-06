@@ -56,7 +56,7 @@ describe("Group Playback", () => {
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId, fromSection: 3 });
     const playback = await member.query(api.playback.current, { groupId });
-    expect(playback).toMatchObject({ startsAt: NOW + 2_000, startSection: 3, countIn: true });
+    expect(playback).toMatchObject({ startsAt: NOW + 2_000, startSection: 3, song: { countIn: true } });
   });
 
   it("refuses to start from a Section that is not in the Song", async () => {

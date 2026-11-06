@@ -20,7 +20,6 @@ export type Jump = {
 export type Playback = {
   startsAt: number;
   startSection: number;
-  countIn?: boolean;
   jumps?: readonly Jump[];
   stopsAt?: number | null;
 };
@@ -64,7 +63,7 @@ const beatMsOf = (section: Section) => 60_000 / section.bpm;
 
 function segmentsOf(song: Song, playback: Playback): Segment[] {
   const starts = [
-    { startsAt: playback.startsAt, startSection: playback.startSection, countIn: playback.countIn ?? song.countIn },
+    { startsAt: playback.startsAt, startSection: playback.startSection, countIn: song.countIn },
     ...[...(playback.jumps ?? [])]
       .sort((x, y) => x.at - y.at)
       .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, countIn: false })),

@@ -140,10 +140,4 @@ describe("playbackEndsAt", () => {
   it("ends at Stop when Stop comes first", () => {
     expect(playbackEndsAt(song, { startsAt: 10_000, startSection: 0, stopsAt: 12_000 })).toBe(12_000);
   });
-
-  it("adds a Count-in bar when Playback asks for one even if the Song has none", () => {
-    const playback = { startsAt: 10_000, startSection: 0, countIn: true };
-    expect(playbackEndsAt(song, playback)).toBe(16_000);
-    expect(beatsBetween(song, playback, 0, 20_000)[0]).toMatchObject({ at: 10_000, count: "1", sectionIndex: null });
-  });
 });
