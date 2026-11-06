@@ -10,8 +10,14 @@ export default function JoinLinkScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
 
   useEffect(() => {
+    let cancelled = false;
     const joinCode = normalizeJoinCode(code);
-    void (joinCode ? savePendingJoin(joinCode) : Promise.resolve()).then(() => router.replace("/"));
+    void (joinCode ? savePendingJoin(joinCode) : Promise.resolve()).then(() => {
+      if (!cancelled) router.replace("/");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [code]);
 
   return (

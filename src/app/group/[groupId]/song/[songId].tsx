@@ -21,6 +21,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
@@ -91,29 +92,6 @@ function NumberField({ label, value, onChange, testID }: { label: string; value:
       compact
       inset
     />
-  );
-}
-
-function InsertSectionGap({ after, onPress }: { after: number; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.insertGap}>
-      <View style={[styles.insertLine, { backgroundColor: theme.border }]} />
-      <Pressable
-        role="button"
-        aria-label={`Add a Section between Sections ${after} and ${after + 1}`}
-        testID={`insert-section-${after}`}
-        hitSlop={8}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.insertButton,
-          { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border },
-        ]}
-      >
-        <Icon name="add" size={16} color="accent" />
-      </Pressable>
-      <View style={[styles.insertLine, { backgroundColor: theme.border }]} />
-    </View>
   );
 }
 
@@ -445,9 +423,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   group: { gap: Spacing.three },
-  insertGap: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginVertical: -Spacing.two },
-  insertLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  insertButton: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   trashGap: { width: Spacing.three },

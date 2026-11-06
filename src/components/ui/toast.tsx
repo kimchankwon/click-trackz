@@ -9,17 +9,21 @@ import { useTheme } from "@/hooks/use-theme";
 
 const SHOWN_MS = 2_400;
 
+export type ToastTone = "success" | "error";
+
+type ToastMessage = { text: string; id: number; tone: ToastTone };
+
 export function useToast() {
-  const [message, setMessage] = useState<{ text: string; id: number } | null>(null);
+  const [message, setMessage] = useState<ToastMessage | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  const show = useCallback((text: string) => {
+  const show = useCallback((text: string, tone: ToastTone = "success") => {
     if (timer.current) clearTimeout(timer.current);
-    setMessage({ text, id: Date.now() });
+    setMessage({ text, id: Date.now(), tone });
     if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibilityWithOptions(text, { queue: true });
     timer.current = setTimeout(() => setMessage(null), SHOWN_MS);
   }, []);
@@ -27,7 +31,7 @@ export function useToast() {
   return { message, show };
 }
 
-export function Toast({ message, bottom }: { message: { text: string; id: number } | null; bottom: number }) {
+export function Toast({ message, bottom }: { message: ToastMessage | null; bottom: number }) {
   const theme = useTheme();
   return (
     <View pointerEvents="none" style={[styles.layer, { bottom }]}>
@@ -41,7 +45,7 @@ export function Toast({ message, bottom }: { message: { text: string; id: number
           testID="toast"
           style={[styles.toast, { backgroundColor: theme.inverse }]}
         >
-          <Icon name="check" size={18} color="onInverse" />
+          <Icon name={message.tone === "error" ? "warning" : "check"} size={18} color="onInverse" />
           <ThemedText type="smallBold" themeColor="onInverse">
             {message.text}
           </ThemedText>
