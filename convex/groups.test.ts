@@ -49,7 +49,7 @@ describe("Groups", () => {
     await expect(guest.client.mutation(api.groups.joinGroup, { joinCode: "ZZZZZZ", displayName: "J" })).rejects.toThrow(/No Group/);
   });
 
-  it("lets Admins promote signed-in Members, never guests, and never strands the Group without an Admin", async () => {
+  it("lets Admins promote signed-in Members, never guests, and never change their own role", async () => {
     const { as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });
     const { groupId, joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
@@ -60,11 +60,12 @@ describe("Groups", () => {
 
     await expect(joanne.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "admin" })).rejects.toThrow(/Only Admins/);
     await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "admin" })).rejects.toThrow(/Admins must sign in with Google first/);
-    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" })).rejects.toThrow(/last Admin/);
+    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" })).rejects.toThrow(/your own role/);
     await expect(daniel.client.mutation(api.groups.leaveGroup, { groupId })).rejects.toThrow(/last Admin/);
 
     await daniel.client.mutation(api.groups.setRole, { groupId, userId: joanne.userId, role: "admin" });
-    await daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" });
+    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" })).rejects.toThrow(/your own role/);
+    await joanne.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" });
     const roles = (await joanne.client.query(api.groups.members, { groupId })).map((m) => [m.displayName, m.role]);
     expect(roles).toEqual([
       ["Daniel", "member"],
@@ -73,5 +74,28 @@ describe("Groups", () => {
     ]);
     await guest.client.mutation(api.groups.leaveGroup, { groupId });
     await expect(guest.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
+  });
+
+  it("lets an Admin remove another Member, who then loses access", async () => {
+    const { as } = await setup();
+    const admin = await as({ email: "admin@example.com" });
+    const { groupId, joinCode } = await admin.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
+    const jason = await as({ isAnonymous: true });
+    await jason.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jason" });
+    await jason.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    await admin.client.mutation(api.groups.removeMember, { groupId, userId: jason.userId });
+    expect(await admin.client.query(api.groups.members, { groupId })).toEqual([expect.objectContaining({ displayName: "Admin" })]);
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([]);
+    await expect(jason.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
+  });
+
+  it("only lets Admins remove people, and not themselves", async () => {
+    const { as } = await setup();
+    const admin = await as({ email: "admin@example.com" });
+    const { groupId, joinCode } = await admin.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
+    const jason = await as({ isAnonymous: true });
+    await jason.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jason" });
+    await expect(jason.client.mutation(api.groups.removeMember, { groupId, userId: admin.userId })).rejects.toThrow(/Only Admins/);
+    await expect(admin.client.mutation(api.groups.removeMember, { groupId, userId: admin.userId })).rejects.toThrow(/Leave Group/);
   });
 });

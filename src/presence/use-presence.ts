@@ -11,7 +11,7 @@ const REFRESH_MS = 5_000;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
+export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, roundTripMs: number | null) {
   const heartbeat = useMutation(api.presence.heartbeat);
   const leave = useMutation(api.presence.leave);
   const [screenId] = useState(newScreenId);
@@ -19,6 +19,11 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
   const [active, setActive] = useState(AppState.currentState === "active");
   const visible = focused && active;
   const onPlayRef = useRef(onPlay);
+  const pingRef = useRef(roundTripMs);
+
+  useEffect(() => {
+    pingRef.current = roundTripMs;
+  }, [roundTripMs]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
@@ -27,12 +32,15 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
 
   useEffect(() => {
     onPlayRef.current = onPlay;
-    if (visible) void heartbeat({ groupId, screenId, onPlay }).catch(() => undefined);
+    if (visible) void heartbeat({ groupId, screenId, onPlay, roundTripMs: pingRef.current ?? undefined }).catch(() => undefined);
   }, [groupId, screenId, onPlay, visible, heartbeat]);
 
   useEffect(() => {
     if (!visible) return;
-    const timer = setInterval(() => void heartbeat({ groupId, screenId, onPlay: onPlayRef.current }).catch(() => undefined), HEARTBEAT_MS);
+    const timer = setInterval(
+      () => void heartbeat({ groupId, screenId, onPlay: onPlayRef.current, roundTripMs: pingRef.current ?? undefined }).catch(() => undefined),
+      HEARTBEAT_MS,
+    );
     return () => {
       clearInterval(timer);
       void leave({ groupId, screenId }).catch(() => undefined);

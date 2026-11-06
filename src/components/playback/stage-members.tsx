@@ -5,10 +5,11 @@ import Animated, { Easing, LinearTransition, useAnimatedStyle, useSharedValue, w
 import { DISC } from "@/components/playback/beat-pulse";
 import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
+import { SignalBars } from "@/components/ui/signal-bars";
 import { useTheme } from "@/hooks/use-theme";
 import type { Beat } from "@/sync/timeline";
 
-export type StageMember = { userId: string; name: string; position: number };
+export type StageMember = { userId: string; name: string; position: number; pingMs: number | null };
 
 const AVATAR = 32;
 const RING = 2.5;
@@ -48,6 +49,11 @@ function Column({ members, pulse }: { members: readonly StageMember[]; pulse: Re
           <Animated.View style={[styles.ring, { borderColor: theme.switchOn }, pulse]}>
             <Avatar name={member.name} size={AVATAR} position={member.position} />
           </Animated.View>
+          {member.pingMs !== null ? (
+            <View style={[styles.ping, { backgroundColor: theme.background }]}>
+              <SignalBars roundTripMs={member.pingMs} size={9} testID={`stage-ping-${member.name}`} />
+            </View>
+          ) : null}
         </Animated.View>
       ))}
       {extra > 0 ? (
@@ -96,4 +102,5 @@ const styles = StyleSheet.create({
   ring: { borderWidth: RING, borderRadius: AVATAR, padding: 1 },
   more: { width: AVATAR + RING * 2 + 2, height: AVATAR + RING * 2 + 2, alignItems: "center", justifyContent: "center" },
   moreText: { fontSize: 12, fontWeight: 700 },
+  ping: { position: "absolute", right: -6, bottom: -4, paddingHorizontal: 3, paddingVertical: 2, borderRadius: 6 },
 });

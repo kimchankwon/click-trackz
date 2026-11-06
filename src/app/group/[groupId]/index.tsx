@@ -28,18 +28,20 @@ import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
+import { SignalBars } from "@/components/ui/signal-bars";
 import { Switch } from "@/components/ui/switch";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { neighbourSong } from "@/lib/song-order";
-import { countOnPlay, memberPresence } from "@/presence/online";
+import { countOnPlay, memberPing, memberPresence } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { beatsBetween, playbackEndsAt, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
+import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -83,8 +85,6 @@ function songFactsFor(song: LoadedSong | null | undefined, fromSection: number) 
 const emptySong: Song = { countIn: false, sections: [] };
 
 const MIX_TEXT_INSET = 38;
-const WEAK_PING_MS = 80;
-const BAD_PING_MS = 150;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -170,7 +170,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
-  useHeartbeat(groupId, tab === "play");
+  useHeartbeat(groupId, tab === "play", estimate?.roundTripMs ?? null);
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
@@ -359,7 +359,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
     pickedSection !== null && startSong ? `${titleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
 
   const onlineMembers: StageMember[] = (members ?? [])
-    .map((member, position) => ({ userId: member.userId, name: member.displayName, position }))
+    .map((member, position) => ({
+      userId: member.userId,
+      name: member.displayName,
+      position,
+      pingMs: isAdmin ? memberPing(presence.rows, member.userId, presence.nowMs) : null,
+    }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
 
@@ -372,11 +377,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       backTestID="groups-back"
       right={
         <View style={styles.pill}>
-          <Icon
-            name="ping"
-            size={12}
-            color={!estimate ? "textTertiary" : estimate.roundTripMs > BAD_PING_MS ? "danger" : estimate.roundTripMs > WEAK_PING_MS ? "warning" : "textTertiary"}
-          />
+          <SignalBars roundTripMs={estimate?.roundTripMs ?? null} />
           <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" style={styles.pillText}>
             {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " · weak" : ""}` : "Measuring…"}
           </ThemedText>
@@ -628,7 +629,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const groupTab = (
     <>
-      <MembersCard groupId={groupId} isAdmin={isAdmin} run={run} presence={presence} />
+      <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} run={run} presence={presence} />
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton

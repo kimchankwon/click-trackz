@@ -25,6 +25,7 @@ export default defineSchema({
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("member")),
     displayName: v.string(),
+    lastSeenAt: v.optional(v.number()),
   })
     .index("by_group", ["groupId"])
     .index("by_user", ["userId"])
@@ -75,6 +76,7 @@ export default defineSchema({
     userId: v.id("users"),
     screenId: v.string(),
     onPlay: v.boolean(),
+    roundTripMs: v.optional(v.number()),
     seenAt: v.number(),
   })
     .index("by_group", ["groupId"])

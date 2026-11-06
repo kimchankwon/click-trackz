@@ -1,0 +1,62 @@
+import { Modal, Pressable, StyleSheet, View } from "react-native";
+
+import { ActionButton } from "@/components/action-button";
+import { ThemedText } from "@/components/themed-text";
+import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+
+export function ConfirmDialog({
+  visible,
+  title,
+  message,
+  confirmLabel,
+  pending,
+  onConfirm,
+  onCancel,
+  testID,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  pending?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  testID?: string;
+}) {
+  const theme = useTheme();
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.layer}>
+        <Pressable aria-label="Cancel" style={[StyleSheet.absoluteFill, styles.scrim]} onPress={onCancel} />
+        <View role="alertdialog" aria-modal aria-label={title} testID={testID} style={[styles.dialog, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="subtitle" style={styles.title}>
+            {title}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {message}
+          </ThemedText>
+          <View style={styles.actions}>
+            <ActionButton full label="Cancel" testID={testID ? `${testID}-cancel` : undefined} onPress={onCancel} />
+            <ActionButton
+              full
+              accent
+              label={confirmLabel}
+              testID={testID ? `${testID}-confirm` : undefined}
+              pending={pending}
+              onPress={onConfirm}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  layer: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.four },
+  scrim: { backgroundColor: "rgba(0, 0, 0, 0.5)" },
+  dialog: { width: "100%", maxWidth: MaxContentWidth * 0.7, gap: Spacing.three, padding: Spacing.four, borderRadius: Radius.lg },
+  title: { fontSize: 22, lineHeight: 28 },
+  actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
+});
