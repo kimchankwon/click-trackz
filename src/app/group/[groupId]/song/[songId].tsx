@@ -9,6 +9,7 @@ import { Divider } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -273,6 +274,23 @@ function SongForm({
   const sections = rows.map((row) => row.section);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const confirmDelete = async () => {
+    if (deletePending) return;
+    setDeleteError(null);
+    setDeletePending(true);
+    try {
+      await deleteSong({ songId });
+      setConfirmingDelete(false);
+      router.back();
+    } catch (error) {
+      setDeleteError(errorText(error));
+    } finally {
+      setDeletePending(false);
+    }
+  };
   const toast = useToast();
 
   const run = (action: () => Promise<unknown>) => {
@@ -366,12 +384,10 @@ function SongForm({
             icon="trash"
             label="Delete Song"
             testID="delete-song"
-            onPress={() =>
-              run(async () => {
-                router.back();
-                await deleteSong({ songId });
-              })
-            }
+            onPress={() => {
+              setDeleteError(null);
+              setConfirmingDelete(true);
+            }}
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
@@ -387,6 +403,17 @@ function SongForm({
             onPress={save}
           />
         </View>
+        <ConfirmDialog
+          visible={confirmingDelete}
+          title={`Delete ${song.title}?`}
+          message="This Song and its Sections will be deleted for everyone in the Group, and it will drop out of any Setlists. If it is playing, Playback stops."
+          confirmLabel="Delete"
+          pending={deletePending}
+          error={deleteError}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setConfirmingDelete(false)}
+          testID="delete-song-dialog"
+        />
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
     </ThemedView>

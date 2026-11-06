@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -77,6 +78,23 @@ function SetlistForm({
   };
   const [message, setMessage] = useState<string | null>(null);
   const [showAdded, setShowAdded] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const confirmDelete = async () => {
+    if (deletePending) return;
+    setDeleteError(null);
+    setDeletePending(true);
+    try {
+      await deleteSetlist({ setlistId });
+      setConfirmingDelete(false);
+      router.back();
+    } catch (error) {
+      setDeleteError(errorText(error));
+    } finally {
+      setDeletePending(false);
+    }
+  };
   const addedCount = songs.filter((song) => entries.some((entry) => entry.songId === song.songId)).length;
   const librarySongs = showAdded ? songs : songs.filter((song) => !entries.some((entry) => entry.songId === song.songId));
 
@@ -273,12 +291,10 @@ function SetlistForm({
             label="Delete Setlist"
             accessibleName="Delete"
             testID="delete-setlist"
-            onPress={() =>
-              run(async () => {
-                await deleteSetlist({ setlistId });
-                router.back();
-              })
-            }
+            onPress={() => {
+              setDeleteError(null);
+              setConfirmingDelete(true);
+            }}
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
@@ -295,6 +311,17 @@ function SetlistForm({
           />
         </View>
       </SafeAreaView>
+      <ConfirmDialog
+        visible={confirmingDelete}
+        title={`Delete ${live.name}?`}
+        message="This Setlist will be deleted for everyone in the Group. Its Songs stay in the Song library."
+        confirmLabel="Delete"
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setConfirmingDelete(false)}
+        testID="delete-setlist-dialog"
+      />
     </ThemedView>
   );
 }

@@ -8,9 +8,11 @@ import { Chip } from "@/components/group/chip";
 import { SongRow } from "@/components/group/song-row";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { errorText } from "@/lib/error-text";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -29,6 +31,10 @@ export function SetlistCard({
 }) {
   const setlists = useQuery(api.setlists.list, { groupId });
   const createSetlist = useMutation(api.setlists.createSetlist);
+  const deleteSetlist = useMutation(api.setlists.deleteSetlist);
+  const [deleting, setDeleting] = useState<{ setlistId: Id<"setlists">; name: string } | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const theme = useTheme();
   const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
   const current = setlists?.find((s) => s.isCurrent) ?? null;
@@ -38,6 +44,21 @@ export function SetlistCard({
   const entries = setlist?.entries ?? [];
   const allNeedSections = entries.length > 0 && entries.every((entry) => entry.needsStructure);
   const someNeedSections = entries.some((entry) => entry.needsStructure);
+  const confirmDelete = async () => {
+    const target = deleting;
+    if (!target || deletePending) return;
+    setDeleteError(null);
+    setDeletePending(true);
+    try {
+      await deleteSetlist({ setlistId: target.setlistId });
+      setShownId(null);
+      setDeleting((current) => (current === target ? null : current));
+    } catch (error) {
+      setDeleteError(errorText(error));
+    } finally {
+      setDeletePending(false);
+    }
+  };
   const createAndOpen = () =>
     run(async () => {
       const setlistId = await createSetlist({ groupId, name: "New Setlist" });
@@ -72,6 +93,20 @@ export function SetlistCard({
               />
             ) : null}
             <ActionButton small variant="pill" icon="add" label="New" accessibleName="New Setlist" testID="new-setlist" onPress={createAndOpen} />
+            {shown ? (
+              <ActionButton
+                small
+                variant="pill"
+                icon="trash"
+                label="Delete"
+                accessibleName="Delete this Setlist"
+                testID="delete-shown-setlist"
+                onPress={() => {
+                  setDeleteError(null);
+                  setDeleting({ setlistId: shown.setlistId, name: shown.name });
+                }}
+              />
+            ) : null}
           </View>
         ) : null
       }
@@ -127,6 +162,17 @@ export function SetlistCard({
           ))}
         </View>
       )}
+      <ConfirmDialog
+        visible={deleting !== null}
+        title={`Delete ${deleting?.name ?? ""}?`}
+        message="This Setlist will be deleted for everyone in the Group. Its Songs stay in the Song library."
+        confirmLabel="Delete"
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleting(null)}
+        testID="delete-setlist-dialog"
+      />
     </Card>
   );
 }

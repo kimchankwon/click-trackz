@@ -632,7 +632,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const groupTab = (
     <>
-      <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} run={run} presence={presence} />
+      <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
       {isAdmin ? <VoicePackCard groupId={groupId} run={run} canPreview={soundOn} onPreview={(key) => engine.current?.previewUpload(key)} /> : null}
       <View style={styles.leave}>
         <ActionButton
