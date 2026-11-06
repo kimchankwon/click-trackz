@@ -47,6 +47,19 @@ describe("Presence", () => {
     expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: admin.userId, onPlay: false })]);
   });
 
+  it("lets a screen say it closed after its Member already left the Group", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: true });
+    await member.client.mutation(api.groups.leaveGroup, { groupId });
+    await expect(member.client.mutation(api.presence.leave, { groupId, screenId: "s1" })).resolves.toBeNull();
+    expect(await admin.client.query(api.presence.list, { groupId })).toEqual([]);
+  });
+
+  it("still refuses a screen leaving when nobody is signed in", async () => {
+    const { t, groupId } = await setupGroup();
+    await expect(t.mutation(api.presence.leave, { groupId, screenId: "s1" })).rejects.toThrow("Sign in first");
+  });
+
   it("keeps one row per open screen, so one device leaving does not hide another", async () => {
     const { admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
