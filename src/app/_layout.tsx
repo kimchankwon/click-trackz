@@ -1,6 +1,7 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type ErrorBoundaryProps } from "expo-router";
 import { Pressable, StyleSheet, useColorScheme, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { claimReturnedGoogleCode } from "@/auth/pending-google";
 import { ThemedText } from "@/components/themed-text";
@@ -15,13 +16,15 @@ import { AccentSync } from "@/theme/accent-sync";
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
-    <ConvexAuthProvider client={convex} storage={authStorage} shouldHandleCode={claimReturnedGoogleCode}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <AccentSync />
-        <Stack screenOptions={{ headerShown: false }} />
-        <UpdateBanner />
-      </ThemeProvider>
-    </ConvexAuthProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ConvexAuthProvider client={convex} storage={authStorage} shouldHandleCode={claimReturnedGoogleCode}>
+        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+          <AccentSync />
+          <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: false }} />
+          <UpdateBanner />
+        </ThemeProvider>
+      </ConvexAuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -50,6 +53,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   container: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
   button: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Spacing.three },
 });

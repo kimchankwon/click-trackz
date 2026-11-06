@@ -14,7 +14,7 @@ export default function GroupLayout() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   if (isLoading) return <ThemedView style={styles.container} />;
   if (!isAuthenticated) return <Redirect href="/" />;
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: false }} />;
 }
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {

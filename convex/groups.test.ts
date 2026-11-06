@@ -99,3 +99,30 @@ describe("Groups", () => {
     await expect(admin.client.mutation(api.groups.removeMember, { groupId, userId: admin.userId })).rejects.toThrow(/Leave Group/);
   });
 });
+
+describe("Your name in a Group", () => {
+  it("lets a Member change only their own name, in that Group only", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const guest = await as({ isAnonymous: true });
+    const { groupId, joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    const other = await daniel.client.mutation(api.groups.createGroup, { name: "Choir", displayName: "Daniel" });
+    await guest.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jisue" });
+
+    await guest.client.mutation(api.groups.setDisplayName, { groupId, displayName: "  Jisue K  " });
+    await daniel.client.mutation(api.groups.setDisplayName, { groupId, displayName: "Dan" });
+
+    const names = (await daniel.client.query(api.groups.members, { groupId })).map((m) => m.displayName).sort();
+    expect(names).toEqual(["Dan", "Jisue K"]);
+    expect((await daniel.client.query(api.groups.members, { groupId: other.groupId })).map((m) => m.displayName)).toEqual(["Daniel"]);
+  });
+
+  it("refuses an empty name and anyone outside the Group", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const stranger = await as({ isAnonymous: true });
+    const { groupId } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    await expect(daniel.client.mutation(api.groups.setDisplayName, { groupId, displayName: "   " })).rejects.toThrow(/1 to 40 characters/);
+    await expect(stranger.client.mutation(api.groups.setDisplayName, { groupId, displayName: "Sneaky" })).rejects.toThrow(/not in this Group/);
+  });
+});

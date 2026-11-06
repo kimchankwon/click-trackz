@@ -21,6 +21,7 @@ import type * as recordings from "../recordings.js";
 import type * as seed from "../seed.js";
 import type * as setlists from "../setlists.js";
 import type * as songs from "../songs.js";
+import type * as sound from "../sound.js";
 import type * as users from "../users.js";
 import type * as vocabulary from "../vocabulary.js";
 
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   setlists: typeof setlists;
   songs: typeof songs;
+  sound: typeof sound;
   users: typeof users;
   vocabulary: typeof vocabulary;
 }>;

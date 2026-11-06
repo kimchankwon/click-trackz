@@ -47,6 +47,7 @@ const symbols = {
   nextSong: { ios: "forward.end.fill", material: "skip_next" },
   copy: { ios: "doc.on.doc", material: "content_copy" },
   share: { ios: "square.and.arrow.up", material: "share" },
+  settings: { ios: "gearshape.fill", material: "settings" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

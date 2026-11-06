@@ -53,3 +53,24 @@ describe("Colour theme on the profile", () => {
     await expect(t.mutation(api.users.setAccent, { accent: "red" })).rejects.toThrow(/Sign in to save your colour/);
   });
 });
+
+describe("Sound settings on the account", () => {
+  const sound = { clickVolume: 0.5, voiceVolume: 0.7, speaker: "alice", click: true, voiceCues: false, spokenCounts: true };
+
+  it("starts empty and keeps what a guest or a signed-in user saves", async () => {
+    const { as } = await setup();
+    for (const profile of [{ email: "daniel@example.com" }, { isAnonymous: true }]) {
+      const person = await as(profile);
+      expect(await person.client.query(api.users.viewer, {})).toEqual(expect.objectContaining({ sound: null }));
+      await person.client.mutation(api.users.setSound, { sound });
+      expect(await person.client.query(api.users.viewer, {})).toEqual(expect.objectContaining({ sound }));
+    }
+  });
+
+  it("keeps volumes between 0 and 1", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    await daniel.client.mutation(api.users.setSound, { sound: { ...sound, clickVolume: 3, voiceVolume: -1 } });
+    expect((await daniel.client.query(api.users.viewer, {}))?.sound).toEqual(expect.objectContaining({ clickVolume: 1, voiceVolume: 0 }));
+  });
+});

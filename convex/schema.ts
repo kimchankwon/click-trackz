@@ -2,6 +2,8 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { soundFields } from "./sound";
+
 export const sectionFields = v.object({
   sectionType: v.string(),
   number: v.optional(v.number()),
@@ -24,6 +26,7 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     accent: v.optional(v.string()),
+    sound: v.optional(soundFields),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
