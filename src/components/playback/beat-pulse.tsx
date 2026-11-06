@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { countFontSize, EM_PER_CHARACTER } from "@/components/playback/count-font";
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -121,12 +122,11 @@ export const DISC = 212;
 const DENSE_FROM = 7;
 const DISC_TEXT_WIDTH = DISC - Spacing.four * 2;
 const COUNT_TEXT_WIDTH = Math.floor(DISC_TEXT_WIDTH / COUNT_SCALE.bar);
-const MAX_COUNT_FONT = 124;
 const MIN_FONT_SCALE = 0.2;
-const WIDTH_PER_FONT_PX = Platform.select({ web: 0.6, default: 0.5 });
+const EM_PER_COUNT_CHARACTER = Platform.select({ web: EM_PER_CHARACTER.web, ios: EM_PER_CHARACTER.ios, default: EM_PER_CHARACTER.android });
 
 function countFontFor(label: string) {
-  const fontSize = Math.min(MAX_COUNT_FONT, Math.floor(COUNT_TEXT_WIDTH / (label.length * WIDTH_PER_FONT_PX)));
+  const fontSize = countFontSize(label, COUNT_TEXT_WIDTH, EM_PER_COUNT_CHARACTER);
   return { fontSize, lineHeight: Math.round(fontSize * 1.1) };
 }
 
