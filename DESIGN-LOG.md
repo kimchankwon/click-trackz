@@ -1,6 +1,6 @@
 # Design log
 
-A loop to raise the app's UI quality. Each round: screenshot the main screens in light and dark, have independent reviewers score Cue Tracker and every app in `design-refs/` from 1 to 10 in six categories, apply the fixes they agree on, and record the result here. The loop ends when every reviewer rates Cue Tracker 9 or more in every category and above every reference app.
+A loop to raise the app's UI quality. Each round: screenshot the main screens in light and dark, have independent reviewers score Click Trackz and every app in `design-refs/` from 1 to 10 in six categories, apply the fixes they agree on, and record the result here. The loop ends when every reviewer rates Click Trackz 9 or more in every category and above every reference app.
 
 Reviewers run read-only and are not told a target score. Rounds 1 and 2 used one Sonnet reviewer; from round 3 the reviewer is Opus at high effort.
 
@@ -21,7 +21,7 @@ Reviewed: `design-shots/round-0/` (the app before this loop). Reviewer: Sonnet.
 
 | App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|
-| **Cue Tracker** | **4** | **5** | **2** | **5** | **5** | **5** |
+| **Click Trackz** | **4** | **5** | **2** | **5** | **5** | **5** |
 | REF-A | 8 | 7 | 7 | 7 | 8 | 8 |
 | REF-B | 7 | 6 | 7 | 7 | 7 | 8 |
 | REF-C | 8 | 7 | 7 | 9 | 8 | 8 |
@@ -59,7 +59,7 @@ Reviewed: `design-shots/round-1/`. Reviewer: Sonnet.
 
 | App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|
-| **Cue Tracker** | **6** | **7** | **6** | **6** | **7** | **7** |
+| **Click Trackz** | **6** | **7** | **6** | **6** | **7** | **7** |
 | REF-A | 8 | 8 | 7 | 7 | 7 | 7 |
 | REF-B | 7 | 6 | 6 | 6 | 6 | 7 |
 | REF-C | 8 | 7 | 7 | 8 | 8 | 8 |
@@ -94,7 +94,7 @@ Reviewed: `design-shots/round-2/`. Reviewer: Opus, high effort (stricter than th
 
 | App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|
-| **Cue Tracker** | **6** | **7** | **7** | **7** | **6** | **6** |
+| **Click Trackz** | **6** | **7** | **7** | **7** | **6** | **6** |
 | REF-A | 7 | 7 | 6 | 7 | 6 | 7 |
 | REF-B | 7 | 5 | 5 | 6 | 7 | 6 |
 | REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
@@ -133,7 +133,7 @@ Reviewed: `design-shots/round-3/`. Reviewer: Opus, high effort.
 
 | App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|
-| **Cue Tracker** | **7** | **7** | **6** | **6** | **6** | **6** |
+| **Click Trackz** | **7** | **7** | **6** | **6** | **6** | **6** |
 | REF-A | 7 | 6 | 6 | 8 | 5 | 7 |
 | REF-B | 7 | 5 | 6 | 6 | 7 | 7 |
 | REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
@@ -174,7 +174,7 @@ Reviewed: `design-shots/round-4/`. Reviewer: Opus, high effort.
 
 | App | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|
-| **Cue Tracker** | **7** | **7** | **6** | **6** | **7** | **6** |
+| **Click Trackz** | **7** | **7** | **6** | **6** | **7** | **6** |
 | REF-A | 8 | 8 | 7 | 8 | 6 | 8 |
 | REF-B | 7 | 5 | 6 | 6 | 7 | 6 |
 | REF-C | 8 | 7 | 7 | 7 | 8 | 8 |
@@ -216,9 +216,9 @@ Reviewed: `design-shots/round-5/`. Reviewers: three Opus reviewers at high effor
 
 | App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|---|
-| **Cue Tracker** | 1 | **7** | **8** | **6** | **7** | **6** | **7** |
-| **Cue Tracker** | 2 | **7** | **7** | **7** | **6** | **7** | **6** |
-| **Cue Tracker** | 3 | **7** | **7** | **7** | **6** | **6** | **7** |
+| **Click Trackz** | 1 | **7** | **8** | **6** | **7** | **6** | **7** |
+| **Click Trackz** | 2 | **7** | **7** | **7** | **6** | **7** | **6** |
+| **Click Trackz** | 3 | **7** | **7** | **7** | **6** | **6** | **7** |
 | REF-A | 1 / 2 / 3 | 7 / 7 / 8 | 6 / 6 / 8 | 6 / 7 / 7 | 7 / 7 / 8 | 5 / 6 / 7 | 7 / 8 / 8 |
 | REF-B | 1 / 2 / 3 | 7 / 7 / 7 | 5 / 5 / 5 | 6 / 6 / 7 | 5 / 6 / 6 | 7 / 8 / 7 | 7 / 7 / 8 |
 | REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 8 / 7 / 8 | 8 / 7 / 8 | 8 / 8 / 8 |
@@ -255,9 +255,9 @@ Reviewed: `design-shots/round-6/`. Reviewers: three Opus reviewers at high effor
 
 | App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|---|
-| **Cue Tracker** | 1 | **7** | **8** | **7** | **7** | **7** | **7** |
-| **Cue Tracker** | 2 | **7** | **7** | **7** | **7** | **7** | **6** |
-| **Cue Tracker** | 3 | **7** | **7** | **7** | **6** | **7** | **6** |
+| **Click Trackz** | 1 | **7** | **8** | **7** | **7** | **7** | **7** |
+| **Click Trackz** | 2 | **7** | **7** | **7** | **7** | **7** | **6** |
+| **Click Trackz** | 3 | **7** | **7** | **7** | **6** | **7** | **6** |
 | REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 7 / 6 / 6 | 5 / 7 / 6 | 7 / 7 / 7 | 5 / 6 / 6 | 7 / 7 / 7 |
 | REF-B | 1 / 2 / 3 | 6 / 6 / 6 | 4 / 5 / 5 | 6 / 6 / 6 | 5 / 7 / 6 | 7 / 7 / 7 | 5 / 6 / 7 |
 | REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 7 / 8 / 7 | 8 / 8 / 8 | 8 / 8 / 8 |
@@ -288,9 +288,9 @@ Reviewed: `design-shots/round-7/`. Reviewers: three Opus reviewers at high effor
 
 | App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|---|
-| **Cue Tracker** | 1 | **8** | **7** | **7** | **7** | **7** | **7** |
-| **Cue Tracker** | 2 | **7** | **7** | **7** | **8** | **7** | **6** |
-| **Cue Tracker** | 3 | **7** | **7** | **7** | **8** | **6** | **6** |
+| **Click Trackz** | 1 | **8** | **7** | **7** | **7** | **7** | **7** |
+| **Click Trackz** | 2 | **7** | **7** | **7** | **8** | **7** | **6** |
+| **Click Trackz** | 3 | **7** | **7** | **7** | **8** | **6** | **6** |
 | REF-A | 1 / 2 / 3 | 7 / 7 / 6 | 7 / 6 / 6 | 6 / 6 / 6 | 7 / 7 / 7 | 5 / 5 / 5 | 7 / 7 / 7 |
 | REF-B | 1 / 2 / 3 | 6 / 6 / 7 | 4 / 4 / 5 | 6 / 5 / 6 | 7 / 6 / 6 | 7 / 6 / 7 | 5 / 5 / 7 |
 | REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 7 | 8 / 7 / 7 | 7 / 8 / 7 | 8 / 8 / 8 |
@@ -324,9 +324,9 @@ Reviewed: `design-shots/round-8/`. Reviewers: three Opus reviewers at high effor
 
 | App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|---|
-| **Cue Tracker** | 1 | **8** | **7** | **7** | **7** | **7** | **6** |
-| **Cue Tracker** | 2 | **8** | **7** | **7** | **7** | **8** | **7** |
-| **Cue Tracker** | 3 | **7** | **7** | **7** | **7** | **7** | **6** |
+| **Click Trackz** | 1 | **8** | **7** | **7** | **7** | **7** | **6** |
+| **Click Trackz** | 2 | **8** | **7** | **7** | **7** | **8** | **7** |
+| **Click Trackz** | 3 | **7** | **7** | **7** | **7** | **7** | **6** |
 | REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 6 / 7 / 6 | 6 / 6 / 7 | 7 / 7 / 7 | 5 / 5 / 6 | 7 / 7 / 8 |
 | REF-B | 1 / 2 / 3 | 6 / 7 / 7 | 5 / 5 / 5 | 6 / 6 / 7 | 7 / 6 / 6 | 7 / 7 / 7 | 6 / 6 / 7 |
 | REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 6 | 8 / 8 / 7 | 8 / 8 / 8 | 8 / 8 / 8 |
@@ -357,9 +357,9 @@ Reviewed: `design-shots/round-9/`. Reviewers: three Opus reviewers at high effor
 
 | App | Reviewer | Hierarchy | Typography | Iconography | Color & contrast | Spacing | Consistency |
 |---|---|---|---|---|---|---|---|
-| **Cue Tracker** | 1 | **8** | **8** | **7** | **7** | **7** | **8** |
-| **Cue Tracker** | 2 | **8** | **7** | **7** | **8** | **7** | **7** |
-| **Cue Tracker** | 3 | **8** | **7** | **7** | **7** | **7** | **7** |
+| **Click Trackz** | 1 | **8** | **8** | **7** | **7** | **7** | **8** |
+| **Click Trackz** | 2 | **8** | **7** | **7** | **8** | **7** | **7** |
+| **Click Trackz** | 3 | **8** | **7** | **7** | **7** | **7** | **7** |
 | REF-A | 1 / 2 / 3 | 7 / 7 / 7 | 6 / 6 / 6 | 6 / 6 / 6 | 7 / 7 / 7 | 5 / 6 / 5 | 8 / 7 / 7 |
 | REF-B | 1 / 2 / 3 | 7 / 7 / 7 | 4 / 5 / 5 | 5 / 6 / 6 | 6 / 6 / 5 | 6 / 7 / 7 | 6 / 5 / 6 |
 | REF-C | 1 / 2 / 3 | 8 / 8 / 8 | 7 / 7 / 7 | 7 / 7 / 6 | 7 / 7 / 7 | 8 / 8 / 7 | 8 / 8 / 7 |
@@ -386,8 +386,8 @@ Not applied: footer inside the scrolling content (not possible while it stays in
 
 ## Where the loop stopped
 
-The loop was planned to run until every reviewer rated Cue Tracker 9 or more in every category and above every reference. After ten rounds no reviewer had given any app a 9, and the panel kept reversing a few choices between rounds (the dark Stop, the next-cue size, empty Key chips, switch colour). The user chose to finish after round 10.
+The loop was planned to run until every reviewer rated Click Trackz 9 or more in every category and above every reference. After ten rounds no reviewer had given any app a 9, and the panel kept reversing a few choices between rounds (the dark Stop, the next-cue size, empty Key chips, switch colour). The user chose to finish after round 10.
 
-Final position (round 10 panel): Cue Tracker scores 7 to 8 in every category from every reviewer. It is at or above REF-A, REF-B and REF-D in every category, and at or above REF-C in hierarchy, typography, iconography and color. REF-C stays one point ahead on spacing for two reviewers and on consistency for one.
+Final position (round 10 panel): Click Trackz scores 7 to 8 in every category from every reviewer. It is at or above REF-A, REF-B and REF-D in every category, and at or above REF-C in hierarchy, typography, iconography and color. REF-C stays one point ahead on spacing for two reviewers and on consistency for one.
 
 `design-shots/final/` pairs each screen before the loop with its round 10 version.

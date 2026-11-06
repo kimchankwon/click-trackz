@@ -14,6 +14,8 @@ export function SongRow({
   needsSections,
   selected,
   selectable,
+  opens,
+  label,
   onSelect,
   trailing,
   testID,
@@ -27,6 +29,8 @@ export function SongRow({
   needsSections?: boolean;
   selected: boolean;
   selectable: boolean;
+  opens?: boolean;
+  label?: string;
   onSelect: () => void;
   trailing?: ReactNode;
   testID?: string;
@@ -34,12 +38,14 @@ export function SongRow({
   divider?: boolean;
 }) {
   const theme = useTheme();
+  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, meta, songKey ? `Key of ${songKey}` : "No Key"].filter(Boolean).join(", ") : undefined;
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
       {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
       <Pressable
-        role={selectable ? "radio" : undefined}
-        aria-checked={selectable ? selected : undefined}
+        role={selectable ? (opens ? "button" : "radio") : undefined}
+        aria-checked={selectable && !opens ? selected : undefined}
+        aria-label={selectable ? spokenLabel : undefined}
         disabled={!selectable}
         testID={testID}
         onPress={onSelect}
@@ -76,7 +82,7 @@ export function SongRow({
         ) : (
           <View style={styles.keyPill} aria-label="No Key" />
         )}
-        {selected && selectable ? <Icon name="check" size={20} color="accent" /> : null}
+        {selected && selectable && !opens ? <Icon name="check" size={20} color="accent" /> : null}
       </Pressable>
       {trailing}
     </View>

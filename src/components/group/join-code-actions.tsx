@@ -3,6 +3,7 @@ import { Platform, Pressable, Share, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
+import type { ToastTone } from "@/components/ui/toast";
 import { Spacing } from "@/constants/theme";
 import { errorText } from "@/lib/error-text";
 import { inviteLink, inviteText } from "@/lib/invite";
@@ -19,12 +20,12 @@ export function JoinCodeActions({
 }: {
   code: string;
   groupName: string;
-  onDone: (message: string) => void;
+  onDone: (message: string, tone?: ToastTone) => void;
 }) {
   const copyCode = () => {
     Clipboard.setStringAsync(code).then(
       () => onDone(`Join code ${code} copied`),
-      (error: unknown) => onDone(errorText(error)),
+      (error: unknown) => onDone(`Could not copy the join code. ${errorText(error)}`, "error"),
     );
   };
 
@@ -33,13 +34,13 @@ export function JoinCodeActions({
     const text = inviteText(groupName);
     try {
       if (Platform.OS !== "web") {
-        await Share.share(Platform.OS === "ios" ? { message: text, url: link } : { message: `${text}: ${link}` });
+        await Share.share({ message: `${text}: ${link}` });
         return;
       }
       const browser = navigator as WebShare;
       if (typeof browser.share === "function") {
         try {
-          await browser.share({ title: "Cue Tracker", text, url: link });
+          await browser.share({ title: "Click Trackz", text, url: link });
           return;
         } catch (error) {
           if (isCancelledShare(error)) return;
@@ -48,7 +49,7 @@ export function JoinCodeActions({
       await Clipboard.setStringAsync(link);
       onDone("Invite link copied");
     } catch (error) {
-      if (!isCancelledShare(error)) onDone(errorText(error));
+      if (!isCancelledShare(error)) onDone(`Could not share the invite. ${errorText(error)}`, "error");
     }
   };
 

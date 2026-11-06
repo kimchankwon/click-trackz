@@ -42,7 +42,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## This project
 
-Cue Tracker: every Member of a Group hears the same Click, Count and Voice cue on their own device, started by an Admin.
+Click Trackz: every Member of a Group hears the same Click, Count and Voice cue on their own device, started by an Admin.
 
 - Read `CONTEXT.md` before naming anything. Use its terms exactly (Member, not user; Section type, not label; Lead-in vs Count-in).
 - Read `docs/adr/` before touching sync, audio or the backend region.

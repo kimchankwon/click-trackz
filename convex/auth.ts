@@ -23,12 +23,16 @@ const DevLogin = ConvexCredentials<DataModel>({
   },
 });
 
+const APP_SCHEME = "clicktrackz://";
+const SCHEME_OF_BUILDS_BEFORE_RENAME = "cuetracker://";
+
 const allowedRedirect = (redirectTo: string) => {
   const siteUrl = process.env.SITE_URL;
   return (
     (siteUrl !== undefined && (redirectTo === siteUrl || redirectTo.startsWith(`${siteUrl}/`))) ||
     /^http:\/\/localhost(:\d+)?(\/|$|\?)/.test(redirectTo) ||
-    redirectTo.startsWith("cuetracker://") ||
+    redirectTo.startsWith(APP_SCHEME) ||
+    redirectTo.startsWith(SCHEME_OF_BUILDS_BEFORE_RENAME) ||
     /^exp:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?([/?]|$)/.test(redirectTo)
   );
 };

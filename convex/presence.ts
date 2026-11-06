@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
-import { isGuest, requireMember } from "./access";
+import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const MAX_ROUND_TRIP_MS = 60_000;
@@ -42,7 +42,9 @@ export const heartbeat = mutation({
 export const leave = mutation({
   args: { groupId: v.id("groups"), screenId: v.string() },
   handler: async (ctx, { groupId, screenId }) => {
-    const { user, membership } = await requireMember(ctx, groupId);
+    const user = await requireUser(ctx);
+    const membership = await membershipOf(ctx, groupId, user._id);
+    if (membership === null) return;
     await ctx.db.patch(membership._id, { lastSeenAt: Date.now() });
     const existing = await screenPresence(ctx, groupId, user._id, screenId);
     if (existing) await ctx.db.delete(existing._id);

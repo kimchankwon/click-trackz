@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 import { claimReturnedCode, type PendingGoogleSignIn } from "./google-return";
 
-const KEY = "cueTracker.pendingGoogleSignIn";
+const KEY = "clickTrackz.pendingGoogleSignIn";
 
 const storage = () => {
   if (Platform.OS !== "web") return null;
