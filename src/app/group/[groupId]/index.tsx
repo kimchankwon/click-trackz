@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from "react";
-import { AppState, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { speakers, type SpeakerId } from "@/audio/builtin-voice-clips";
@@ -200,7 +200,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
     if (soundOn && recordings) void engine.current?.setUploads(recordings);
   }, [recordings, soundOn]);
 
-  useEffect(() => () => engine.current?.dispose(), []);
+  useEffect(
+    () => () => {
+      engine.current?.dispose();
+      engine.current = null;
+      setSoundOn(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -367,7 +374,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
       <Icon name="sound" size={20} color="accent" />
       <ThemedText type="smallBold" style={styles.grow}>
-        {soundBlocked ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
+        {soundBlocked && Platform.OS === "web" ? "Tap anywhere to turn on sound" : "Sound is off on this device"}
       </ThemedText>
       <ActionButton small accent label="Enable" testID={testID} onPress={enableSound} />
     </View>

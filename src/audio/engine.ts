@@ -92,10 +92,12 @@ export class CueAudioEngine {
       this.setVolumes(this.volumes);
     }
     const running = await this.resume();
-    if (speaker !== null) await this.setSpeaker(speaker);
-    if (this.disposed || this.context === null) return false;
-    if (this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
-    return running;
+    try {
+      if (speaker !== null) await this.setSpeaker(speaker);
+    } finally {
+      if (!this.disposed && this.context !== null && this.timer === null) this.timer = setInterval(() => this.tick(), TICK_MS);
+    }
+    return !this.disposed && this.context !== null && running;
   }
 
   async resume(): Promise<boolean> {

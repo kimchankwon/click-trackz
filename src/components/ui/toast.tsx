@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Platform, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
@@ -20,6 +20,7 @@ export function useToast() {
   const show = useCallback((text: string) => {
     if (timer.current) clearTimeout(timer.current);
     setMessage({ text, id: Date.now() });
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibilityWithOptions(text, { queue: true });
     timer.current = setTimeout(() => setMessage(null), SHOWN_MS);
   }, []);
 
