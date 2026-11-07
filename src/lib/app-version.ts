@@ -13,7 +13,13 @@ export async function newerVersionIsLive(): Promise<boolean> {
 }
 
 export function reloadApp() {
-  Updates.reloadAsync().catch(() => undefined);
+  void (async () => {
+    try {
+      await Updates.reloadAsync();
+    } catch {
+      return;
+    }
+  })();
 }
 
 export function canReloadForStaleApp(): boolean {

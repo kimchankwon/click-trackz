@@ -55,4 +55,11 @@ describe("newerVersionIsLive on a phone", () => {
     expect(updates.reloadAsync).toHaveBeenCalledOnce();
     await Promise.resolve();
   });
+
+  it("ignores a restart that throws straight away", () => {
+    updates.reloadAsync.mockImplementation(() => {
+      throw new Error("disabled");
+    });
+    expect(() => reloadApp()).not.toThrow();
+  });
 });
