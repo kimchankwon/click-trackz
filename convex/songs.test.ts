@@ -51,6 +51,19 @@ describe("Songs", () => {
     await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
   });
 
+  it("plays every Section at the Song tempo unless it has its own tempo", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Send Me Out" });
+    const bridge = { sectionType: "Bridge", bars: 8, beatsPerBar: 4, bpm: 70, ownTempo: true };
+    await admin.mutation(api.songs.updateSong, { songId, bpm: 140, sections: [verse, bridge] });
+    expect(await member.query(api.songs.get, { songId })).toMatchObject({ bpm: 140, sections: [{ ...verse, bpm: 140 }, bridge] });
+
+    await admin.mutation(api.songs.updateSong, { songId, bpm: 144 });
+    expect((await member.query(api.songs.get, { songId }))?.sections.map((s) => s.bpm)).toEqual([144, 70]);
+
+    await expect(admin.mutation(api.songs.updateSong, { songId, bpm: 301 })).rejects.toThrow(/Song tempo/);
+  });
+
   it("keeps each Section's time signature, such as 6/8", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });

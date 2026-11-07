@@ -23,13 +23,14 @@ import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
+import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MIN_SAVING_MS = 400;
 
-type EditableSection = Section & { customLabel?: string };
+type EditableSection = Section & { customLabel?: string; ownTempo?: boolean };
 
 const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
   [2, 4],
@@ -95,8 +96,28 @@ function NumberField({ label, value, onChange, testID }: { label: string; value:
   );
 }
 
+function SongTempoValue({ bpm, testID }: { bpm: number; testID: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.numberField, styles.timeField]}>
+      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+        BPM
+      </ThemedText>
+      <View aria-label={`BPM, ${bpm}, the Song tempo`} testID={testID} style={[styles.timeButton, { borderColor: theme.inputBorder, borderStyle: "dashed" }]}>
+        <ThemedText themeColor="textSecondary" style={styles.timeText}>
+          {bpm}
+        </ThemedText>
+        <ThemedText type="caption" themeColor="textTertiary">
+          Song
+        </ThemedText>
+      </View>
+    </View>
+  );
+}
+
 function SectionRow({
   section,
+  songBpm,
   index,
   count,
   vocabulary,
@@ -106,6 +127,7 @@ function SectionRow({
   onRemove,
 }: {
   section: EditableSection;
+  songBpm: number;
   index: number;
   count: number;
   vocabulary: readonly string[];
@@ -173,7 +195,11 @@ function SectionRow({
       <View style={styles.fields}>
         <NumberField label="Bars" value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
         <TimeSignatureField section={section} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`section-${index}-time`} />
-        <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
+        {section.ownTempo ? (
+          <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
+        ) : (
+          <SongTempoValue bpm={songBpm} testID={`section-${index}-song-bpm`} />
+        )}
       </View>
       {choosingTime ? (
         <View style={styles.wrap} role="radiogroup" aria-label="Time signature">
@@ -224,6 +250,20 @@ function SectionRow({
         </View>
         <View style={styles.numberGroup}>
           <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Own tempo
+          </ThemedText>
+          <View style={styles.switchSlot}>
+            <Switch
+              bare
+              label={`Own tempo for Section ${index + 1}`}
+              testID={`section-${index}-own-tempo`}
+              value={section.ownTempo === true}
+              onChange={(on) => onChange({ ...section, ownTempo: on, bpm: on ? section.bpm : songBpm })}
+            />
+          </View>
+        </View>
+        <View style={styles.numberGroup}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
             Voice cue
           </ThemedText>
           <View style={styles.switchSlot}>
@@ -243,9 +283,12 @@ type LoadedSong = {
   title: string;
   key: string | null;
   tempoHint: { bpm: number; beatsPerBar: number } | null;
+  bpm: number | null;
   countIn: boolean;
   sections: EditableSection[];
 };
+
+const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
 
 export default function SongEditorScreen() {
   const params = useLocalSearchParams<{ groupId: string; songId: string }>();
@@ -275,9 +318,10 @@ function SongForm({
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
-  const [rows, setRows] = useState<SectionRowState[]>(() => song.sections.map((section, id) => ({ id, section })));
+  const [songBpm, setSongBpm] = useState(() => startingBpmOf(song));
+  const [rows, setRows] = useState<SectionRowState[]>(() => markOwnTempos(song.sections, startingBpmOf(song)).map((section, id) => ({ id, section })));
   const [nextRowId, setNextRowId] = useState(song.sections.length);
-  const sections = rows.map((row) => row.section);
+  const sections = withSongTempo(rows.map((row) => row.section), songBpm);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -310,7 +354,7 @@ function SongForm({
   };
 
   const insertSection = (at: number) => {
-    setRows(insertAt(rows, at, { id: nextRowId, section: newSectionAfter(sections[at - 1], song.tempoHint) }));
+    setRows(insertAt(rows, at, { id: nextRowId, section: { ...newSectionAfter(sections[at - 1], song.tempoHint), bpm: songBpm, ownTempo: false } }));
     setNextRowId(nextRowId + 1);
   };
 
@@ -326,7 +370,7 @@ function SongForm({
     run(async () => {
       setSaving(true);
       try {
-        await Promise.all([updateSong({ songId, title, key: songKey, countIn, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
+        await Promise.all([updateSong({ songId, title, key: songKey, countIn, bpm: songBpm, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
         toast.show("Song saved");
       } finally {
         setSaving(false);
@@ -348,7 +392,13 @@ function SongForm({
           ) : null}
           <View style={[styles.detailsCard, { backgroundColor: theme.backgroundElement }]}>
             <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
-            <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" />
+            <View style={styles.fields}>
+              <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.numberField} />
+              <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
+            </View>
+            <ThemedText type="caption" themeColor="textSecondary">
+              Every Section plays at the Song tempo. Turn on Own tempo in a Section to give it a different BPM.
+            </ThemedText>
             <Divider />
             <Switch label="Count-in" hint="Two bars of beat numbers before the first Section, while its Voice cue is spoken" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
           </View>
@@ -362,6 +412,7 @@ function SongForm({
                 {index > 0 ? <InsertSectionGap after={index} onPress={() => insertSection(index)} /> : null}
                 <SectionRow
                   section={row.section}
+                  songBpm={songBpm}
                   index={index}
                   count={rows.length}
                   vocabulary={vocabulary}
