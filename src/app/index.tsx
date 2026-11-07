@@ -47,7 +47,9 @@ type Run = (action: () => Promise<unknown>) => void;
 
 function GroupsTab({ run }: { run: Run }) {
   const viewer = useQuery(api.users.viewer, {});
-  const groups = useQuery(api.groups.myGroups, {});
+  const allGroups = useQuery(api.groups.myGroups, {});
+  const groups = allGroups?.filter((group) => !group.offline);
+  const openOffline = useMutation(api.groups.openOffline);
   const createGroup = useMutation(api.groups.createGroup);
   const joinGroup = useMutation(api.groups.joinGroup);
   const signInWithGoogle = useGoogleSignIn();
@@ -114,6 +116,25 @@ function GroupsTab({ run }: { run: Run }) {
           ))}
         </View>
       )}
+
+      <Card title="Offline">
+        <ThemedText type="caption" themeColor="textSecondary">
+          Practise by yourself. Make Songs and Setlists and play them on this device, with no one else following.
+        </ThemedText>
+        <ActionButton
+          variant="outline"
+          icon="person"
+          label="Open Offline"
+          testID="open-offline"
+          onPress={() => {
+            primeAudio();
+            run(async () => {
+              const groupId = await openOffline({});
+              router.push({ pathname: "/group/[groupId]", params: { groupId } });
+            });
+          }}
+        />
+      </Card>
 
       <Card title="Join a Group">
         {invited !== null && joinCode === invited ? (

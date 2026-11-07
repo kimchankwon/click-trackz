@@ -46,6 +46,31 @@ export const createGroup = mutation({
   },
 });
 
+const OFFLINE_NAME = "Offline";
+
+export const openOffline = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const membership of memberships) {
+      const group = await ctx.db.get(membership.groupId);
+      if (group?.offline === true && group.createdBy === user._id) return group._id;
+    }
+    const groupId = await ctx.db.insert("groups", {
+      name: OFFLINE_NAME,
+      joinCode: await uniqueJoinCode(ctx),
+      createdBy: user._id,
+      offline: true,
+    });
+    await ctx.db.insert("memberships", { groupId, userId: user._id, role: "admin", displayName: "You" });
+    return groupId;
+  },
+});
+
 export const members = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
@@ -77,7 +102,7 @@ export const joinGroup = mutation({
       .query("groups")
       .withIndex("by_join_code", (q) => q.eq("joinCode", args.joinCode.trim().toUpperCase()))
       .unique();
-    if (group === null) throw new ConvexError("No Group has that code");
+    if (group === null || group.offline === true) throw new ConvexError("No Group has that code");
     const existing = await ctx.db
       .query("memberships")
       .withIndex("by_group_user", (q) => q.eq("groupId", group._id).eq("userId", user._id))
@@ -178,7 +203,8 @@ export const myGroups = query({
           groupId: group._id,
           name: group.name,
           role: membership.role,
-          joinCode: membership.role === "admin" ? group.joinCode : null,
+          offline: group.offline === true,
+          joinCode: membership.role === "admin" && group.offline !== true ? group.joinCode : null,
         };
       }),
     );

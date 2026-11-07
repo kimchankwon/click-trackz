@@ -49,6 +49,29 @@ describe("Groups", () => {
     await expect(guest.client.mutation(api.groups.joinGroup, { joinCode: "ZZZZZZ", displayName: "J" })).rejects.toThrow(/No Group/);
   });
 
+  it("gives each person, guests included, one Offline space that only they are in and no one can join", async () => {
+    const { t, as } = await setup();
+    const guest = await as({ isAnonymous: true });
+    const offlineId = await guest.client.mutation(api.groups.openOffline, {});
+    expect(await guest.client.mutation(api.groups.openOffline, {})).toBe(offlineId);
+    expect(await guest.client.query(api.groups.myGroups, {})).toEqual([
+      { groupId: offlineId, name: "Offline", role: "admin", offline: true, joinCode: null },
+    ]);
+    expect(await guest.client.query(api.groups.members, { groupId: offlineId })).toEqual([
+      expect.objectContaining({ displayName: "You", role: "admin" }),
+    ]);
+
+    const daniel = await as({ email: "daniel@example.com" });
+    expect(await daniel.client.mutation(api.groups.openOffline, {})).not.toBe(offlineId);
+    const { joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    expect((await daniel.client.query(api.groups.myGroups, {})).map((g) => [g.name, g.offline, g.joinCode])).toEqual([
+      ["Offline", true, null],
+      ["Band", false, joinCode],
+    ]);
+    const offlineCode = await t.run(async (ctx) => (await ctx.db.get(offlineId))?.joinCode ?? "");
+    await expect(daniel.client.mutation(api.groups.joinGroup, { joinCode: offlineCode, displayName: "Daniel" })).rejects.toThrow(/No Group/);
+  });
+
   it("lets Admins promote signed-in Members, never guests, and never change their own role", async () => {
     const { as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });

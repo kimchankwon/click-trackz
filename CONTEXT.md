@@ -16,6 +16,10 @@ _Avoid_: User, musician, player, participant
 A Member who can edit Songs, control Playback and make other Members Admins.
 _Avoid_: Owner, leader, host, MD
 
+**Offline**:
+A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account, but no other Members, and its Playback runs only on their device, on the device's own clock.
+_Avoid_: Solo, practice mode, personal Group
+
 ## Songs
 
 **Song**:

@@ -1,12 +1,9 @@
 import { ConvexError, v } from "convex/values";
 
-import { commandBoundary } from "../src/sync/timeline";
+import { jumpProblem, jumpsAfter, startedPlayback, startProblem, stopTime } from "../src/sync/commands";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
-
-const LEAD_IN_MS = 2_000;
-const MIN_COMMAND_LEAD_MS = 1_000;
 
 async function groupPlayback(ctx: QueryCtx, groupId: Id<"groups">) {
   return ctx.db
@@ -36,25 +33,9 @@ export const start = mutation({
     const { user } = await requireAdmin(ctx, groupId);
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
-    if (song.sections.length === 0) throw new ConvexError(`${song.title} needs structure: add at least one Section first`);
-    if (fromSection !== undefined && (!Number.isInteger(fromSection) || fromSection < 0 || fromSection >= song.sections.length)) {
-      throw new ConvexError("That Section is not in the Song");
-    }
-    const startSectionBars = song.sections[fromSection ?? 0].bars;
-    if (fromBar !== undefined && (!Number.isInteger(fromBar) || fromBar < 1 || fromBar > startSectionBars)) {
-      throw new ConvexError(`That Section only has ${startSectionBars} bars`);
-    }
-    const fields = {
-      groupId,
-      songId,
-      song: { countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true, sections: song.sections },
-      startsAt: Date.now() + LEAD_IN_MS,
-      startSection: fromSection ?? 0,
-      startBar: fromBar ?? 1,
-      jumps: [],
-      stopsAt: null,
-      startedBy: user._id,
-    };
+    const problem = startProblem(song, { fromSection, fromBar });
+    if (problem !== null) throw new ConvexError(problem);
+    const fields = { groupId, songId, startedBy: user._id, ...startedPlayback(song, { fromSection, fromBar }, Date.now()) };
     const existing = await groupPlayback(ctx, groupId);
     if (existing) await ctx.db.replace(existing._id, fields);
     else await ctx.db.insert("playbacks", fields);
@@ -71,17 +52,10 @@ export const jump = mutation({
     await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
-    const song = playback.song;
-    if (!Number.isInteger(toSection) || toSection < 0 || toSection >= song.sections.length) {
-      throw new ConvexError("That Section is not in the Song");
-    }
-    const at = commandBoundary(song, playback, {
-      nowMs: Date.now(),
-      minLeadMs: MIN_COMMAND_LEAD_MS,
-      mode,
-    });
-    if (at === null) throw new ConvexError("Playback has already ended");
-    const jumps = [...playback.jumps.filter((j) => j.at < at), { at, toSection, cueFrom: Date.now() + MIN_COMMAND_LEAD_MS }];
+    const problem = jumpProblem(playback.song, toSection);
+    if (problem !== null) throw new ConvexError(problem);
+    const jumps = jumpsAfter(playback.song, playback, toSection, mode, Date.now());
+    if (jumps === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { jumps });
   },
 });
@@ -92,11 +66,7 @@ export const stop = mutation({
     await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
-    const stopsAt = commandBoundary(playback.song, playback, {
-      nowMs: Date.now(),
-      minLeadMs: MIN_COMMAND_LEAD_MS,
-      mode: "nextBar",
-    });
+    const stopsAt = stopTime(playback.song, playback, Date.now());
     if (stopsAt === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { stopsAt });
   },
