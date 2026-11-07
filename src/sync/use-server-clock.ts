@@ -12,6 +12,8 @@ const SAMPLE_WINDOW = 12;
 const SAMPLES_BEFORE_READY = 4;
 
 const clientNow = () => performance.now();
+const deviceEpoch = Date.now() - clientNow();
+export const deviceNow = () => deviceEpoch + clientNow();
 const isHidden = () => AppState.currentState !== "active";
 
 export type ServerClock = {
@@ -19,7 +21,7 @@ export type ServerClock = {
   serverNow: () => number | null;
 };
 
-export function useServerClock({ playing = false }: { playing?: boolean } = {}): ServerClock {
+export function useServerClock({ playing = false, onDevice = false }: { playing?: boolean; onDevice?: boolean } = {}): ServerClock {
   const ping = useMutation(api.clock.now);
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
   const playingRef = useRef(playing);
@@ -31,6 +33,7 @@ export function useServerClock({ playing = false }: { playing?: boolean } = {}):
   }, [playing]);
 
   useEffect(() => {
+    if (onDevice) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const openedAt = clientNow();
@@ -78,12 +81,12 @@ export function useServerClock({ playing = false }: { playing?: boolean } = {}):
       rescheduleRef.current = null;
       subscription.remove();
     };
-  }, [ping]);
+  }, [ping, onDevice]);
 
   const serverNow = useCallback(
-    () => (estimate === null ? null : clientNow() + estimate.offsetMs),
-    [estimate],
+    () => (onDevice ? deviceNow() : estimate === null ? null : clientNow() + estimate.offsetMs),
+    [estimate, onDevice],
   );
 
-  return { estimate, serverNow };
+  return { estimate: onDevice ? null : estimate, serverNow };
 }

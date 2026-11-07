@@ -11,13 +11,13 @@ const REFRESH_MS = 5_000;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false) {
+export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false, shared = true) {
   const heartbeat = useMutation(api.presence.heartbeat);
   const leave = useMutation(api.presence.leave);
   const [screenId] = useState(newScreenId);
   const focused = useIsFocused();
   const [active, setActive] = useState(AppState.currentState === "active");
-  const visible = focused && (active || playing);
+  const visible = shared && focused && (active || playing);
   const onPlayRef = useRef(onPlay);
   const pingRef = useRef<number | null>(null);
 
@@ -54,8 +54,8 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   }, [groupId, screenId, visible, beat, leave]);
 }
 
-export function usePresence(groupId: Id<"groups">, serverNow: () => number | null) {
-  const rows = useQuery(api.presence.list, { groupId });
+export function usePresence(groupId: Id<"groups">, serverNow: () => number | null, shared = true) {
+  const rows = useQuery(api.presence.list, shared ? { groupId } : "skip");
   const [nowMs, setNowMs] = useState(() => serverNow() ?? Date.now());
 
   useEffect(() => {

@@ -1,0 +1,54 @@
+import { commandBoundary, type Jump, type Playback, type Song } from "./timeline";
+
+export const LEAD_IN_MS = 2_000;
+export const MIN_COMMAND_LEAD_MS = 1_000;
+
+export type StartFrom = { fromSection?: number; fromBar?: number };
+
+export type StartedPlayback<S extends Song = Song> = {
+  song: { countIn: boolean; sections: S["sections"] };
+  startsAt: number;
+  startSection: number;
+  startBar: number;
+  jumps: Jump[];
+  stopsAt: number | null;
+};
+
+export function startProblem(song: Song & { title: string }, { fromSection, fromBar }: StartFrom): string | null {
+  if (song.sections.length === 0) return `${song.title} needs structure: add at least one Section first`;
+  if (fromSection !== undefined && (!Number.isInteger(fromSection) || fromSection < 0 || fromSection >= song.sections.length)) {
+    return "That Section is not in the Song";
+  }
+  const startSectionBars = song.sections[fromSection ?? 0].bars;
+  if (fromBar !== undefined && (!Number.isInteger(fromBar) || fromBar < 1 || fromBar > startSectionBars)) {
+    return `That Section only has ${startSectionBars} bars`;
+  }
+  return null;
+}
+
+export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number): StartedPlayback<S> {
+  return {
+    song: { countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true, sections: song.sections },
+    startsAt: nowMs + LEAD_IN_MS,
+    startSection: fromSection ?? 0,
+    startBar: fromBar ?? 1,
+    jumps: [],
+    stopsAt: null,
+  };
+}
+
+export type JumpMode = "nextBar" | "endOfSection";
+
+export function jumpProblem(song: Song, toSection: number): string | null {
+  return Number.isInteger(toSection) && toSection >= 0 && toSection < song.sections.length ? null : "That Section is not in the Song";
+}
+
+export function jumpsAfter(song: Song, playback: Playback & { jumps: readonly Jump[] }, toSection: number, mode: JumpMode, nowMs: number): Jump[] | null {
+  const at = commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode });
+  if (at === null) return null;
+  return [...playback.jumps.filter((j) => j.at < at), { at, toSection, cueFrom: nowMs + MIN_COMMAND_LEAD_MS }];
+}
+
+export function stopTime(song: Song, playback: Playback, nowMs: number): number | null {
+  return commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode: "nextBar" });
+}
