@@ -6,7 +6,7 @@ import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
 import { BEAT_UNITS } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
-import { withSongTempo } from "../src/sync/song-tempo";
+import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
@@ -86,7 +86,8 @@ export const updateSong = mutation({
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
     const songBpm = bpm ?? song.bpm;
-    const given = sections ?? (bpm !== undefined ? song.sections : undefined);
+    const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
+    const given = sections ?? (bpm !== undefined ? stored : undefined);
     const shaped = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
     if (sections !== undefined && shaped !== undefined) {
       const vocabulary = new Set(await groupVocabulary(ctx, song.groupId));

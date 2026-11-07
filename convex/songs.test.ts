@@ -64,6 +64,19 @@ describe("Songs", () => {
     await expect(admin.mutation(api.songs.updateSong, { songId, bpm: 301 })).rejects.toThrow(/Song tempo/);
   });
 
+  it("keeps an older Song's odd Sections on their own tempo when only the Song tempo changes", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "You Alone" });
+    const slow = { sectionType: "Bridge", bars: 8, beatsPerBar: 4, bpm: 70 };
+    await admin.mutation(api.songs.updateSong, { songId, sections: [verse, verse, slow] });
+    await admin.mutation(api.songs.updateSong, { songId, bpm: 76 });
+    expect((await member.query(api.songs.get, { songId }))?.sections.map((s) => [s.bpm, s.ownTempo])).toEqual([
+      [76, false],
+      [76, false],
+      [70, true],
+    ]);
+  });
+
   it("keeps each Section's time signature, such as 6/8", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });

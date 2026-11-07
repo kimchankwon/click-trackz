@@ -15,6 +15,7 @@ import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
+import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
@@ -50,6 +51,7 @@ import { jumpProblem, jumpsAfter, startedPlayback, startProblem, stopTime, type 
 import { beatsBetween, playbackEndsAt, timeSignatureOf, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
+import { commonBpm } from "@/sync/song-tempo";
 import { playbackSpan, songLengthMs } from "@/sync/song-span";
 import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { deviceNow, useServerClock } from "@/sync/use-server-clock";
@@ -188,6 +190,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
+  const updateSong = useMutation(api.songs.updateSong);
+  const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -471,6 +475,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
+  const songTempo = startSong ? (startSong.bpm ?? commonBpm(startSong.sections)) : null;
+  const canChangeTempo = isAdmin && !playing && startBlocker === null && songTempo !== null;
+  const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
   const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, sections: startSong.sections }, startSection, startBar) : 0;
 
@@ -571,9 +578,24 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </View>
       )}
       <View style={styles.stageRow}>
-        <BeatPulse beat={beat} playing={playing} idle={idle} />
+        <BeatPulse
+          beat={beat}
+          playing={playing}
+          idle={idle}
+          onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
+          idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
+        />
         <StageMembers members={onlineMembers} beat={beat} playing={playing} />
       </View>
+      {tempoOpen && startSong && songTempo !== null && startSongId ? (
+        <TempoPanel
+          key={startSongId}
+          bpm={songTempo}
+          ownTempoCount={startSong.sections.filter((section) => section.ownTempo === true || (startSong.bpm === null && section.bpm !== songTempo)).length}
+          onSave={(bpm) => updateSong({ songId: startSongId, bpm }).then(() => undefined)}
+          onClose={() => setEditingTempo(null)}
+        />
+      ) : null}
       {playing ? null : (
         <View style={styles.nextBlock}>
           {!isAdmin ? (
