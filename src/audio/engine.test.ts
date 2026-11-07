@@ -13,8 +13,12 @@ const fake = vi.hoisted(() => {
     }
   }
   class FakeNode {
+    disconnected = false;
     connect() {
       return this;
+    }
+    disconnect() {
+      this.disconnected = true;
     }
   }
   class FakeGain extends FakeNode {
@@ -55,6 +59,9 @@ const fake = vi.hoisted(() => {
         buffer: null as FakeBuffer | null,
         connect() {
           return source;
+        },
+        disconnect() {
+          return undefined;
         },
         start() {
           if (source.buffer) played.push(source.buffer);
@@ -226,6 +233,27 @@ describe("sound recovery", () => {
     engine.preview("verse" as Parameters<typeof engine.preview>[0]);
     await vi.advanceTimersByTimeAsync(0);
     expect(contexts()[1].played.map((buffer) => buffer.sampleRate)).toEqual([44_100]);
+    engine.dispose();
+  });
+
+  it("schedules the rest of the Song when the page is hidden, then drops it if the plan changes", async () => {
+    const engine = new CueAudioEngine();
+    await startStuck(engine);
+    await engine.wake();
+    const playback = { startsAt: NOW + 50, startSection: 0 };
+    engine.setPlan(song, playback);
+    await vi.advanceTimersByTimeAsync(50);
+    const [, context] = contexts();
+    const visibleClicks = context.oscillators;
+    expect(visibleClicks).toBeLessThan(4);
+
+    engine.setHidden(true);
+    expect(context.oscillators).toBe(32);
+
+    engine.setPlan(song, { ...playback, jumps: [{ at: NOW + 4_050, toSection: 0 }] });
+    const clickGains = context.gains.slice(2);
+    expect(clickGains.filter((gain) => gain.disconnected).length).toBeGreaterThan(20);
+    expect(clickGains.slice(0, visibleClicks).every((gain) => !gain.disconnected)).toBe(true);
     engine.dispose();
   });
 

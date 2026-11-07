@@ -56,9 +56,6 @@ export function JoinCodeActions({
   return (
     <View style={styles.actions}>
       <Pressable role="button" aria-label={`Copy join code ${code}`} testID="copy-join-code" hitSlop={8} onPress={copyCode} style={styles.row}>
-        <ThemedText type="caption" themeColor="textSecondary">
-          Join code
-        </ThemedText>
         <ThemedText type="caption" themeColor="accent" style={styles.code}>
           {code}
         </ThemedText>

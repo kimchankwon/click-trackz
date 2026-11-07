@@ -5,12 +5,12 @@ import { pingDelayMs } from "./ping-schedule";
 const idle = { sinceOpenMs: 10 * 60_000, playing: false, hidden: false, hasEstimate: true };
 
 describe("pingDelayMs", () => {
-  it("pings every 5 seconds for the first half minute after opening", () => {
+  it("pings every 5 seconds for the first 15 seconds after opening", () => {
     expect(pingDelayMs({ ...idle, sinceOpenMs: 10_000 })).toBe(5_000);
   });
 
-  it("slows to once a minute when nothing is playing", () => {
-    expect(pingDelayMs(idle)).toBe(60_000);
+  it("slows to once every 2 minutes when nothing is playing", () => {
+    expect(pingDelayMs(idle)).toBe(120_000);
   });
 
   it("holds the clock steady while Playback is running", () => {

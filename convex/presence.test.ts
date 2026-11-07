@@ -114,3 +114,22 @@ describe("Presence", () => {
     await expect(outsider.client.query(api.presence.list, { groupId })).rejects.toThrow(/not in this Group/);
   });
 });
+describe("Who is around in each of my Groups", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("gives each Member's latest heartbeat once per Group, only for my Groups", async () => {
+    const { admin, member, outsider, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    vi.setSystemTime(NOW + 1_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "laptop", onPlay: false });
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "admin", onPlay: true });
+
+    const seen = await member.client.query(api.presence.myGroupsSeen, {});
+    expect(seen).toEqual([{ groupId, seenAt: [NOW + 1_000, NOW + 1_000] }]);
+    expect(await outsider.client.query(api.presence.myGroupsSeen, {})).toEqual([]);
+  });
+});

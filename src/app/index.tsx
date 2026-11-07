@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
 import { ActionButton } from "@/components/action-button";
+import { primeAudio } from "@/audio/primed-context";
 import { useSpeakerPreview } from "@/audio/use-speaker-preview";
 import { Card } from "@/components/group/card";
 import { panelId, TabBar, tabId, type TabItem } from "@/components/group/tab-bar";
@@ -18,14 +19,20 @@ import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
+import { Connecting } from "@/components/ui/connecting";
 import { SwipeTabs } from "@/components/ui/swipe-tabs";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
+import { useConnected } from "@/lib/use-connected";
+import { useNow } from "@/lib/use-now";
+import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import { api } from "../../convex/_generated/api";
+
+const ONLINE_REFRESH_MS = 15_000;
 
 type HomeTab = "groups" | "sound" | "settings";
 
@@ -50,6 +57,10 @@ function GroupsTab({ run }: { run: Run }) {
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
+  const seen = useQuery(api.presence.myGroupsSeen, {});
+  const nowMs = useNow(ONLINE_REFRESH_MS);
+  const connected = useConnected();
+  const onlineIn = (groupId: string) => onlineCount(seen?.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
 
   return (
     <>
@@ -57,6 +68,11 @@ function GroupsTab({ run }: { run: Run }) {
         <ThemedText type="title" role="heading">
           Your Groups
         </ThemedText>
+        {connected ? null : (
+          <ThemedText type="smallBold" themeColor="warningText" testID="connecting">
+            Connecting…
+          </ThemedText>
+        )}
         <View style={styles.account}>
           <Icon name="person" size={16} color="textSecondary" />
           <ThemedText type="caption" themeColor="textSecondary" testID="viewer-status">
@@ -74,7 +90,10 @@ function GroupsTab({ run }: { run: Run }) {
               key={group.groupId}
               role="link"
               testID={`open-group-${group.name}`}
-              onPress={() => router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } })}
+              onPress={() => {
+                primeAudio();
+                router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } });
+              }}
               style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
             >
               {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
@@ -83,10 +102,10 @@ function GroupsTab({ run }: { run: Run }) {
                 <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
                   {group.name}
                 </ThemedText>
-                <View style={styles.roleRow}>
-                  <Icon name={group.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
+                <View style={styles.roleRow} testID={`online-${group.name}`}>
+                  <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
                   <ThemedText themeColor="textSecondary" style={styles.role}>
-                    {group.role === "admin" ? "Admin" : "Member"}
+                    {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
                   </ThemedText>
                 </View>
               </View>
@@ -127,7 +146,8 @@ function GroupsTab({ run }: { run: Run }) {
             accent
             testID="join-group"
             disabled={joinCode.trim().length === 0}
-            onPress={() =>
+            onPress={() => {
+              primeAudio();
               run(async () => {
                 const groupId = await joinGroup({ joinCode, displayName });
                 void clearPendingJoin();
@@ -135,8 +155,8 @@ function GroupsTab({ run }: { run: Run }) {
                 setJoinCode("");
                 setDisplayName("");
                 router.push({ pathname: "/group/[groupId]", params: { groupId } });
-              })
-            }
+              });
+            }}
           />
         </View>
       </Card>
@@ -316,7 +336,7 @@ export default function HomeScreen() {
         ) : (
           <ScrollView contentContainerStyle={[styles.content, styles.welcome]} keyboardShouldPersistTaps="handled">
             {isLoading ? (
-              <ActivityIndicator />
+              <Connecting />
             ) : (
               <>
                 <View style={styles.brand}>
@@ -380,6 +400,7 @@ const styles = StyleSheet.create({
   groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },
   groupName: { fontWeight: 600, fontSize: 17 },
   role: { fontSize: 15, lineHeight: 20, fontWeight: 400 },
+  onlineDot: { width: 8, height: 8, borderRadius: 4 },
   roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   separator: { position: "absolute", top: 0, left: 72, right: Spacing.three, height: StyleSheet.hairlineWidth },
 });

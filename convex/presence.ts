@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
@@ -6,7 +7,7 @@ import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const MAX_ROUND_TRIP_MS = 60_000;
-const LAST_SEEN_EVERY_MS = 5 * 60_000;
+const LAST_SEEN_EVERY_MS = 20 * 60_000;
 export const GUEST_ABSENCE_MS = 60 * 60_000;
 
 const checkScreenId = (screenId: string) => {
@@ -81,5 +82,28 @@ export const removeAbsentGuests = internalMutation({
       await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
       await ctx.db.delete(membership._id);
     }
+  },
+});
+
+export const myGroupsSeen = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return [];
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return Promise.all(
+      memberships.map(async ({ groupId }) => {
+        const rows = await ctx.db
+          .query("presence")
+          .withIndex("by_group", (q) => q.eq("groupId", groupId))
+          .collect();
+        const latest = new Map<string, number>();
+        for (const row of rows) latest.set(row.userId, Math.max(latest.get(row.userId) ?? 0, row.seenAt));
+        return { groupId, seenAt: [...latest.values()] };
+      }),
+    );
   },
 });

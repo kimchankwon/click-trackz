@@ -1,6 +1,6 @@
 export const FAST_PING_MS = 5_000;
-export const SLOW_PING_MS = 60_000;
-const WARM_UP_MS = 30_000;
+export const SLOW_PING_MS = 120_000;
+const WARM_UP_MS = 15_000;
 
 export function holdsClockSteady({ playing, hasEstimate }: { playing: boolean; hasEstimate: boolean }) {
   return playing && hasEstimate;
