@@ -29,7 +29,7 @@ export function TempoPanel({
   onClose: () => void;
 }) {
   const theme = useTheme();
-  const [value, setValue] = useState(clampBpm(bpm));
+  const [value, setValue] = useState(Math.min(MAX_BPM, Math.max(MIN_BPM, bpm)));
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);

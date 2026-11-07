@@ -192,6 +192,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const leave = useMutation(api.groups.leaveGroup);
   const updateSong = useMutation(api.songs.updateSong);
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
+  const [unclocked, setUnclocked] = useState(false);
   const engine = useRef<CueAudioEngine | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -328,7 +329,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
         setQueuedKey((previous) => (previous === queued ? previous : queued));
         setPlaying(now < endsAt);
+        setUnclocked(false);
       } else {
+        setUnclocked(now === null && playback !== null);
         setBeat(null);
         setNextIndex(null);
         setQueuedKey("");
@@ -476,7 +479,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
   const songTempo = startSong ? (startSong.bpm ?? commonBpm(startSong.sections)) : null;
-  const canChangeTempo = isAdmin && !playing && startBlocker === null && songTempo !== null;
+  const canChangeTempo = isAdmin && !playing && !unclocked && startBlocker === null && songTempo !== null;
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
   const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, sections: startSong.sections }, startSection, startBar) : 0;
