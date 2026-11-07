@@ -5,22 +5,25 @@ import { preferPlaybackSession } from "./audio-session";
 const UNUSED_CLOSE_MS = 10_000;
 
 let primed: AudioContext | null = null;
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function closeIfUnused(context: AudioContext) {
+  if (closeTimer !== null) clearTimeout(closeTimer);
+  closeTimer = setTimeout(() => {
+    closeTimer = null;
+    if (primed !== context) return;
+    primed = null;
+    void context.close();
+  }, UNUSED_CLOSE_MS);
+}
 
 export function primeAudio() {
   try {
     preferPlaybackSession();
-    if (primed !== null && primed.state !== "closed") {
-      void primed.resume();
-      return;
-    }
-    const context = new AudioContext();
+    const context = primed !== null && primed.state !== "closed" ? primed : new AudioContext();
     primed = context;
     void context.resume();
-    setTimeout(() => {
-      if (primed !== context) return;
-      primed = null;
-      void context.close();
-    }, UNUSED_CLOSE_MS);
+    closeIfUnused(context);
   } catch {
     primed = null;
   }

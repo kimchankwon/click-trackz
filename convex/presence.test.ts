@@ -129,7 +129,19 @@ describe("Who is around in each of my Groups", () => {
     await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "admin", onPlay: true });
 
     const seen = await member.client.query(api.presence.myGroupsSeen, {});
-    expect(seen).toEqual([{ groupId, seenAt: [NOW + 1_000, NOW + 1_000] }]);
-    expect(await outsider.client.query(api.presence.myGroupsSeen, {})).toEqual([]);
+    expect(seen).toEqual({ serverNow: expect.any(Number), groups: [{ groupId, seenAt: [NOW + 1_000, NOW + 1_000] }] });
+    expect((await outsider.client.query(api.presence.myGroupsSeen, {})).groups).toEqual([]);
+  });
+
+  it("forgets screens that stopped sending heartbeats, whatever the Member's role", async () => {
+    const { t, admin, member, groupId } = await setupGroup();
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-admin", onPlay: false });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-member", onPlay: false });
+    vi.setSystemTime(NOW + 11 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "new", onPlay: true });
+    await t.mutation(internal.presence.forgetOldScreens, {});
+    const left = await t.run((ctx) => ctx.db.query("presence").collect());
+    expect(left.map((row) => row.screenId)).toEqual(["new"]);
+    expect((await member.client.query(api.presence.myGroupsSeen, {})).groups[0].seenAt).toEqual([NOW + 11 * 60_000]);
   });
 });

@@ -257,6 +257,39 @@ describe("sound recovery", () => {
     engine.dispose();
   });
 
+  it("trims the long queue back to the normal lookahead when the page is visible again", async () => {
+    const engine = new CueAudioEngine();
+    await startStuck(engine);
+    await engine.wake();
+    engine.setPlan(song, { startsAt: NOW + 50, startSection: 0 });
+    await vi.advanceTimersByTimeAsync(50);
+    const [, context] = contexts();
+    const visibleClicks = context.oscillators;
+    engine.setHidden(true);
+    engine.setHidden(false);
+    const clickGains = context.gains.slice(2);
+    expect(clickGains.filter((gain) => !gain.disconnected).length).toBe(visibleClicks);
+    engine.dispose();
+  });
+
+  it("drops the long queue when a Jump arrives while the clock is unavailable", async () => {
+    let clock: number | null = NOW;
+    const engine = new CueAudioEngine();
+    fake.FakeAudioContext.resumeModes.push("hang");
+    const started = engine.enable(() => clock, null);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await started;
+    await engine.wake();
+    const playback = { startsAt: NOW + 50, startSection: 0 };
+    engine.setPlan(song, playback);
+    engine.setHidden(true);
+    const [, context] = contexts();
+    clock = null;
+    engine.setPlan(song, { ...playback, jumps: [{ at: NOW + 4_050, toSection: 0 }] });
+    expect(context.gains.slice(2).every((gain) => gain.disconnected)).toBe(true);
+    engine.dispose();
+  });
+
   it("leaves nothing open when disposed during recovery", async () => {
     const engine = new CueAudioEngine();
     await startStuck(engine);

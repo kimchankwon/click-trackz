@@ -56,7 +56,7 @@ export class CueAudioEngine {
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private hidden = false;
-  private future: { output: AudioNode; beatAt: number }[] = [];
+  private future: { output: AudioNode; beatAt: number; voiceEndsAt?: number }[] = [];
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -269,20 +269,30 @@ export class CueAudioEngine {
     const changed = restarted || song !== this.plan?.song || playback !== this.plan?.playback;
     this.plan = { song, playback };
     const now = this.serverNow();
-    if (restarted) {
-      this.cancelAfter(now ?? -Infinity);
+    if (restarted || (changed && now === null)) {
+      this.cancelAfter(restarted && now !== null ? now : -Infinity);
       this.scheduledUntil = -Infinity;
       this.voiceBusyUntil = -Infinity;
     } else if (changed && now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) {
-      this.cancelAfter(now + LOOKAHEAD_MS);
-      this.scheduledUntil = now + LOOKAHEAD_MS;
+      this.trimTo(now + LOOKAHEAD_MS);
     }
   }
 
   setHidden(hidden: boolean) {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
-    if (hidden) this.tick();
+    if (hidden) {
+      this.tick();
+      return;
+    }
+    const now = this.serverNow();
+    if (now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) this.trimTo(now + LOOKAHEAD_MS);
+  }
+
+  private trimTo(until: number) {
+    this.cancelAfter(until);
+    this.scheduledUntil = until;
+    this.voiceBusyUntil = this.future.reduce((latest, entry) => Math.max(latest, entry.voiceEndsAt ?? -Infinity), -Infinity);
   }
 
   private cancelAfter(beatAt: number) {
@@ -335,8 +345,8 @@ export class CueAudioEngine {
   }
 
   private schedule(context: AudioContext, beat: Beat, when: number) {
-    const remember = (output: AudioNode | null) => {
-      if (output !== null) this.future.push({ output, beatAt: beat.at });
+    const remember = (output: AudioNode | null, voiceEndsAt?: number) => {
+      if (output !== null) this.future.push({ output, beatAt: beat.at, voiceEndsAt });
     };
     if (this.mix.click) remember(this.click(context, when, accentLevelOf(beat)));
     if (this.mix.voiceCues && beat.voiceCue) {
@@ -344,8 +354,8 @@ export class CueAudioEngine {
       const buffer = key ? this.clips.get(key as BuiltinClipKey) : undefined;
       if (buffer) {
         const { leadMs, output } = this.playOnBeat(context, buffer, when);
-        remember(output);
         this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
+        remember(output, this.voiceBusyUntil);
       }
     }
     if (this.mix.spokenCounts && beat.spokenCount !== null) {

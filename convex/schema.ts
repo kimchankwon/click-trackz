@@ -87,5 +87,7 @@ export default defineSchema({
   })
     .index("by_group", ["groupId"])
     .index("by_group_user", ["groupId", "userId"])
-    .index("by_group_user_screen", ["groupId", "userId", "screenId"]),
+    .index("by_group_user_screen", ["groupId", "userId", "screenId"])
+    .index("by_group_seen", ["groupId", "seenAt"])
+    .index("by_seen", ["seenAt"]),
 });

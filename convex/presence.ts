@@ -6,6 +6,8 @@ import { internalMutation, mutation, query, type MutationCtx } from "./_generate
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 
 const FORGET_AFTER_MS = 10 * 60_000;
+const FORGET_BATCH = 500;
+const SEEN_PER_GROUP_LIMIT = 200;
 const MAX_ROUND_TRIP_MS = 60_000;
 const LAST_SEEN_EVERY_MS = 20 * 60_000;
 export const GUEST_ABSENCE_MS = 60 * 60_000;
@@ -89,21 +91,35 @@ export const myGroupsSeen = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (userId === null) return [];
+    if (userId === null) return { serverNow: Date.now(), groups: [] };
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    return Promise.all(
+    const serverNow = Date.now();
+    const groups = await Promise.all(
       memberships.map(async ({ groupId }) => {
         const rows = await ctx.db
           .query("presence")
-          .withIndex("by_group", (q) => q.eq("groupId", groupId))
-          .collect();
+          .withIndex("by_group_seen", (q) => q.eq("groupId", groupId).gt("seenAt", serverNow - FORGET_AFTER_MS))
+          .order("desc")
+          .take(SEEN_PER_GROUP_LIMIT);
         const latest = new Map<string, number>();
         for (const row of rows) latest.set(row.userId, Math.max(latest.get(row.userId) ?? 0, row.seenAt));
         return { groupId, seenAt: [...latest.values()] };
       }),
     );
+    return { serverNow, groups };
+  },
+});
+
+export const forgetOldScreens = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const old = await ctx.db
+      .query("presence")
+      .withIndex("by_seen", (q) => q.lt("seenAt", Date.now() - FORGET_AFTER_MS))
+      .take(FORGET_BATCH);
+    await Promise.all(old.map((row) => ctx.db.delete(row._id)));
   },
 });

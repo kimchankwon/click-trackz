@@ -27,7 +27,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
-import { useNow } from "@/lib/use-now";
+import { useServerNow } from "@/lib/use-server-now";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import { api } from "../../convex/_generated/api";
@@ -58,9 +58,9 @@ function GroupsTab({ run }: { run: Run }) {
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
   const seen = useQuery(api.presence.myGroupsSeen, {});
-  const nowMs = useNow(ONLINE_REFRESH_MS);
   const connected = useConnected();
-  const onlineIn = (groupId: string) => onlineCount(seen?.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
+  const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
+  const onlineIn = (groupId: string) => onlineCount(seen?.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
 
   return (
     <>
@@ -186,14 +186,15 @@ function GroupsTab({ run }: { run: Run }) {
               accent
               testID="create-group"
               disabled={groupName.trim().length === 0}
-              onPress={() =>
+              onPress={() => {
+                primeAudio();
                 run(async () => {
                   const { groupId } = await createGroup({ name: groupName, displayName });
                   setGroupName("");
                   setDisplayName("");
                   router.push({ pathname: "/group/[groupId]", params: { groupId } });
-                })
-              }
+                });
+              }}
             />
           </View>
         )}
