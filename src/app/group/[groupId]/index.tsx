@@ -501,7 +501,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           {starterName ? (
             <View style={styles.starter} testID="started-by">
               <Icon name="member" size={14} color="textSecondary" />
-              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
                 Started by {starterName}
               </ThemedText>
             </View>
@@ -964,6 +964,7 @@ const styles = StyleSheet.create({
   },
   personal: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%", paddingLeft: Spacing.one },
   starter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.one, maxWidth: "100%" },
+  starterName: { flexShrink: 1 },
   transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, width: "100%" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });
