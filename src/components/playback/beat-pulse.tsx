@@ -50,19 +50,20 @@ export function BeatPulse({ beat, playing, idle }: Props) {
     ring.value = withTiming(1, { duration: level === "beat" ? 380 : 520, easing: Easing.out(Easing.quad) });
   }, [beatAt, level, scale, discScale, ring]);
 
-  const lastBar = playing && beat !== null && beat.sectionIndex !== null && beat.barInSection === beat.barsInSection;
-  const endingFrom = lastBar ? (beat.beatInBar - 1) / beat.beatsPerBar : 0;
-  const endingTo = lastBar ? beat.beatInBar / beat.beatsPerBar : 0;
+  const lead = playing ? (beat?.lead ?? null) : null;
+  const leading = lead !== null;
+  const endingFrom = lead ? (lead.beat - 1) / lead.beats : 0;
+  const endingTo = lead ? lead.beat / lead.beats : 0;
   const beatMs = beat?.beatMs ?? 0;
 
   useEffect(() => {
-    if (!lastBar) {
+    if (!leading) {
       ending.value = 0;
       return;
     }
     ending.value = endingFrom;
     ending.value = withTiming(endingTo, { duration: beatMs, easing: Easing.linear });
-  }, [lastBar, endingFrom, endingTo, beatMs, beatAt, ending]);
+  }, [leading, endingFrom, endingTo, beatMs, beatAt, ending]);
 
   const background = theme.backgroundElement;
   const endingBackground = theme.warningTint;
@@ -100,7 +101,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
           {live ? (
             <Animated.Text
               testID="playback-count"
-              aria-label={lastBar ? `${label}, last bar of this Section` : label}
+              aria-label={lead ? `${label}, ${lead.cue ? `${lead.cue.sectionType}${lead.cue.number ? ` ${lead.cue.number}` : ""}` : "End of Song"} in ${lead.barsLeft === 2 ? "two bars" : "one bar"}` : label}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={MIN_FONT_SCALE}

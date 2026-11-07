@@ -40,37 +40,55 @@ describe("beatsBetween", () => {
     ]);
   });
 
-  it("plays a Count-in bar of plain beat numbers before the first Section", () => {
+  it("plays two Count-in bars of plain beat numbers before the first Section", () => {
     const song: Song = { countIn: true, sections: [intro] };
-    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 2_500);
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 4_500);
     expect(beats.map((b) => [b.at, b.count])).toEqual([
       [0, "1"],
       [500, "2"],
       [1000, "3"],
       [1500, "4"],
-      [2000, "INTRO"],
+      [2000, "1"],
+      [2500, "2"],
+      [3000, "3"],
+      [3500, "4"],
+      [4000, "INTRO"],
     ]);
   });
 
-  it("speaks each Section type on the first beat of the bar before it, then the remaining beats", () => {
+  it("speaks each Section type over the two bars before it at half time, Count-in included", () => {
     const song: Song = {
       countIn: true,
-      sections: [intro, { sectionType: "Verse", number: 1, bars: 1, beatsPerBar: 3, bpm: 60 }],
+      sections: [{ ...intro, bars: 2 }, { sectionType: "Chorus", bars: 1, beatsPerBar: 4, bpm: 120 }],
     };
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
-    expect(beats.map((b) => [b.at, b.voiceCue, b.spokenCount])).toEqual([
-      [0, { sectionType: "Intro" }, null],
-      [500, null, 2],
-      [1000, null, 3],
-      [1500, null, 4],
-      [2000, { sectionType: "Verse", number: 1 }, null],
-      [2500, null, 2],
-      [3000, null, 3],
-      [3500, null, 4],
-      [4000, null, null],
-      [5000, null, null],
-      [6000, null, null],
-    ]);
+    const spoken = (b: (typeof beats)[number]) => (b.voiceCue ? b.voiceCue.sectionType.toUpperCase() : b.spokenCount === null ? "." : String(b.spokenCount));
+    expect(beats.map(spoken).join(" ")).toBe("INTRO . 2 . 3 . 4 . CHORUS . 2 . 3 . 4 . . . . .");
+  });
+
+  it("speaks once per group of three in compound meters", () => {
+    const verse = { sectionType: "Verse", bars: 2, beatsPerBar: 6, beatUnit: 8, bpm: 180 };
+    const song: Song = { countIn: false, sections: [verse, { ...verse, sectionType: "Chorus", bars: 1 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000).slice(0, 12);
+    expect(beats.map((b) => b.voiceCue?.sectionType ?? b.spokenCount ?? ".").join(" ")).toBe("Chorus . . 2 . . 3 . . 4 . .");
+  });
+
+  it("gives a cue only the one bar there is when the Section before is one bar long", () => {
+    const song: Song = {
+      countIn: false,
+      sections: [{ ...intro, bars: 2 }, { sectionType: "Tag", bars: 1, beatsPerBar: 4, bpm: 120 }, { sectionType: "Outro", bars: 1, beatsPerBar: 4, bpm: 120 }],
+    };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
+    const spoken = (b: (typeof beats)[number]) => b.voiceCue?.sectionType ?? (b.spokenCount === null ? "." : String(b.spokenCount));
+    expect(beats.map(spoken).join(" ")).toBe("Tag . 2 . 3 . 4 . Outro . 2 . . . . .");
+  });
+
+  it("tells each lead-in beat the coming cue, how many bars are left and how far through it is", () => {
+    const song: Song = { countIn: false, sections: [{ ...intro, bars: 2 }, { sectionType: "Chorus", bars: 1, beatsPerBar: 4, bpm: 120 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
+    expect(beats[0].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 2, beat: 1, beats: 8 });
+    expect(beats[7].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 1, beat: 8, beats: 8 });
+    expect(beats[8].lead).toEqual({ cue: null, barsLeft: 1, beat: 1, beats: 4 });
   });
 
   it("stays silent before a Section whose Voice cue is switched off", () => {
@@ -89,7 +107,7 @@ describe("beatsBetween", () => {
     expect(beats.map((b) => b.at)).toEqual([0, 500]);
   });
 
-  it("switches to the Jump target at the Jump instant and announces it in the bar before", () => {
+  it("switches to the Jump target at the Jump instant and announces it in the two bars before", () => {
     const song: Song = {
       countIn: false,
       sections: [
@@ -99,12 +117,16 @@ describe("beatsBetween", () => {
       ],
     };
     const playback = { startsAt: 0, startSection: 0, jumps: [{ at: 4_000, toSection: 2 }] };
-    const beats = beatsBetween(song, playback, 2_000, 5_000);
+    const beats = beatsBetween(song, playback, 0, 5_000);
     expect(beats.map((b) => [b.at, b.count, b.voiceCue, b.spokenCount])).toEqual([
-      [2_000, "2", { sectionType: "Chorus" }, null],
-      [2_500, "2", null, 2],
-      [3_000, "3", null, 3],
-      [3_500, "4", null, 4],
+      [0, "INTRO", { sectionType: "Chorus" }, null],
+      [500, "2", null, null],
+      [1_000, "3", null, 2],
+      [1_500, "4", null, null],
+      [2_000, "2", null, 3],
+      [2_500, "2", null, null],
+      [3_000, "3", null, 4],
+      [3_500, "4", null, null],
       [4_000, "CHORUS", null, null],
       [4_500, "2", null, null],
     ]);
@@ -113,13 +135,16 @@ describe("beatsBetween", () => {
   it("accents the Click on every downbeat, Count-in included", () => {
     const song: Song = { countIn: true, sections: [{ ...intro, beatsPerBar: 3 }] };
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
-    expect(beats.map((b) => b.accent)).toEqual([true, false, false, true, false, false]);
+    expect(beats.map((b) => b.accent)).toEqual([true, false, false, true, false, false, true, false, false]);
   });
 
   it("tells each beat where it sits in its bar and which Section it belongs to", () => {
     const song: Song = { countIn: true, sections: [{ ...intro, beatsPerBar: 3 }] };
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
     expect(beats.map((b) => [b.beatInBar, b.beatsPerBar, b.sectionIndex])).toEqual([
+      [1, 3, null],
+      [2, 3, null],
+      [3, 3, null],
       [1, 3, null],
       [2, 3, null],
       [3, 3, null],
@@ -146,22 +171,18 @@ describe("playbackEndsAt", () => {
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 3 }, 0, 60_000).filter((b) => b.accent);
     expect(beats.map((b) => [b.at, b.count])).toEqual([
       [0, "1"],
-      [2_000, "3"],
-      [4_000, "4"],
-      [6_000, "VERSE"],
+      [2_000, "1"],
+      [4_000, "3"],
+      [6_000, "4"],
+      [8_000, "VERSE"],
     ]);
-    expect(playbackEndsAt(song, { startsAt: 0, startSection: 0, startBar: 3 })).toBe(8_000);
+    expect(playbackEndsAt(song, { startsAt: 0, startSection: 0, startBar: 3 })).toBe(10_000);
   });
 
   it("announces the Section during a Count-in into a later bar", () => {
     const song: Song = { countIn: true, sections: [{ ...intro, bars: 4 }] };
-    const countIn = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 3 }, 0, 2_000);
-    expect(countIn.map((b) => [b.voiceCue, b.spokenCount])).toEqual([
-      [{ sectionType: "Intro" }, null],
-      [null, 2],
-      [null, 3],
-      [null, 4],
-    ]);
+    const countIn = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 3 }, 0, 4_000);
+    expect(countIn.map((b) => b.voiceCue?.sectionType ?? b.spokenCount ?? ".").join(" ")).toBe("Intro . 2 . 3 . 4 .");
   });
 });
 
@@ -201,7 +222,8 @@ describe("section progress", () => {
     const song: Song = { countIn: true, sections: [{ ...intro, bars: 3 }] };
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0, startBar: 2 }, 0, 60_000).filter((b) => b.accent);
     expect(beats.map((b) => [b.sectionIndex, b.barInSection, b.barsInSection, b.beatMs])).toEqual([
-      [null, 1, 1, 500],
+      [null, 1, 2, 500],
+      [null, 2, 2, 500],
       [0, 2, 3, 500],
       [0, 3, 3, 500],
     ]);
