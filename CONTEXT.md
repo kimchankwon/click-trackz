@@ -94,6 +94,14 @@ _Avoid_: Count-in, pre-roll, delay
 The Admin command that moves Playback to another Section at the next bar line.
 _Avoid_: Skip, seek, goto
 
+**Mute**:
+A Member silencing the Click and Voice cues on their own device while Play keeps showing the shared beat and Playback carries on for everyone else; Unmute brings the sound back on the next beat, and the next Start unmutes them on its own.
+_Avoid_: Pause, sit out
+
+**Started by**:
+The Member who pressed Start for the current Playback, shown to everyone on Play.
+_Avoid_: Leader, host, owner
+
 **Stop**:
 The Admin command that ends Playback.
 _Avoid_: Pause, halt

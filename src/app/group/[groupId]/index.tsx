@@ -105,7 +105,7 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? `${timeSignature
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-const STAGE_HEAD_HEIGHT = 136;
+const STAGE_HEAD_HEIGHT = 164;
 
 const groupTabIds = groupTabs.map((item) => item.id);
 
@@ -149,7 +149,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [playing, setPlaying] = useState(false);
   const { estimate, serverNow } = useServerClock({ playing });
   const playbackDoc = useQuery(api.playback.current, { groupId });
-  const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song }) | null;
+  const playback = (playbackDoc ?? null) as (Playback & { songId: Id<"songs">; song: Song; startedBy: Id<"users">; startedByName: string | null }) | null;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
@@ -168,6 +168,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const pickedBar = pickedSection !== null && startPick !== null && startPick.bar > 1 && startPick.bar <= startSectionBars ? startPick.bar : null;
   const startBar = pickedBar ?? 1;
   const [stopPending, setStopPending] = useState(false);
+  const [mutedStart, setMutedStart] = useState<number | null>(null);
+  const muted = playing && playback !== null && mutedStart === playback.startsAt;
   const currentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
   const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
   const library = useQuery(api.songs.list, { groupId });
@@ -220,8 +222,8 @@ function GroupScreen({ group }: { group: MyGroup }) {
   }, [serverNow]);
 
   useEffect(() => {
-    engine.current?.setPlan(song, song.sections.length > 0 ? playback : null);
-  }, [song, playback, soundOn]);
+    engine.current?.setPlan(song, song.sections.length > 0 && !muted ? playback : null);
+  }, [song, playback, soundOn, muted]);
 
   useEffect(() => {
     if (engine.current) engine.current.mix = mix;
@@ -397,6 +399,10 @@ function GroupScreen({ group }: { group: MyGroup }) {
       }
     });
 
+  const mute = () => setMutedStart(playback?.startsAt ?? null);
+  const unmute = () => setMutedStart(null);
+  const starterName = playback === null ? null : playback.startedBy === viewer?.id ? "you" : playback.startedByName;
+
   const previousSong = neighbourSong(songOrder, startSongId, -1, orderAt);
   const nextSong = neighbourSong(songOrder, startSongId, 1, orderAt);
   const stepSong = (step: { item: Id<"songs">; at: number } | null) => {
@@ -492,6 +498,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
           <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
             {shownTitle ?? " "}
           </ThemedText>
+          {starterName ? (
+            <View style={styles.starter} testID="started-by">
+              <Icon name="member" size={14} color="textSecondary" />
+              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                Started by {starterName}
+              </ThemedText>
+            </View>
+          ) : null}
           <ThemedText
             type="title"
             testID="current-section"
@@ -688,16 +702,29 @@ function GroupScreen({ group }: { group: MyGroup }) {
       <View style={[styles.floatCard, { backgroundColor: theme.background, borderColor: theme.border, shadowColor: theme.text }]} testID="play-controls">
         {isAdmin ? (
           <View style={styles.transport}>
-            <IconButton
-              icon="previousSong"
-              label="Previous Song"
-              testID="previous-song"
-              size={ControlHeight.large}
-              round
-              filled
-              disabled={playing || previousSong === null}
-              onPress={() => stepSong(previousSong)}
-            />
+            {playing ? (
+              <IconButton
+                icon={muted ? "sound" : "muted"}
+                label={muted ? "Unmute" : "Mute"}
+                testID={muted ? "unmute" : "mute"}
+                size={ControlHeight.large}
+                round
+                filled
+                active={muted}
+                onPress={muted ? unmute : mute}
+              />
+            ) : (
+              <IconButton
+                icon="previousSong"
+                label="Previous Song"
+                testID="previous-song"
+                size={ControlHeight.large}
+                round
+                filled
+                disabled={previousSong === null}
+                onPress={() => stepSong(previousSong)}
+              />
+            )}
             {playing ? (
               <ActionButton
                 large
@@ -733,6 +760,27 @@ function GroupScreen({ group }: { group: MyGroup }) {
               disabled={playing || nextSong === null}
               onPress={() => stepSong(nextSong)}
             />
+          </View>
+        ) : null}
+        {playing && (!isAdmin || muted) ? (
+          <View style={styles.personal}>
+            {muted ? (
+              <ThemedText type="caption" themeColor="textSecondary" testID="muted-notice" style={styles.grow} numberOfLines={2}>
+                Muted on this device. Playback carries on for everyone else.
+              </ThemedText>
+            ) : null}
+            {isAdmin ? null : (
+              <ActionButton
+                medium
+                rounded
+                full={!muted}
+                accent={muted}
+                icon={muted ? "sound" : "muted"}
+                label={muted ? "Unmute" : "Mute"}
+                testID={muted ? "unmute" : "mute"}
+                onPress={muted ? unmute : mute}
+              />
+            )}
           </View>
         ) : null}
         <SongProgress span={songSpan} lengthMs={startLength} serverNow={serverNow} />
@@ -914,6 +962,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
+  personal: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%", paddingLeft: Spacing.one },
+  starter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.one, maxWidth: "100%" },
+  starterName: { flexShrink: 1 },
   transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, width: "100%" },
   backButton: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, borderRadius: Radius.md },
 });

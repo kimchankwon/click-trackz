@@ -40,6 +40,24 @@ describe("Group Playback", () => {
     expect(playback).toMatchObject({ songId, startsAt: NOW + 2_000, startSection: 0, jumps: [], stopsAt: null });
   });
 
+  it("names the Admin who started Playback, and stops naming them once they leave the Group", async () => {
+    const { t, admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ startedByName: "Admin" });
+    await admin.mutation(api.groups.setDisplayName, { groupId, displayName: "Sam" });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ startedByName: "Sam" });
+    await t.run(async (ctx) => {
+      const playback = await ctx.db.query("playbacks").first();
+      const starter = await ctx.db
+        .query("memberships")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", playback!.startedBy))
+        .unique();
+      await ctx.db.delete(starter!._id);
+    });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ startedByName: null });
+  });
+
   it("lands a next-bar Jump on the first bar line at least one second away", async () => {
     const { admin, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
