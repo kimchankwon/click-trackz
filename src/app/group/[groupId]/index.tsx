@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
-import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
@@ -366,7 +366,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
+  const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
   const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
+  const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
+  useEffect(() => {
+    if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
+  }, [nextAnnouncement]);
+
   const startHint =
     startBlocker === "noSong"
       ? "Pick a Song to start"
@@ -535,9 +541,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </View>
       )}
       {nextLine ? (
-        <View style={styles.nextBlock}>
+        <View style={styles.nextBlock} aria-live="polite" testID="playback-next-block">
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
-            {upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next"}
+            {nextLabel}
           </ThemedText>
           <View style={styles.nextRow}>
             <Icon name="next" size={22} color="accent" />
