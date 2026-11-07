@@ -137,11 +137,30 @@ describe("Who is around in each of my Groups", () => {
     const { t, admin, member, groupId } = await setupGroup();
     await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-admin", onPlay: false });
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-member", onPlay: false });
+    const adminSeenAt = await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("presence")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique();
+      const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique();
+      await ctx.db.patch(membership!._id, { lastSeenAt: NOW - 30 * 60_000 });
+      return row!.seenAt;
+    });
     vi.setSystemTime(NOW + 11 * 60_000);
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "new", onPlay: true });
     await t.mutation(internal.presence.forgetOldScreens, {});
     const left = await t.run((ctx) => ctx.db.query("presence").collect());
     expect(left.map((row) => row.screenId)).toEqual(["new"]);
+    const adminMembership = await t.run((ctx) =>
+      ctx.db
+        .query("memberships")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique(),
+    );
+    expect(adminMembership?.lastSeenAt).toBe(adminSeenAt);
     expect((await member.client.query(api.presence.myGroupsSeen, {})).groups[0].seenAt).toEqual([NOW + 11 * 60_000]);
   });
 });

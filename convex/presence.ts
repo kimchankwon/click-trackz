@@ -7,7 +7,6 @@ import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
-const SEEN_PER_GROUP_LIMIT = 200;
 const MAX_ROUND_TRIP_MS = 60_000;
 const LAST_SEEN_EVERY_MS = 20 * 60_000;
 export const GUEST_ABSENCE_MS = 60 * 60_000;
@@ -102,8 +101,7 @@ export const myGroupsSeen = query({
         const rows = await ctx.db
           .query("presence")
           .withIndex("by_group_seen", (q) => q.eq("groupId", groupId).gt("seenAt", serverNow - FORGET_AFTER_MS))
-          .order("desc")
-          .take(SEEN_PER_GROUP_LIMIT);
+          .collect();
         const latest = new Map<string, number>();
         for (const row of rows) latest.set(row.userId, Math.max(latest.get(row.userId) ?? 0, row.seenAt));
         return { groupId, seenAt: [...latest.values()] };
@@ -120,6 +118,10 @@ export const forgetOldScreens = internalMutation({
       .query("presence")
       .withIndex("by_seen", (q) => q.lt("seenAt", Date.now() - FORGET_AFTER_MS))
       .take(FORGET_BATCH);
-    await Promise.all(old.map((row) => ctx.db.delete(row._id)));
+    for (const row of old) {
+      const membership = await membershipOf(ctx, row.groupId, row.userId);
+      if (membership !== null && (membership.lastSeenAt ?? 0) < row.seenAt) await ctx.db.patch(membership._id, { lastSeenAt: row.seenAt });
+      await ctx.db.delete(row._id);
+    }
   },
 });
