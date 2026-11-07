@@ -12,6 +12,11 @@ const MAX_BPM = 300;
 
 const clampBpm = (bpm: number) => Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
 
+const typedBpm = (text: string) => {
+  const parsed = Number(text);
+  return text.trim() !== "" && Number.isFinite(parsed) && parsed >= MIN_BPM && parsed <= MAX_BPM ? Math.round(parsed) : null;
+};
+
 export function TempoPanel({
   bpm,
   ownTempoCount,
@@ -30,12 +35,18 @@ export function TempoPanel({
   const [problem, setProblem] = useState<string | null>(null);
   const nudge = (by: number) => {
     setDraft(null);
+    setProblem(null);
     setValue(clampBpm(value + by));
   };
   const save = () => {
+    const bpm = draft === null ? value : typedBpm(draft);
+    if (bpm === null) {
+      setProblem(`The Song tempo must be from ${MIN_BPM} to ${MAX_BPM} BPM.`);
+      return;
+    }
     setSaving(true);
     setProblem(null);
-    onSave(value)
+    onSave(bpm)
       .then(onClose)
       .catch(() => setProblem("The Song tempo was not saved. Check your connection and try again."))
       .finally(() => setSaving(false));
@@ -45,26 +56,27 @@ export function TempoPanel({
       <ThemedText type="smallBold" role="heading">
         Song tempo
       </ThemedText>
+      <Field
+        testID="tempo-input"
+        aria-label="Song tempo in BPM"
+        value={draft ?? String(value)}
+        inputMode="numeric"
+        onChangeText={(next) => {
+          setDraft(next);
+          setProblem(null);
+          const typed = typedBpm(next);
+          if (typed !== null) setValue(typed);
+        }}
+        onBlur={() => {
+          if (draft !== null && typedBpm(draft) !== null) setDraft(null);
+        }}
+        style={styles.valueInput}
+      />
       <View style={styles.row}>
-        <ActionButton small variant="outline" label="−5" accessibleName="5 BPM slower" testID="tempo-down-5" onPress={() => nudge(-5)} />
-        <ActionButton small variant="outline" label="−1" accessibleName="1 BPM slower" testID="tempo-down-1" onPress={() => nudge(-1)} />
-        <Field
-          testID="tempo-input"
-          aria-label="Song tempo in BPM"
-          value={draft ?? String(value)}
-          inputMode="numeric"
-          onChangeText={(next) => {
-            setDraft(next);
-            const parsed = Number(next);
-            if (next.trim() !== "" && Number.isFinite(parsed) && parsed >= MIN_BPM && parsed <= MAX_BPM) setValue(Math.round(parsed));
-          }}
-          onBlur={() => setDraft(null)}
-          containerStyle={styles.value}
-          style={styles.valueInput}
-          compact
-        />
-        <ActionButton small variant="outline" label="+1" accessibleName="1 BPM faster" testID="tempo-up-1" onPress={() => nudge(1)} />
-        <ActionButton small variant="outline" label="+5" accessibleName="5 BPM faster" testID="tempo-up-5" onPress={() => nudge(5)} />
+        <ActionButton small full variant="outline" label="−5" accessibleName="5 BPM slower" testID="tempo-down-5" onPress={() => nudge(-5)} />
+        <ActionButton small full variant="outline" label="−1" accessibleName="1 BPM slower" testID="tempo-down-1" onPress={() => nudge(-1)} />
+        <ActionButton small full variant="outline" label="+1" accessibleName="1 BPM faster" testID="tempo-up-1" onPress={() => nudge(1)} />
+        <ActionButton small full variant="outline" label="+5" accessibleName="5 BPM faster" testID="tempo-up-5" onPress={() => nudge(5)} />
       </View>
       <ThemedText type="caption" themeColor="textSecondary">
         {ownTempoCount > 0
@@ -87,6 +99,5 @@ export function TempoPanel({
 const styles = StyleSheet.create({
   panel: { width: "100%", gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  value: { flex: 1, minWidth: 0 },
   valueInput: { textAlign: "center", fontSize: 22, fontWeight: 700, fontVariant: ["tabular-nums"] },
 });

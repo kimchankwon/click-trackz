@@ -258,7 +258,7 @@ function SectionRow({
               label={`Own tempo for Section ${index + 1}`}
               testID={`section-${index}-own-tempo`}
               value={section.ownTempo === true}
-              onChange={(on) => onChange({ ...section, ownTempo: on, bpm: on ? section.bpm : songBpm })}
+              onChange={(on) => onChange({ ...section, ownTempo: on, bpm: songBpm })}
             />
           </View>
         </View>
