@@ -207,7 +207,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
-  useHeartbeat(groupId, tab === "play");
+  useHeartbeat(groupId, tab === "play", playing);
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
