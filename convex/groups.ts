@@ -62,6 +62,7 @@ export const members = query({
           displayName: membership.displayName,
           role: membership.role,
           isGuest: user === null || isGuest(user),
+          lastSeenAt: membership.lastSeenAt ?? null,
         };
       }),
     );
