@@ -57,6 +57,19 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
 
+const sameCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
+  a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
+
+const sameBeat = (a: Beat | null, b: Beat | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.at === b.at &&
+    a.sectionIndex === b.sectionIndex &&
+    a.lead?.barsLeft === b.lead?.barsLeft &&
+    a.lead?.beats === b.lead?.beats &&
+    sameCue(a.lead?.cue ?? null, b.lead?.cue ?? null));
+
 function ScreenWakeLock() {
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
   return null;
@@ -296,7 +309,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         const recent = beatsBetween(song, playback, now - 10_000, now + 1);
         const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
         const latest = recent.at(-1) ?? null;
-        setBeat((previous) => (previous?.at === latest?.at ? previous : latest));
+        setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
         const following = nextSectionIndex(ahead);
         setNextIndex((previous) => (previous === following ? previous : following));
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");

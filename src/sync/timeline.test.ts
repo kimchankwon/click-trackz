@@ -229,3 +229,25 @@ describe("section progress", () => {
     ]);
   });
 });
+
+describe("late Jumps", () => {
+  it("names the Jump target on the first word still to come, keeping the count", () => {
+    const song: Song = {
+      countIn: false,
+      sections: [
+        { ...intro, bars: 4 },
+        { sectionType: "Chorus", bars: 2, beatsPerBar: 4, bpm: 120 },
+      ],
+    };
+    const playback = { startsAt: 0, startSection: 0, jumps: [{ at: 4_000, toSection: 1, cueFrom: 2_500 }] };
+    const beats = beatsBetween(song, playback, 0, 4_000);
+    const said = (cueFrom: number) =>
+      beatsBetween(song, { ...playback, jumps: [{ ...playback.jumps[0], cueFrom }] }, 0, 4_000)
+        .map((b) => b.voiceCue?.sectionType ?? b.spokenCount ?? ".")
+        .join(" ");
+    expect(beats.at(-2)?.voiceCue).toEqual({ sectionType: "Chorus" });
+    expect(said(2_500)).toBe(". . . . . . Chorus .");
+    expect(said(1_500)).toBe(". . . . Chorus . 4 .");
+    expect(said(-Infinity)).toBe("Chorus . 2 . 3 . 4 .");
+  });
+});

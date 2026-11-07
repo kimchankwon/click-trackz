@@ -24,6 +24,7 @@ export type Song = {
 export type Jump = {
   at: number;
   toSection: number;
+  cueFrom?: number;
 };
 
 export type Playback = {
@@ -81,6 +82,7 @@ type Bar = {
   sectionIndex: number | null;
   barNumber: number;
   segmentEndsAt: number;
+  cueFrom: number;
 };
 
 type Segment = {
@@ -88,6 +90,7 @@ type Segment = {
   startSection: number;
   startBar: number;
   countIn: boolean;
+  cueFrom: number;
   endsAt: number;
 };
 
@@ -95,10 +98,10 @@ const beatMsOf = (section: Section) => 60_000 / section.bpm;
 
 function segmentsOf(song: Song, playback: Playback): Segment[] {
   const starts = [
-    { startsAt: playback.startsAt, startSection: playback.startSection, startBar: playback.startBar ?? 1, countIn: song.countIn },
+    { startsAt: playback.startsAt, startSection: playback.startSection, startBar: playback.startBar ?? 1, countIn: song.countIn, cueFrom: -Infinity },
     ...[...(playback.jumps ?? [])]
       .sort((x, y) => x.at - y.at)
-      .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, startBar: 1, countIn: false })),
+      .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, startBar: 1, countIn: false, cueFrom: jump.cueFrom ?? -Infinity })),
   ];
   return starts.map((start, index) => ({ ...start, endsAt: starts[index + 1]?.startsAt ?? Infinity }));
 }
@@ -119,6 +122,7 @@ function barsOf(song: Song, segment: Segment): Bar[] {
       sectionIndex,
       barNumber,
       segmentEndsAt: segment.endsAt,
+      cueFrom: segment.cueFrom,
     });
     startsAt += beatMs * section.beatsPerBar;
   };
@@ -169,20 +173,25 @@ function cuesOf(bars: readonly Bar[], { target, first }: LeadBar): Map<string, B
   const section = bars[target]?.section ?? null;
   const cue = section ? voiceCueOf(section) : null;
   const speaks = section !== null && section.voiceCueEnabled !== false;
+  const cueFrom = bars[target]?.cueFrom ?? -Infinity;
   const window = bars.slice(first, target);
   const beats = window.reduce((total, bar) => total + bar.beatsPerBar, 0);
   const cues = new Map<string, BeatCue>();
   let position = 0;
-  let spoken = 0;
+  let word = 0;
+  let named = false;
   window.forEach((bar, offset) => {
     const every = spokenEvery(bar);
     for (let beat = 1; beat <= bar.beatsPerBar; beat++) {
       position += 1;
       const onWord = speaks && (beat - 1) % every === 0;
-      if (onWord) spoken += 1;
+      if (onWord) word += 1;
+      const heard = onWord && bar.startsAt + (beat - 1) * bar.beatMs >= cueFrom;
+      const saysName = heard && !named;
+      if (saysName) named = true;
       cues.set(`${first + offset}:${beat}`, {
-        voiceCue: onWord && spoken === 1 ? cue : null,
-        spokenCount: onWord && spoken > 1 ? spoken : null,
+        voiceCue: saysName ? cue : null,
+        spokenCount: heard && !saysName ? word : null,
         lead: { cue: section ? cue : null, barsLeft: target - (first + offset), beat: position, beats },
       });
     }

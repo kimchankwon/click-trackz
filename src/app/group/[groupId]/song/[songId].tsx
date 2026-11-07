@@ -350,7 +350,7 @@ function SongForm({
             <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
             <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" />
             <Divider />
-            <Switch label="Count-in" hint="One bar of beat numbers before the first Section" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
+            <Switch label="Count-in" hint="Two bars of beat numbers before the first Section, while its Voice cue is spoken" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
           </View>
 
           <View style={styles.group}>

@@ -77,7 +77,7 @@ export const jump = mutation({
       mode,
     });
     if (at === null) throw new ConvexError("Playback has already ended");
-    const jumps = [...playback.jumps.filter((j) => j.at < at), { at, toSection }];
+    const jumps = [...playback.jumps.filter((j) => j.at < at), { at, toSection, cueFrom: Date.now() + MIN_COMMAND_LEAD_MS }];
     await ctx.db.patch(playback._id, { jumps });
   },
 });
