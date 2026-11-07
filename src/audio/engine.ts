@@ -1,4 +1,4 @@
-import { AudioContext, type AudioBuffer, type GainNode } from "react-native-audio-api";
+import { AudioContext, type AudioBuffer, type AudioNode, type GainNode } from "react-native-audio-api";
 
 import { accentLevelOf, beatsBetween, type AccentLevel, type Beat, type Playback, type Song } from "@/sync/timeline";
 
@@ -12,9 +12,12 @@ import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
 import { MAX_VOICE_LEAD_MS, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
 import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
+import { takePrimedContext } from "./primed-context";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
+const HIDDEN_LOOKAHEAD_MS = 15 * 60_000;
+const FUTURE_PRUNE_MS = 2_000;
 const CLICK_MS = 40;
 const CLICK_SOUND: Record<AccentLevel, { hz: number; gain: number }> = {
   bar: { hz: 1_760, gain: 0.9 },
@@ -52,6 +55,8 @@ export class CueAudioEngine {
   private clipGeneration = 0;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
+  private hidden = false;
+  private future: { output: AudioNode; beatAt: number; voiceEndsAt?: number }[] = [];
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -85,7 +90,7 @@ export class CueAudioEngine {
 
   private openContext(): boolean {
     preferPlaybackSession();
-    const context = new AudioContext();
+    const context = takePrimedContext() ?? new AudioContext();
     if (this.disposed) {
       void context.close();
       return false;
@@ -261,11 +266,49 @@ export class CueAudioEngine {
 
   setPlan(song: Song, playback: Playback | null) {
     const restarted = playback?.startsAt !== this.plan?.playback?.startsAt;
+    const changed = restarted || song !== this.plan?.song || playback !== this.plan?.playback;
     this.plan = { song, playback };
-    if (restarted) {
+    const now = this.serverNow();
+    if (restarted || (changed && now === null)) {
+      this.cancelAfter(restarted && now !== null ? now : -Infinity);
       this.scheduledUntil = -Infinity;
       this.voiceBusyUntil = -Infinity;
+    } else if (changed && now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) {
+      this.trimTo(now + LOOKAHEAD_MS);
     }
+  }
+
+  setHidden(hidden: boolean) {
+    if (hidden === this.hidden) return;
+    this.hidden = hidden;
+    if (hidden) {
+      this.tick();
+      return;
+    }
+    const now = this.serverNow();
+    if (now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) this.trimTo(now + LOOKAHEAD_MS);
+  }
+
+  private trimTo(until: number) {
+    this.cancelAfter(until);
+    this.scheduledUntil = until;
+    this.voiceBusyUntil = this.future.reduce((latest, entry) => Math.max(latest, entry.voiceEndsAt ?? -Infinity), -Infinity);
+  }
+
+  private cancelAfter(beatAt: number) {
+    const keep: typeof this.future = [];
+    for (const entry of this.future) {
+      if (entry.beatAt <= beatAt) {
+        keep.push(entry);
+        continue;
+      }
+      try {
+        entry.output.disconnect();
+      } catch {
+        continue;
+      }
+    }
+    this.future = keep;
   }
 
   endTapTest() {
@@ -291,8 +334,9 @@ export class CueAudioEngine {
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
+    this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + LOOKAHEAD_MS + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
       this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
@@ -301,19 +345,23 @@ export class CueAudioEngine {
   }
 
   private schedule(context: AudioContext, beat: Beat, when: number) {
-    if (this.mix.click) this.click(context, when, accentLevelOf(beat));
+    const remember = (output: AudioNode | null, voiceEndsAt?: number) => {
+      if (output !== null) this.future.push({ output, beatAt: beat.at, voiceEndsAt });
+    };
+    if (this.mix.click) remember(this.click(context, when, accentLevelOf(beat)));
     if (this.mix.voiceCues && beat.voiceCue) {
       const key = chooseClip(beat.voiceCue, this.builtinKeys);
       const buffer = key ? this.clips.get(key as BuiltinClipKey) : undefined;
       if (buffer) {
-        const leadMs = this.playOnBeat(context, buffer, when);
+        const { leadMs, output } = this.playOnBeat(context, buffer, when);
         this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
+        remember(output, this.voiceBusyUntil);
       }
     }
     if (this.mix.spokenCounts && beat.spokenCount !== null) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer && spokenCountFits(beat.at, this.onsetOf(buffer), this.voiceBusyUntil)) this.playOnBeat(context, buffer, when);
+      if (buffer && spokenCountFits(beat.at, this.onsetOf(buffer), this.voiceBusyUntil)) remember(this.playOnBeat(context, buffer, when).output);
     }
   }
 
@@ -328,6 +376,7 @@ export class CueAudioEngine {
     gain.connect(this.clickBus ?? context.destination);
     oscillator.start(when);
     oscillator.stop(when + CLICK_MS / 1000);
+    return gain;
   }
 
   private play(context: AudioContext, key: BuiltinClipKey, when: number): number | null {
@@ -337,10 +386,10 @@ export class CueAudioEngine {
     return buffer.duration;
   }
 
-  private playOnBeat(context: AudioContext, buffer: AudioBuffer, beatAt: number): number {
+  private playOnBeat(context: AudioContext, buffer: AudioBuffer, beatAt: number): { leadMs: number; output: AudioNode } {
     const leadMs = this.onsetOf(buffer);
-    this.playBuffer(context, buffer, Math.max(context.currentTime, beatAt - leadMs / 1000));
-    return leadMs;
+    const output = this.playBuffer(context, buffer, Math.max(context.currentTime, beatAt - leadMs / 1000));
+    return { leadMs, output };
   }
 
   private onsetOf(buffer: AudioBuffer): number {
@@ -356,5 +405,6 @@ export class CueAudioEngine {
     source.buffer = buffer;
     source.connect(this.voiceBus ?? context.destination);
     source.start(when);
+    return source;
   }
 }

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState, type ComponentRef } from "react";
+import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, LinearTransition, useAnimatedStyle, useSharedValue, withSequence, withTiming, ZoomIn, ZoomOut } from "react-native-reanimated";
 
 import { DISC } from "@/components/playback/beat-pulse";
@@ -9,7 +9,79 @@ import { SignalBars } from "@/components/ui/signal-bars";
 import { useTheme } from "@/hooks/use-theme";
 import { accentLevelOf, type AccentLevel, type Beat } from "@/sync/timeline";
 
-export type StageMember = { userId: string; name: string; position: number; pingMs: number | null };
+export type StageMember = { userId: string; name: string; position: number; pingMs: number | null; isYou?: boolean };
+
+type Picked = { member: StageMember; x: number; y: number; width: number; height: number };
+
+const BUBBLE_WIDTH = 168;
+const BUBBLE_GAP = 8;
+const SCREEN_MARGIN = 12;
+
+function MemberAvatar({ member, pulse, onPick }: { member: StageMember; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
+  const theme = useTheme();
+  const anchor = useRef<ComponentRef<typeof View>>(null);
+  return (
+    <Pressable
+      role="button"
+      aria-label={`${member.name}${member.isYou ? " (you)" : ""}, online${member.pingMs !== null ? `, ${Math.round(member.pingMs)} ms` : ""}`}
+      testID={`stage-member-${member.name}`}
+      hitSlop={6}
+      onPress={() => anchor.current?.measureInWindow((x, y, width, height) => onPick({ member, x, y, width, height }))}
+    >
+      <View ref={anchor} collapsable={false}>
+        <Animated.View style={[styles.ring, { borderColor: theme.switchOn }, pulse]}>
+          <Avatar name={member.name} size={AVATAR} position={member.position} />
+        </Animated.View>
+        {member.pingMs !== null ? (
+          <View style={[styles.ping, { backgroundColor: theme.background }]}>
+            <SignalBars roundTripMs={member.pingMs} size={9} testID={`stage-ping-${member.name}`} />
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function MemberBubble({ picked, onClose }: { picked: Picked | null; onClose: () => void }) {
+  const theme = useTheme();
+  const screen = useWindowDimensions();
+  if (picked === null) return null;
+  const { member } = picked;
+  const left = Math.min(Math.max(SCREEN_MARGIN, picked.x + picked.width / 2 - BUBBLE_WIDTH / 2), screen.width - BUBBLE_WIDTH - SCREEN_MARGIN);
+  const above = picked.y > 120;
+  return (
+    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.dismiss} onPress={onClose} testID="member-bubble-dismiss" aria-label="Close">
+        <View
+          role="tooltip"
+          testID="member-bubble"
+          style={[
+            styles.bubble,
+            { left, backgroundColor: theme.inverse },
+            above ? { bottom: screen.height - picked.y + BUBBLE_GAP } : { top: picked.y + picked.height + BUBBLE_GAP },
+          ]}
+        >
+          <ThemedText type="smallBold" themeColor="onInverse" numberOfLines={1}>
+            {member.name}
+            {member.isYou ? " (you)" : ""}
+          </ThemedText>
+          {member.pingMs !== null ? (
+            <View style={styles.bubblePing}>
+              <SignalBars roundTripMs={member.pingMs} size={11} />
+              <ThemedText type="caption" themeColor="onInverse" style={styles.bubblePingText}>
+                {Math.round(member.pingMs)} ms ping
+              </ThemedText>
+            </View>
+          ) : (
+            <ThemedText type="caption" themeColor="onInverse" style={styles.bubbleMuted}>
+              Online
+            </ThemedText>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
 
 const AVATAR = 32;
 const RING = 2.5;
@@ -33,29 +105,20 @@ function usePulse(beat: Beat | null, playing: boolean) {
   return useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 }
 
-function Column({ members, pulse }: { members: readonly StageMember[]; pulse: ReturnType<typeof usePulse> }) {
+function Column({ members, pulse, onPick }: { members: readonly StageMember[]; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
   const theme = useTheme();
   const shown = members.length > MAX_PER_SIDE ? members.slice(0, MAX_PER_SIDE - 1) : members;
   const extra = members.length - shown.length;
   return (
-    <View style={styles.column}>
+    <View pointerEvents="box-none" style={styles.column}>
       {shown.map((member) => (
         <Animated.View
           key={member.userId}
           entering={ZoomIn.duration(260)}
           exiting={ZoomOut.duration(220)}
           layout={LinearTransition.duration(220)}
-          testID={`stage-member-${member.name}`}
-          aria-label={`${member.name}, online`}
         >
-          <Animated.View style={[styles.ring, { borderColor: theme.switchOn }, pulse]}>
-            <Avatar name={member.name} size={AVATAR} position={member.position} />
-          </Animated.View>
-          {member.pingMs !== null ? (
-            <View style={[styles.ping, { backgroundColor: theme.background }]}>
-              <SignalBars roundTripMs={member.pingMs} size={9} testID={`stage-ping-${member.name}`} />
-            </View>
-          ) : null}
+          <MemberAvatar member={member} pulse={pulse} onPick={onPick} />
         </Animated.View>
       ))}
       {extra > 0 ? (
@@ -88,11 +151,14 @@ function useSides(members: readonly StageMember[]) {
 export function StageMembers({ members, beat, playing }: { members: readonly StageMember[]; beat: Beat | null; playing: boolean }) {
   const pulse = usePulse(beat, playing);
   const onSide = useSides(members);
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const current = picked === null ? null : members.find((member) => member.userId === picked.member.userId);
   return (
-    <View pointerEvents="none" style={styles.overlay}>
-      <Column members={onSide("left")} pulse={pulse} />
-      <View style={styles.discSpace} />
-      <Column members={onSide("right")} pulse={pulse} />
+    <View pointerEvents="box-none" style={styles.overlay}>
+      <Column members={onSide("left")} pulse={pulse} onPick={setPicked} />
+      <View pointerEvents="none" style={styles.discSpace} />
+      <Column members={onSide("right")} pulse={pulse} onPick={setPicked} />
+      <MemberBubble picked={picked && current ? { ...picked, member: current } : null} onClose={() => setPicked(null)} />
     </View>
   );
 }
@@ -105,4 +171,21 @@ const styles = StyleSheet.create({
   more: { width: AVATAR + RING * 2 + 2, height: AVATAR + RING * 2 + 2, alignItems: "center", justifyContent: "center" },
   moreText: { fontSize: 12, fontWeight: 700 },
   ping: { position: "absolute", right: -6, bottom: -4, paddingHorizontal: 3, paddingVertical: 2, borderRadius: 6 },
+  dismiss: { flex: 1 },
+  bubble: {
+    position: "absolute",
+    width: BUBBLE_WIDTH,
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  bubblePing: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bubblePingText: { fontVariant: ["tabular-nums"] },
+  bubbleMuted: { opacity: 0.8 },
 });

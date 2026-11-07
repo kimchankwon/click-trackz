@@ -1,5 +1,5 @@
-export const HEARTBEAT_MS = 15_000;
-export const ONLINE_WITHIN_MS = 40_000;
+export const HEARTBEAT_MS = 30_000;
+export const ONLINE_WITHIN_MS = 75_000;
 
 export type PresenceRow = { userId: string; onPlay: boolean; seenAt: number; roundTripMs?: number | null };
 
@@ -36,3 +36,5 @@ export function otherMemberPing(
 
 export const countOnPlay =(rows: readonly PresenceRow[], nowMs: number) =>
   new Set(fresh(rows, nowMs).filter((r) => r.onPlay).map((r) => r.userId)).size;
+
+export const onlineCount = (seenAt: readonly number[], nowMs: number) => seenAt.filter((at) => nowMs - at <= ONLINE_WITHIN_MS).length;

@@ -114,3 +114,53 @@ describe("Presence", () => {
     await expect(outsider.client.query(api.presence.list, { groupId })).rejects.toThrow(/not in this Group/);
   });
 });
+describe("Who is around in each of my Groups", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("gives each Member's latest heartbeat once per Group, only for my Groups", async () => {
+    const { admin, member, outsider, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    vi.setSystemTime(NOW + 1_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "laptop", onPlay: false });
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "admin", onPlay: true });
+
+    const seen = await member.client.query(api.presence.myGroupsSeen, {});
+    expect(seen).toEqual({ serverNow: expect.any(Number), groups: [{ groupId, seenAt: [NOW + 1_000, NOW + 1_000] }] });
+    expect((await outsider.client.query(api.presence.myGroupsSeen, {})).groups).toEqual([]);
+  });
+
+  it("forgets screens that stopped sending heartbeats, whatever the Member's role", async () => {
+    const { t, admin, member, groupId } = await setupGroup();
+    await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-admin", onPlay: false });
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-member", onPlay: false });
+    const adminSeenAt = await t.run(async (ctx) => {
+      const row = await ctx.db
+        .query("presence")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique();
+      const membership = await ctx.db
+        .query("memberships")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique();
+      await ctx.db.patch(membership!._id, { lastSeenAt: NOW - 30 * 60_000 });
+      return row!.seenAt;
+    });
+    vi.setSystemTime(NOW + 11 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "new", onPlay: true });
+    await t.mutation(internal.presence.forgetOldScreens, {});
+    const left = await t.run((ctx) => ctx.db.query("presence").collect());
+    expect(left.map((row) => row.screenId)).toEqual(["new"]);
+    const adminMembership = await t.run((ctx) =>
+      ctx.db
+        .query("memberships")
+        .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", admin.userId))
+        .unique(),
+    );
+    expect(adminMembership?.lastSeenAt).toBe(adminSeenAt);
+    expect((await member.client.query(api.presence.myGroupsSeen, {})).groups[0].seenAt).toEqual([NOW + 11 * 60_000]);
+  });
+});

@@ -28,6 +28,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Segmented } from "@/components/ui/segmented";
 import { SoundSettings } from "@/components/sound/sound-settings";
+import { Connecting } from "@/components/ui/connecting";
 import { SwipeTabs } from "@/components/ui/swipe-tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -38,6 +39,7 @@ import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
@@ -110,7 +112,13 @@ export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const myGroups = useQuery(api.groups.myGroups, {});
   const theme = useTheme();
-  if (myGroups === undefined) return <ThemedView style={styles.container} />;
+  if (myGroups === undefined) {
+    return (
+      <ThemedView style={[styles.container, styles.loading]}>
+        <Connecting />
+      </ThemedView>
+    );
+  }
   const group = myGroups.find((g) => g.groupId === groupId);
   if (group) return <GroupScreen group={group} />;
   return (
@@ -191,6 +199,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
+  const connected = useConnected();
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
@@ -198,7 +207,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
-  useHeartbeat(groupId, tab === "play");
+  useHeartbeat(groupId, tab === "play", playing);
   const presence = usePresence(groupId, serverNow);
   const members = useQuery(api.groups.members, { groupId });
   const viewer = useQuery(api.users.viewer, {});
@@ -264,6 +273,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       const current = engine.current;
+      current?.setHidden(state !== "active");
       if (state !== "active" || !current?.enabled) return;
       void current.resume().then((running) => {
         setSoundOn(running);
@@ -406,7 +416,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
       userId: member.userId,
       name: member.displayName,
       position,
-      pingMs: isAdmin ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null,
+      pingMs:
+        member.userId === viewer?.id
+          ? (estimate?.roundTripMs ?? null)
+          : isAdmin
+            ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs)
+            : null,
+      isYou: member.userId === viewer?.id,
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
@@ -430,9 +446,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
             </ThemedText>
           ) : null}
           <View style={styles.pill}>
-            <SignalBars roundTripMs={estimate?.roundTripMs ?? null} />
+            <SignalBars roundTripMs={connected ? (estimate?.roundTripMs ?? null) : null} />
             <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
-              {estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
+              {!connected ? "Connecting…" : estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
             </ThemedText>
             <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
               · {onlineMembers.length} online
@@ -811,6 +827,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loading: { justifyContent: "center", alignItems: "center" },
   notInGroup: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
   safeArea: { flex: 1 },
   content: {

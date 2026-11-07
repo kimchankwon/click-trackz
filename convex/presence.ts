@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
@@ -5,8 +6,9 @@ import { internalMutation, mutation, query, type MutationCtx } from "./_generate
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 
 const FORGET_AFTER_MS = 10 * 60_000;
+const FORGET_BATCH = 500;
 const MAX_ROUND_TRIP_MS = 60_000;
-const LAST_SEEN_EVERY_MS = 5 * 60_000;
+const LAST_SEEN_EVERY_MS = 20 * 60_000;
 export const GUEST_ABSENCE_MS = 60 * 60_000;
 
 const checkScreenId = (screenId: string) => {
@@ -80,6 +82,46 @@ export const removeAbsentGuests = internalMutation({
       if (screens.some((screen) => screen.seenAt >= cutoff)) continue;
       await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
       await ctx.db.delete(membership._id);
+    }
+  },
+});
+
+export const myGroupsSeen = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return { serverNow: Date.now(), groups: [] };
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const serverNow = Date.now();
+    const groups = await Promise.all(
+      memberships.map(async ({ groupId }) => {
+        const rows = await ctx.db
+          .query("presence")
+          .withIndex("by_group_seen", (q) => q.eq("groupId", groupId).gt("seenAt", serverNow - FORGET_AFTER_MS))
+          .collect();
+        const latest = new Map<string, number>();
+        for (const row of rows) latest.set(row.userId, Math.max(latest.get(row.userId) ?? 0, row.seenAt));
+        return { groupId, seenAt: [...latest.values()] };
+      }),
+    );
+    return { serverNow, groups };
+  },
+});
+
+export const forgetOldScreens = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const old = await ctx.db
+      .query("presence")
+      .withIndex("by_seen", (q) => q.lt("seenAt", Date.now() - FORGET_AFTER_MS))
+      .take(FORGET_BATCH);
+    for (const row of old) {
+      const membership = await membershipOf(ctx, row.groupId, row.userId);
+      if (membership !== null && (membership.lastSeenAt ?? 0) < row.seenAt) await ctx.db.patch(membership._id, { lastSeenAt: row.seenAt });
+      await ctx.db.delete(row._id);
     }
   },
 });

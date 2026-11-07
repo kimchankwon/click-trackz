@@ -11,13 +11,13 @@ const REFRESH_MS = 5_000;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean) {
+export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false) {
   const heartbeat = useMutation(api.presence.heartbeat);
   const leave = useMutation(api.presence.leave);
   const [screenId] = useState(newScreenId);
   const focused = useIsFocused();
   const [active, setActive] = useState(AppState.currentState === "active");
-  const visible = focused && active;
+  const visible = focused && (active || playing);
   const onPlayRef = useRef(onPlay);
   const pingRef = useRef<number | null>(null);
 

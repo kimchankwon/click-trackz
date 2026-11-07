@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countOnPlay, memberPing, otherMemberPing, presenceOf, ONLINE_WITHIN_MS } from "./online";
+import { countOnPlay, memberPing, onlineCount, otherMemberPing, presenceOf, ONLINE_WITHIN_MS } from "./online";
 
 const NOW = 1_000_000;
 const rows = [
@@ -43,5 +43,12 @@ describe("Member presence", () => {
 
   it("is on Play when any of a Member's screens is, counting each Member once", () => {
     expect(countOnPlay([...rows, { userId: "a", onPlay: true, seenAt: NOW - 3_000 }], NOW)).toBe(1);
+  });
+});
+
+describe("onlineCount", () => {
+  it("counts Members seen within the online window", () => {
+    expect(onlineCount([NOW, NOW - 60_000, NOW - 80_000], NOW)).toBe(2);
+    expect(onlineCount([], NOW)).toBe(0);
   });
 });
