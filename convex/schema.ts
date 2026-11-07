@@ -13,6 +13,7 @@ export const sectionFields = v.object({
   bpm: v.number(),
   voiceCueEnabled: v.optional(v.boolean()),
   customLabel: v.optional(v.string()),
+  ownTempo: v.optional(v.boolean()),
 });
 
 export default defineSchema({
@@ -52,6 +53,7 @@ export default defineSchema({
     title: v.string(),
     key: v.optional(v.string()),
     tempoHint: v.optional(v.object({ bpm: v.number(), beatsPerBar: v.number() })),
+    bpm: v.optional(v.number()),
     countIn: v.boolean(),
     sections: v.array(sectionFields),
   }).index("by_group", ["groupId"]),

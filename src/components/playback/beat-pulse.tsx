@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   interpolateColor,
@@ -21,12 +21,14 @@ type Props = {
   beat: Beat | null;
   playing: boolean;
   idle?: IdleReadout | null;
+  onPressIdle?: () => void;
+  idleActionLabel?: string;
 };
 
 const COUNT_SCALE: Record<AccentLevel, number> = { bar: 1.16, group: 1.11, beat: 1.07 };
 const DISC_SCALE: Record<AccentLevel, number> = { bar: 1.06, group: 1.045, beat: 1.03 };
 
-export function BeatPulse({ beat, playing, idle }: Props) {
+export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }: Props) {
   const theme = useTheme();
   const scale = useSharedValue(1);
   const discScale = useSharedValue(1);
@@ -85,9 +87,17 @@ export function BeatPulse({ beat, playing, idle }: Props) {
   const dense = beatsPerBar > DENSE_FROM;
   const live = playing && beat !== null;
   const label = live ? beat.count : "";
+  const pressable = !live && onPressIdle !== undefined;
   return (
     <View style={styles.stage}>
-      <View style={styles.circleBox}>
+      <Pressable
+        role={pressable ? "button" : undefined}
+        aria-label={pressable ? idleActionLabel : undefined}
+        testID="beat-disc-button"
+        disabled={!pressable}
+        onPress={onPressIdle}
+        style={({ pressed }) => [styles.circleBox, pressable && pressed ? styles.pressed : null]}
+      >
         <Animated.View
           testID="beat-disc"
           style={[
@@ -125,7 +135,7 @@ export function BeatPulse({ beat, playing, idle }: Props) {
             </View>
           )}
         </Animated.View>
-      </View>
+      </Pressable>
       <View style={[styles.dots, dense ? styles.denseDots : null, live ? null : styles.dotsIdle]} testID="beat-dots">
         {Array.from({ length: beatsPerBar }, (_, index) => {
           const startsGroup = index > 0 && index % groupSize === 0;
@@ -167,6 +177,7 @@ function countFontFor(label: string) {
 const styles = StyleSheet.create({
   stage: { alignItems: "center", gap: Spacing.three },
   circleBox: { width: DISC, height: DISC, alignItems: "center", justifyContent: "center" },
+  pressed: { opacity: 0.7 },
   disc: {
     width: DISC,
     height: DISC,

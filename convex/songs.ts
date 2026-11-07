@@ -6,6 +6,7 @@ import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
 import { BEAT_UNITS } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
+import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
@@ -52,6 +53,8 @@ type Section = Doc<"songs">["sections"][number];
 
 const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
+const validBpm = (bpm: number) => bpm >= 30 && bpm <= 300;
+
 function checkSection(section: Section, index: number, vocabulary: ReadonlySet<string>) {
   const where = `Section ${index + 1}`;
   if (!vocabulary.has(section.sectionType)) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
@@ -61,7 +64,7 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlySet<s
   if (section.beatUnit !== undefined && !BEAT_UNITS.some((unit) => unit === section.beatUnit)) {
     throw new ConvexError(`${where}: The time signature must count halves, quarters, eighths or sixteenths`);
   }
-  if (!(section.bpm >= 30 && section.bpm <= 300)) throw new ConvexError(`${where}: BPM must be from 30 to 300`);
+  if (!validBpm(section.bpm)) throw new ConvexError(`${where}: BPM must be from 30 to 300`);
   if (section.customLabel !== undefined && section.customLabel.trim().length > 20) {
     throw new ConvexError(`${where}: Custom label must be 20 characters or fewer`);
   }
@@ -73,22 +76,29 @@ export const updateSong = mutation({
     title: v.optional(v.string()),
     key: v.optional(v.string()),
     countIn: v.optional(v.boolean()),
+    bpm: v.optional(v.number()),
     sections: v.optional(v.array(sectionValidator)),
   },
-  handler: async (ctx, { songId, title, key, countIn, sections }) => {
+  handler: async (ctx, { songId, title, key, countIn, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
     await requireAdmin(ctx, song.groupId);
+    if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
-    if (sections !== undefined) {
+    const songBpm = bpm ?? song.bpm;
+    const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
+    const given = sections ?? (bpm !== undefined ? stored : undefined);
+    const shaped = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
+    if (sections !== undefined && shaped !== undefined) {
       const vocabulary = new Set(await groupVocabulary(ctx, song.groupId));
-      sections.forEach((section, index) => checkSection(section, index, vocabulary));
+      shaped.forEach((section, index) => checkSection(section, index, vocabulary));
     }
     await ctx.db.patch(songId, {
       ...(title !== undefined ? { title: cleanTitle(title) } : {}),
       ...(key !== undefined ? { key: cleanKey(key) } : {}),
       ...(countIn !== undefined ? { countIn } : {}),
-      ...(sections !== undefined ? { sections } : {}),
+      ...(bpm !== undefined ? { bpm } : {}),
+      ...(shaped !== undefined ? { sections: shaped } : {}),
     });
   },
 });
@@ -104,6 +114,7 @@ export const get = query({
       title: song.title,
       key: song.key ?? null,
       tempoHint: song.tempoHint ?? null,
+      bpm: song.bpm ?? null,
       countIn: song.countIn,
       sections: song.sections,
     };

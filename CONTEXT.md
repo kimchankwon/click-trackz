@@ -30,6 +30,14 @@ _Avoid_: Track, chart, arrangement
 A run of consecutive bars sharing one Section type, one tempo and one time signature.
 _Avoid_: Part, segment, block
 
+**Song tempo**:
+The BPM every Section of a Song plays at, unless that Section has its own tempo.
+_Avoid_: Default BPM, global tempo
+
+**Own tempo**:
+A Section's choice to play at its own BPM instead of the Song tempo.
+_Avoid_: Override, custom BPM
+
 **Section type**:
 A word from the Group's Cue vocabulary plus an optional number, naming a Section and deciding which Voice cue it gets.
 _Avoid_: Label, tag, name
