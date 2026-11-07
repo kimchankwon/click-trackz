@@ -40,6 +40,7 @@ import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { memberPresence, otherMemberPing } from "@/presence/online";
@@ -342,6 +343,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
   }, [serverNow, playback, song]);
+
+  useEffect(() => {
+    setPlayingHere(playing);
+  }, [playing]);
+
+  useEffect(() => () => setPlayingHere(false), []);
 
   const run = useCallback((action: () => Promise<unknown>) => {
     setError(null);
