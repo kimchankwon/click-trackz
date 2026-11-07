@@ -73,7 +73,7 @@ export default defineSchema({
     startsAt: v.number(),
     startSection: v.number(),
     startBar: v.optional(v.number()),
-    jumps: v.array(v.object({ at: v.number(), toSection: v.number() })),
+    jumps: v.array(v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()) })),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
   }).index("by_group", ["groupId"]),

@@ -18,8 +18,8 @@ describe("songLengthMs", () => {
     expect(songLengthMs(song, 1, 3)).toBe(4_000);
   });
 
-  it("counts the Count-in bar", () => {
-    expect(songLengthMs({ ...song, countIn: true })).toBe(14_000);
+  it("counts the two Count-in bars", () => {
+    expect(songLengthMs({ ...song, countIn: true })).toBe(16_000);
   });
 
   it("is zero for a Song without Sections", () => {

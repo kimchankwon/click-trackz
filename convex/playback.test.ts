@@ -48,7 +48,7 @@ describe("Group Playback", () => {
     vi.setSystemTime(startsAt + 3_000);
     await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
     const playback = await admin.query(api.playback.current, { groupId });
-    expect(playback?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
+    expect(playback?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3, cueFrom: startsAt + 4_000 }]);
   });
 
   it("starts from a tapped Section with a one-bar Count-in", async () => {
@@ -109,6 +109,6 @@ describe("Group Playback", () => {
     const startsAt = NOW + 2_000;
     vi.setSystemTime(startsAt + 3_000);
     await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
-    expect((await member.query(api.playback.current, { groupId }))?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3 }]);
+    expect((await member.query(api.playback.current, { groupId }))?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3, cueFrom: startsAt + 4_000 }]);
   });
 });

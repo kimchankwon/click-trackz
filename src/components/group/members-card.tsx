@@ -13,7 +13,8 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
+import { timeAgo } from "@/lib/time-ago";
+import { lastSeenOf, memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -107,6 +108,7 @@ export function MembersCard({
   const list = members ?? [];
   const statusOf = (userId: string) => memberPresence(presence.rows, userId, presence.nowMs, viewer?.id);
   const onlineCount = list.filter((member) => statusOf(member.userId) !== "offline").length;
+  const offlineText = (lastSeen: number | null) => (lastSeen === null ? "Offline" : `Last online ${timeAgo(Math.max(0, presence.nowMs - lastSeen))}`);
   return (
     <Card title={`Members · ${list.length} · ${onlineCount} online`}>
       {list.map((member, index) => {
@@ -139,8 +141,8 @@ export function MembersCard({
                   <ThemedText type="small" themeColor="textSecondary">
                     {role} ·{" "}
                   </ThemedText>
-                  <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"}>
-                    {presenceText[status]}
+                  <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"} testID={`status-${member.displayName}`}>
+                    {status === "offline" ? offlineText(lastSeenOf(presence.rows, member.userId, member.lastSeenAt)) : presenceText[status]}
                   </ThemedText>
                   {pingMs !== null ? (
                     <View style={styles.ping}>

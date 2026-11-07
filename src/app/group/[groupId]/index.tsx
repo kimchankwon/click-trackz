@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
-import { AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
@@ -57,15 +57,18 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 type JumpMode = "endOfSection" | "nextBar";
 
-function upcomingVoiceCue(recent: readonly Beat[]): Beat["voiceCue"] {
-  const cueIndex = recent.findLastIndex((b) => b.voiceCue !== null);
-  if (cueIndex === -1) return null;
-  const sameBar = recent.slice(cueIndex + 1).every((b) => !b.accent);
-  return sameBar ? recent[cueIndex].voiceCue : null;
-}
-
-const sameVoiceCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
+const sameCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
   a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
+
+const sameBeat = (a: Beat | null, b: Beat | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.at === b.at &&
+    a.sectionIndex === b.sectionIndex &&
+    a.lead?.barsLeft === b.lead?.barsLeft &&
+    a.lead?.beats === b.lead?.beats &&
+    sameCue(a.lead?.cue ?? null, b.lead?.cue ?? null));
 
 function ScreenWakeLock() {
   useKeepAwake(undefined, { suppressDeactivateWarnings: true });
@@ -188,7 +191,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
-  const [upcoming, setUpcoming] = useState<Beat["voiceCue"]>(null);
   const [nextIndex, setNextIndex] = useState<number | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -307,9 +309,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
         const recent = beatsBetween(song, playback, now - 10_000, now + 1);
         const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
         const latest = recent.at(-1) ?? null;
-        setBeat((previous) => (previous?.at === latest?.at ? previous : latest));
-        const nextCue = upcomingVoiceCue(recent);
-        setUpcoming((previous) => (sameVoiceCue(previous, nextCue) ? previous : nextCue));
+        setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
         const following = nextSectionIndex(ahead);
         setNextIndex((previous) => (previous === following ? previous : following));
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
@@ -317,7 +317,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
         setPlaying(now < endsAt);
       } else {
         setBeat(null);
-        setUpcoming(null);
         setNextIndex(null);
         setQueuedKey("");
         setPlaying(false);
@@ -365,7 +364,15 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
   const tempo = tempoText(tempoSection ?? (playing ? null : startSong?.tempoHint));
   const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
+  const lead = playing ? (beat?.lead ?? null) : null;
+  const upcoming = lead?.cue ?? null;
+  const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
   const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
+  const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
+  useEffect(() => {
+    if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
+  }, [nextAnnouncement]);
+
   const startHint =
     startBlocker === "noSong"
       ? "Pick a Song to start"
@@ -534,9 +541,9 @@ function GroupScreen({ group }: { group: MyGroup }) {
         </View>
       )}
       {nextLine ? (
-        <View style={styles.nextBlock}>
+        <View style={styles.nextBlock} aria-live="polite" testID="playback-next-block">
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
-            {upcoming ? "Next, in one bar" : "Next"}
+            {nextLabel}
           </ThemedText>
           <View style={styles.nextRow}>
             <Icon name="next" size={22} color="accent" />
@@ -580,7 +587,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             <>
               {!playing ? (
                 <ThemedText type="caption" themeColor="textSecondary" testID="start-from-hint">
-                  Tap a Section and bar to start there with a one-bar Count-in.
+                  Tap a Section and bar to start there with a two-bar Count-in.
                 </ThemedText>
               ) : null}
               <View style={styles.jumpMode}>

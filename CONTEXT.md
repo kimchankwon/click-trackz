@@ -47,7 +47,7 @@ The one Setlist an Admin has marked as what the Group is playing now, which Memb
 _Avoid_: Active set, tonight's set
 
 **Count-in**:
-One optional bar before the first Section, counted with plain beat numbers.
+Two optional bars before the first Section, shown with plain beat numbers while the first Section's Voice cue is spoken.
 _Avoid_: Pre-roll, lead-in, intro
 
 ## Cues
@@ -61,7 +61,7 @@ The audible tick on every beat.
 _Avoid_: Metronome, beep
 
 **Voice cue**:
-The spoken Section type, said on the first beat of the bar before that Section, optionally followed by the spoken remaining beats of that bar.
+The spoken Section type and count over the two bars before that Section, at half time (CHORUS . 2 . | 3 . 4 . in 4/4, once per group of three in compound meters), or over the one bar there is when the Section before it is a single bar.
 _Avoid_: Guide, announcement, callout
 
 **Speaker**:

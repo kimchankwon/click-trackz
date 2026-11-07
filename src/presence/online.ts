@@ -38,3 +38,8 @@ export const countOnPlay =(rows: readonly PresenceRow[], nowMs: number) =>
   new Set(fresh(rows, nowMs).filter((r) => r.onPlay).map((r) => r.userId)).size;
 
 export const onlineCount = (seenAt: readonly number[], nowMs: number) => seenAt.filter((at) => nowMs - at <= ONLINE_WITHIN_MS).length;
+
+export function lastSeenOf(rows: readonly PresenceRow[], userId: string, lastSeenAt: number | null): number | null {
+  const seen = rows.filter((row) => row.userId === userId).reduce((latest, row) => Math.max(latest, row.seenAt), lastSeenAt ?? -Infinity);
+  return Number.isFinite(seen) ? seen : null;
+}
