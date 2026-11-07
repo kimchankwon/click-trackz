@@ -21,8 +21,12 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt } = playback;
-    return { songId, song, startsAt, startSection, startBar: startBar ?? 1, jumps, stopsAt };
+    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy } = playback;
+    const starter = await ctx.db
+      .query("memberships")
+      .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", startedBy))
+      .unique();
+    return { songId, song, startsAt, startSection, startBar: startBar ?? 1, jumps, stopsAt, startedBy, startedByName: starter?.displayName ?? null };
   },
 });
 

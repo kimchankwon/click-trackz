@@ -16,7 +16,9 @@ export function IconButton({
   round,
   onCard,
   outlined,
+  active,
 }: {
+  active?: boolean;
   onCard?: boolean;
   outlined?: boolean;
   icon: IconName;
@@ -40,14 +42,18 @@ export function IconButton({
       hitSlop={4}
       style={({ pressed }) => [
         styles.button,
-        { width: size, height: size, backgroundColor: filled ? (onCard ? theme.backgroundSelected : theme.backgroundElement) : "transparent" },
+        {
+          width: size,
+          height: size,
+          backgroundColor: active ? theme.accent : filled ? (onCard ? theme.backgroundSelected : theme.backgroundElement) : "transparent",
+        },
         round ? { borderRadius: size / 2 } : null,
         outlined ? { borderWidth: 1, borderColor: theme.inputBorder } : null,
         disabled ? styles.disabled : null,
         pressed ? styles.pressed : null,
       ]}
     >
-      <Icon name={icon} size={Math.round(size * 0.55)} color={color} />
+      <Icon name={icon} size={Math.round(size * 0.55)} color={active ? "onAccent" : color} />
     </Pressable>
   );
 }

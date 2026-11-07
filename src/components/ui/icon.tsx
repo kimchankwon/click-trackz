@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/use-theme";
 const symbols = {
   play: { ios: "play.fill", material: "play_arrow" },
   stop: { ios: "stop.fill", material: "stop" },
+  muted: { ios: "speaker.slash.fill", material: "volume_off" },
   back: { ios: "chevron.left", material: "arrow_back" },
   forward: { ios: "chevron.right", material: "chevron_right" },
   expand: { ios: "chevron.down", material: "expand_more" },
