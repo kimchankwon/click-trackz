@@ -99,6 +99,7 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
         style={({ pressed }) => [styles.circleBox, pressable && pressed ? styles.pressed : null]}
       >
         <Animated.View
+          key={live ? "live" : "idle"}
           testID="beat-disc"
           style={[
             styles.disc,
