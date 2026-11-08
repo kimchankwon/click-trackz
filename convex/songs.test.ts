@@ -62,6 +62,35 @@ describe("Songs", () => {
     await expect(member.mutation(api.songs.updateSong, { songId, subdivision: 3 })).rejects.toThrow(/Only Admins/);
   });
 
+  it("saves whether the Song's cues start one or two bars before each Section", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Firm Foundation" });
+    expect(await member.query(api.songs.get, { songId })).toMatchObject({ cueLeadBars: 2 });
+    await admin.mutation(api.songs.updateSong, { songId, cueLeadBars: 1 });
+    expect(await member.query(api.songs.get, { songId })).toMatchObject({ cueLeadBars: 1 });
+    await expect(admin.mutation(api.songs.updateSong, { songId, cueLeadBars: 3 })).rejects.toThrow(/one or two bars/);
+    await expect(member.mutation(api.songs.updateSong, { songId, cueLeadBars: 2 })).rejects.toThrow(/Only Admins/);
+  });
+
+  it("duplicates a Song under the next free number, with the same Key, tempo, cues and Sections", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Remembrance", key: "E" });
+    await admin.mutation(api.songs.updateSong, { songId, bpm: 68, countIn: false, subdivision: 2, cueLeadBars: 1, sections: [verse] });
+    const first = await admin.mutation(api.songs.duplicateSong, { songId });
+    expect(first.title).toBe("Remembrance 2");
+    const original = await member.query(api.songs.get, { songId });
+    expect(await member.query(api.songs.get, { songId: first.songId })).toEqual({ ...original, songId: first.songId, title: "Remembrance 2" });
+    expect((await admin.mutation(api.songs.duplicateSong, { songId })).title).toBe("Remembrance 3");
+    expect((await admin.mutation(api.songs.duplicateSong, { songId: first.songId })).title).toBe("Remembrance 4");
+    expect((await member.query(api.songs.list, { groupId })).map((song) => song.title)).toEqual([
+      "Remembrance",
+      "Remembrance 2",
+      "Remembrance 3",
+      "Remembrance 4",
+    ]);
+    await expect(member.mutation(api.songs.duplicateSong, { songId })).rejects.toThrow(/Only Admins/);
+  });
+
   it("plays every Section at the Song tempo unless it has its own tempo", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Send Me Out" });

@@ -21,11 +21,14 @@ import { Switch } from "@/components/ui/switch";
 import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
+import { sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
-import { SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
+import { cuePattern } from "@/sync/cue-pattern";
+import { CUE_LEAD_BARS, SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -287,6 +290,7 @@ type LoadedSong = {
   bpm: number | null;
   countIn: boolean;
   subdivision: number;
+  cueLeadBars: number;
   sections: EditableSection[];
 };
 
@@ -296,6 +300,21 @@ const subdivisionPattern = (beatsPerBar: number, subdivision: number) =>
     : `Each bar clicks ${Array.from({ length: beatsPerBar }, (_, beat) => [String(beat + 1), ...Array.from({ length: subdivision - 1 }, () => ".")].join(" ")).join(" ")} with a softer Click on each dot.`;
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
+
+function savedDraftOf(song: LoadedSong): SongDraft {
+  const bpm = startingBpmOf(song);
+  return {
+    title: song.title,
+    key: song.key ?? "",
+    countIn: song.countIn,
+    subdivision: song.subdivision,
+    cueLeadBars: song.cueLeadBars,
+    bpm,
+    sections: withSongTempo(markOwnTempos(song.sections, bpm), bpm),
+  };
+}
+
+const SONG_COPY_DETAILS = "with the same Key, tempo, cues and Sections";
 
 export default function SongEditorScreen() {
   const params = useLocalSearchParams<{ groupId: string; songId: string }>();
@@ -320,12 +339,15 @@ function SongForm({
 }) {
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
+  const duplicateSong = useMutation(api.songs.duplicateSong);
+  const library = useQuery(api.songs.list, { groupId });
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.three);
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
   const [subdivision, setSubdivision] = useState(song.subdivision);
+  const [cueLeadBars, setCueLeadBars] = useState(song.cueLeadBars);
   const [songBpm, setSongBpm] = useState(() => startingBpmOf(song));
   const [rows, setRows] = useState<SectionRowState[]>(() => markOwnTempos(song.sections, startingBpmOf(song)).map((section, id) => ({ id, section })));
   const [nextRowId, setNextRowId] = useState(song.sections.length);
@@ -335,6 +357,27 @@ function SongForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, sections };
+  const changed = !sameDraft(draft, savedDraftOf(song));
+  const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [duplicatePending, setDuplicatePending] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const copyName = library ? copyTitle(title, library.map((other) => (other.songId === songId ? title : other.title))) : null;
+  const confirmDuplicate = async () => {
+    if (duplicatePending) return;
+    setDuplicateError(null);
+    setDuplicatePending(true);
+    try {
+      if (changed) await updateSong({ songId, ...draft });
+      const copy = await duplicateSong({ songId });
+      setConfirmingDuplicate(false);
+      router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } });
+    } catch (error) {
+      setDuplicateError(errorText(error));
+    } finally {
+      setDuplicatePending(false);
+    }
+  };
   const confirmDelete = async () => {
     if (deletePending) return;
     setDeleteError(null);
@@ -378,7 +421,7 @@ function SongForm({
     run(async () => {
       setSaving(true);
       try {
-        await Promise.all([updateSong({ songId, title, key: songKey, countIn, subdivision, bpm: songBpm, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
+        await Promise.all([updateSong({ songId, ...draft }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
         toast.show("Song saved");
       } finally {
         setSaving(false);
@@ -408,7 +451,27 @@ function SongForm({
               Every Section plays at the Song tempo. Turn on Own tempo in a Section to give it a different BPM.
             </ThemedText>
             <Divider />
-            <Switch label="Count-in" hint="Two bars of beat numbers before the first Section, while its Voice cue is spoken" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
+            <Switch
+              label="Count-in"
+              hint={`${cueLeadBars === 1 ? "One bar" : "Two bars"} of beat numbers before the first Section, while its Voice cue is spoken`}
+              value={countIn}
+              onChange={setCountIn}
+              testID="count-in-toggle"
+            />
+            <Divider />
+            <View style={styles.subdivision}>
+              <ThemedText type="smallBold">Voice cues start</ThemedText>
+              <Segmented
+                label="Voice cues start"
+                testID="cue-lead"
+                value={String(cueLeadBars)}
+                onChange={(next) => setCueLeadBars(Number(next))}
+                options={CUE_LEAD_BARS.map((bars) => ({ value: String(bars), label: bars === 1 ? "1 bar before" : "2 bars before" }))}
+              />
+              <ThemedText type="caption" themeColor="textSecondary" testID="cue-lead-pattern">
+                {`Spoken as ${cuePattern(sections[0] ?? { beatsPerBar: 4 }, cueLeadBars)} over the ${cueLeadBars === 1 ? "bar" : "two bars"} before each Section, with a ${cueLeadBars === 1 ? "one" : "two"}-bar Count-in.`}
+              </ThemedText>
+            </View>
             <Divider />
             <View style={styles.subdivision}>
               <ThemedText type="smallBold">Clicks per beat</ThemedText>
@@ -454,6 +517,15 @@ function SongForm({
             </ThemedText>
           ) : null}
           <ActionButton
+            icon="copy"
+            label="Duplicate Song"
+            testID="duplicate-song"
+            onPress={() => {
+              setDuplicateError(null);
+              setConfirmingDuplicate(true);
+            }}
+          />
+          <ActionButton
             variant="danger"
             icon="trash"
             label="Delete Song"
@@ -477,6 +549,21 @@ function SongForm({
             onPress={save}
           />
         </View>
+        <ConfirmDialog
+          visible={confirmingDuplicate}
+          title={`Duplicate ${song.title}?`}
+          message={
+            changed
+              ? `Your changes are saved to ${song.title} first. Then ${copyName ?? "a copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
+              : `${copyName ?? "A copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
+          }
+          confirmLabel={changed ? "Save and duplicate" : "Duplicate"}
+          pending={duplicatePending}
+          error={duplicateError}
+          onConfirm={() => void confirmDuplicate()}
+          onCancel={() => setConfirmingDuplicate(false)}
+          testID="duplicate-song-dialog"
+        />
         <ConfirmDialog
           visible={confirmingDelete}
           title={`Delete ${song.title}?`}

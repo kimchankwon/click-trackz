@@ -31,6 +31,12 @@ describe("Playback commands", () => {
     expect(startedPlayback({ ...song, subdivision: 7 }, {}, 0).song).not.toHaveProperty("subdivision");
   });
 
+  it("carries a one-bar Cue lead into Playback so every device cues alike", () => {
+    expect(startedPlayback({ ...song, cueLeadBars: 1 }, {}, 0).song).toEqual({ countIn: false, cueLeadBars: 1, sections: song.sections });
+    expect(startedPlayback({ ...song, cueLeadBars: 2 }, {}, 0).song).not.toHaveProperty("cueLeadBars");
+    expect(startedPlayback({ ...song, cueLeadBars: 3 }, {}, 0).song).not.toHaveProperty("cueLeadBars");
+  });
+
   it("refuses a Song with no Sections, or a start outside the Song", () => {
     expect(startProblem({ ...song, sections: [] }, {})).toMatch(/needs structure/);
     expect(startProblem(song, { fromSection: 2 })).toMatch(/not in the Song/);

@@ -4,13 +4,14 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
-import { BEAT_UNITS, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
+import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
+import { copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
-  if (trimmed.length === 0 || trimmed.length > 80) throw new ConvexError("Song title must be 1 to 80 characters");
+  if (trimmed.length === 0 || trimmed.length > MAX_SONG_TITLE) throw new ConvexError(`Song title must be 1 to ${MAX_SONG_TITLE} characters`);
   return trimmed;
 };
 
@@ -77,15 +78,17 @@ export const updateSong = mutation({
     key: v.optional(v.string()),
     countIn: v.optional(v.boolean()),
     subdivision: v.optional(v.number()),
+    cueLeadBars: v.optional(v.number()),
     bpm: v.optional(v.number()),
     sections: v.optional(v.array(sectionValidator)),
   },
-  handler: async (ctx, { songId, title, key, countIn, subdivision, bpm, sections }) => {
+  handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
     await requireAdmin(ctx, song.groupId);
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
+    if (cueLeadBars !== undefined && !CUE_LEAD_BARS.some((n) => n === cueLeadBars)) throw new ConvexError("Cues can start one or two bars before a Section");
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
     const songBpm = bpm ?? song.bpm;
     const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
@@ -100,6 +103,7 @@ export const updateSong = mutation({
       ...(key !== undefined ? { key: cleanKey(key) } : {}),
       ...(countIn !== undefined ? { countIn } : {}),
       ...(subdivision !== undefined ? { subdivision } : {}),
+      ...(cueLeadBars !== undefined ? { cueLeadBars } : {}),
       ...(bpm !== undefined ? { bpm } : {}),
       ...(shaped !== undefined ? { sections: shaped } : {}),
     });
@@ -120,8 +124,35 @@ export const get = query({
       bpm: song.bpm ?? null,
       countIn: song.countIn,
       subdivision: subdivisionOf(song),
+      cueLeadBars: cueLeadBarsOf(song),
       sections: song.sections,
     };
+  },
+});
+
+export const duplicateSong = mutation({
+  args: { songId: v.id("songs") },
+  handler: async (ctx, { songId }) => {
+    const song = await ctx.db.get(songId);
+    if (song === null) throw new ConvexError("That Song no longer exists");
+    await requireAdmin(ctx, song.groupId);
+    const library = await ctx.db
+      .query("songs")
+      .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
+      .collect();
+    const title = copyTitle(song.title, library.map((other) => other.title));
+    const copyId = await ctx.db.insert("songs", {
+      groupId: song.groupId,
+      title,
+      key: song.key,
+      tempoHint: song.tempoHint,
+      bpm: song.bpm,
+      countIn: song.countIn,
+      subdivision: song.subdivision,
+      cueLeadBars: song.cueLeadBars,
+      sections: song.sections,
+    });
+    return { songId: copyId, title };
   },
 });
 

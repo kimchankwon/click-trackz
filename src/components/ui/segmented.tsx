@@ -11,8 +11,10 @@ export function Segmented<T extends string>({
   onChange,
   testID,
   compact,
+  disabled,
 }: {
   compact?: boolean;
+  disabled?: boolean;
   label: string;
   options: readonly { value: T; label: string }[];
   value: T;
@@ -21,7 +23,13 @@ export function Segmented<T extends string>({
 }) {
   const theme = useTheme();
   return (
-    <View role="radiogroup" aria-label={label} testID={testID} style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+    <View
+      role="radiogroup"
+      aria-label={label}
+      aria-disabled={disabled}
+      testID={testID}
+      style={[styles.track, { backgroundColor: theme.backgroundSelected }, disabled ? styles.disabled : null]}
+    >
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -29,6 +37,7 @@ export function Segmented<T extends string>({
             key={option.value}
             role="radio"
             aria-checked={selected}
+            disabled={disabled}
             onPress={() => onChange(option.value)}
             style={[styles.segment, compact ? styles.compactSegment : null, selected ? [styles.raised, { backgroundColor: theme.raised }] : null]}
           >
@@ -55,4 +64,5 @@ const styles = StyleSheet.create({
   compactSegment: { minHeight: 26 },
   segment: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm, paddingHorizontal: 8 },
   raised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
+  disabled: { opacity: 0.5 },
 });
