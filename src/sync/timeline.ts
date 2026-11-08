@@ -18,8 +18,17 @@ export function beatGroupSize(beatsPerBar: number, beatUnit = 4): number {
 
 export type Song = {
   countIn: boolean;
+  subdivision?: number;
   sections: readonly Section[];
 };
+
+export const SUBDIVISIONS = [1, 2, 3, 4] as const;
+
+export const subdivisionOf = (song: Pick<Song, "subdivision">): number =>
+  SUBDIVISIONS.find((n) => n === song.subdivision) ?? 1;
+
+export const offbeatsOf = (beat: Pick<Beat, "at" | "beatMs">, subdivision: number): number[] =>
+  Array.from({ length: Math.max(0, subdivision - 1) }, (_, index) => beat.at + ((index + 1) * beat.beatMs) / subdivision);
 
 export type Jump = {
   at: number;

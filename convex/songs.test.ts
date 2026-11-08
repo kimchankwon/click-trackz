@@ -51,6 +51,17 @@ describe("Songs", () => {
     await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
   });
 
+  it("saves the Song's Clicks per beat, from 1 to 4", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Waltz" });
+    expect(await member.query(api.songs.get, { songId })).toMatchObject({ subdivision: 1 });
+    await admin.mutation(api.songs.updateSong, { songId, subdivision: 2 });
+    expect(await member.query(api.songs.get, { songId })).toMatchObject({ subdivision: 2 });
+    await expect(admin.mutation(api.songs.updateSong, { songId, subdivision: 5 })).rejects.toThrow(/Clicks per beat/);
+    await expect(admin.mutation(api.songs.updateSong, { songId, subdivision: 1.5 })).rejects.toThrow(/Clicks per beat/);
+    await expect(member.mutation(api.songs.updateSong, { songId, subdivision: 3 })).rejects.toThrow(/Only Admins/);
+  });
+
   it("plays every Section at the Song tempo unless it has its own tempo", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Send Me Out" });

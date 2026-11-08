@@ -23,7 +23,7 @@ _Avoid_: Solo, practice mode, personal Group
 ## Songs
 
 **Song**:
-An ordered list of Sections, plus whether it has a Count-in.
+An ordered list of Sections, plus whether it has a Count-in and its Clicks per beat.
 _Avoid_: Track, chart, arrangement
 
 **Section**:
@@ -69,8 +69,12 @@ The token shown and spoken on a beat: the Section label on its first downbeat, t
 _Avoid_: Cue, label, marker
 
 **Click**:
-The audible tick on every beat.
+The audible tick on every beat, plus a softer one between beats when the Song has more than one Click per beat.
 _Avoid_: Metronome, beep
+
+**Clicks per beat**:
+How many Clicks a Song plays on each beat, from 1 to 4. At 2 a 3/4 bar clicks 1 . 2 . 3 ., with the downbeat accented, the other beats at full Click and each dot softer. Saved with the Song and carried into Playback at Start, so every device subdivides alike.
+_Avoid_: Subdivision, eighths, double time
 
 **Voice cue**:
 The spoken Section type and count over the two bars before that Section, at half time (CHORUS . 2 . | 3 . 4 . in 4/4, once per group of three in compound meters), or over the one bar there is when the Section before it is a single bar.

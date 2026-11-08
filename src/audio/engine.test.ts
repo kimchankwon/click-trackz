@@ -135,6 +135,40 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("Subdivision", () => {
+  const bar: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+
+  it("adds the softer Clicks between beats when the Song asks for them", async () => {
+    const clicksFor = async (plan: Song) => {
+      const engine = new CueAudioEngine();
+      engine.setPlan(plan, { startsAt: NOW + 50, startSection: 0 });
+      await engine.enable(serverNow, null);
+      engine.setHidden(true);
+      const count = contexts().at(-1)!.oscillators;
+      engine.dispose();
+      return count;
+    };
+    expect(await clicksFor(bar)).toBe(4);
+    expect(await clicksFor({ ...bar, subdivision: 2 })).toBe(8);
+    expect(await clicksFor({ ...bar, subdivision: 4 })).toBe(16);
+  });
+
+  it("plays the softer Clicks still ahead in a beat that began before this device joined, and drops them on Mute", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine();
+    const playback = { startsAt: NOW - 100, startSection: 0 };
+    engine.setPlan({ ...bar, subdivision: 4 }, playback);
+    await engine.enable(() => now, null);
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(context.oscillators).toBe(15);
+    now = NOW + 500;
+    engine.setPlan({ ...bar, subdivision: 4 }, null);
+    expect(context.gains.filter((gain) => gain.disconnected)).toHaveLength(13);
+    engine.dispose();
+  });
+});
+
 describe("sound recovery", () => {
   it("asks for a fresh context after a resume that never finishes, then replaces it", async () => {
     const engine = new CueAudioEngine();

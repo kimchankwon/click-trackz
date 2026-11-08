@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beatGroupSize, beatsBetween, playbackEndsAt, timeSignatureOf, type Song } from "./timeline";
+import { beatGroupSize, beatsBetween, offbeatsOf, playbackEndsAt, subdivisionOf, timeSignatureOf, type Song } from "./timeline";
 
 const intro = { sectionType: "Intro", bars: 1, beatsPerBar: 4, bpm: 120 };
 
@@ -249,5 +249,24 @@ describe("late Jumps", () => {
     expect(said(2_500)).toBe(". . . . . . Chorus .");
     expect(said(1_500)).toBe(". . . . Chorus . 4 .");
     expect(said(-Infinity)).toBe("Chorus . 2 . 3 . 4 .");
+  });
+});
+
+describe("Subdivision", () => {
+  it("splits each beat evenly into the Song's Clicks per beat", () => {
+    expect(offbeatsOf({ at: 1_000, beatMs: 600 }, 1)).toEqual([]);
+    expect(offbeatsOf({ at: 1_000, beatMs: 600 }, 2)).toEqual([1_300]);
+    expect(offbeatsOf({ at: 1_000, beatMs: 600 }, 3)).toEqual([1_200, 1_400]);
+  });
+
+  it("plays one Click per beat unless the Song asks for 2, 3 or 4", () => {
+    expect([undefined, 1, 2, 3, 4, 5, 0, 2.5].map((subdivision) => subdivisionOf({ subdivision }))).toEqual([1, 1, 2, 3, 4, 1, 1, 1]);
+  });
+
+  it("leaves the beats, their accents and the counts unchanged", () => {
+    const waltz: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 3, bpm: 60 }] };
+    const plain = beatsBetween(waltz, { startsAt: 0, startSection: 0 }, 0, 60_000);
+    expect(beatsBetween({ ...waltz, subdivision: 2 }, { startsAt: 0, startSection: 0 }, 0, 60_000)).toEqual(plain);
+    expect(plain.flatMap((beat) => [beat.accent ? `${beat.beatInBar}!` : String(beat.beatInBar), ...offbeatsOf(beat, 2).map(() => ".")]).join(" ")).toBe("1! . 2 . 3 .");
   });
 });

@@ -15,6 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { Segmented } from "@/components/ui/segmented";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Switch } from "@/components/ui/switch";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -24,7 +25,7 @@ import { errorText } from "@/lib/error-text";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
-import { timeSignatureOf, type Section } from "@/sync/timeline";
+import { SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -285,8 +286,14 @@ type LoadedSong = {
   tempoHint: { bpm: number; beatsPerBar: number } | null;
   bpm: number | null;
   countIn: boolean;
+  subdivision: number;
   sections: EditableSection[];
 };
+
+const subdivisionPattern = (beatsPerBar: number, subdivision: number) =>
+  subdivision === 1
+    ? "One Click on each beat."
+    : `Each bar clicks ${Array.from({ length: beatsPerBar }, (_, beat) => [String(beat + 1), ...Array.from({ length: subdivision - 1 }, () => ".")].join(" ")).join(" ")} with a softer Click on each dot.`;
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
 
@@ -318,6 +325,7 @@ function SongForm({
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
+  const [subdivision, setSubdivision] = useState(song.subdivision);
   const [songBpm, setSongBpm] = useState(() => startingBpmOf(song));
   const [rows, setRows] = useState<SectionRowState[]>(() => markOwnTempos(song.sections, startingBpmOf(song)).map((section, id) => ({ id, section })));
   const [nextRowId, setNextRowId] = useState(song.sections.length);
@@ -370,7 +378,7 @@ function SongForm({
     run(async () => {
       setSaving(true);
       try {
-        await Promise.all([updateSong({ songId, title, key: songKey, countIn, bpm: songBpm, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
+        await Promise.all([updateSong({ songId, title, key: songKey, countIn, subdivision, bpm: songBpm, sections }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
         toast.show("Song saved");
       } finally {
         setSaving(false);
@@ -401,6 +409,20 @@ function SongForm({
             </ThemedText>
             <Divider />
             <Switch label="Count-in" hint="Two bars of beat numbers before the first Section, while its Voice cue is spoken" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
+            <Divider />
+            <View style={styles.subdivision}>
+              <ThemedText type="smallBold">Clicks per beat</ThemedText>
+              <Segmented
+                label="Clicks per beat"
+                testID="subdivision"
+                value={String(subdivision)}
+                onChange={(next) => setSubdivision(Number(next))}
+                options={SUBDIVISIONS.map((n) => ({ value: String(n), label: String(n) }))}
+              />
+              <ThemedText type="caption" themeColor="textSecondary" testID="subdivision-pattern">
+                {subdivisionPattern(sections[0]?.beatsPerBar ?? 4, subdivision)}
+              </ThemedText>
+            </View>
           </View>
 
           <View style={styles.group}>
@@ -474,6 +496,7 @@ function SongForm({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  subdivision: { gap: Spacing.two },
   content: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,

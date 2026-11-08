@@ -55,6 +55,7 @@ export default defineSchema({
     tempoHint: v.optional(v.object({ bpm: v.number(), beatsPerBar: v.number() })),
     bpm: v.optional(v.number()),
     countIn: v.boolean(),
+    subdivision: v.optional(v.number()),
     sections: v.array(sectionFields),
   }).index("by_group", ["groupId"]),
   setlists: defineTable({
@@ -72,7 +73,7 @@ export default defineSchema({
   playbacks: defineTable({
     groupId: v.id("groups"),
     songId: v.id("songs"),
-    song: v.object({ countIn: v.boolean(), sections: v.array(sectionFields) }),
+    song: v.object({ countIn: v.boolean(), subdivision: v.optional(v.number()), sections: v.array(sectionFields) }),
     startsAt: v.number(),
     startSection: v.number(),
     startBar: v.optional(v.number()),

@@ -40,6 +40,14 @@ describe("Group Playback", () => {
     expect(playback).toMatchObject({ songId, startsAt: NOW + 2_000, startSection: 0, jumps: [], stopsAt: null });
   });
 
+  it("gives every Member the Song's Clicks per beat with the Start", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    await admin.mutation(api.songs.updateSong, { songId, subdivision: 3 });
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    expect((await member.query(api.playback.current, { groupId }))?.song).toMatchObject({ subdivision: 3 });
+  });
+
   it("names the Admin who started Playback, and stops naming them once they leave the Group", async () => {
     const { t, admin, member, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);

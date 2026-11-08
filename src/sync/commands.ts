@@ -1,4 +1,4 @@
-import { commandBoundary, type Jump, type Playback, type Song } from "./timeline";
+import { commandBoundary, subdivisionOf, type Jump, type Playback, type Song } from "./timeline";
 
 export const LEAD_IN_MS = 2_000;
 export const MIN_COMMAND_LEAD_MS = 1_000;
@@ -6,7 +6,7 @@ export const MIN_COMMAND_LEAD_MS = 1_000;
 export type StartFrom = { fromSection?: number; fromBar?: number };
 
 export type StartedPlayback<S extends Song = Song> = {
-  song: { countIn: boolean; sections: S["sections"] };
+  song: { countIn: boolean; subdivision?: number; sections: S["sections"] };
   startsAt: number;
   startSection: number;
   startBar: number;
@@ -28,7 +28,11 @@ export function startProblem(song: Song & { title: string }, { fromSection, from
 
 export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number): StartedPlayback<S> {
   return {
-    song: { countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true, sections: song.sections },
+    song: {
+      countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true,
+      ...(subdivisionOf(song) > 1 ? { subdivision: subdivisionOf(song) } : {}),
+      sections: song.sections,
+    },
     startsAt: nowMs + LEAD_IN_MS,
     startSection: fromSection ?? 0,
     startBar: fromBar ?? 1,
