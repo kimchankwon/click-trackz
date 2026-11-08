@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jumpProblem, jumpsAfter, LEAD_IN_MS, startedPlayback, startProblem, stopTime } from "./commands";
+import { jumpProblem, jumpsAfter, LEAD_IN_MS, startedPlayback, startProblem, STOP_LEAD_MS, stopTime } from "./commands";
 import type { Song } from "./timeline";
 
 const song: Song & { title: string } = {
@@ -52,8 +52,10 @@ describe("Playback commands", () => {
     expect(jumpsAfter(song, playback, 1, "nextBar", 20_000)).toBeNull();
   });
 
-  it("stops on the next bar line, or not at all once the Song is over", () => {
-    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300)).toBe(4_000);
+  it("stops a moment after Stop is pressed without waiting for the bar line, or not at all once the Song is over", () => {
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300)).toBe(2_300 + STOP_LEAD_MS);
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300, 0)).toBe(2_300);
     expect(stopTime(song, { startsAt: 0, startSection: 0 }, 20_000)).toBeNull();
+    expect(stopTime(song, { startsAt: 0, startSection: 0, stopsAt: 2_400 }, 2_300)).toBeNull();
   });
 });

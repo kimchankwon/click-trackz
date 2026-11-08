@@ -37,6 +37,7 @@ export default defineSchema({
     createdBy: v.id("users"),
     currentSetlistId: v.optional(v.id("setlists")),
     offline: v.optional(v.boolean()),
+    copyBase: v.optional(v.string()),
   }).index("by_join_code", ["joinCode"]),
   memberships: defineTable({
     groupId: v.id("groups"),
@@ -57,6 +58,7 @@ export default defineSchema({
     countIn: v.boolean(),
     subdivision: v.optional(v.number()),
     cueLeadBars: v.optional(v.number()),
+    copyBase: v.optional(v.string()),
     sections: v.array(sectionFields),
   }).index("by_group", ["groupId"]),
   setlists: defineTable({
@@ -81,6 +83,7 @@ export default defineSchema({
     jumps: v.array(v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()) })),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
+    stoppedBy: v.optional(v.id("users")),
   }).index("by_group", ["groupId"]),
   presence: defineTable({
     groupId: v.id("groups"),

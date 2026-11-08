@@ -7,7 +7,7 @@ import { groupVocabulary } from "./vocabulary";
 import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
-import { copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
+import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
 const cleanTitle = (title: string) => {
   const trimmed = title.trim();
@@ -51,6 +51,19 @@ export const list = query({
 const sectionValidator = sectionFields;
 
 type Section = Doc<"songs">["sections"][number];
+
+export function songCopyFields(song: Doc<"songs">): Omit<Doc<"songs">, "_id" | "_creationTime" | "groupId" | "title"> {
+  return {
+    key: song.key,
+    tempoHint: song.tempoHint,
+    bpm: song.bpm,
+    countIn: song.countIn,
+    subdivision: song.subdivision,
+    cueLeadBars: song.cueLeadBars,
+    copyBase: song.copyBase,
+    sections: song.sections,
+  };
+}
 
 const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
@@ -125,6 +138,7 @@ export const get = query({
       countIn: song.countIn,
       subdivision: subdivisionOf(song),
       cueLeadBars: cueLeadBarsOf(song),
+      copyBase: song.copyBase ?? null,
       sections: song.sections,
     };
   },
@@ -140,18 +154,9 @@ export const duplicateSong = mutation({
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
       .collect();
-    const title = copyTitle(song.title, library.map((other) => other.title));
-    const copyId = await ctx.db.insert("songs", {
-      groupId: song.groupId,
-      title,
-      key: song.key,
-      tempoHint: song.tempoHint,
-      bpm: song.bpm,
-      countIn: song.countIn,
-      subdivision: song.subdivision,
-      cueLeadBars: song.cueLeadBars,
-      sections: song.sections,
-    });
+    const copyBase = copyBaseOf(song);
+    const title = copyTitle(copyBase, library.map((other) => other.title));
+    const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: song.groupId, title, copyBase });
     return { songId: copyId, title };
   },
 });

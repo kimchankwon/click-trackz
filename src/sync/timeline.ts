@@ -25,6 +25,8 @@ export type Song = {
 
 export const CUE_LEAD_BARS = [1, 2] as const;
 
+export const MAX_SPOKEN_COUNT = 8;
+
 export const cueLeadBarsOf = (song: Pick<Song, "cueLeadBars">): number => (song.cueLeadBars === 1 ? 1 : 2);
 
 export const SUBDIVISIONS = [1, 2, 3, 4] as const;
@@ -161,11 +163,17 @@ const entersSection = (bars: readonly Bar[], index: number) => {
   return bar?.section != null && (bar.barNumber === 1 || bars[index - 1]?.section === null);
 };
 
-const spokenEvery = (bar: Bar, leadBars: number) => {
+const spacingOf = (bar: Bar, leadBars: number) => {
   const group = beatGroupSize(bar.beatsPerBar, bar.beatUnit);
   if (group < bar.beatsPerBar) return group;
   if (leadBars === 1) return 1;
   return bar.beatsPerBar % 2 === 0 ? 2 : bar.beatsPerBar;
+};
+
+const spokenEvery = (bar: Bar, leadBars: number, windowBars: number) => {
+  let every = spacingOf(bar, leadBars);
+  while (Math.ceil(bar.beatsPerBar / every) * windowBars > MAX_SPOKEN_COUNT) every += 1;
+  return every;
 };
 
 type LeadBar = { target: number; first: number };
@@ -194,7 +202,7 @@ function cuesOf(bars: readonly Bar[], { target, first }: LeadBar, leadBars: numb
   let word = 0;
   let named = false;
   window.forEach((bar, offset) => {
-    const every = spokenEvery(bar, leadBars);
+    const every = spokenEvery(bar, leadBars, window.length);
     for (let beat = 1; beat <= bar.beatsPerBar; beat++) {
       position += 1;
       const onWord = speaks && (beat - 1) % every === 0;

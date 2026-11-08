@@ -1,7 +1,8 @@
-import { commandBoundary, cueLeadBarsOf, subdivisionOf, type Jump, type Playback, type Song } from "./timeline";
+import { commandBoundary, cueLeadBarsOf, playbackEndsAt, subdivisionOf, type Jump, type Playback, type Song } from "./timeline";
 
 export const LEAD_IN_MS = 2_000;
 export const MIN_COMMAND_LEAD_MS = 1_000;
+export const STOP_LEAD_MS = 200;
 
 export type StartFrom = { fromSection?: number; fromBar?: number };
 
@@ -54,6 +55,7 @@ export function jumpsAfter(song: Song, playback: Playback & { jumps: readonly Ju
   return [...playback.jumps.filter((j) => j.at < at), { at, toSection, cueFrom: nowMs + MIN_COMMAND_LEAD_MS }];
 }
 
-export function stopTime(song: Song, playback: Playback, nowMs: number): number | null {
-  return commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode: "nextBar" });
+export function stopTime(song: Song, playback: Playback, nowMs: number, leadMs = STOP_LEAD_MS): number | null {
+  const stopsAt = nowMs + leadMs;
+  return stopsAt < playbackEndsAt(song, playback) ? stopsAt : null;
 }

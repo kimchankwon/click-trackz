@@ -169,6 +169,32 @@ describe("Subdivision", () => {
   });
 });
 
+describe("Stop", () => {
+  const bar: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 120 }] };
+
+  it("never schedules a softer Click that falls at or after the Stop instant", async () => {
+    const engine = new CueAudioEngine();
+    engine.setPlan({ ...bar, subdivision: 2 }, { startsAt: NOW + 50, startSection: 0, stopsAt: NOW + 50 + 1_250 });
+    await engine.enable(serverNow, null);
+    engine.setHidden(true);
+    expect(contexts().at(-1)!.oscillators).toBe(5);
+    engine.dispose();
+  });
+
+  it("drops a queued Click once a Stop lands before it, even inside the lookahead", async () => {
+    const engine = new CueAudioEngine();
+    const playback = { startsAt: NOW + 50, startSection: 0 };
+    engine.setPlan(bar, playback);
+    await engine.enable(serverNow, null);
+    await vi.advanceTimersByTimeAsync(50);
+    const context = contexts().at(-1)!;
+    expect(context.oscillators).toBeGreaterThan(0);
+    engine.setPlan(bar, { ...playback, stopsAt: NOW + 40 });
+    expect(context.gains.slice(2).every((gain) => gain.disconnected)).toBe(true);
+    engine.dispose();
+  });
+});
+
 describe("sound recovery", () => {
   it("asks for a fresh context after a resume that never finishes, then replaces it", async () => {
     const engine = new CueAudioEngine();

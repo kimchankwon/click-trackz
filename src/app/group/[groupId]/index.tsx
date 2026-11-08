@@ -39,6 +39,7 @@ import { SignalBars } from "@/components/ui/signal-bars";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
@@ -113,9 +114,16 @@ const STAGE_HEAD_HEIGHT = 164;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
-type ShownPlayback = Playback & { songId: Id<"songs">; song: Song; startedBy: Id<"users"> | null; startedByName: string | null };
+type ShownPlayback = Playback & {
+  songId: Id<"songs">;
+  song: Song;
+  startedBy: Id<"users"> | null;
+  startedByName: string | null;
+  stoppedBy: Id<"users"> | null;
+  stoppedByName: string | null;
+};
 
-type DevicePlayback = StartedPlayback & { songId: Id<"songs">; startedBy: null; startedByName: null };
+type DevicePlayback = StartedPlayback & { songId: Id<"songs">; startedBy: null; startedByName: null; stoppedBy: null; stoppedByName: null };
 
 export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -129,7 +137,7 @@ export default function GroupRoute() {
     );
   }
   const group = myGroups.find((g) => g.groupId === groupId);
-  if (group) return <GroupScreen group={group} />;
+  if (group) return <GroupScreen group={group} groupNames={myGroups.map((mine) => mine.name)} />;
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.notInGroup}>
@@ -150,7 +158,9 @@ export default function GroupRoute() {
   );
 }
 
-function GroupScreen({ group }: { group: MyGroup }) {
+const countOf = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readonly string[] }) {
   const groupId = group.groupId;
   const offline = group.offline;
   const isAdmin = group.role === "admin";
@@ -196,6 +206,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
+  const duplicateGroup = useMutation(api.groups.duplicateGroup);
+  const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
+  const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [duplicatePending, setDuplicatePending] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const updateSong = useMutation(api.songs.updateSong);
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
   const [unclocked, setUnclocked] = useState(false);
@@ -243,13 +258,19 @@ function GroupScreen({ group }: { group: MyGroup }) {
     () => (offlinePlay && groupPlayback && groupPlayback.song.sections.length > 0 ? playbackEndsAt(groupPlayback.song, groupPlayback) : null),
     [offlinePlay, groupPlayback],
   );
-  const [groupCheckedAt, setGroupCheckedAt] = useState<number | null>(null);
+  const [groupPlaying, setGroupPlaying] = useState(false);
   useEffect(() => {
-    if (groupEndsAt === null) return;
-    const timer = setInterval(() => setGroupCheckedAt(serverNow()), 1_000);
+    const check = () => {
+      const now = serverNow();
+      setGroupPlaying(groupEndsAt !== null && now !== null && now < groupEndsAt);
+      return groupEndsAt === null || (now !== null && now >= groupEndsAt);
+    };
+    if (check()) return;
+    const timer = setInterval(() => {
+      if (check()) clearInterval(timer);
+    }, 1_000);
     return () => clearInterval(timer);
   }, [groupEndsAt, serverNow]);
-  const groupPlaying = groupEndsAt !== null && groupCheckedAt !== null && groupCheckedAt < groupEndsAt;
 
   useEffect(() => {
     engine.current?.setPlan(song, song.sections.length > 0 && !muted ? playback : null);
@@ -428,7 +449,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
         if (!startSong) return;
         const problem = startProblem(startSong, from);
         if (problem !== null) throw new Error(problem);
-        setDevicePlayback({ songId: startSongId, startedBy: null, startedByName: null, ...startedPlayback(startSong, from, deviceNow()) });
+        setDevicePlayback({
+          songId: startSongId,
+          startedBy: null,
+          startedByName: null,
+          stoppedBy: null,
+          stoppedByName: null,
+          ...startedPlayback(startSong, from, deviceNow()),
+        });
       } else {
         await start({ groupId, songId: startSongId, ...from });
       }
@@ -446,7 +474,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const stopOnDevice = () => {
     if (devicePlayback === null) return;
-    const stopsAt = stopTime(devicePlayback.song, devicePlayback, deviceNow());
+    const stopsAt = stopTime(devicePlayback.song, devicePlayback, deviceNow(), 0);
     if (stopsAt === null) throw new Error("Playback has already ended");
     setDevicePlayback({ ...devicePlayback, stopsAt });
   };
@@ -465,6 +493,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const mute = () => setMutedStart(playback?.startsAt ?? null);
   const unmute = () => setMutedStart(null);
   const starterName = playback === null || onDevice ? null : playback.startedBy === viewer?.id ? "you" : playback.startedByName;
+  const stopperName =
+    playing || onDevice || playback === null || playback.stoppedBy === null || (selectedSongId !== null && selectedSongId !== playback.songId)
+      ? null
+      : playback.stoppedBy === viewer?.id
+        ? "you"
+        : playback.stoppedByName;
 
   const previousSong = neighbourSong(songOrder, startSongId, -1, orderAt);
   const nextSong = neighbourSong(songOrder, startSongId, 1, orderAt);
@@ -509,6 +543,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs)
             : null,
       isYou: member.userId === viewer?.id,
+      started: playing && !onDevice && member.userId === playback?.startedBy,
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
@@ -516,7 +551,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const canChangeTempo = isAdmin && !playing && !unclocked && startBlocker === null && songTempo !== null;
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
-  const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, sections: startSong.sections }, startSection, startBar) : 0;
+  const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, cueLeadBars: startSong.cueLeadBars, sections: startSong.sections }, startSection, startBar) : 0;
 
   const header = (
     <ScreenHeader
@@ -633,6 +668,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
               {songFacts}
             </ThemedText>
           ) : null}
+          {stopperName ? (
+            <View style={styles.starter} testID="stopped-by">
+              <Icon name="stop" size={14} color="textSecondary" />
+              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                Stopped by {stopperName}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
       )}
       <View style={styles.stageRow}>
@@ -643,7 +686,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
           idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
         />
-        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} />
+        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} />
       </View>
       {tempoOpen && startSong && songTempo !== null && startSongId ? (
         <TempoPanel
@@ -795,10 +838,38 @@ function GroupScreen({ group }: { group: MyGroup }) {
     />
   );
 
+  const copyName = copyTitle(copyBaseOf({ title: group.name, copyBase: group.copyBase }), groupNames, MAX_GROUP_NAME);
+  const confirmDuplicate = async () => {
+    if (duplicatePending) return;
+    setDuplicateError(null);
+    setDuplicatePending(true);
+    try {
+      const copy = await duplicateGroup({ groupId });
+      setConfirmingDuplicate(false);
+      if (playing) toast.show(`${copy.name} is ready in Your Groups`);
+      else router.replace({ pathname: "/group/[groupId]", params: { groupId: copy.groupId } });
+    } catch (error) {
+      setDuplicateError(errorText(error));
+    } finally {
+      setDuplicatePending(false);
+    }
+  };
+
   const groupTab = (
     <>
       <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
       <View style={styles.leave}>
+        {isAdmin ? (
+          <ActionButton
+            icon="copy"
+            label="Duplicate Group"
+            testID="duplicate-group"
+            onPress={() => {
+              setDuplicateError(null);
+              setConfirmingDuplicate(true);
+            }}
+          />
+        ) : null}
         <ActionButton
           variant="danger"
           icon="logout"
@@ -988,6 +1059,17 @@ function GroupScreen({ group }: { group: MyGroup }) {
       </SafeAreaView>
       <Toast message={toast.message} bottom={dockHeight + (floating ? floatHeight : 0) + Spacing.two} />
       <ConfirmDialog
+        visible={confirmingDuplicate}
+        title={`Duplicate ${group.name}?`}
+        message={`${copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
+        confirmLabel="Duplicate"
+        pending={duplicatePending}
+        error={duplicateError}
+        onConfirm={() => void confirmDuplicate()}
+        onCancel={() => setConfirmingDuplicate(false)}
+        testID="duplicate-group-dialog"
+      />
+      <ConfirmDialog
         visible={askLeave && !leaving}
         title="Leave Playback?"
         message={
@@ -1050,7 +1132,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
+  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center", gap: Spacing.two },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {

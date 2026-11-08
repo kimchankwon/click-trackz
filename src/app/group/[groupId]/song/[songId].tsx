@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { copyTitle } from "@/lib/copy-title";
+import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
@@ -291,6 +291,7 @@ type LoadedSong = {
   countIn: boolean;
   subdivision: number;
   cueLeadBars: number;
+  copyBase: string | null;
   sections: EditableSection[];
 };
 
@@ -362,7 +363,12 @@ function SongForm({
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
-  const copyName = library ? copyTitle(title, library.map((other) => (other.songId === songId ? title : other.title))) : null;
+  const copyName = library
+    ? copyTitle(
+        copyBaseOf({ title, copyBase: song.copyBase }),
+        library.map((other) => (other.songId === songId ? title : other.title)),
+      )
+    : null;
   const confirmDuplicate = async () => {
     if (duplicatePending) return;
     setDuplicateError(null);
@@ -469,7 +475,7 @@ function SongForm({
                 options={CUE_LEAD_BARS.map((bars) => ({ value: String(bars), label: bars === 1 ? "1 bar before" : "2 bars before" }))}
               />
               <ThemedText type="caption" themeColor="textSecondary" testID="cue-lead-pattern">
-                {`Spoken as ${cuePattern(sections[0] ?? { beatsPerBar: 4 }, cueLeadBars)} over the ${cueLeadBars === 1 ? "bar" : "two bars"} before each Section, with a ${cueLeadBars === 1 ? "one" : "two"}-bar Count-in.`}
+                {`Spoken as ${cuePattern(sections[0] ?? { beatsPerBar: 4 }, cueLeadBars)} over the ${cueLeadBars === 1 ? "bar" : "two bars"} before each Section${countIn ? `, with a ${cueLeadBars === 1 ? "one" : "two"}-bar Count-in` : ""}.`}
               </ThemedText>
             </View>
             <Divider />

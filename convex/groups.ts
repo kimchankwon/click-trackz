@@ -3,13 +3,15 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireAdmin, requireMember, requireUser } from "./access";
+import { songCopyFields } from "./songs";
+import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
 
 const cleanName = (value: string, what: string) => {
   const trimmed = value.trim();
-  if (trimmed.length === 0 || trimmed.length > 40) throw new ConvexError(`${what} must be 1 to 40 characters`);
+  if (trimmed.length === 0 || trimmed.length > MAX_GROUP_NAME) throw new ConvexError(`${what} must be 1 to ${MAX_GROUP_NAME} characters`);
   return trimmed;
 };
 
@@ -43,6 +45,45 @@ export const createGroup = mutation({
       displayName: cleanName(args.displayName, "Your name"),
     });
     return { groupId, joinCode };
+  },
+});
+
+export const duplicateGroup = mutation({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const { user, membership } = await requireAdmin(ctx, groupId);
+    if (isGuest(user)) throw new ConvexError("Sign in with Google to create a Group");
+    const group = await ctx.db.get(groupId);
+    if (group === null) throw new ConvexError("That Group no longer exists");
+    if (group.offline === true) throw new ConvexError("Offline cannot be duplicated");
+    const mine = await ctx.db
+      .query("memberships")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const myGroupNames = (await Promise.all(mine.map((other) => ctx.db.get(other.groupId)))).flatMap((other) => (other ? [other.name] : []));
+    const copyBase = copyBaseOf({ title: group.name, copyBase: group.copyBase });
+    const name = copyTitle(copyBase, myGroupNames, MAX_GROUP_NAME);
+    const copyId = await ctx.db.insert("groups", { name, joinCode: await uniqueJoinCode(ctx), createdBy: user._id, copyBase });
+    await ctx.db.insert("memberships", { groupId: copyId, userId: user._id, role: "admin", displayName: membership.displayName });
+    const songs = await ctx.db
+      .query("songs")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+    const copiedSongs = new Map<Id<"songs">, Id<"songs">>();
+    for (const song of songs) copiedSongs.set(song._id, await ctx.db.insert("songs", { ...songCopyFields(song), groupId: copyId, title: song.title }));
+    const setlists = await ctx.db
+      .query("setlists")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
+    for (const setlist of setlists) {
+      const entries = setlist.entries.flatMap((entry) => {
+        const songId = copiedSongs.get(entry.songId);
+        return songId ? [{ ...entry, songId }] : [];
+      });
+      const setlistId = await ctx.db.insert("setlists", { groupId: copyId, name: setlist.name, entries });
+      if (group.currentSetlistId === setlist._id) await ctx.db.patch(copyId, { currentSetlistId: setlistId });
+    }
+    return { groupId: copyId, name };
   },
 });
 
@@ -204,6 +245,7 @@ export const myGroups = query({
           name: group.name,
           role: membership.role,
           offline: group.offline === true,
+          copyBase: group.copyBase ?? null,
           joinCode: membership.role === "admin" && group.offline !== true ? group.joinCode : null,
         };
       }),

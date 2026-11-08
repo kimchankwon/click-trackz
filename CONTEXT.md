@@ -119,7 +119,7 @@ A Member silencing the Click and Voice cues on their own device while Play keeps
 _Avoid_: Pause, sit out
 
 **Started by**:
-The Member who pressed Start for the current Playback, shown to everyone on Play.
+The Member who pressed Start for the current Playback, shown to everyone on Play, where their avatar beside the beat is larger and in the accent colour while it plays.
 _Avoid_: Leader, host, owner
 
 **Offline play**:
@@ -127,5 +127,9 @@ A Member's choice, on a Group's Play screen, to play the Group's Songs only on t
 _Avoid_: Solo, practice mode, personal Playback
 
 **Stop**:
-The Admin command that ends Playback.
+The Admin command that ends Playback 200 ms after it is pressed, without waiting for the bar line, so every device stops together.
 _Avoid_: Pause, halt
+
+**Stopped by**:
+The Admin who pressed Stop, shown to everyone on Play once Playback has stopped, until the next Start or another Song is picked.
+_Avoid_: Ended by

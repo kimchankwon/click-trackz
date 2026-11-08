@@ -79,7 +79,7 @@ describe("Songs", () => {
     const first = await admin.mutation(api.songs.duplicateSong, { songId });
     expect(first.title).toBe("Remembrance 2");
     const original = await member.query(api.songs.get, { songId });
-    expect(await member.query(api.songs.get, { songId: first.songId })).toEqual({ ...original, songId: first.songId, title: "Remembrance 2" });
+    expect(await member.query(api.songs.get, { songId: first.songId })).toEqual({ ...original, songId: first.songId, title: "Remembrance 2", copyBase: "Remembrance" });
     expect((await admin.mutation(api.songs.duplicateSong, { songId })).title).toBe("Remembrance 3");
     expect((await admin.mutation(api.songs.duplicateSong, { songId: first.songId })).title).toBe("Remembrance 4");
     expect((await member.query(api.songs.list, { groupId })).map((song) => song.title)).toEqual([
@@ -89,6 +89,13 @@ describe("Songs", () => {
       "Remembrance 4",
     ]);
     await expect(member.mutation(api.songs.duplicateSong, { songId })).rejects.toThrow(/Only Admins/);
+  });
+
+  it("keeps a number that belongs to the title when copying it", async () => {
+    const { admin, groupId } = await setupGroup();
+    await admin.mutation(api.songs.createSong, { groupId, title: "Psalm" });
+    const psalm23 = await admin.mutation(api.songs.createSong, { groupId, title: "Psalm 23" });
+    expect((await admin.mutation(api.songs.duplicateSong, { songId: psalm23 })).title).toBe("Psalm 23 2");
   });
 
   it("plays every Section at the Song tempo unless it has its own tempo", async () => {

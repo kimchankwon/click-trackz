@@ -280,6 +280,11 @@ export class CueAudioEngine {
     } else if (changed && now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) {
       this.trimTo(now + LOOKAHEAD_MS);
     }
+    const stopsAt = playback?.stopsAt ?? null;
+    if (stopsAt !== null && this.future.some((entry) => entry.beatAt >= stopsAt)) {
+      this.cancelWhere((beatAt) => beatAt >= stopsAt);
+      this.voiceBusyUntil = this.latestVoiceEnd();
+    }
   }
 
   setHidden(hidden: boolean) {
@@ -296,13 +301,21 @@ export class CueAudioEngine {
   private trimTo(until: number) {
     this.cancelAfter(until);
     this.scheduledUntil = until;
-    this.voiceBusyUntil = this.future.reduce((latest, entry) => Math.max(latest, entry.voiceEndsAt ?? -Infinity), -Infinity);
+    this.voiceBusyUntil = this.latestVoiceEnd();
+  }
+
+  private latestVoiceEnd() {
+    return this.future.reduce((latest, entry) => Math.max(latest, entry.voiceEndsAt ?? -Infinity), -Infinity);
   }
 
   private cancelAfter(beatAt: number) {
+    this.cancelWhere((at) => at > beatAt);
+  }
+
+  private cancelWhere(drop: (beatAt: number) => boolean) {
     const keep: typeof this.future = [];
     for (const entry of this.future) {
-      if (entry.beatAt <= beatAt) {
+      if (!drop(entry.beatAt)) {
         keep.push(entry);
         continue;
       }
@@ -344,11 +357,12 @@ export class CueAudioEngine {
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? LONGEST_BEAT_MS : 0;
+    const stopsAt = playback.stopsAt ?? Infinity;
     for (const beat of beatsBetween(this.plan.song, playback, from - lookback, to)) {
       if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
       if (!this.mix.click) continue;
       for (const at of offbeatsOf(beat, subdivision)) {
-        if (at < from || at >= to) continue;
+        if (at < from || at >= to || at >= stopsAt) continue;
         const output = this.click(context, scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs), "offbeat");
         this.future.push({ output, beatAt: at });
       }

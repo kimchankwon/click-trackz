@@ -11,5 +11,5 @@ Members must hear every Count at the same instant, so no device ever receives be
 ## Consequences
 
 - Every timestamp that matters comes from the Convex server, never from `Date.now()` on a client.
-- Admin commands always target a future bar line, never "now".
+- Admin commands always target a future instant, never "now". Start and Jump land on a bar line. Stop lands 200 ms after it is pressed (`STOP_LEAD_MS`), since waiting for the bar line felt slow; 200 ms is enough for every device to hear of it first, and each device drops any sound it had already queued past that instant.
 - Clients keep measuring their clock offset during Playback and slew towards a new estimate instead of jumping.
