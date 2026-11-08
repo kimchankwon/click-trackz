@@ -2,6 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { STOP_LEAD_MS } from "../src/sync/commands";
 import { demoSong } from "../src/sync/demo-song";
 import { api } from "./_generated/api";
 import schema from "./schema";
@@ -98,15 +99,18 @@ describe("Group Playback", () => {
     await expect(admin.mutation(api.playback.start, { groupId, songId, fromSection: 99 })).rejects.toThrow(/not in the Song/);
   });
 
-  it("lands Stop on the first bar line at least one second away", async () => {
-    const { admin, groupId, songId } = await setupGroup();
+  it("stops a moment after Stop is pressed, names who stopped it, and forgets them at the next Start", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stoppedBy: null, stoppedByName: null });
     const startsAt = NOW + 2_000;
     vi.setSystemTime(startsAt + 6_200);
     await admin.mutation(api.playback.stop, { groupId });
-    const playback = await admin.query(api.playback.current, { groupId });
-    expect(playback?.stopsAt).toBe(startsAt + 7_500);
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: startsAt + 6_200 + STOP_LEAD_MS, stoppedByName: "Admin" });
+    vi.setSystemTime(startsAt + 10_000);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: null, stoppedBy: null, stoppedByName: null });
   });
 
   it("refuses Playback commands from Members and reads from people outside the Group", async () => {

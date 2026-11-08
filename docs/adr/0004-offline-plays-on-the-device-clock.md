@@ -12,3 +12,4 @@ Offline has no other Members to stay in step with, so its Playback never touches
 - The "every instant comes from the Convex server clock" rule from ADR 0001 applies to Groups, not to Offline.
 - Offline Playback ends when the person leaves the Play screen, since nothing else holds it.
 - Offline sends no presence heartbeats or clock pings, and cannot be joined with a code.
+- Offline play in a Group uses the same device-clock Playback for one Member. The Group screen keeps its server clock, presence and the Group's Playback subscription running underneath, so the Member still shows as online, sees when the Group is playing, and rejoins the Group's Playback on the server clock when they switch back.

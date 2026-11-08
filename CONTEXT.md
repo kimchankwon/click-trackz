@@ -23,7 +23,7 @@ _Avoid_: Solo, practice mode, personal Group
 ## Songs
 
 **Song**:
-An ordered list of Sections, plus whether it has a Count-in and its Clicks per beat.
+An ordered list of Sections, plus whether it has a Count-in, its Clicks per beat and its Cue lead.
 _Avoid_: Track, chart, arrangement
 
 **Section**:
@@ -59,7 +59,7 @@ The one Setlist an Admin has marked as what the Group is playing now, which Memb
 _Avoid_: Active set, tonight's set
 
 **Count-in**:
-Two optional bars before the first Section, shown with plain beat numbers while the first Section's Voice cue is spoken.
+Optional bars before the first Section, as many as the Song's Cue lead, shown with plain beat numbers while the first Section's Voice cue is spoken.
 _Avoid_: Pre-roll, lead-in, intro
 
 ## Cues
@@ -77,8 +77,12 @@ How many Clicks a Song plays on each beat, from 1 to 4. At 2 a 3/4 bar clicks 1 
 _Avoid_: Subdivision, eighths, double time
 
 **Voice cue**:
-The spoken Section type and count over the two bars before that Section, at half time (CHORUS . 2 . | 3 . 4 . in 4/4, once per group of three in compound meters), or over the one bar there is when the Section before it is a single bar.
+The spoken Section type and count before that Section. With a two-bar Cue lead it runs over the two bars before, at half time (CHORUS . 2 . | 3 . 4 . in 4/4), or over the one bar there is when the Section before it is a single bar. With a one-bar Cue lead it runs over the bar before, on every beat (CHORUS 2 3 4). Compound meters speak once per group of three either way.
 _Avoid_: Guide, announcement, callout
+
+**Cue lead**:
+How many bars before a Section its Voice cue starts, one or two, chosen per Song; the Count-in is the same length. Saved with the Song and carried into Playback at Start, so every device cues alike.
+_Avoid_: Pre-roll, cue offset, warning bars
 
 **Speaker**:
 One of the built-in voices that reads Voice cues and spoken counts; each Member chooses their own Speaker on their device.
@@ -115,9 +119,17 @@ A Member silencing the Click and Voice cues on their own device while Play keeps
 _Avoid_: Pause, sit out
 
 **Started by**:
-The Member who pressed Start for the current Playback, shown to everyone on Play.
+The Member who pressed Start for the current Playback, shown to everyone on Play, where their avatar beside the beat is larger and in the accent colour while it plays.
 _Avoid_: Leader, host, owner
 
+**Offline play**:
+A Member's choice, on a Group's Play screen, to play the Group's Songs only on their own device, on the device's own clock. Any Member can Start, Jump and Stop it, and the Group's Playback carries on for everyone else. It ends when they switch back to the Group or leave Play.
+_Avoid_: Solo, practice mode, personal Playback
+
 **Stop**:
-The Admin command that ends Playback.
+The Admin command that ends Playback 200 ms after it is pressed, without waiting for the bar line, so every device stops together.
 _Avoid_: Pause, halt
+
+**Stopped by**:
+The Admin who pressed Stop, shown to everyone on Play once Playback has stopped, until the next Start or another Song is picked.
+_Avoid_: Ended by

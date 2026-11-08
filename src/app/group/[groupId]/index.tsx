@@ -39,6 +39,7 @@ import { SignalBars } from "@/components/ui/signal-bars";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
@@ -113,9 +114,16 @@ const STAGE_HEAD_HEIGHT = 164;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
-type ShownPlayback = Playback & { songId: Id<"songs">; song: Song; startedBy: Id<"users"> | null; startedByName: string | null };
+type ShownPlayback = Playback & {
+  songId: Id<"songs">;
+  song: Song;
+  startedBy: Id<"users"> | null;
+  startedByName: string | null;
+  stoppedBy: Id<"users"> | null;
+  stoppedByName: string | null;
+};
 
-type DevicePlayback = StartedPlayback & { songId: Id<"songs">; startedBy: null; startedByName: null };
+type DevicePlayback = StartedPlayback & { songId: Id<"songs">; startedBy: null; startedByName: null; stoppedBy: null; stoppedByName: null };
 
 export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -129,7 +137,7 @@ export default function GroupRoute() {
     );
   }
   const group = myGroups.find((g) => g.groupId === groupId);
-  if (group) return <GroupScreen group={group} />;
+  if (group) return <GroupScreen group={group} groupNames={myGroups.map((mine) => mine.name)} />;
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.notInGroup}>
@@ -150,14 +158,22 @@ export default function GroupRoute() {
   );
 }
 
-function GroupScreen({ group }: { group: MyGroup }) {
+const countOf = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readonly string[] }) {
   const groupId = group.groupId;
   const offline = group.offline;
+  const isAdmin = group.role === "admin";
+  const [offlinePlay, setOfflinePlay] = useState(false);
+  const onDevice = offline || offlinePlay;
+  const steers = isAdmin || onDevice;
   const [playing, setPlaying] = useState(false);
   const { estimate, serverNow } = useServerClock({ playing, onDevice: offline });
+  const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
+  const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
   const [devicePlayback, setDevicePlayback] = useState<DevicePlayback | null>(null);
-  const playback: ShownPlayback | null = offline ? devicePlayback : ((playbackDoc ?? null) as ShownPlayback | null);
+  const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
@@ -165,7 +181,6 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
 
-  const isAdmin = group.role === "admin";
   const startSongId = selectedSongId ?? playback?.songId ?? null;
   const startSong = selectedSongId ? selectedSong : playingSong;
   const shownSections = playing && playback ? playback.song.sections : (startSong?.sections ?? []);
@@ -191,6 +206,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
   const leave = useMutation(api.groups.leaveGroup);
+  const duplicateGroup = useMutation(api.groups.duplicateGroup);
+  const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
+  const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [duplicatePending, setDuplicatePending] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const updateSong = useMutation(api.songs.updateSong);
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
   const [unclocked, setUnclocked] = useState(false);
@@ -231,8 +251,26 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const stopping = playing && (stopPending || (playback?.stopsAt ?? null) !== null);
 
   useEffect(() => {
-    engine.current?.setServerClock(serverNow);
-  }, [serverNow]);
+    engine.current?.setServerClock(playNow);
+  }, [playNow]);
+
+  const groupEndsAt = useMemo(
+    () => (offlinePlay && groupPlayback && groupPlayback.song.sections.length > 0 ? playbackEndsAt(groupPlayback.song, groupPlayback) : null),
+    [offlinePlay, groupPlayback],
+  );
+  const [groupPlaying, setGroupPlaying] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const now = serverNow();
+      setGroupPlaying(groupEndsAt !== null && now !== null && now < groupEndsAt);
+      return groupEndsAt === null || (now !== null && now >= groupEndsAt);
+    };
+    if (check()) return;
+    const timer = setInterval(() => {
+      if (check()) clearInterval(timer);
+    }, 1_000);
+    return () => clearInterval(timer);
+  }, [groupEndsAt, serverNow]);
 
   useEffect(() => {
     engine.current?.setPlan(song, song.sections.length > 0 && !muted ? playback : null);
@@ -269,7 +307,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     let cancelled = false;
     if (!engine.current) engine.current = new CueAudioEngine();
     engine.current
-      .enable(serverNow, speaker)
+      .enable(playNow, speaker)
       .then((running) => {
         if (cancelled) return;
         setSoundOn(running);
@@ -319,7 +357,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     let handle = 0;
     const endsAt = playback && song.sections.length > 0 ? playbackEndsAt(song, playback) : -Infinity;
     const draw = () => {
-      const now = serverNow();
+      const now = playNow();
       if (now !== null && playback && song.sections.length > 0) {
         const recent = beatsBetween(song, playback, now - 10_000, now + 1);
         const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
@@ -342,7 +380,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
-  }, [serverNow, playback, song]);
+  }, [playNow, playback, song]);
 
   useEffect(() => {
     setPlayingHere(playing);
@@ -359,7 +397,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
       const current = engine.current;
-      const running = await (current.enabled ? current.wake() : current.enable(serverNow, speaker)).catch((error: unknown) => {
+      const running = await (current.enabled ? current.wake() : current.enable(playNow, speaker)).catch((error: unknown) => {
         setSoundProblem(describeAudioError(error));
         throw error;
       });
@@ -407,11 +445,18 @@ function GroupScreen({ group }: { group: MyGroup }) {
     run(async () => {
       if (!startSongId) return;
       const from = { fromSection: pickedSection ?? undefined, fromBar: pickedBar ?? undefined };
-      if (offline) {
+      if (onDevice) {
         if (!startSong) return;
         const problem = startProblem(startSong, from);
         if (problem !== null) throw new Error(problem);
-        setDevicePlayback({ songId: startSongId, startedBy: null, startedByName: null, ...startedPlayback(startSong, from, deviceNow()) });
+        setDevicePlayback({
+          songId: startSongId,
+          startedBy: null,
+          startedByName: null,
+          stoppedBy: null,
+          stoppedByName: null,
+          ...startedPlayback(startSong, from, deviceNow()),
+        });
       } else {
         await start({ groupId, songId: startSongId, ...from });
       }
@@ -429,14 +474,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const stopOnDevice = () => {
     if (devicePlayback === null) return;
-    const stopsAt = stopTime(devicePlayback.song, devicePlayback, deviceNow());
+    const stopsAt = stopTime(devicePlayback.song, devicePlayback, deviceNow(), 0);
     if (stopsAt === null) throw new Error("Playback has already ended");
     setDevicePlayback({ ...devicePlayback, stopsAt });
   };
 
   const stopPlayback = () =>
     run(async () => {
-      if (offline) return stopOnDevice();
+      if (onDevice) return stopOnDevice();
       setStopPending(true);
       try {
         await stop({ groupId });
@@ -447,7 +492,13 @@ function GroupScreen({ group }: { group: MyGroup }) {
 
   const mute = () => setMutedStart(playback?.startsAt ?? null);
   const unmute = () => setMutedStart(null);
-  const starterName = playback === null || offline ? null : playback.startedBy === viewer?.id ? "you" : playback.startedByName;
+  const starterName = playback === null || onDevice ? null : playback.startedBy === viewer?.id ? "you" : playback.startedByName;
+  const stopperName =
+    playing || onDevice || playback === null || playback.stoppedBy === null || (selectedSongId !== null && selectedSongId !== playback.songId)
+      ? null
+      : playback.stoppedBy === viewer?.id
+        ? "you"
+        : playback.stoppedByName;
 
   const previousSong = neighbourSong(songOrder, startSongId, -1, orderAt);
   const nextSong = neighbourSong(songOrder, startSongId, 1, orderAt);
@@ -457,14 +508,24 @@ function GroupScreen({ group }: { group: MyGroup }) {
     setOrderAt(step.at);
   };
 
+  const switchPlayMode = (toOffline: boolean) => {
+    if (toOffline === offlinePlay || (playing && offlinePlay)) return;
+    setDevicePlayback(null);
+    setOfflinePlay(toOffline);
+    if (!toOffline && !isAdmin) {
+      setSelectedSongId(null);
+      setStartPick(null);
+    }
+  };
+
   const tapSection = (index: number) => {
-    if (!isAdmin) return;
-    if (playing) run(async () => (offline ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode })));
+    if (!steers) return;
+    if (playing) run(async () => (onDevice ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode })));
     else if (startSongId) setStartPick({ songId: startSongId, index, bar: 1 });
   };
 
   const tapBar = (bar: number) => {
-    if (isAdmin && startSongId) setStartPick({ songId: startSongId, index: startSection, bar });
+    if (steers && startSongId) setStartPick({ songId: startSongId, index: startSection, bar });
   };
 
   const pickedTitle =
@@ -482,6 +543,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
             ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs)
             : null,
       isYou: member.userId === viewer?.id,
+      started: playing && !onDevice && member.userId === playback?.startedBy,
     }))
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
@@ -489,7 +551,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const canChangeTempo = isAdmin && !playing && !unclocked && startBlocker === null && songTempo !== null;
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
-  const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, sections: startSong.sections }, startSection, startBar) : 0;
+  const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, cueLeadBars: startSong.cueLeadBars, sections: startSong.sections }, startSection, startBar) : 0;
 
   const header = (
     <ScreenHeader
@@ -551,6 +613,27 @@ function GroupScreen({ group }: { group: MyGroup }) {
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
+      {offline ? null : (
+        <View style={styles.playMode}>
+          <Segmented
+            compact
+            label="Play"
+            testID="play-mode"
+            value={offlinePlay ? "offline" : "group"}
+            disabled={playing && offlinePlay}
+            onChange={(next) => switchPlayMode(next === "offline")}
+            options={[
+              { value: "group", label: "With the Group" },
+              { value: "offline", label: "Offline" },
+            ]}
+          />
+          {offlinePlay ? (
+            <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note" style={styles.centered}>
+              {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
+            </ThemedText>
+          ) : null}
+        </View>
+      )}
       {soundPromptFor("enable-sound")}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
@@ -573,17 +656,25 @@ function GroupScreen({ group }: { group: MyGroup }) {
           >
             {currentSection}
           </ThemedText>
-          {beat ? <SectionProgress beat={beat} serverNow={serverNow} /> : null}
+          {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
         </View>
       ) : (
         <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
-            {shownTitle ?? (isAdmin ? "Pick a Song" : "Waiting for an Admin")}
+            {shownTitle ?? (steers ? "Pick a Song" : "Waiting for an Admin")}
           </ThemedText>
           {shownTitle && songFacts ? (
             <ThemedText type="small" themeColor="textSecondary" testID="song-facts" style={styles.centered}>
               {songFacts}
             </ThemedText>
+          ) : null}
+          {stopperName ? (
+            <View style={styles.starter} testID="stopped-by">
+              <Icon name="stop" size={14} color="textSecondary" />
+              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                Stopped by {stopperName}
+              </ThemedText>
+            </View>
           ) : null}
         </View>
       )}
@@ -595,7 +686,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
           onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
           idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
         />
-        <StageMembers members={onlineMembers} beat={beat} playing={playing} />
+        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} />
       </View>
       {tempoOpen && startSong && songTempo !== null && startSongId ? (
         <TempoPanel
@@ -608,7 +699,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       ) : null}
       {playing ? null : (
         <View style={styles.nextBlock}>
-          {!isAdmin ? (
+          {!steers ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               An Admin starts and steers Playback.
             </ThemedText>
@@ -654,12 +745,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
                 accessibleName={titleOf(section)}
                 queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}
-                selected={playing ? beat?.sectionIndex === index : isAdmin && startSection === index && startBlocker === null}
+                selected={playing ? beat?.sectionIndex === index : steers && startSection === index && startBlocker === null}
                 onPress={() => tapSection(index)}
               />
             ))}
           </View>
-          {isAdmin && !playing && startBlocker === null && startSectionBars > 1 ? (
+          {steers && !playing && startBlocker === null && startSectionBars > 1 ? (
             <View style={styles.barPicker}>
               <ThemedText type="caption" themeColor="textSecondary">
                 Start at bar
@@ -671,11 +762,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
               </View>
             </View>
           ) : null}
-          {isAdmin ? (
+          {steers ? (
             <>
               {!playing ? (
                 <ThemedText type="caption" themeColor="textSecondary" testID="start-from-hint">
-                  Tap a Section and bar to start there with a two-bar Count-in.
+                  Tap a Section and bar to start there with a {startSong?.cueLeadBars === 1 ? "one" : "two"}-bar Count-in.
                 </ThemedText>
               ) : null}
               <View style={styles.jumpMode}>
@@ -716,6 +807,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
     <SetlistCard
       groupId={groupId}
       isAdmin={isAdmin}
+      canPick={steers}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
       onSelect={playSong}
       run={run}
@@ -727,6 +819,7 @@ function GroupScreen({ group }: { group: MyGroup }) {
       <SongsCard
         groupId={groupId}
         isAdmin={isAdmin}
+        canPlay={steers}
         selectedSongId={selectedSongId ?? playback?.songId ?? null}
         onPlay={playSong}
         run={run}
@@ -745,10 +838,38 @@ function GroupScreen({ group }: { group: MyGroup }) {
     />
   );
 
+  const copyName = copyTitle(copyBaseOf({ title: group.name, copyBase: group.copyBase }), groupNames, MAX_GROUP_NAME);
+  const confirmDuplicate = async () => {
+    if (duplicatePending) return;
+    setDuplicateError(null);
+    setDuplicatePending(true);
+    try {
+      const copy = await duplicateGroup({ groupId });
+      setConfirmingDuplicate(false);
+      if (playing) toast.show(`${copy.name} is ready in Your Groups`);
+      else router.replace({ pathname: "/group/[groupId]", params: { groupId: copy.groupId } });
+    } catch (error) {
+      setDuplicateError(errorText(error));
+    } finally {
+      setDuplicatePending(false);
+    }
+  };
+
   const groupTab = (
     <>
       <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
       <View style={styles.leave}>
+        {isAdmin ? (
+          <ActionButton
+            icon="copy"
+            label="Duplicate Group"
+            testID="duplicate-group"
+            onPress={() => {
+              setDuplicateError(null);
+              setConfirmingDuplicate(true);
+            }}
+          />
+        ) : null}
         <ActionButton
           variant="danger"
           icon="logout"
@@ -772,11 +893,11 @@ function GroupScreen({ group }: { group: MyGroup }) {
   );
 
   const playCard =
-    tab === "play" && (isAdmin || songSpan !== null || startLength > 0) ? (
+    tab === "play" && (steers || songSpan !== null || startLength > 0) ? (
       <View style={[styles.floatCard, { backgroundColor: theme.background, borderColor: theme.border, shadowColor: theme.text }]} testID="play-controls">
-        {isAdmin ? (
+        {steers ? (
           <View style={styles.transport}>
-            {playing && !offline ? (
+            {playing && !onDevice ? (
               <IconButton
                 icon={muted ? "sound" : "muted"}
                 label={muted ? "Unmute" : "Mute"}
@@ -836,14 +957,14 @@ function GroupScreen({ group }: { group: MyGroup }) {
             />
           </View>
         ) : null}
-        {playing && (!isAdmin || muted) ? (
+        {playing && (!steers || muted) ? (
           <View style={styles.personal}>
             {muted ? (
               <ThemedText type="caption" themeColor="textSecondary" testID="muted-notice" style={styles.grow} numberOfLines={2}>
                 Muted on this device. Playback carries on for everyone else.
               </ThemedText>
             ) : null}
-            {isAdmin ? null : (
+            {steers ? null : (
               <ActionButton
                 medium
                 rounded
@@ -857,12 +978,12 @@ function GroupScreen({ group }: { group: MyGroup }) {
             )}
           </View>
         ) : null}
-        <SongProgress span={songSpan} lengthMs={startLength} serverNow={serverNow} />
+        <SongProgress span={songSpan} lengthMs={startLength} serverNow={playNow} />
       </View>
     ) : null;
 
   const miniCard =
-    isAdmin && tab !== "play" ? (
+    steers && tab !== "play" ? (
       <View style={[styles.floatCard, styles.miniBar, { backgroundColor: theme.background, borderColor: theme.border, shadowColor: theme.text }]} testID="mini-bar">
         <Pressable
           role="button"
@@ -938,10 +1059,21 @@ function GroupScreen({ group }: { group: MyGroup }) {
       </SafeAreaView>
       <Toast message={toast.message} bottom={dockHeight + (floating ? floatHeight : 0) + Spacing.two} />
       <ConfirmDialog
+        visible={confirmingDuplicate}
+        title={`Duplicate ${group.name}?`}
+        message={`${copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
+        confirmLabel="Duplicate"
+        pending={duplicatePending}
+        error={duplicateError}
+        onConfirm={() => void confirmDuplicate()}
+        onCancel={() => setConfirmingDuplicate(false)}
+        testID="duplicate-group-dialog"
+      />
+      <ConfirmDialog
         visible={askLeave && !leaving}
         title="Leave Playback?"
         message={
-          offline
+          onDevice
             ? "The Click and Voice cues stop."
             : isAdmin
               ? "The Click and Voice cues stop on this device. Playback keeps going for everyone else until you come back and stop it."
@@ -977,6 +1109,7 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
+  playMode: { width: "100%", maxWidth: 320, gap: Spacing.one },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
   hidden: { display: "none" },
   sectionHeading: { fontSize: 56, lineHeight: 62 },
@@ -999,7 +1132,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     width: "100%",
   },
-  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center" },
+  leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center", gap: Spacing.two },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {

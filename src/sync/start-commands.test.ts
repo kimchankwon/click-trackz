@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jumpProblem, jumpsAfter, LEAD_IN_MS, startedPlayback, startProblem, stopTime } from "./commands";
+import { jumpProblem, jumpsAfter, LEAD_IN_MS, startedPlayback, startProblem, STOP_LEAD_MS, stopTime } from "./commands";
 import type { Song } from "./timeline";
 
 const song: Song & { title: string } = {
@@ -31,6 +31,12 @@ describe("Playback commands", () => {
     expect(startedPlayback({ ...song, subdivision: 7 }, {}, 0).song).not.toHaveProperty("subdivision");
   });
 
+  it("carries a one-bar Cue lead into Playback so every device cues alike", () => {
+    expect(startedPlayback({ ...song, cueLeadBars: 1 }, {}, 0).song).toEqual({ countIn: false, cueLeadBars: 1, sections: song.sections });
+    expect(startedPlayback({ ...song, cueLeadBars: 2 }, {}, 0).song).not.toHaveProperty("cueLeadBars");
+    expect(startedPlayback({ ...song, cueLeadBars: 3 }, {}, 0).song).not.toHaveProperty("cueLeadBars");
+  });
+
   it("refuses a Song with no Sections, or a start outside the Song", () => {
     expect(startProblem({ ...song, sections: [] }, {})).toMatch(/needs structure/);
     expect(startProblem(song, { fromSection: 2 })).toMatch(/not in the Song/);
@@ -46,8 +52,10 @@ describe("Playback commands", () => {
     expect(jumpsAfter(song, playback, 1, "nextBar", 20_000)).toBeNull();
   });
 
-  it("stops on the next bar line, or not at all once the Song is over", () => {
-    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300)).toBe(4_000);
+  it("stops a moment after Stop is pressed without waiting for the bar line, or not at all once the Song is over", () => {
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300)).toBe(2_300 + STOP_LEAD_MS);
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, 2_300, 0)).toBe(2_300);
     expect(stopTime(song, { startsAt: 0, startSection: 0 }, 20_000)).toBeNull();
+    expect(stopTime(song, { startsAt: 0, startSection: 0, stopsAt: 2_400 }, 2_300)).toBeNull();
   });
 });

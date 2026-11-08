@@ -55,7 +55,7 @@ describe("Groups", () => {
     const offlineId = await guest.client.mutation(api.groups.openOffline, {});
     expect(await guest.client.mutation(api.groups.openOffline, {})).toBe(offlineId);
     expect(await guest.client.query(api.groups.myGroups, {})).toEqual([
-      { groupId: offlineId, name: "Offline", role: "admin", offline: true, joinCode: null },
+      { groupId: offlineId, name: "Offline", role: "admin", offline: true, copyBase: null, joinCode: null },
     ]);
     expect(await guest.client.query(api.groups.members, { groupId: offlineId })).toEqual([
       expect.objectContaining({ displayName: "You", role: "admin" }),
@@ -120,6 +120,57 @@ describe("Groups", () => {
     await jason.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jason" });
     await expect(jason.client.mutation(api.groups.removeMember, { groupId, userId: admin.userId })).rejects.toThrow(/Only Admins/);
     await expect(admin.client.mutation(api.groups.removeMember, { groupId, userId: admin.userId })).rejects.toThrow(/Leave Group/);
+  });
+});
+
+describe("Duplicate Group", () => {
+  it("copies every Song and Setlist into a new Group with only the Admin who copied it", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const { groupId, joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    const mia = await as({ isAnonymous: true });
+    await mia.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Mia" });
+    const verse = { sectionType: "Verse", bars: 8, beatsPerBar: 4, bpm: 72 };
+    const remembrance = await daniel.client.mutation(api.songs.createSong, { groupId, title: "Remembrance", key: "E" });
+    await daniel.client.mutation(api.songs.updateSong, { songId: remembrance, cueLeadBars: 1, sections: [verse] });
+    const pure = await daniel.client.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    const sunday = await daniel.client.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });
+    await daniel.client.mutation(api.setlists.save, {
+      setlistId: sunday,
+      name: "Sunday",
+      entries: [{ songId: pure }, { songId: remembrance, key: "F", leader: "Mia" }],
+      revision: 0,
+    });
+    await daniel.client.mutation(api.setlists.setCurrent, { groupId, setlistId: sunday });
+
+    const copy = await daniel.client.mutation(api.groups.duplicateGroup, { groupId });
+    expect(copy.name).toBe("Band 2");
+    expect(await daniel.client.query(api.groups.members, { groupId: copy.groupId })).toEqual([
+      expect.objectContaining({ displayName: "Daniel", role: "admin" }),
+    ]);
+    const myGroups = await daniel.client.query(api.groups.myGroups, {});
+    const copied = myGroups.find((group) => group.groupId === copy.groupId);
+    expect(copied?.joinCode).toMatch(/^[A-Z2-9]{6}$/);
+    expect(copied?.joinCode).not.toBe(joinCode);
+
+    const songs = await daniel.client.query(api.songs.list, { groupId: copy.groupId });
+    expect(songs.map((song) => song.title)).toEqual(["Remembrance", "Pure"]);
+    const copiedRemembrance = songs.find((song) => song.title === "Remembrance")!;
+    expect(copiedRemembrance.songId).not.toBe(remembrance);
+    expect(await daniel.client.query(api.songs.get, { songId: copiedRemembrance.songId })).toMatchObject({ key: "E", cueLeadBars: 1, sections: [verse] });
+
+    const currentId = await daniel.client.query(api.setlists.currentSetlistId, { groupId: copy.groupId });
+    const current = await daniel.client.query(api.setlists.get, { setlistId: currentId! });
+    expect(current?.name).toBe("Sunday");
+    expect(current?.entries.map((entry) => [entry.title, entry.key, entry.leader])).toEqual([
+      ["Pure", null, null],
+      ["Remembrance", "F", "Mia"],
+    ]);
+    expect(current?.entries.every((entry) => songs.some((song) => song.songId === entry.songId))).toBe(true);
+
+    expect((await daniel.client.mutation(api.groups.duplicateGroup, { groupId: copy.groupId })).name).toBe("Band 3");
+    await expect(mia.client.mutation(api.groups.duplicateGroup, { groupId })).rejects.toThrow(/Only Admins/);
+    await expect(mia.client.query(api.songs.list, { groupId: copy.groupId })).rejects.toThrow(/not in this Group/);
   });
 });
 

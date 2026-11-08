@@ -20,9 +20,11 @@ export function avatarColorsFor(name: string, scheme: "light" | "dark", position
   return { background, text };
 }
 
-export function Avatar({ name, size = 40, position }: { name: string; size?: number; position?: number }) {
+export type AvatarColors = { background: string; text: string };
+
+export function Avatar({ name, size = 40, position, colors: chosen }: { name: string; size?: number; position?: number; colors?: AvatarColors }) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  const colors = avatarColorsFor(name, scheme, position);
+  const colors = chosen ?? avatarColorsFor(name, scheme, position);
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.background }]}>
       <ThemedText

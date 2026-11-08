@@ -5,6 +5,15 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 
+async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users"> | undefined) {
+  if (userId === undefined) return null;
+  const membership = await ctx.db
+    .query("memberships")
+    .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
+    .unique();
+  return membership?.displayName ?? null;
+}
+
 async function groupPlayback(ctx: QueryCtx, groupId: Id<"groups">) {
   return ctx.db
     .query("playbacks")
@@ -18,12 +27,20 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy } = playback;
-    const starter = await ctx.db
-      .query("memberships")
-      .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", startedBy))
-      .unique();
-    return { songId, song, startsAt, startSection, startBar: startBar ?? 1, jumps, stopsAt, startedBy, startedByName: starter?.displayName ?? null };
+    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy, stoppedBy } = playback;
+    return {
+      songId,
+      song,
+      startsAt,
+      startSection,
+      startBar: startBar ?? 1,
+      jumps,
+      stopsAt,
+      startedBy,
+      startedByName: await displayNameIn(ctx, groupId, startedBy),
+      stoppedBy: stoppedBy ?? null,
+      stoppedByName: await displayNameIn(ctx, groupId, stoppedBy),
+    };
   },
 });
 
@@ -63,11 +80,11 @@ export const jump = mutation({
 export const stop = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireAdmin(ctx, groupId);
+    const { user } = await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     const stopsAt = stopTime(playback.song, playback, Date.now());
     if (stopsAt === null) throw new ConvexError("Playback has already ended");
-    await ctx.db.patch(playback._id, { stopsAt });
+    await ctx.db.patch(playback._id, { stopsAt, stoppedBy: user._id });
   },
 });

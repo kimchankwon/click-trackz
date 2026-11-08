@@ -16,12 +16,14 @@ import type { Id } from "../../../convex/_generated/dataModel";
 export function SongsCard({
   groupId,
   isAdmin,
+  canPlay,
   selectedSongId,
   onPlay,
   run,
 }: {
   groupId: Id<"groups">;
   isAdmin: boolean;
+  canPlay: boolean;
   selectedSongId: Id<"songs"> | null;
   onPlay: (songId: Id<"songs">) => void;
   run: (action: () => Promise<unknown>) => void;
@@ -60,7 +62,7 @@ export function SongsCard({
               onSelect={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })}
               testID={`edit-${song.title}`}
               trailing={
-                isAdmin ? (
+                canPlay ? (
                   <IconButton
                     icon="play"
                     label={selectedSongId === song.songId ? `Play ${song.title}, already on Play` : `Play ${song.title}`}

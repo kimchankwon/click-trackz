@@ -19,12 +19,14 @@ import type { Id } from "../../../convex/_generated/dataModel";
 export function SetlistCard({
   groupId,
   isAdmin,
+  canPick,
   selectedSongId,
   onSelect,
   run,
 }: {
   groupId: Id<"groups">;
   isAdmin: boolean;
+  canPick: boolean;
   selectedSongId: Id<"songs"> | null;
   onSelect: (songId: Id<"songs">) => void;
   run: (action: () => Promise<unknown>) => void;
@@ -155,7 +157,7 @@ export function SetlistCard({
               warningAsDot
               divider={index > 0}
               selected={selectedSongId === entry.songId}
-              selectable={isAdmin}
+              selectable={canPick}
               onSelect={() => onSelect(entry.songId)}
               testID={`setlist-entry-${index}`}
             />
