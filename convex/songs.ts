@@ -4,7 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
-import { BEAT_UNITS } from "../src/sync/timeline";
+import { BEAT_UNITS, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 
@@ -76,14 +76,16 @@ export const updateSong = mutation({
     title: v.optional(v.string()),
     key: v.optional(v.string()),
     countIn: v.optional(v.boolean()),
+    subdivision: v.optional(v.number()),
     bpm: v.optional(v.number()),
     sections: v.optional(v.array(sectionValidator)),
   },
-  handler: async (ctx, { songId, title, key, countIn, bpm, sections }) => {
+  handler: async (ctx, { songId, title, key, countIn, subdivision, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
     await requireAdmin(ctx, song.groupId);
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
+    if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
     const songBpm = bpm ?? song.bpm;
     const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
@@ -97,6 +99,7 @@ export const updateSong = mutation({
       ...(title !== undefined ? { title: cleanTitle(title) } : {}),
       ...(key !== undefined ? { key: cleanKey(key) } : {}),
       ...(countIn !== undefined ? { countIn } : {}),
+      ...(subdivision !== undefined ? { subdivision } : {}),
       ...(bpm !== undefined ? { bpm } : {}),
       ...(shaped !== undefined ? { sections: shaped } : {}),
     });
@@ -116,6 +119,7 @@ export const get = query({
       tempoHint: song.tempoHint ?? null,
       bpm: song.bpm ?? null,
       countIn: song.countIn,
+      subdivision: subdivisionOf(song),
       sections: song.sections,
     };
   },

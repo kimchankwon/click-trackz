@@ -25,6 +25,12 @@ describe("Playback commands", () => {
     expect(startedPlayback(song, { fromSection: 1, fromBar: 2 }, 0)).toMatchObject({ song: { countIn: true }, startSection: 1, startBar: 2 });
   });
 
+  it("carries the Song's Clicks per beat into Playback so every device subdivides alike", () => {
+    expect(startedPlayback({ ...song, subdivision: 2 }, {}, 0).song).toEqual({ countIn: false, subdivision: 2, sections: song.sections });
+    expect(startedPlayback({ ...song, subdivision: 1 }, {}, 0).song).not.toHaveProperty("subdivision");
+    expect(startedPlayback({ ...song, subdivision: 7 }, {}, 0).song).not.toHaveProperty("subdivision");
+  });
+
   it("refuses a Song with no Sections, or a start outside the Song", () => {
     expect(startProblem({ ...song, sections: [] }, {})).toMatch(/needs structure/);
     expect(startProblem(song, { fromSection: 2 })).toMatch(/not in the Song/);

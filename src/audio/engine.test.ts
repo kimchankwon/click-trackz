@@ -135,6 +135,24 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("Subdivision", () => {
+  it("adds the softer Clicks between beats when the Song asks for them", async () => {
+    const clicksFor = async (plan: Song) => {
+      const engine = new CueAudioEngine();
+      engine.setPlan(plan, { startsAt: NOW + 50, startSection: 0 });
+      await engine.enable(serverNow, null);
+      await vi.advanceTimersByTimeAsync(100);
+      const count = contexts().at(-1)!.oscillators;
+      engine.dispose();
+      return count;
+    };
+    const plain = await clicksFor(song);
+    expect(plain).toBeGreaterThan(0);
+    expect(await clicksFor({ ...song, subdivision: 2 })).toBe(plain * 2);
+    expect(await clicksFor({ ...song, subdivision: 3 })).toBe(plain * 3);
+  });
+});
+
 describe("sound recovery", () => {
   it("asks for a fresh context after a resume that never finishes, then replaces it", async () => {
     const engine = new CueAudioEngine();
