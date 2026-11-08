@@ -19,6 +19,7 @@ const LOOKAHEAD_MS = 200;
 const HIDDEN_LOOKAHEAD_MS = 15 * 60_000;
 const FUTURE_PRUNE_MS = 2_000;
 const CLICK_MS = 40;
+const LONGEST_BEAT_MS = 60_000 / 30;
 type ClickLevel = AccentLevel | "offbeat";
 
 const CLICK_SOUND: Record<ClickLevel, { hz: number; gain: number }> = {
@@ -342,12 +343,14 @@ export class CueAudioEngine {
     const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
-    for (const beat of beatsBetween(this.plan.song, playback, from, to)) {
-      this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
+    const lookback = subdivision > 1 ? LONGEST_BEAT_MS : 0;
+    for (const beat of beatsBetween(this.plan.song, playback, from - lookback, to)) {
+      if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
       if (!this.mix.click) continue;
       for (const at of offbeatsOf(beat, subdivision)) {
+        if (at < from || at >= to) continue;
         const output = this.click(context, scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs), "offbeat");
-        this.future.push({ output, beatAt: beat.at });
+        this.future.push({ output, beatAt: at });
       }
     }
     this.scheduledUntil = to;
