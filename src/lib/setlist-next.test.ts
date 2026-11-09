@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nextInSetlist, setlistPosition } from "./setlist-next";
+import { nextInSetlist, setlistPosition, startedFromSetlist } from "./setlist-next";
 
 describe("nextInSetlist", () => {
   const order = ["a", "b", "c", "d"];
@@ -32,5 +32,14 @@ describe("setlistPosition", () => {
     expect(setlistPosition(repeats, "a", null)).toBe(0);
     expect(setlistPosition(repeats, "a", 3)).toBe(0);
     expect(setlistPosition(repeats, "z", 1)).toBeNull();
+  });
+});
+
+describe("startedFromSetlist", () => {
+  it("is true only for a Playback started from a Current setlist position", () => {
+    expect(startedFromSetlist({ setlistIndex: 0 })).toBe(true);
+    expect(startedFromSetlist({ setlistIndex: 3 })).toBe(true);
+    expect(startedFromSetlist({ setlistIndex: null })).toBe(false);
+    expect(startedFromSetlist({})).toBe(false);
   });
 });

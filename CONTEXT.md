@@ -146,9 +146,9 @@ _Avoid_: Again, replay
 The Admin command that keeps repeating the current Section from the end of its pass until an Admin ends the vamp. The Voice cue speaks the Section before each repeat, and ending the vamp goes on to the next Section at the end of the current pass, or ends the Song on the last Section. While a Group vamps, its Playback has no end time.
 _Avoid_: Loop, hold
 
-**Play through**:
-An Admin's choice, when starting a Song from the Current setlist, that the next Song in that Setlist with Sections starts a second after this one ends, with its own Count-in. A Stop ends the run, and a Vamp holds it until the vamp ends.
-_Avoid_: Autoplay, continuous play, medley
+**Next up**:
+What happens when a Song picked from the Current setlist plays to its end: Play selects the next Song in that Setlist with Sections, ready for an Admin to Start, and shows the Setlist's name in place of the Group's while a Setlist Song is picked or playing. Nothing starts on its own. A Song picked from the Song library stays selected when it ends, and a Stop leaves the stopped Song selected.
+_Avoid_: Play through, autoplay, auto-advance
 
 **Mute**:
 A Member silencing the Click and Voice cues on their own device while Play keeps showing the shared beat and Playback carries on for everyone else; Unmute brings the sound back on the next beat, and the next Start unmutes them on its own.

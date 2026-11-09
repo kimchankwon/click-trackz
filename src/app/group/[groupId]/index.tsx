@@ -47,10 +47,9 @@ import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
-import { nextInSetlist, setlistPosition } from "@/lib/setlist-next";
+import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
 import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
 import { hapticFor, isHapticBeat, isSide, type HapticBeat, type Side } from "@/settings/output";
-import { Switch } from "@/components/ui/switch";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
@@ -61,7 +60,6 @@ import {
   endVampJumps,
   jumpProblem,
   jumpsAfter,
-  MIN_COMMAND_LEAD_MS,
   repeatJumps,
   startedPlayback,
   startProblem,
@@ -158,13 +156,8 @@ type DevicePlayback = StartedPlayback & {
   startedByName: null;
   stoppedBy: null;
   stoppedByName: null;
-  advance?: boolean;
   setlistIndex?: number;
 };
-
-type OnOff = "on" | "off";
-
-const isOnOff = (value: string): value is OnOff => value === "on" || value === "off";
 
 export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -209,6 +202,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const onDevice = offline || offlinePlay;
   const steers = isAdmin || onDevice;
   const [playing, setPlaying] = useState(false);
+  const [finishedStart, setFinishedStart] = useState<number | null>(null);
   const { estimate, serverNow } = useServerClock({ playing, onDevice: offline });
   const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
@@ -216,6 +210,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [devicePlayback, setDevicePlayback] = useState<DevicePlayback | null>(null);
   const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
+  const [pickedFromSetlist, setPickedFromSetlist] = useState(false);
   const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
   const song: Song = playback?.song ?? emptySong;
@@ -243,7 +238,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const nextUp = playingPosition === null ? null : nextInSetlist(setlistOrder, playingPosition, (id) => playableInSetlist.has(id));
   const nextUpId = nextUp?.item ?? null;
   const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
-  const nextUpSong = useQuery(api.songs.get, nextUpId ? { songId: nextUpId } : "skip");
   const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
@@ -254,11 +248,9 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const stop = useMutation(api.playback.stop);
   const repeatSection = useMutation(api.playback.repeatSection);
   const endVamp = useMutation(api.playback.endVamp);
-  const setAdvance = useMutation(api.playback.setAdvance);
   const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
-  const [advancePreference, setAdvancePreference] = useDeviceSetting<OnOff>("autoAdvance", "off", isOnOff);
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
@@ -440,6 +432,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
         setQueuedKey((previous) => (previous === queued ? previous : queued));
         setPlaying(now < endsAt);
+        if (now >= endsAt) setFinishedStart(playback.startsAt);
         setUnclocked(false);
       } else {
         setUnclocked(now === null && playback !== null);
@@ -467,48 +460,30 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     if (beat) tapBeat(beat);
   }, [beat]);
 
-  const lineUpNext = useEffectEvent(() => {
-    if (!steers || playback === null || playback.stopsAt !== null || nextUp === null) return;
-    setSelectedSongId(nextUp.item);
-    setOrderAt(nextUp.index);
-    setStartPick(null);
-  });
   const [followedStart, setFollowedStart] = useState<number | null>(null);
   if (playback !== null && playback.startsAt !== followedStart) {
     setFollowedStart(playback.startsAt);
-    if (steers && playback.advance === true && playback.songId !== selectedSongId) {
-      setSelectedSongId(playback.songId);
-      setOrderAt(playingPosition);
+    if (steers && startedFromSetlist(playback)) {
+      setPickedFromSetlist(true);
+      if (playback.songId !== selectedSongId) {
+        setSelectedSongId(playback.songId);
+        setOrderAt(playingPosition);
+        setStartPick(null);
+      }
+    }
+  }
+  const [linedUpAfter, setLinedUpAfter] = useState<number | null>(null);
+  if (finishedStart !== null && finishedStart !== linedUpAfter) {
+    setLinedUpAfter(finishedStart);
+    const endedOnItsOwn = playback !== null && playback.startsAt === finishedStart && playback.stopsAt === null;
+    const stillOnThatSong = playback !== null && selectedSongId === playback.songId;
+    if (steers && endedOnItsOwn && startedFromSetlist(playback) && stillOnThatSong && nextUp !== null) {
+      setSelectedSongId(nextUp.item);
+      setPickedFromSetlist(true);
+      setOrderAt(nextUp.index);
       setStartPick(null);
     }
   }
-  const wasPlaying = useRef(false);
-  useEffect(() => {
-    const ended = wasPlaying.current && !playing;
-    wasPlaying.current = playing;
-    if (ended) lineUpNext();
-  }, [playing]);
-
-  useEffect(() => {
-    if (!onDevice || devicePlayback === null || devicePlayback.advance !== true || devicePlayback.stopsAt !== null) return;
-    if (nextUp === null || !nextUpSong || nextUpSong.sections.length === 0) return;
-    const endsAt = playbackEndsAt(devicePlayback.song, devicePlayback);
-    if (!Number.isFinite(endsAt)) return;
-    const timer = setTimeout(() => {
-      const now = deviceNow();
-      setDevicePlayback({
-        songId: nextUp.item,
-        startedBy: null,
-        startedByName: null,
-        stoppedBy: null,
-        stoppedByName: null,
-        advance: true,
-        setlistIndex: nextUp.index,
-        ...startedPlayback(nextUpSong, {}, now, now + MIN_COMMAND_LEAD_MS),
-      });
-    }, Math.max(0, endsAt - deviceNow()));
-    return () => clearTimeout(timer);
-  }, [onDevice, devicePlayback, nextUp, nextUpSong]);
 
   useEffect(() => () => setPlayingHere(false), []);
 
@@ -581,7 +556,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     run(async () => {
       if (!startSongId) return;
       const from = { fromSection: pickedSection ?? undefined, fromBar: pickedBar ?? undefined };
-      const startPosition = setlistOrder.includes(startSongId) ? setlistPosition(setlistOrder, startSongId, orderAt) : null;
+      const startPosition = pickedFromSetlist && setlistOrder.includes(startSongId) ? setlistPosition(setlistOrder, startSongId, orderAt) : null;
       const position = startPosition === null ? {} : { setlistIndex: startPosition };
       if (onDevice) {
         if (!startSong) return;
@@ -593,7 +568,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           startedByName: null,
           stoppedBy: null,
           stoppedByName: null,
-          ...(advancePreference === "on" ? { advance: true } : {}),
           ...position,
           ...startedPlayback(startSong, from, deviceNow()),
         });
@@ -601,7 +575,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...position, ...(advancePreference === "on" ? { advance: true } : {}) });
+          await start({ groupId, songId: startSongId, ...from, ...position });
         } finally {
           setStartPending(false);
         }
@@ -639,16 +613,11 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       showToast("Moves on at the end of this pass");
     });
 
-  const advanceOn = playing && playback !== null ? playback.advance === true : advancePreference === "on";
-  const toggleAdvance = (on: boolean) => {
-    setAdvancePreference(on ? "on" : "off");
-    if (!playing || playback === null) return;
-    if (onDevice) {
-      if (devicePlayback !== null) setDevicePlayback({ ...devicePlayback, advance: on });
-    } else run(() => setAdvance({ groupId, startsAt: playback.startsAt, advance: on }));
-  };
-  const advanceSongId = playing && playback !== null ? playback.songId : startSongId;
-  const canAdvance = steers && currentSetlist != null && advanceSongId !== null && setlistOrder.includes(advanceSongId);
+  const runCarriesOn = playing || nextUp !== null;
+  const onSetlistRun = showPlayback
+    ? startedFromSetlist(playback) && playback.stopsAt === null && runCarriesOn
+    : pickedFromSetlist && startSongId !== null && setlistOrder.includes(startSongId);
+  const screenTitle = onSetlistRun && currentSetlist ? currentSetlist.name : group.name;
 
   const stopOnDevice = () => {
     if (devicePlayback === null) return;
@@ -733,7 +702,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   const header = (
     <ScreenHeader
-      title={group.name}
+      title={screenTitle}
       subtitle={
         offline ? (
           "Just you, on this device"
@@ -923,16 +892,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           ) : null}
         </View>
       ) : null}
-      {canAdvance ? (
-        <Card title="Setlist">
-          <Switch
-            label={`Play through ${currentSetlist?.name ?? "the Setlist"}`}
-            value={advanceOn}
-            onChange={toggleAdvance}
-            testID="auto-advance"
-          />
-        </Card>
-      ) : null}
       {shownSections.length > 0 ? (
         <Card title="Sections">
           <View style={styles.wrap}>
@@ -1012,9 +971,17 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const playSong = (songId: Id<"songs">, position: number | null = null) => {
+  const playSong = (songId: Id<"songs">) => {
     setSelectedSongId(songId);
-    setOrderAt(position);
+    setPickedFromSetlist(false);
+    setOrderAt(null);
+    showTab("play");
+  };
+
+  const playSetlistSong = (songId: Id<"songs">, position: number, fromCurrentSetlist: boolean) => {
+    setSelectedSongId(songId);
+    setPickedFromSetlist(fromCurrentSetlist);
+    setOrderAt(fromCurrentSetlist ? position : null);
     showTab("play");
   };
 
@@ -1024,7 +991,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       isAdmin={isAdmin}
       canPick={steers}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
-      onSelect={playSong}
+      onSelect={playSetlistSong}
       run={run}
     />
   );
