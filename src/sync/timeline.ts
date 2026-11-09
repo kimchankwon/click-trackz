@@ -193,10 +193,10 @@ function vampBarsOf(song: Song, segment: Segment, fromMs: number, untilMs: numbe
 function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): Bar[] {
   if (segment.vamp) return vampBarsOf(song, segment, fromMs, untilMs);
   const sections = song.sections.slice(segment.startSection);
+  const stop = Math.min(segment.endsAt, untilMs);
   const bars: Bar[] = [];
   let startsAt = segment.startsAt;
   const push = (section: Section, barSection: Section | null, sectionIndex: number | null, barNumber: number, pass = 1, passes = 1) => {
-    if (startsAt >= segment.endsAt || startsAt >= untilMs) return;
     const beatMs = beatMsOf(section);
     bars.push({
       startsAt,
@@ -213,16 +213,21 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
     });
     startsAt += beatMs * section.beatsPerBar;
   };
-  if (segment.countIn && sections.length > 0) for (let bar = 1; bar <= cueLeadBarsOf(song); bar++) push(sections[0], null, null, bar);
-  sections.forEach((section, offset) => {
+  if (segment.countIn && sections.length > 0) {
+    for (let bar = 1; bar <= cueLeadBarsOf(song) && startsAt < stop; bar++) push(sections[0], null, null, bar);
+  }
+  for (const [offset, section] of sections.entries()) {
     const sectionIndex = segment.startSection + offset;
     const passes = playsOf(section);
     const firstPass = offset === 0 ? Math.min(Math.max(1, segment.startPass), passes) : 1;
     for (let pass = firstPass; pass <= passes; pass++) {
       const firstBar = offset === 0 && pass === firstPass ? segment.startBar : 1;
-      for (let barNumber = firstBar; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber, pass, passes);
+      for (let barNumber = firstBar; barNumber <= section.bars; barNumber++) {
+        if (startsAt >= stop) return bars;
+        push(section, section, sectionIndex, barNumber, pass, passes);
+      }
     }
-  });
+  }
   return bars;
 }
 
