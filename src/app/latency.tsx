@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -29,6 +30,7 @@ const ignorePress = () => undefined;
 
 export default function LatencyScreen() {
   const theme = useTheme();
+  const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const nudge = Number(stored);
@@ -123,8 +125,10 @@ export default function LatencyScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <PinnedHeader scrolled={pinned.scrolled}>
           <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => router.back()} backTestID="latency-back" />
+        </PinnedHeader>
+        <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
             Bluetooth headphones and some speakers play sound late. The nudge schedules your Click and Voice cues earlier so
             they line up with everyone else.
@@ -297,7 +301,7 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: PINNED_CONTENT_TOP,
     paddingBottom: Spacing.five,
     maxWidth: MaxContentWidth,
     alignSelf: "center",

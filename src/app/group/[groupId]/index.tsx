@@ -28,6 +28,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { Segmented } from "@/components/ui/segmented";
 import { SoundSettings } from "@/components/sound/sound-settings";
 import { Connecting } from "@/components/ui/connecting";
@@ -281,6 +282,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [dockHeight, setDockHeight] = useState(0);
   const [floatHeight, setFloatHeight] = useState(0);
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  const pinned = usePinnedHeader();
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
@@ -1262,9 +1264,13 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <PinnedHeader scrolled={pinned.scrolled}>{header}</PinnedHeader>
         <SwipeTabs tabs={tabIds} active={tab} onChange={showTab}>
-        <ScrollView ref={scroller} contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}>
-          {header}
+        <ScrollView
+          ref={scroller}
+          contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
+          {...pinned.scrollProps}
+        >
           {(
             [
               ["play", playTab],
@@ -1360,7 +1366,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: PINNED_CONTENT_TOP,
     paddingBottom: Spacing.five,
     maxWidth: MaxContentWidth,
     alignSelf: "center",
