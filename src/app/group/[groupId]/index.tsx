@@ -789,27 +789,14 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
-      {offline ? null : (
-        <View style={styles.playMode}>
-          <Segmented
-            compact
-            label="Play"
-            testID="play-mode"
-            value={offlinePlay ? "offline" : "group"}
-            disabled={playing && offlinePlay}
-            onChange={(next) => switchPlayMode(next === "offline")}
-            options={[
-              { value: "group", label: "With the Group" },
-              { value: "offline", label: "Offline" },
-            ]}
-          />
-          {offlinePlay ? (
-            <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note" style={styles.centered}>
-              {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
-            </ThemedText>
-          ) : null}
+      {offlinePlay ? (
+        <View style={[styles.offlineBadge, { backgroundColor: theme.backgroundSelected }]} testID="offline-play-badge">
+          <Icon name="person" size={14} color="textSecondary" />
+          <ThemedText type="caption" themeColor="textSecondary">
+            Offline play
+          </ThemedText>
         </View>
-      )}
+      ) : null}
       {soundPromptFor("enable-sound")}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
@@ -993,6 +980,26 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           ) : null}
         </Card>
       ) : null}
+      {offline ? null : (
+        <Card title="Play mode">
+          <Segmented
+            label="Play mode"
+            testID="play-mode"
+            value={offlinePlay ? "offline" : "group"}
+            disabled={playing && offlinePlay}
+            onChange={(next) => switchPlayMode(next === "offline")}
+            options={[
+              { value: "group", label: "With the Group" },
+              { value: "offline", label: "Offline" },
+            ]}
+          />
+          {offlinePlay ? (
+            <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
+              {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
+            </ThemedText>
+          ) : null}
+        </Card>
+      )}
     </View>
   );
 
@@ -1390,7 +1397,7 @@ const styles = StyleSheet.create({
   pillGap: { marginLeft: Spacing.one },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
-  playMode: { width: "100%", maxWidth: 320, gap: Spacing.one },
+  offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
   hidden: { display: "none" },
   sectionHeading: { fontSize: 56, lineHeight: 62 },
