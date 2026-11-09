@@ -8,6 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
 
 const REFRESH_MS = 5_000;
+const ROUND_TRIP_CHANGE_MS = 100;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
@@ -29,17 +30,20 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
 
   const beat = useCallback(
     (onPlayNow: boolean) => {
-      const sentAt = performance.now();
-      void heartbeat({ groupId, screenId, onPlay: onPlayNow, roundTripMs: pingRef.current ?? undefined }).then(
-        () => {
-          const firstPing = pingRef.current === null;
-          pingRef.current = performance.now() - sentAt;
-          if (firstPing && visibleRef.current) {
-            void heartbeat({ groupId, screenId, onPlay: onPlayRef.current, roundTripMs: pingRef.current }).catch(() => undefined);
-          }
-        },
-        () => undefined,
-      );
+      const send = (onPlaySent: boolean, followUp: boolean) => {
+        const sentAt = performance.now();
+        const reported = pingRef.current;
+        void heartbeat({ groupId, screenId, onPlay: onPlaySent, roundTripMs: reported ?? undefined }).then(
+          () => {
+            const measured = performance.now() - sentAt;
+            pingRef.current = measured;
+            const changed = reported === null || Math.abs(measured - reported) >= ROUND_TRIP_CHANGE_MS;
+            if (!followUp && changed && visibleRef.current) send(onPlayRef.current, true);
+          },
+          () => undefined,
+        );
+      };
+      send(onPlayNow, false);
     },
     [groupId, screenId, heartbeat],
   );

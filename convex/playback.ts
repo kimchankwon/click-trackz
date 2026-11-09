@@ -84,11 +84,11 @@ export const start = mutation({
     const problem = startProblem(song, { fromSection, fromBar });
     if (problem !== null) throw new ConvexError(problem);
     const now = Date.now();
-    const presence = await ctx.db
+    const online = await ctx.db
       .query("presence")
-      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .withIndex("by_group_seen", (q) => q.eq("groupId", groupId).gte("seenAt", now - ONLINE_WITHIN_MS))
       .collect();
-    const roundTrips = presence.filter((row) => now - row.seenAt <= ONLINE_WITHIN_MS).map((row) => row.roundTripMs);
+    const roundTrips = online.map((row) => row.roundTripMs);
     const existing = await groupPlayback(ctx, groupId);
     const firstBeat = now + leadInMs(roundTrips);
     const startsAt = existing?.startsAt === firstBeat ? firstBeat + 1 : firstBeat;
