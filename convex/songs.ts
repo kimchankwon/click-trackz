@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
+import { wordKey } from "../src/audio/clip-choice";
 import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
@@ -69,9 +70,10 @@ const wholeBetween = (value: number, min: number, max: number) => Number.isInteg
 
 const validBpm = (bpm: number) => bpm >= 30 && bpm <= 300;
 
-function checkSection(section: Section, index: number, vocabulary: ReadonlySet<string>) {
+function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<string, string>): Section {
   const where = `Section ${index + 1}`;
-  if (!vocabulary.has(section.sectionType)) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
+  const sectionType = vocabulary.get(wordKey(section.sectionType));
+  if (sectionType === undefined) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
   if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
@@ -82,6 +84,7 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlySet<s
   if (section.customLabel !== undefined && section.customLabel.trim().length > 20) {
     throw new ConvexError(`${where}: Custom label must be 20 characters or fewer`);
   }
+  return { ...section, sectionType };
 }
 
 export const updateSong = mutation({
@@ -106,10 +109,10 @@ export const updateSong = mutation({
     const songBpm = bpm ?? song.bpm;
     const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
     const given = sections ?? (bpm !== undefined ? stored : undefined);
-    const shaped = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
+    let shaped = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
     if (sections !== undefined && shaped !== undefined) {
-      const vocabulary = new Set(await groupVocabulary(ctx, song.groupId));
-      shaped.forEach((section, index) => checkSection(section, index, vocabulary));
+      const vocabulary = new Map((await groupVocabulary(ctx, song.groupId)).map((word) => [wordKey(word), word]));
+      shaped = shaped.map((section, index) => checkSection(section, index, vocabulary));
     }
     await ctx.db.patch(songId, {
       ...(title !== undefined ? { title: cleanTitle(title) } : {}),

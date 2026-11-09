@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireAdmin, requireMember, requireUser } from "./access";
+import { deleteGroupRows } from "./cleanup";
 import { songCopyFields } from "./songs";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
 
@@ -95,6 +96,17 @@ export const rename = mutation({
     if (group === null) throw new ConvexError("That Group no longer exists");
     if (group.offline === true) throw new ConvexError("Offline cannot be renamed");
     await ctx.db.patch(groupId, { name: cleanName(name, "Group name"), copyBase: undefined });
+  },
+});
+
+export const deleteGroup = mutation({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    await requireAdmin(ctx, groupId);
+    const group = await ctx.db.get(groupId);
+    if (group === null) throw new ConvexError("That Group no longer exists");
+    if (group.offline === true) throw new ConvexError("Offline cannot be deleted");
+    await deleteGroupRows(ctx, groupId);
   },
 });
 

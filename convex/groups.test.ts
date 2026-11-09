@@ -49,6 +49,26 @@ describe("Groups", () => {
     await expect(daniel.client.mutation(api.groups.rename, { groupId: offlineId, name: "Me" })).rejects.toThrow(/Offline cannot be renamed/);
   });
 
+  it("lets an Admin delete a Group with everything in it, but never Offline", async () => {
+    const { t, as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const { groupId, joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    const guest = await as({ isAnonymous: true });
+    await guest.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jisue" });
+    const songId = await daniel.client.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    await daniel.client.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });
+    await guest.client.mutation(api.presence.heartbeat, { groupId, screenId: "s1", onPlay: false });
+    await expect(guest.client.mutation(api.groups.deleteGroup, { groupId })).rejects.toThrow(/Only Admins/);
+    await daniel.client.mutation(api.groups.deleteGroup, { groupId });
+    expect(await t.run((ctx) => ctx.db.get(groupId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(songId))).toBeNull();
+    for (const table of ["memberships", "setlists", "presence"] as const) expect(await t.run((ctx) => ctx.db.query(table).collect())).toEqual([]);
+    expect(await guest.client.query(api.groups.myGroups, {})).toEqual([]);
+    await expect(guest.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
+    const offlineId = await daniel.client.mutation(api.groups.openOffline, {});
+    await expect(daniel.client.mutation(api.groups.deleteGroup, { groupId: offlineId })).rejects.toThrow(/Offline cannot be deleted/);
+  });
+
   it("lets anyone signed in, guests included, join with the code, once", async () => {
     const { as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });

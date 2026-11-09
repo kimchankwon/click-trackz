@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { router, useIsFocused } from "expo-router";
-import { useCallback, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -311,9 +311,13 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
 
 export default function HomeScreen() {
   const { isLoading, isAuthenticated } = useConvexAuth();
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const signInWithGoogle = useGoogleSignIn();
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
+  const accountGone = isAuthenticated && viewer === null;
+  useEffect(() => {
+    if (accountGone) void signOut().catch(() => undefined);
+  }, [accountGone, signOut]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();

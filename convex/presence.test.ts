@@ -105,7 +105,58 @@ describe("Presence", () => {
 
     const names = (await admin.client.query(api.groups.members, { groupId })).map((m) => m.displayName);
     expect(names).toEqual(["Admin", "Joanne", "Minwoo"]);
-    await expect(member.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
+    await expect(member.client.query(api.groups.members, { groupId })).rejects.toThrow(/Sign in first/);
+    expect(await t.run((ctx) => ctx.db.get(member.userId))).toBeNull();
+  });
+
+  it("forgets a guest's account and empty Offline space with their last membership, but keeps a guest who has Songs in Offline", async () => {
+    const { t, member, groupId } = await setupGroup();
+    const offlineId = await member.client.mutation(api.groups.openOffline, {});
+    const keeper = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    const keeperClient = t.withIdentity({ subject: `${keeper}|session` });
+    const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
+    await keeperClient.mutation(api.groups.joinGroup, { joinCode, displayName: "Keeper" });
+    const keeperOffline = await keeperClient.mutation(api.groups.openOffline, {});
+    await keeperClient.mutation(api.songs.createSong, { groupId: keeperOffline, title: "Mine" });
+    await t.run((ctx) => ctx.db.insert("authSessions", { userId: member.userId, expirationTime: NOW + 10 * 60_000 }));
+
+    vi.setSystemTime(NOW + 61 * 60_000);
+    await t.mutation(internal.presence.removeAbsentGuests, {});
+
+    expect(await t.run((ctx) => ctx.db.get(member.userId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(offlineId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.query("authSessions").collect())).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.get(keeper))).not.toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(keeperOffline))).not.toBeNull();
+    expect((await keeperClient.query(api.groups.myGroups, {})).map((g) => g.name)).toEqual(["Offline"]);
+  });
+
+  it("forgets guests who never joined a Group after an hour, unless their Offline has Songs", async () => {
+    const { t } = await setupGroup();
+    const idle = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    const practising = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    const practisingClient = t.withIdentity({ subject: `${practising}|session` });
+    const offlineId = await practisingClient.mutation(api.groups.openOffline, {});
+    await practisingClient.mutation(api.songs.createSong, { groupId: offlineId, title: "Etude" });
+    const fresh = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    await t.run((ctx) => ctx.db.patch(fresh, { name: "fresh" }));
+
+    vi.setSystemTime(NOW + 61 * 60_000);
+    const late = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    await t.mutation(internal.presence.forgetGuestsWhoNeverJoined, { pageSize: 2 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    expect(await t.run((ctx) => ctx.db.get(idle))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(fresh))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(late))).not.toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(practising))).not.toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(offlineId))).not.toBeNull();
+  });
+
+  it("takes no heartbeats for Offline, which plays on the device clock", async () => {
+    const { member } = await setupGroup();
+    const offlineId = await member.client.mutation(api.groups.openOffline, {});
+    await expect(member.client.mutation(api.presence.heartbeat, { groupId: offlineId, screenId: "s1", onPlay: true })).rejects.toThrow(/Offline plays on this device only/);
   });
 
   it("is only visible to and written by people in the Group", async () => {

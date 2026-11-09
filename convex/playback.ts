@@ -48,6 +48,8 @@ export const start = mutation({
   args: { groupId: v.id("groups"), songId: v.id("songs"), fromSection: v.optional(v.number()), fromBar: v.optional(v.number()) },
   handler: async (ctx, { groupId, songId, fromSection, fromBar }) => {
     const { user } = await requireAdmin(ctx, groupId);
+    const group = await ctx.db.get(groupId);
+    if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
     const problem = startProblem(song, { fromSection, fromBar });
