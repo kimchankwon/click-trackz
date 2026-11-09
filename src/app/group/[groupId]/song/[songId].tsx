@@ -29,7 +29,6 @@ import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
-import { cuePattern } from "@/sync/cue-pattern";
 import { newTimeChange } from "@/sync/time-changes";
 import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type TimeChange } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
@@ -54,8 +53,6 @@ const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
   [9, 8],
   [12, 8],
 ];
-
-const beatUnitName: Record<number, string> = { 2: "half notes", 8: "eighth notes", 16: "sixteenth notes" };
 
 function withPlays(section: EditableSection, plays: number): EditableSection {
   const next = Math.min(MAX_PLAYS, Math.max(1, plays));
@@ -280,7 +277,6 @@ function SectionRow({
   const theme = useTheme();
   const [choosing, setChoosing] = useState(false);
   const [choosingTime, setChoosingTime] = useState(false);
-  const countedUnit = beatUnitName[section.beatUnit ?? 4];
   const plays = playsOf(section);
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
@@ -350,11 +346,6 @@ function SectionRow({
           }}
         />
       ) : null}
-      {countedUnit ? (
-        <ThemedText type="caption" themeColor="textSecondary" testID={`section-${index}-bpm-unit`}>
-          BPM counts {countedUnit}, and every one gets a Click.
-        </ThemedText>
-      ) : null}
       <TimeChangesField section={section} index={index} onChange={onChange} />
       <View style={styles.bottomRow}>
         <StepperField
@@ -419,11 +410,6 @@ type LoadedSong = {
   copyBase: string | null;
   sections: EditableSection[];
 };
-
-const subdivisionPattern = (beatsPerBar: number, subdivision: number) =>
-  subdivision === 1
-    ? "One Click on each beat."
-    : `Each bar clicks ${Array.from({ length: beatsPerBar }, (_, beat) => [String(beat + 1), ...Array.from({ length: subdivision - 1 }, () => ".")].join(" ")).join(" ")} with a softer Click on each dot.`;
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
 
@@ -604,17 +590,8 @@ function SongForm({
               <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
             </View>
             <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
-            <ThemedText type="caption" themeColor="textSecondary">
-              Tap along with the beat to set the Song tempo. Every Section plays at it unless you turn on Own tempo in that Section.
-            </ThemedText>
             <Divider />
-            <Switch
-              label="Count-in"
-              hint={`${cueLeadBars === 1 ? "One bar" : "Two bars"} of beat numbers before the first Section, while its Voice cue is spoken`}
-              value={countIn}
-              onChange={setCountIn}
-              testID="count-in-toggle"
-            />
+            <Switch label="Count-in" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
             <Divider />
             <View style={styles.subdivision}>
               <ThemedText type="smallBold">Voice cues start</ThemedText>
@@ -625,9 +602,6 @@ function SongForm({
                 onChange={(next) => setCueLeadBars(Number(next))}
                 options={CUE_LEAD_BARS.map((bars) => ({ value: String(bars), label: bars === 1 ? "1 bar before" : "2 bars before" }))}
               />
-              <ThemedText type="caption" themeColor="textSecondary" testID="cue-lead-pattern">
-                {`Spoken as ${cuePattern(sections[0] ?? { beatsPerBar: 4 }, cueLeadBars)} over the ${cueLeadBars === 1 ? "bar" : "two bars"} before each Section${countIn ? `, with a ${cueLeadBars === 1 ? "one" : "two"}-bar Count-in` : ""}.`}
-              </ThemedText>
             </View>
             <Divider />
             <View style={styles.subdivision}>
@@ -639,9 +613,6 @@ function SongForm({
                 onChange={(next) => setSubdivision(Number(next))}
                 options={SUBDIVISIONS.map((n) => ({ value: String(n), label: String(n) }))}
               />
-              <ThemedText type="caption" themeColor="textSecondary" testID="subdivision-pattern">
-                {subdivisionPattern(sections[0]?.beatsPerBar ?? 4, subdivision)}
-              </ThemedText>
             </View>
           </View>
 

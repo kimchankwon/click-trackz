@@ -932,8 +932,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       {canAdvance ? (
         <Card title="Setlist">
           <Switch
-            label="Play through the Setlist"
-            hint={`When a Song ends, the next one in ${currentSetlist?.name ?? "the Current setlist"} starts on its own.`}
+            label={`Play through ${currentSetlist?.name ?? "the Setlist"}`}
             value={advanceOn}
             onChange={toggleAdvance}
             testID="auto-advance"
@@ -973,11 +972,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           ) : null}
           {steers ? (
             <>
-              {!playing ? (
-                <ThemedText type="caption" themeColor="textSecondary" testID="start-from-hint">
-                  Tap a Section and bar to start there with a {startSong?.cueLeadBars === 1 ? "one" : "two"}-bar Count-in.
-                </ThemedText>
-              ) : null}
               <View style={styles.jumpMode}>
                 <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
                   When I tap a Section, go
