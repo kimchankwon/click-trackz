@@ -92,7 +92,14 @@ It adds the 15 Songs with their keys, leaders and a suggested tempo (Sections st
 
 ## Voice cue recordings
 
-The built-in Voice cue clips in `assets/voice/<speaker>/` (six Speakers: Adam, Alice, Charlie, Sarah, George, River) were generated once with [ElevenLabs](https://elevenlabs.io) text-to-speech by `npm run voice-pack`, which only generates clips that are missing (needs `ELEVENLABS_API_KEY` in `.env.tts.local`). They are trimmed to start 4 ms before the first audible sample. The app lines up each clip's measured onset 20 ms after its beat, and each device can move that sooner or later with its Voice cue offset.
+The built-in Voice cue clips in `assets/voice/<speaker>/` (six Speakers: Adam, Alice, Charlie, Sarah, George, River) come from [ElevenLabs](https://elevenlabs.io) text-to-speech at speed 1.2. Every script needs `ELEVENLABS_API_KEY` in `.env.tts.local` and stays within the plan's three concurrent requests.
+
+- `npm run voice-pack` generates only the clips that are missing. Pass a folder to write a full set elsewhere, and `--replace` to regenerate clips that exist.
+- `node --env-file=.env.tts.local scripts/check-voice-pack.mts [folder] [report.json]` transcribes every clip with speech-to-text, padded with half a second of silence so short words are not dropped, and lists any that do not read back as written.
+- `scripts/reroll-voice-clips.mts <folder> <report.json>` regenerates the clips a report lists until they read back right, and `scripts/shorten-voice-clips.mts <folder> <takes> <speaker/key>...` keeps the shortest correct take.
+- `scripts/try-voice-spellings.mts <folder> <word> <spelling>...` compares spellings across all Speakers. Outro is spoken from "Outtro", the shortest spelling every Speaker read back correctly.
+
+Clips start 4 ms before the first audible sample and end 20 ms after the last sound above 3% of their peak, with a 15 ms fade. The app lines up each clip's measured onset 20 ms after its beat, and each device can move that sooner or later with its Voice cue offset.
 
 ## Docs
 
