@@ -8,3 +8,7 @@ export function nextInSetlist<T>(order: readonly T[], position: number, playable
   for (let index = position + 1; index < order.length; index++) if (playable(order[index])) return { item: order[index], index };
   return null;
 }
+
+export function startedFromSetlist(playback: { setlistIndex?: number | null }): boolean {
+  return playback.setlistIndex !== null && playback.setlistIndex !== undefined;
+}
