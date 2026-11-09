@@ -13,6 +13,7 @@ export function SongProgress({ span, lengthMs, serverNow }: { span: SongSpan | n
   const theme = useTheme();
   const progress = useSharedValue(0);
   const [elapsed, setElapsed] = useState<{ span: SongSpan; ms: number } | null>(null);
+  const openEnded = span !== null && !Number.isFinite(span.endsAt);
   const totalMs = span ? span.endsAt - span.startsAt : lengthMs;
   const elapsedMs = span !== null && elapsed?.span === span ? elapsed.ms : 0;
 
@@ -20,6 +21,16 @@ export function SongProgress({ span, lengthMs, serverNow }: { span: SongSpan | n
     if (span === null) {
       progress.value = 0;
       return;
+    }
+    if (!Number.isFinite(span.endsAt)) {
+      progress.value = 1;
+      const tick = () => {
+        const now = serverNow();
+        setElapsed({ span, ms: now === null ? 0 : Math.max(0, now - span.startsAt) });
+      };
+      tick();
+      const timer = setInterval(tick, LABEL_EVERY_MS);
+      return () => clearInterval(timer);
     }
     const now = serverNow();
     const share = elapsedShare(span, now);
@@ -35,15 +46,15 @@ export function SongProgress({ span, lengthMs, serverNow }: { span: SongSpan | n
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   return (
-    <View style={styles.block} testID="song-progress" aria-label={`Song ${clockText(elapsedMs)} of ${clockText(totalMs)}`}>
+    <View style={styles.block} testID="song-progress" aria-label={openEnded ? `Song ${clockText(elapsedMs)}, vamping` : `Song ${clockText(elapsedMs)} of ${clockText(totalMs)}`}>
       <ThemedText themeColor="textSecondary" style={styles.time} testID="song-elapsed">
         {clockText(elapsedMs)}
       </ThemedText>
       <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-        <Animated.View style={[styles.fill, { backgroundColor: theme.accent }, fillStyle]} />
+        <Animated.View style={[styles.fill, { backgroundColor: theme.accent }, openEnded ? styles.openFill : null, fillStyle]} />
       </View>
       <ThemedText themeColor="textSecondary" style={styles.time} testID="song-length">
-        {clockText(totalMs)}
+        {openEnded ? "Vamp" : clockText(totalMs)}
       </ThemedText>
     </View>
   );
@@ -54,4 +65,5 @@ const styles = StyleSheet.create({
   time: { width: 40, fontSize: 12, lineHeight: 16, fontWeight: 600, fontVariant: ["tabular-nums"], textAlign: "center" },
   track: { flex: 1, height: 4, borderRadius: Radius.pill, overflow: "hidden" },
   fill: { height: "100%", borderRadius: Radius.pill },
+  openFill: { opacity: 0.35 },
 });

@@ -21,6 +21,7 @@ export function AudioDebug({ engine, soundOn }: { engine: RefObject<CueAudioEngi
           `time ${snapshot?.currentTime?.toFixed(2) ?? "-"}`,
           `ahead ${snapshot?.aheadMs ?? "-"} ms`,
           `latency ${snapshot?.latencyMs?.toFixed(1) ?? "-"} ms`,
+          `pan click ${snapshot?.pan.click ?? "-"} voice ${snapshot?.pan.voice ?? "-"}`,
           snapshot?.needsFreshContext ? "fresh context next tap" : null,
           snapshot?.failure ?? null,
         ]

@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
@@ -24,6 +24,7 @@ export type ServerClock = {
 
 export function useServerClock({ playing = false, onDevice = false }: { playing?: boolean; onDevice?: boolean } = {}): ServerClock {
   const ping = useMutation(api.clock.now);
+  const { isAuthenticated } = useConvexAuth();
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
   const playingRef = useRef(playing);
   const rescheduleRef = useRef<(() => void) | null>(null);
@@ -34,7 +35,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
   }, [playing]);
 
   useEffect(() => {
-    if (onDevice) return;
+    if (onDevice || !isAuthenticated) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const openedAt = clientNow();
@@ -94,7 +95,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       rescheduleRef.current = null;
       subscription.remove();
     };
-  }, [ping, onDevice]);
+  }, [ping, onDevice, isAuthenticated]);
 
   const serverNow = useCallback(
     () => (onDevice ? deviceNow() : estimate === null ? null : clientNow() + estimate.offsetMs),

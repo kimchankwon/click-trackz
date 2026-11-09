@@ -24,6 +24,9 @@ const fake = vi.hoisted(() => {
   class FakeGain extends FakeNode {
     gain = new FakeParam();
   }
+  class FakePanner extends FakeNode {
+    pan = new FakeParam();
+  }
   class FakeOscillator extends FakeNode {
     frequency = new FakeParam();
     start() {}
@@ -47,6 +50,9 @@ const fake = vi.hoisted(() => {
       const gain = new FakeGain();
       this.gains.push(gain);
       return gain;
+    }
+    createStereoPanner() {
+      return new FakePanner();
     }
     createOscillator() {
       this.oscillators += 1;
@@ -165,6 +171,19 @@ describe("Subdivision", () => {
     now = NOW + 500;
     engine.setPlan({ ...bar, subdivision: 4 }, null);
     expect(context.gains.filter((gain) => gain.disconnected)).toHaveLength(13);
+    engine.dispose();
+  });
+});
+
+describe("Stereo split", () => {
+  it("pans the Click and the Voice cues to their own sides, set before or after sound is on", async () => {
+    const engine = new CueAudioEngine();
+    expect(engine.panning).toEqual({ click: null, voice: null });
+    engine.setSides({ click: "left", voice: "right" });
+    await engine.enable(serverNow, null);
+    expect(engine.panning).toEqual({ click: -1, voice: 1 });
+    engine.setSides({ click: "both", voice: "left" });
+    expect(engine.panning).toEqual({ click: 0, voice: -1 });
     engine.dispose();
   });
 });

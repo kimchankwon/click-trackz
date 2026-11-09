@@ -11,7 +11,10 @@ import { Icon } from "@/components/ui/icon";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
 import { Spacing } from "@/constants/theme";
+import { hapticsAvailable } from "@/audio/haptics";
+import { Segmented } from "@/components/ui/segmented";
 import { isLatencySetting } from "@/settings/latency";
+import { HAPTIC_BEATS, hapticBeatLabels, isHapticBeat, isSide, SIDES, sideLabels, type HapticBeat, type Side } from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import type { Sound } from "@/settings/use-sound-settings";
 
@@ -33,6 +36,10 @@ export function SoundSettings({
   onSpeaker?: (speaker: SpeakerId) => void;
 }) {
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
+  const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
+  const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
+  const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
   return (
     <>
       {prompt}
@@ -82,6 +89,42 @@ export function SoundSettings({
           </ThemedText>
         ) : null}
       </Card>
+      <Card title="On this device">
+        <View style={styles.deviceRow}>
+          <ThemedText type="smallBold">Click in</ThemedText>
+          <Segmented label="Click in" testID="click-side" value={clickSide} onChange={setClickSide} options={sideOptions} />
+        </View>
+        <View style={styles.deviceRow}>
+          <ThemedText type="smallBold">Voice cues in</ThemedText>
+          <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={setVoiceSide} options={sideOptions} />
+        </View>
+        <ThemedText type="caption" themeColor="textSecondary" testID="stereo-caption">
+          {clickSide === "both" && voiceSide === "both"
+            ? "Both ears hear everything. Pick Left or Right to split the Click and Voice cues across in-ear monitors."
+            : `The Click plays in ${clickSide === "both" ? "both ears" : `the ${clickSide} ear`}, Voice cues in ${voiceSide === "both" ? "both ears" : `the ${voiceSide} ear`}.`}
+        </ThemedText>
+        {hapticsAvailable ? (
+          <>
+            <Divider />
+            <View style={styles.deviceRow}>
+              <View style={styles.mixHead}>
+                <Icon name="haptic" size={22} color="textSecondary" />
+                <ThemedText type="smallBold">Haptic beat</ThemedText>
+              </View>
+              <Segmented
+                label="Haptic beat"
+                testID="haptic-beat"
+                value={hapticBeat}
+                onChange={setHapticBeat}
+                options={HAPTIC_BEATS.map((setting) => ({ value: setting, label: hapticBeatLabels[setting] }))}
+              />
+              <ThemedText type="caption" themeColor="textSecondary">
+                Feel the beat in your hand while Play is open, for when you cannot wear an earpiece.
+              </ThemedText>
+            </View>
+          </>
+        ) : null}
+      </Card>
       <Card title="Timing" tight>
         <Pressable role="link" testID="open-latency" onPress={() => router.push("/latency")} style={styles.linkRow}>
           <Icon name="headphones" size={22} color="textSecondary" />
@@ -98,7 +141,7 @@ export function SoundSettings({
         </Pressable>
       </Card>
       <ThemedText type="caption" themeColor={saveError ? "danger" : "textSecondary"} testID="sound-saved-caption" style={styles.caption}>
-        {saveError ?? "Saved to your account, so every Group and device uses the same sound."}
+        {saveError ?? "Mix and Speaker are saved to your account, so every Group and device uses them. The rest stays on this device."}
       </ThemedText>
     </>
   );
@@ -114,4 +157,5 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
   latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
+  deviceRow: { gap: Spacing.two },
 });

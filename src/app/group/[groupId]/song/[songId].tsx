@@ -25,6 +25,7 @@ import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { draftProblem, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
+import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { cuePattern } from "@/sync/cue-pattern";
@@ -475,8 +476,9 @@ function SongForm({
               <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.numberField} />
               <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
             </View>
+            <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
             <ThemedText type="caption" themeColor="textSecondary">
-              Every Section plays at the Song tempo. Turn on Own tempo in a Section to give it a different BPM.
+              Tap along with the beat to set the Song tempo. Every Section plays at it unless you turn on Own tempo in that Section.
             </ThemedText>
             <Divider />
             <Switch

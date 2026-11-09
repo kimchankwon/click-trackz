@@ -28,7 +28,7 @@ export function SetlistCard({
   isAdmin: boolean;
   canPick: boolean;
   selectedSongId: Id<"songs"> | null;
-  onSelect: (songId: Id<"songs">) => void;
+  onSelect: (songId: Id<"songs">, position: number) => void;
   run: (action: () => Promise<unknown>) => void;
 }) {
   const setlists = useQuery(api.setlists.list, { groupId });
@@ -158,7 +158,7 @@ export function SetlistCard({
               divider={index > 0}
               selected={selectedSongId === entry.songId}
               selectable={canPick}
-              onSelect={() => onSelect(entry.songId)}
+              onSelect={() => onSelect(entry.songId, index)}
               testID={`setlist-entry-${index}`}
             />
           ))}
