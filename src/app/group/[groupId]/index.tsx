@@ -146,7 +146,6 @@ type ShownPlayback = Playback & {
   startedByName: string | null;
   stoppedBy: Id<"users"> | null;
   stoppedByName: string | null;
-  advance?: boolean;
   setlistIndex?: number | null;
 };
 
@@ -236,8 +235,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
   const playingPosition = playback ? setlistPosition(setlistOrder, playback.songId, playback.setlistIndex) : null;
   const nextUp = playingPosition === null ? null : nextInSetlist(setlistOrder, playingPosition, (id) => playableInSetlist.has(id));
-  const nextUpId = nextUp?.item ?? null;
-  const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
   const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
@@ -530,14 +527,13 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
   const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
-  const endLine = playback?.advance && nextUpTitle ? `Next Song: ${nextUpTitle}` : "End of Song";
   const nextLine = !playing
     ? null
     : upcoming
       ? `${titleOf(upcoming)}${passText(lead)}`
       : followingSection
         ? `${titleOf(followingSection)}${passText(nextStart)}`
-        : endLine;
+        : "End of Song";
   const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
   const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
