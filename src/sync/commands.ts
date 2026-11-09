@@ -1,6 +1,14 @@
 import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionPassBefore, subdivisionOf, vampingSection, type Jump, type Playback, type Song } from "./timeline";
 
-export const LEAD_IN_MS = 2_000;
+export const MIN_LEAD_IN_MS = 500;
+export const MAX_LEAD_IN_MS = 2_000;
+const LEAD_IN_MARGIN_MS = 400;
+const UNMEASURED_ROUND_TRIP_MS = 200;
+
+export function leadInMs(roundTripsMs: readonly (number | null | undefined)[]): number {
+  const slowest = roundTripsMs.reduce<number>((worst, ms) => Math.max(worst, ms ?? UNMEASURED_ROUND_TRIP_MS), 0);
+  return Math.min(MAX_LEAD_IN_MS, Math.max(MIN_LEAD_IN_MS, LEAD_IN_MARGIN_MS + slowest));
+}
 export const MIN_COMMAND_LEAD_MS = 1_000;
 export const STOP_LEAD_MS = 200;
 
@@ -27,7 +35,7 @@ export function startProblem(song: Song & { title: string }, { fromSection, from
   return null;
 }
 
-export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number, startsAt = nowMs + LEAD_IN_MS): StartedPlayback<S> {
+export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number, startsAt = nowMs + MIN_LEAD_IN_MS): StartedPlayback<S> {
   return {
     song: {
       countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true,

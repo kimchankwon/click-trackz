@@ -20,6 +20,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   const visible = shared && focused && (active || playing);
   const onPlayRef = useRef(onPlay);
   const pingRef = useRef<number | null>(null);
+  const visibleRef = useRef(visible);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
@@ -31,7 +32,11 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
       const sentAt = performance.now();
       void heartbeat({ groupId, screenId, onPlay: onPlayNow, roundTripMs: pingRef.current ?? undefined }).then(
         () => {
+          const firstPing = pingRef.current === null;
           pingRef.current = performance.now() - sentAt;
+          if (firstPing && visibleRef.current) {
+            void heartbeat({ groupId, screenId, onPlay: onPlayRef.current, roundTripMs: pingRef.current }).catch(() => undefined);
+          }
         },
         () => undefined,
       );
@@ -40,6 +45,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   );
 
   useEffect(() => {
+    visibleRef.current = visible;
     onPlayRef.current = onPlay;
     if (visible) beat(onPlay);
   }, [onPlay, visible, beat]);
