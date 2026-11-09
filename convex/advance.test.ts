@@ -69,6 +69,21 @@ describe("Repeat and Vamp on the server", () => {
     expect(playbackEndsAt(ended.song, ended)).toBe(startsAt + 14_000);
     await expect(admin.mutation(api.playback.endVamp, { groupId, startsAt })).rejects.toThrow(/Nothing is vamping/);
   });
+
+  it("repeats only the pass that is ending when a Section plays more than once", async () => {
+    const { admin, member, groupId } = await setup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Again" });
+    await admin.mutation(api.songs.updateSong, { songId, countIn: false, sections: [{ ...verse, plays: 3 }, chorus] });
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const started = (await member.query(api.playback.current, { groupId }))!;
+    const { startsAt } = started;
+    expect(playbackEndsAt(started.song, started)).toBe(startsAt + 14_000);
+    vi.setSystemTime(startsAt + 4_500);
+    await admin.mutation(api.playback.repeatSection, { groupId, startsAt });
+    const repeated = (await member.query(api.playback.current, { groupId }))!;
+    expect(repeated.jumps).toEqual([{ at: startsAt + 8_000, toSection: 0, pass: 2, cueFrom: startsAt + 5_500 }]);
+    expect(playbackEndsAt(repeated.song, repeated)).toBe(startsAt + 18_000);
+  });
 });
 
 describe("Setlist auto-advance", () => {

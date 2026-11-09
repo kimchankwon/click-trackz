@@ -30,7 +30,7 @@ import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { cuePattern } from "@/sync/cue-pattern";
-import { CUE_LEAD_BARS, SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
+import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -56,6 +56,11 @@ const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
 
 const beatUnitName: Record<number, string> = { 2: "half notes", 8: "eighth notes", 16: "sixteenth notes" };
 
+function withPlays(section: EditableSection, plays: number): EditableSection {
+  const next = Math.min(MAX_PLAYS, Math.max(1, plays));
+  return { ...section, plays: next > 1 ? next : undefined };
+}
+
 function TimeSignatureField({ section, open, onToggle, testID }: { section: EditableSection; open: boolean; onToggle: () => void; testID: string }) {
   const theme = useTheme();
   return (
@@ -77,6 +82,54 @@ function TimeSignatureField({ section, open, onToggle, testID }: { section: Edit
     </View>
   );
 }
+function StepperField({
+  label,
+  value,
+  muted,
+  lowerLabel,
+  raiseLabel,
+  testID,
+  onLower,
+  onRaise,
+}: {
+  label: string;
+  value: string;
+  muted: boolean;
+  lowerLabel: string;
+  raiseLabel: string;
+  testID: string;
+  onLower: () => void;
+  onRaise: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.numberGroup}>
+      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+        {label}
+      </ThemedText>
+      <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label={label}>
+        <IconButton icon="minus" size={36} label={lowerLabel} testID={`${testID}-down`} onPress={onLower} />
+        <ThemedText themeColor={muted ? "textSecondary" : "text"} style={styles.stepperValue} testID={`${testID}-value`}>
+          {value}
+        </ThemedText>
+        <IconButton icon="add" size={36} label={raiseLabel} testID={`${testID}-up`} onPress={onRaise} />
+      </View>
+    </View>
+  );
+}
+
+function PlaysBadge({ plays, testID }: { plays: number; testID: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.playsBadge, { backgroundColor: theme.accentTint }]} testID={testID} aria-label={`Plays ${plays} times`}>
+      <Icon name="plays" size={15} color="accent" />
+      <ThemedText themeColor="accent" style={styles.playsBadgeText}>
+        {`×${plays}`}
+      </ThemedText>
+    </View>
+  );
+}
+
 type SectionRowState = { id: number; section: EditableSection };
 
 function NumberField({ label, value, onChange, testID, integer = false }: { label: string; value: number; onChange: (next: number) => void; testID: string; integer?: boolean }) {
@@ -150,6 +203,7 @@ function SectionRow({
     ? COMMON_TIME_SIGNATURES
     : [current, ...COMMON_TIME_SIGNATURES];
   const countedUnit = beatUnitName[section.beatUnit ?? 4];
+  const plays = playsOf(section);
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
       <View style={styles.sectionTop}>
@@ -172,6 +226,7 @@ function SectionRow({
           </ThemedText>
           <Icon name="expand" size={20} color="textSecondary" />
         </Pressable>
+        {plays > 1 ? <PlaysBadge plays={plays} testID={`section-${index}-plays-badge`} /> : null}
         <ReorderControl
           name={`Section ${index + 1}`}
           canMoveUp={index > 0}
@@ -230,30 +285,26 @@ function SectionRow({
         </ThemedText>
       ) : null}
       <View style={styles.bottomRow}>
-        <View style={styles.numberGroup}>
-          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-            Number
-          </ThemedText>
-          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Section number">
-            <IconButton
-              icon="minus"
-              size={36}
-              label={`Lower the number of Section ${index + 1}`}
-              testID={`section-${index}-number-down`}
-              onPress={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
-            />
-            <ThemedText themeColor={section.number ? "text" : "textSecondary"} style={styles.stepperValue}>
-              {section.number ?? "None"}
-            </ThemedText>
-            <IconButton
-              icon="add"
-              size={36}
-              label={`Raise the number of Section ${index + 1}`}
-              testID={`section-${index}-number-up`}
-              onPress={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
-            />
-          </View>
-        </View>
+        <StepperField
+          label="Number"
+          value={section.number ? String(section.number) : "None"}
+          muted={!section.number}
+          lowerLabel={`Lower the number of Section ${index + 1}`}
+          raiseLabel={`Raise the number of Section ${index + 1}`}
+          testID={`section-${index}-number`}
+          onLower={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+          onRaise={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
+        />
+        <StepperField
+          label="Plays"
+          value={`×${plays}`}
+          muted={plays === 1}
+          lowerLabel={`Play Section ${index + 1} one time fewer`}
+          raiseLabel={`Play Section ${index + 1} one more time`}
+          testID={`section-${index}-plays`}
+          onLower={() => onChange(withPlays(section, plays - 1))}
+          onRaise={() => onChange(withPlays(section, plays + 1))}
+        />
         <View style={styles.numberGroup}>
           <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
             Own tempo
@@ -669,6 +720,8 @@ const styles = StyleSheet.create({
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
   stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
   stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
+  playsBadge: { flexDirection: "row", alignItems: "center", gap: 3, minHeight: 28, paddingHorizontal: Spacing.two, borderRadius: Radius.pill, marginLeft: Spacing.one },
+  playsBadgeText: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
   numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
   switchSlot: { minHeight: 44, justifyContent: "center" },
   fields: { flexDirection: "row", gap: Spacing.two },

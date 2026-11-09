@@ -6,7 +6,13 @@ export type Section = {
   beatUnit?: number;
   bpm: number;
   voiceCueEnabled?: boolean;
+  plays?: number;
 };
+
+export const MAX_PLAYS = 16;
+
+export const playsOf = (section: Pick<Section, "plays">): number =>
+  section.plays !== undefined && Number.isInteger(section.plays) && section.plays > 1 ? section.plays : 1;
 
 export const BEAT_UNITS = [2, 4, 8, 16] as const;
 
@@ -42,6 +48,7 @@ export type Jump = {
   toSection: number;
   cueFrom?: number;
   vamp?: boolean;
+  pass?: number;
 };
 
 export type Playback = {
@@ -62,6 +69,8 @@ export type Lead = {
   barsLeft: number;
   beat: number;
   beats: number;
+  pass: number;
+  passes: number;
 };
 
 export type Beat = {
@@ -73,6 +82,8 @@ export type Beat = {
   beatMs: number;
   barInSection: number;
   barsInSection: number;
+  passInSection: number;
+  passesInSection: number;
   sectionIndex: number | null;
   accent: boolean;
   groupStart: boolean;
@@ -96,6 +107,8 @@ type Bar = {
   section: Section | null;
   sectionIndex: number | null;
   barNumber: number;
+  pass: number;
+  passes: number;
   segmentEndsAt: number;
   cueFrom: number;
 };
@@ -104,6 +117,7 @@ type Segment = {
   startsAt: number;
   startSection: number;
   startBar: number;
+  startPass: number;
   countIn: boolean;
   cueFrom: number;
   vamp: boolean;
@@ -128,10 +142,18 @@ export function aheadWindowMs(song: Song): number {
 
 function segmentsOf(song: Song, playback: Playback): Segment[] {
   const starts = [
-    { startsAt: playback.startsAt, startSection: playback.startSection, startBar: playback.startBar ?? 1, countIn: song.countIn, cueFrom: -Infinity, vamp: false },
+    { startsAt: playback.startsAt, startSection: playback.startSection, startBar: playback.startBar ?? 1, startPass: 1, countIn: song.countIn, cueFrom: -Infinity, vamp: false },
     ...[...(playback.jumps ?? [])]
       .sort((x, y) => x.at - y.at)
-      .map((jump) => ({ startsAt: jump.at, startSection: jump.toSection, startBar: 1, countIn: false, cueFrom: jump.cueFrom ?? -Infinity, vamp: jump.vamp === true })),
+      .map((jump) => ({
+        startsAt: jump.at,
+        startSection: jump.toSection,
+        startBar: 1,
+        startPass: jump.pass ?? 1,
+        countIn: false,
+        cueFrom: jump.cueFrom ?? -Infinity,
+        vamp: jump.vamp === true,
+      })),
   ];
   return starts.map((start, index) => ({ ...start, endsAt: starts[index + 1]?.startsAt ?? Infinity }));
 }
@@ -158,6 +180,8 @@ function vampBarsOf(song: Song, segment: Segment, fromMs: number, untilMs: numbe
         section,
         sectionIndex: segment.startSection,
         barNumber,
+        pass: 1,
+        passes: 1,
         segmentEndsAt: segment.endsAt,
         cueFrom: segment.cueFrom,
       });
@@ -171,8 +195,8 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
   const sections = song.sections.slice(segment.startSection);
   const bars: Bar[] = [];
   let startsAt = segment.startsAt;
-  const push = (section: Section, barSection: Section | null, sectionIndex: number | null, barNumber: number) => {
-    if (startsAt >= segment.endsAt) return;
+  const push = (section: Section, barSection: Section | null, sectionIndex: number | null, barNumber: number, pass = 1, passes = 1) => {
+    if (startsAt >= segment.endsAt || startsAt >= untilMs) return;
     const beatMs = beatMsOf(section);
     bars.push({
       startsAt,
@@ -182,6 +206,8 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
       section: barSection,
       sectionIndex,
       barNumber,
+      pass,
+      passes,
       segmentEndsAt: segment.endsAt,
       cueFrom: segment.cueFrom,
     });
@@ -190,7 +216,12 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
   if (segment.countIn && sections.length > 0) for (let bar = 1; bar <= cueLeadBarsOf(song); bar++) push(sections[0], null, null, bar);
   sections.forEach((section, offset) => {
     const sectionIndex = segment.startSection + offset;
-    for (let barNumber = offset === 0 ? segment.startBar : 1; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber);
+    const passes = playsOf(section);
+    const firstPass = offset === 0 ? Math.min(Math.max(1, segment.startPass), passes) : 1;
+    for (let pass = firstPass; pass <= passes; pass++) {
+      const firstBar = offset === 0 && pass === firstPass ? segment.startBar : 1;
+      for (let barNumber = firstBar; barNumber <= section.bars; barNumber++) push(section, section, sectionIndex, barNumber, pass, passes);
+    }
   });
   return bars;
 }
@@ -240,6 +271,8 @@ type BeatCue = { voiceCue: VoiceCue | null; spokenCount: number | null; lead: Le
 function cuesOf(bars: readonly Bar[], { target, first }: LeadBar, leadBars: number): Map<string, BeatCue> {
   const section = bars[target]?.section ?? null;
   const cue = section ? voiceCueOf(section) : null;
+  const pass = bars[target]?.pass ?? 1;
+  const passes = bars[target]?.passes ?? 1;
   const speaks = section !== null && section.voiceCueEnabled !== false;
   const cueFrom = bars[target]?.cueFrom ?? -Infinity;
   const window = bars.slice(first, target);
@@ -260,7 +293,7 @@ function cuesOf(bars: readonly Bar[], { target, first }: LeadBar, leadBars: numb
       cues.set(`${first + offset}:${beat}`, {
         voiceCue: saysName ? cue : null,
         spokenCount: heard && !saysName ? word : null,
-        lead: { cue: section ? cue : null, barsLeft: target - (first + offset), beat: position, beats },
+        lead: { cue: section ? cue : null, barsLeft: target - (first + offset), beat: position, beats, pass, passes },
       });
     }
   });
@@ -298,6 +331,8 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
         beatMs: bar.beatMs,
         barInSection: bar.barNumber,
         barsInSection: bar.section?.bars ?? leadBars,
+        passInSection: bar.pass,
+        passesInSection: bar.passes,
         sectionIndex: bar.sectionIndex,
         accent: beat === 1,
         groupStart: beat > 1 && (beat - 1) % groupSize === 0,
@@ -339,17 +374,19 @@ export function playbackEndsAt(song: Song, playback: Playback): number {
   return Math.min(songEndOf(barsOfPlayback(song, playback)) ?? playback.startsAt, playback.stopsAt ?? Infinity);
 }
 
-export function sectionIndexBefore(song: Song, playback: Playback, atMs: number): number | null {
+export type SectionPass = { sectionIndex: number; pass: number };
+
+export function sectionPassBefore(song: Song, playback: Playback, atMs: number): SectionPass | null {
   const bars = barsOfPlayback(song, playback, atMs, atMs);
   let found: Bar | null = null;
   for (const bar of bars) if (bar.startsAt < atMs) found = bar;
-  return found?.sectionIndex ?? null;
+  return found?.sectionIndex == null ? null : { sectionIndex: found.sectionIndex, pass: found.pass };
 }
 
 export function commandBoundary(song: Song, playback: Playback, timing: CommandTiming): number | null {
   const earliest = timing.nowMs + timing.minLeadMs;
   const bars = barsOfPlayback(song, playback, earliest + longestOf(song, sectionMsOf), earliest);
-  const songEndsAt = vampingSection(song, playback) === null ? songEndOf(bars) : null;
+  const songEndsAt = vampingSection(song, playback) === null ? songEndOf(barsOfPlayback(song, playback)) : null;
   const candidates = bars
     .filter((bar) => bar.section !== null && (timing.mode === "nextBar" || startsSection(bar)))
     .map((bar) => bar.startsAt);

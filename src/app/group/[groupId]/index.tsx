@@ -67,8 +67,8 @@ import {
   type CommandResult,
   type StartedPlayback,
 } from "@/sync/commands";
-import { aheadWindowMs, beatsBetween, playbackEndsAt, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
-import { nextSectionIndex } from "@/sync/next-section";
+import { aheadWindowMs, beatsBetween, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
 import { commonBpm } from "@/sync/song-tempo";
 import { playbackSpan, songLengthMs } from "@/sync/song-span";
@@ -90,6 +90,7 @@ const sameBeat = (a: Beat | null, b: Beat | null) =>
     a.sectionIndex === b.sectionIndex &&
     a.lead?.barsLeft === b.lead?.barsLeft &&
     a.lead?.beats === b.lead?.beats &&
+    a.lead?.pass === b.lead?.pass &&
     sameCue(a.lead?.cue ?? null, b.lead?.cue ?? null));
 
 function ScreenWakeLock() {
@@ -110,6 +111,11 @@ function KeepAwake() {
 
 const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
   `${section.sectionType}${section.number ? ` ${section.number}` : ""}`;
+
+const passText = (start: Pick<SectionStart, "pass" | "passes"> | null | undefined) => (start && start.passes > 1 ? ` (${start.pass} of ${start.passes})` : "");
+
+const sameStart = (a: SectionStart | null, b: SectionStart | null) =>
+  a === b || (a !== null && b !== null && a.sectionIndex === b.sectionIndex && a.pass === b.pass && a.passes === b.passes);
 
 type LoadedSong = { title: string; key: string | null; tempoHint: { bpm: number; beatsPerBar: number } | null; sections: Section[] };
 
@@ -276,7 +282,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
-  const [nextIndex, setNextIndex] = useState<number | null>(null);
+  const [nextStart, setNextStart] = useState<SectionStart | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
   const [tab, setTab] = useState<GroupTab>("play");
   const [dockHeight, setDockHeight] = useState(0);
@@ -420,8 +426,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         const ahead = beatsBetween(song, playback, now, now + aheadWindowMs(song));
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
-        const following = nextSectionIndex(ahead);
-        setNextIndex((previous) => (previous === following ? previous : following));
+        const following = nextSectionStart(ahead);
+        setNextStart((previous) => (sameStart(previous, following) ? previous : following));
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
         setQueuedKey((previous) => (previous === queued ? previous : queued));
         setPlaying(now < endsAt);
@@ -429,7 +435,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       } else {
         setUnclocked(now === null && playback !== null);
         setBeat(null);
-        setNextIndex(null);
+        setNextStart(null);
         setQueuedKey("");
         setPlaying(false);
       }
@@ -535,12 +541,18 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
   const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
   const tempo = tempoText(tempoSection ?? (playing ? null : startSong?.tempoHint));
-  const followingSection = nextIndex === null ? undefined : song.sections[nextIndex];
+  const followingSection = nextStart === null ? undefined : song.sections[nextStart.sectionIndex];
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
   const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
   const endLine = playback?.advance && nextUpTitle ? `Next Song: ${nextUpTitle}` : "End of Song";
-  const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : endLine;
+  const nextLine = !playing
+    ? null
+    : upcoming
+      ? `${titleOf(upcoming)}${passText(lead)}`
+      : followingSection
+        ? `${titleOf(followingSection)}${passText(nextStart)}`
+        : endLine;
   const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
   const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
@@ -935,7 +947,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
                 strong
                 compact
                 label={shortTitleOf(section)}
-                accessibleName={titleOf(section)}
+                badge={playsOf(section) > 1 ? `×${playsOf(section)}` : undefined}
+                accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
                 queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}
                 selected={playing ? beat?.sectionIndex === index : steers && startSection === index && startBlocker === null}

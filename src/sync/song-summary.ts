@@ -1,10 +1,10 @@
-import { timeSignatureOf, type Section } from "./timeline";
+import { playsOf, timeSignatureOf, type Section } from "./timeline";
 
-type SummarySection = Pick<Section, "bars" | "beatsPerBar" | "beatUnit" | "bpm">;
+type SummarySection = Pick<Section, "bars" | "beatsPerBar" | "beatUnit" | "bpm" | "plays">;
 
 function mostBars<T>(sections: readonly SummarySection[], valueOf: (section: SummarySection) => T): T | null {
   const bars = new Map<T, number>();
-  for (const section of sections) bars.set(valueOf(section), (bars.get(valueOf(section)) ?? 0) + section.bars);
+  for (const section of sections) bars.set(valueOf(section), (bars.get(valueOf(section)) ?? 0) + section.bars * playsOf(section));
   let best: T | null = null;
   for (const [value, count] of bars) if (best === null || count > (bars.get(best) ?? 0)) best = value;
   return best;

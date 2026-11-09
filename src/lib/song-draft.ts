@@ -1,4 +1,4 @@
-import type { Section } from "@/sync/timeline";
+import { playsOf, type Section } from "@/sync/timeline";
 
 import { MAX_SONG_TITLE } from "./copy-title";
 
@@ -24,6 +24,7 @@ const sectionShape = (section: DraftSection) => [
   section.voiceCueEnabled !== false,
   section.customLabel?.trim() || null,
   section.ownTempo === true,
+  playsOf(section),
 ];
 
 const shapeOf = (draft: SongDraft) =>
