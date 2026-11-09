@@ -14,8 +14,6 @@ import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-const summaryLine = (onPlay: boolean, parts: readonly string[], separator: string) => [onPlay ? "On Play" : null, ...parts].filter(Boolean).join(separator) || null;
-
 export function SongsCard({
   groupId,
   isAdmin,
@@ -36,7 +34,7 @@ export function SongsCard({
   const [title, setTitle] = useState("");
   const list = songs ?? [];
   return (
-    <Card title={`Song library · ${list.length}`}>
+    <Card title={`Song library (${list.length})`}>
       {list.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           No Songs yet.
@@ -48,8 +46,8 @@ export function SongsCard({
               divider={index > 0}
               key={song.songId}
               title={song.title}
-              meta={summaryLine(selectedSongId === song.songId, summaryParts(song).shown, " · ")}
-              metaLabel={summaryLine(selectedSongId === song.songId, summaryParts(song).spoken, ", ")}
+              meta={[selectedSongId === song.songId ? "On Play" : null, ...summaryParts(song).shown].filter((part): part is string => part !== null)}
+              metaLabel={[selectedSongId === song.songId ? "On Play" : null, ...summaryParts(song).spoken].filter(Boolean).join(", ") || null}
               songKey={song.key}
               showKey={false}
               needsSections={song.sectionCount === 0}

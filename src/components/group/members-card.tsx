@@ -110,7 +110,7 @@ export function MembersCard({
   const onlineCount = list.filter((member) => statusOf(member.userId) !== "offline").length;
   const offlineText = (lastSeen: number | null) => (lastSeen === null ? "Offline" : `Last online ${timeAgo(Math.max(0, presence.nowMs - lastSeen))}`);
   return (
-    <Card title={`Members · ${list.length} · ${onlineCount} online`}>
+    <Card title={`Members (${list.length}, ${onlineCount} online)`}>
       {list.map((member, index) => {
         const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
         const status = statusOf(member.userId);
@@ -139,9 +139,9 @@ export function MembersCard({
                 <View style={styles.roleRow}>
                   <Icon name={member.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
                   <ThemedText type="small" themeColor="textSecondary">
-                    {role} ·{" "}
+                    {role}
                   </ThemedText>
-                  <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"} testID={`status-${member.displayName}`}>
+                  <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"} testID={`status-${member.displayName}`} style={styles.status}>
                     {status === "offline" ? offlineText(lastSeenOf(presence.rows, member.userId, member.lastSeenAt)) : presenceText[status]}
                   </ThemedText>
                   {pingMs !== null ? (
@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
   separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
   name: { flex: 1, minWidth: 0 },
   roleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.one },
+  status: { marginLeft: Spacing.two },
   presenceDot: { position: "absolute", right: -1, bottom: -1, width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
   ping: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: Spacing.two },
   pingText: { fontVariant: ["tabular-nums"] },

@@ -26,7 +26,7 @@ export function SongRow({
 }: {
   index?: number;
   title: string;
-  meta?: string | null;
+  meta?: string | readonly string[] | null;
   metaLabel?: string | null;
   songKey?: string | null;
   showKey?: boolean;
@@ -42,8 +42,10 @@ export function SongRow({
   divider?: boolean;
 }) {
   const theme = useTheme();
+  const metaParts = typeof meta === "string" ? [meta] : (meta ?? []);
+  const shownParts = [needsSections && !warningAsDot ? "No Sections yet" : null, ...metaParts].filter((part): part is string => Boolean(part));
   const spokenKey = showKey ? (songKey ? `Key of ${songKey}` : "No Key") : null;
-  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, metaLabel ?? meta, spokenKey].filter(Boolean).join(", ") : undefined;
+  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, metaLabel ?? metaParts.join(", "), spokenKey].filter(Boolean).join(", ") : undefined;
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
       {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
@@ -65,15 +67,19 @@ export function SongRow({
           <ThemedText type="default" themeColor={selected ? "accent" : "text"} style={styles.title} numberOfLines={1}>
             {title}
           </ThemedText>
-          {meta || needsSections ? (
+          {shownParts.length > 0 || needsSections ? (
             <View style={styles.metaRow}>
               {needsSections ? (
                 <View role="img" aria-label="No Sections yet" style={[styles.dot, { backgroundColor: theme.warning }]} />
               ) : null}
-              {meta || (needsSections && !warningAsDot) ? (
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
-                  {[needsSections && !warningAsDot ? "No Sections yet" : null, meta].filter(Boolean).join(" · ")}
-                </ThemedText>
+              {shownParts.length > 0 ? (
+                <View style={styles.metaParts}>
+                  {shownParts.map((part, index) => (
+                    <ThemedText key={index} type="small" themeColor="textSecondary" numberOfLines={1} style={index === shownParts.length - 1 ? styles.meta : null}>
+                      {part}
+                    </ThemedText>
+                  ))}
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -104,6 +110,7 @@ const styles = StyleSheet.create({
   keyText: { fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
+  metaParts: { flexDirection: "row", alignItems: "center", gap: Spacing.three, flexShrink: 1, minWidth: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   keyPill: { width: 44, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
 });

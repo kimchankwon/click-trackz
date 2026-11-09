@@ -188,7 +188,7 @@ function SetlistForm({
 
           <View style={styles.group}>
             <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
-              Songs · {entries.length}
+              Songs ({entries.length})
             </ThemedText>
             {entries.length === 0 ? (
               <ThemedText type="small" themeColor="textSecondary">
@@ -259,7 +259,7 @@ function SetlistForm({
             {addedCount > 0 ? (
               <Pressable role="button" testID="toggle-added" onPress={() => setShowAdded(!showAdded)} style={styles.addedLine}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {addedCount} already in this Setlist ·{" "}
+                  {addedCount} already in this Setlist.{" "}
                 </ThemedText>
                 <ThemedText type="smallBold" themeColor="accent">
                   {showAdded ? "Hide them" : "Show them"}

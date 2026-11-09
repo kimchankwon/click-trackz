@@ -268,7 +268,7 @@ export default function LatencyScreen() {
               >
                 <Icon name="touch" size={32} color={listening ? "onAccent" : "accent"} />
                 <ThemedText type="heading" themeColor={listening ? "onAccent" : "text"}>
-                  {listening ? `Tap on every click · ${tapCount}` : "Tap pad"}
+                  {listening ? `Tap on every click (${tapCount})` : "Tap pad"}
                 </ThemedText>
                 {listening ? (
                   <ThemedText type="caption" themeColor="onAccent">
