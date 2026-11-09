@@ -3,7 +3,7 @@ const SEARCH_MS = 400;
 const ONSET_SHARE = 0.5;
 
 export const MAX_VOICE_LEAD_MS = 150;
-export const VOICE_EARLY_MS = 20;
+export const VOICE_LATE_MS = 20;
 
 export function perceivedOnsetMs(samples: Float32Array, sampleRate: number): number {
   const window = Math.max(1, Math.round((sampleRate * WINDOW_MS) / 1000));
@@ -21,4 +21,4 @@ export function perceivedOnsetMs(samples: Float32Array, sampleRate: number): num
   return Math.min(MAX_VOICE_LEAD_MS, (onsetWindow * window * 1000) / sampleRate);
 }
 
-export const voiceLeadMs = (samples: Float32Array, sampleRate: number) => perceivedOnsetMs(samples, sampleRate) + VOICE_EARLY_MS;
+export const voiceLeadMs = (samples: Float32Array, sampleRate: number) => perceivedOnsetMs(samples, sampleRate) - VOICE_LATE_MS;

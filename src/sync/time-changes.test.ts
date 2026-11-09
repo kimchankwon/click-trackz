@@ -110,10 +110,28 @@ describe("timeChangesProblem", () => {
 });
 
 describe("newTimeChange", () => {
-  it("offers one bar of 2/4 on the last bar that has no change yet", () => {
-    expect(newTimeChange({ bars: 8, beatsPerBar: 4, beatUnit: 4 })).toEqual({ bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 });
-    expect(newTimeChange({ bars: 8, beatsPerBar: 4, timeChanges: [{ bar: 7, bars: 2, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 6 });
+  it("offers one bar of 2/4 from bar 1, whatever the Section's length", () => {
+    expect(newTimeChange({ bars: 8, beatsPerBar: 4, beatUnit: 4 })).toEqual({ bar: 1, bars: 1, beatsPerBar: 2, beatUnit: 4 });
+    expect(newTimeChange({ bars: 9, beatsPerBar: 4, beatUnit: 4 })).toEqual({ bar: 1, bars: 1, beatsPerBar: 2, beatUnit: 4 });
     expect(newTimeChange({ bars: 4, beatsPerBar: 2, beatUnit: 4 })).toMatchObject({ beatsPerBar: 3 });
+  });
+
+  it("starts the next change right after the last one, and keeps that bar when the Section grows", () => {
+    const change = { bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 };
+    expect(newTimeChange({ bars: 9, beatsPerBar: 4, timeChanges: [change] })).toMatchObject({ bar: 9 });
+    expect(newTimeChange({ bars: 10, beatsPerBar: 4, timeChanges: [change] })).toMatchObject({ bar: 9 });
+  });
+
+  it("answers at once for a huge Bars value typed before saving", () => {
+    const started = performance.now();
+    expect(newTimeChange({ bars: 1_000_000_000, beatsPerBar: 4 })).toMatchObject({ bar: 1 });
+    expect(newTimeChange({ bars: 1_000_000_000, beatsPerBar: 4, timeChanges: [{ bar: 1, bars: 999_999_999, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 1_000_000_000 });
+    expect(performance.now() - started).toBeLessThan(50);
+  });
+
+  it("falls back to the first free bar when nothing fits after the last change", () => {
+    expect(newTimeChange({ bars: 8, beatsPerBar: 4, timeChanges: [{ bar: 7, bars: 2, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 1 });
+    expect(newTimeChange({ bars: 8, beatsPerBar: 4, timeChanges: [{ bar: 1, bars: 1, beatsPerBar: 2, beatUnit: 4 }, { bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 2 });
   });
 
   it("offers nothing for a one-bar Section or one with every bar changed", () => {

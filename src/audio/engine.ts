@@ -11,7 +11,7 @@ import { loadClip } from "./load-clip";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
-import { MAX_VOICE_LEAD_MS, VOICE_EARLY_MS, voiceLeadMs } from "./voice-onset";
+import { MAX_VOICE_LEAD_MS, voiceLeadMs } from "./voice-onset";
 import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
 import { takePrimedContext } from "./primed-context";
 
@@ -388,7 +388,7 @@ export class CueAudioEngine {
     const latency = outputLatencyMs(context);
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + VOICE_EARLY_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? longestBeatMs(this.plan.song) : 0;
