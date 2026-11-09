@@ -98,11 +98,6 @@ export function SoundSettings({
           <ThemedText type="smallBold">Voice cues in</ThemedText>
           <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={setVoiceSide} options={sideOptions} />
         </View>
-        <ThemedText type="caption" themeColor="textSecondary" testID="stereo-caption">
-          {clickSide === "both" && voiceSide === "both"
-            ? "Both ears hear everything. Pick Left or Right to split the Click and Voice cues across in-ear monitors."
-            : `The Click plays in ${clickSide === "both" ? "both ears" : `the ${clickSide} ear`}, Voice cues in ${voiceSide === "both" ? "both ears" : `the ${voiceSide} ear`}.`}
-        </ThemedText>
         {hapticsAvailable ? (
           <>
             <Divider />
@@ -118,9 +113,6 @@ export function SoundSettings({
                 onChange={setHapticBeat}
                 options={HAPTIC_BEATS.map((setting) => ({ value: setting, label: hapticBeatLabels[setting] }))}
               />
-              <ThemedText type="caption" themeColor="textSecondary">
-                Feel the beat in your hand while Play is open, for when you cannot wear an earpiece.
-              </ThemedText>
             </View>
           </>
         ) : null}

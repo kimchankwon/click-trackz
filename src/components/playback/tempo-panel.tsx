@@ -78,11 +78,11 @@ export function TempoPanel({
         <ActionButton small full variant="outline" label="+1" accessibleName="1 BPM faster" testID="tempo-up-1" onPress={() => nudge(1)} />
         <ActionButton small full variant="outline" label="+5" accessibleName="5 BPM faster" testID="tempo-up-5" onPress={() => nudge(5)} />
       </View>
-      <ThemedText type="caption" themeColor="textSecondary">
-        {ownTempoCount > 0
-          ? `Every Section plays at this tempo, except ${ownTempoCount === 1 ? "the one" : `the ${ownTempoCount}`} with Own tempo.`
-          : "Every Section plays at this tempo."}
-      </ThemedText>
+      {ownTempoCount > 0 ? (
+        <ThemedText type="caption" themeColor="textSecondary">
+          {ownTempoCount === 1 ? "One Section keeps its Own tempo." : `${ownTempoCount} Sections keep their Own tempo.`}
+        </ThemedText>
+      ) : null}
       {problem ? (
         <ThemedText type="caption" themeColor="danger" testID="tempo-problem">
           {problem}

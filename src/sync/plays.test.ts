@@ -48,13 +48,15 @@ describe("Plays", () => {
     expect([2_000, 6_000, 10_000].map((at) => beatAt(fresh, at)?.count)).toEqual(["CHORUS", "CHORUS", "CHORUS"]);
   });
 
-  it("speaks the Voice cue before every pass", () => {
-    expect([0, 4_000, 8_000, 12_000].map((at) => beatAt(fresh, at)?.voiceCue)).toEqual([
-      { sectionType: "Chorus" },
-      { sectionType: "Chorus" },
-      { sectionType: "Chorus" },
-      { sectionType: "Outro" },
-    ]);
+  it("speaks the Voice cue before the first pass only, and plays the later passes without one", () => {
+    expect([0, 4_000, 8_000, 12_000].map((at) => beatAt(fresh, at)?.voiceCue ?? null)).toEqual([{ sectionType: "Chorus" }, null, null, { sectionType: "Outro" }]);
+    const spoken = beatsBetween(song, fresh, 2_000, 12_000).filter((beat) => beat.voiceCue !== null || beat.spokenCount !== null);
+    expect(spoken).toEqual([]);
+  });
+
+  it("counts the next Section's two-bar Cue lead straight across the last two passes", () => {
+    const twoBars: Song = { ...song, cueLeadBars: 2 };
+    expect(beatAt(fresh, 10_000, twoBars)?.voiceCue).toEqual({ sectionType: "Outro" });
   });
 
   it("starts at a chosen bar of the first pass and still plays every pass", () => {
@@ -75,9 +77,9 @@ describe("Plays", () => {
     expect(jumps).toEqual([{ at: 6_000, toSection: 2, cueFrom: 3_500 }]);
   });
 
-  it("tells the lead which pass of the Section is coming", () => {
+  it("tells the lead which pass of the Section is coming, and leads into no later pass", () => {
     expect(beatAt(fresh, 0)?.lead).toMatchObject({ cue: { sectionType: "Chorus" }, pass: 1, passes: 3 });
-    expect(beatAt(fresh, 8_000)?.lead).toMatchObject({ cue: { sectionType: "Chorus" }, pass: 3, passes: 3 });
+    expect(beatAt(fresh, 8_000)?.lead).toBeNull();
     expect(beatAt(fresh, 12_000)?.lead).toMatchObject({ cue: { sectionType: "Outro" }, pass: 1, passes: 1 });
   });
 
@@ -98,6 +100,12 @@ describe("Repeat on a Section with more than one play", () => {
     expect(passAt(repeated, 14_000)).toBe("1:1/2 pass 3/3");
     expect(passAt(repeated, 18_000)).toBe("2:1/1 pass 1/1");
     expect(playbackEndsAt(song, repeated)).toBe(20_000);
+  });
+
+  it("speaks the Voice cue before the pass an Admin repeats, but not before the passes that follow it", () => {
+    const repeated = { ...fresh, jumps: jumpsOf(repeatJumps(song, fresh, 6_500, false)) };
+    expect(beatAt(repeated, 8_000)?.voiceCue).toEqual({ sectionType: "Chorus" });
+    expect(beatAt(repeated, 12_000)?.voiceCue).toBeNull();
   });
 
   it("adds one pass when pressed in the first pass", () => {

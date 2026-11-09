@@ -4,14 +4,19 @@ import { sectionProgressAt, sectionProgressFrom } from "./section-progress";
 
 describe("sectionProgressAt", () => {
   it("fills across the whole Section one beat at a time", () => {
-    expect(sectionProgressAt({ beatInBar: 1, beatsPerBar: 4, barInSection: 1, barsInSection: 16 })).toEqual({ from: 0, to: 1 / 64 });
-    expect(sectionProgressAt({ beatInBar: 3, beatsPerBar: 4, barInSection: 9, barsInSection: 16 })).toEqual({ from: 34 / 64, to: 35 / 64 });
-    expect(sectionProgressAt({ beatInBar: 4, beatsPerBar: 4, barInSection: 16, barsInSection: 16 })).toEqual({ from: 63 / 64, to: 1 });
+    const pass = { beatMs: 2_000, passMs: 128_000 };
+    expect(sectionProgressAt({ ...pass, msIntoPass: 0 })).toEqual({ from: 0, to: 1 / 64 });
+    expect(sectionProgressAt({ ...pass, msIntoPass: 68_000 })).toEqual({ from: 34 / 64, to: 35 / 64 });
+    expect(sectionProgressAt({ ...pass, msIntoPass: 126_000 })).toEqual({ from: 63 / 64, to: 1 });
+  });
+
+  it("gives a shorter bar a shorter share, so a bar of 2/4 fills half as far as a bar of 4/4", () => {
+    expect(sectionProgressAt({ beatMs: 500, passMs: 5_000, msIntoPass: 4_000 })).toEqual({ from: 0.8, to: 0.9 });
   });
 });
 
 describe("sectionProgressFrom", () => {
-  const beat = { at: 10_000, beatMs: 2_000, beatInBar: 1, beatsPerBar: 4, barInSection: 1, barsInSection: 16 };
+  const beat = { at: 10_000, beatMs: 2_000, passMs: 128_000, msIntoPass: 0 };
 
   it("starts at the beat when it has only just sounded", () => {
     expect(sectionProgressFrom(beat, 10_000)).toEqual({ start: 0, to: 1 / 64, durationMs: 2_000 });

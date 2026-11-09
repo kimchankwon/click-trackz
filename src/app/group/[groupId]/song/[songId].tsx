@@ -29,8 +29,8 @@ import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
-import { cuePattern } from "@/sync/cue-pattern";
-import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section } from "@/sync/timeline";
+import { newTimeChange } from "@/sync/time-changes";
+import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type TimeChange } from "@/sync/timeline";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -54,14 +54,93 @@ const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
   [12, 8],
 ];
 
-const beatUnitName: Record<number, string> = { 2: "half notes", 8: "eighth notes", 16: "sixteenth notes" };
-
 function withPlays(section: EditableSection, plays: number): EditableSection {
   const next = Math.min(MAX_PLAYS, Math.max(1, plays));
   return { ...section, plays: next > 1 ? next : undefined };
 }
 
-function TimeSignatureField({ section, open, onToggle, testID }: { section: EditableSection; open: boolean; onToggle: () => void; testID: string }) {
+type TimeSignature = Pick<Section, "beatsPerBar" | "beatUnit">;
+
+function TimeSignatureChips({ current, testID, onPick }: { current: TimeSignature; testID: string; onPick: (beatsPerBar: number, beatUnit: number) => void }) {
+  const picked = [current.beatsPerBar, current.beatUnit ?? 4] as const;
+  const options = COMMON_TIME_SIGNATURES.some(([beats, unit]) => beats === picked[0] && unit === picked[1]) ? COMMON_TIME_SIGNATURES : [picked, ...COMMON_TIME_SIGNATURES];
+  return (
+    <View style={styles.wrap} role="radiogroup" aria-label="Time signature">
+      {options.map(([beatsPerBar, beatUnit]) => (
+        <Chip
+          key={`${beatsPerBar}/${beatUnit}`}
+          role="radio"
+          label={`${beatsPerBar}/${beatUnit}`}
+          selected={beatsPerBar === picked[0] && beatUnit === picked[1]}
+          testID={`${testID}-${beatsPerBar}-${beatUnit}`}
+          onPress={() => onPick(beatsPerBar, beatUnit)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function TimeChangeRow({ change, testID, onChange, onRemove }: { change: TimeChange; testID: string; onChange: (next: TimeChange) => void; onRemove: () => void }) {
+  const theme = useTheme();
+  const [choosingTime, setChoosingTime] = useState(false);
+  return (
+    <View style={[styles.changeRow, { backgroundColor: theme.background }]} testID={testID}>
+      <View style={styles.fields}>
+        <NumberField label="From bar" integer value={change.bar} testID={`${testID}-bar`} onChange={(bar) => onChange({ ...change, bar })} />
+        <NumberField label="Bars" integer value={change.bars} testID={`${testID}-bars`} onChange={(bars) => onChange({ ...change, bars })} />
+        <TimeSignatureField section={change} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`${testID}-time`} />
+        <View style={styles.changeRemove}>
+          <IconButton icon="trash" color="textTertiary" size={40} label={`Remove the time change at bar ${change.bar}`} onPress={onRemove} testID={`${testID}-remove`} />
+        </View>
+      </View>
+      {choosingTime ? (
+        <TimeSignatureChips
+          current={change}
+          testID={`${testID}-time`}
+          onPick={(beatsPerBar, beatUnit) => {
+            onChange({ ...change, beatsPerBar, beatUnit });
+            setChoosingTime(false);
+          }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function TimeChangesField({ section, index, onChange }: { section: EditableSection; index: number; onChange: (next: EditableSection) => void }) {
+  const changes = section.timeChanges ?? [];
+  const added = newTimeChange(section);
+  const update = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
+  return (
+    <View style={styles.changes}>
+      {changes.map((change, changeIndex) => (
+        <TimeChangeRow
+          key={changeIndex}
+          change={change}
+          testID={`section-${index}-change-${changeIndex}`}
+          onChange={(edited) => update(changes.map((other, otherIndex) => (otherIndex === changeIndex ? edited : other)))}
+          onRemove={() => update(changes.filter((_, otherIndex) => otherIndex !== changeIndex))}
+        />
+      ))}
+      {added ? (
+        <Pressable
+          role="button"
+          aria-label={`Add a time change to Section ${index + 1}`}
+          testID={`section-${index}-add-change`}
+          onPress={() => update([...changes, added])}
+          style={({ pressed }) => [styles.addChange, pressed ? styles.addChangePressed : null]}
+        >
+          <Icon name="add" size={18} color="accent" />
+          <ThemedText themeColor="accent" style={styles.addChangeText}>
+            Add time change
+          </ThemedText>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function TimeSignatureField({ section, open, onToggle, testID }: { section: TimeSignature; open: boolean; onToggle: () => void; testID: string }) {
   const theme = useTheme();
   return (
     <View style={[styles.numberField, styles.timeField]}>
@@ -198,11 +277,6 @@ function SectionRow({
   const theme = useTheme();
   const [choosing, setChoosing] = useState(false);
   const [choosingTime, setChoosingTime] = useState(false);
-  const current = [section.beatsPerBar, section.beatUnit ?? 4] as const;
-  const timeOptions = COMMON_TIME_SIGNATURES.some(([beats, unit]) => beats === current[0] && unit === current[1])
-    ? COMMON_TIME_SIGNATURES
-    : [current, ...COMMON_TIME_SIGNATURES];
-  const countedUnit = beatUnitName[section.beatUnit ?? 4];
   const plays = playsOf(section);
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
@@ -263,27 +337,16 @@ function SectionRow({
         )}
       </View>
       {choosingTime ? (
-        <View style={styles.wrap} role="radiogroup" aria-label="Time signature">
-          {timeOptions.map(([beatsPerBar, beatUnit]) => (
-            <Chip
-              key={`${beatsPerBar}/${beatUnit}`}
-              role="radio"
-              label={`${beatsPerBar}/${beatUnit}`}
-              selected={beatsPerBar === current[0] && beatUnit === current[1]}
-              testID={`section-${index}-time-${beatsPerBar}-${beatUnit}`}
-              onPress={() => {
-                onChange({ ...section, beatsPerBar, beatUnit });
-                setChoosingTime(false);
-              }}
-            />
-          ))}
-        </View>
+        <TimeSignatureChips
+          current={section}
+          testID={`section-${index}-time`}
+          onPick={(beatsPerBar, beatUnit) => {
+            onChange({ ...section, beatsPerBar, beatUnit });
+            setChoosingTime(false);
+          }}
+        />
       ) : null}
-      {countedUnit ? (
-        <ThemedText type="caption" themeColor="textSecondary" testID={`section-${index}-bpm-unit`}>
-          BPM counts {countedUnit}, and every one gets a Click.
-        </ThemedText>
-      ) : null}
+      <TimeChangesField section={section} index={index} onChange={onChange} />
       <View style={styles.bottomRow}>
         <StepperField
           label="Number"
@@ -347,11 +410,6 @@ type LoadedSong = {
   copyBase: string | null;
   sections: EditableSection[];
 };
-
-const subdivisionPattern = (beatsPerBar: number, subdivision: number) =>
-  subdivision === 1
-    ? "One Click on each beat."
-    : `Each bar clicks ${Array.from({ length: beatsPerBar }, (_, beat) => [String(beat + 1), ...Array.from({ length: subdivision - 1 }, () => ".")].join(" ")).join(" ")} with a softer Click on each dot.`;
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
 
@@ -532,17 +590,8 @@ function SongForm({
               <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
             </View>
             <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
-            <ThemedText type="caption" themeColor="textSecondary">
-              Tap along with the beat to set the Song tempo. Every Section plays at it unless you turn on Own tempo in that Section.
-            </ThemedText>
             <Divider />
-            <Switch
-              label="Count-in"
-              hint={`${cueLeadBars === 1 ? "One bar" : "Two bars"} of beat numbers before the first Section, while its Voice cue is spoken`}
-              value={countIn}
-              onChange={setCountIn}
-              testID="count-in-toggle"
-            />
+            <Switch label="Count-in" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
             <Divider />
             <View style={styles.subdivision}>
               <ThemedText type="smallBold">Voice cues start</ThemedText>
@@ -553,9 +602,6 @@ function SongForm({
                 onChange={(next) => setCueLeadBars(Number(next))}
                 options={CUE_LEAD_BARS.map((bars) => ({ value: String(bars), label: bars === 1 ? "1 bar before" : "2 bars before" }))}
               />
-              <ThemedText type="caption" themeColor="textSecondary" testID="cue-lead-pattern">
-                {`Spoken as ${cuePattern(sections[0] ?? { beatsPerBar: 4 }, cueLeadBars)} over the ${cueLeadBars === 1 ? "bar" : "two bars"} before each Section${countIn ? `, with a ${cueLeadBars === 1 ? "one" : "two"}-bar Count-in` : ""}.`}
-              </ThemedText>
             </View>
             <Divider />
             <View style={styles.subdivision}>
@@ -567,9 +613,6 @@ function SongForm({
                 onChange={(next) => setSubdivision(Number(next))}
                 options={SUBDIVISIONS.map((n) => ({ value: String(n), label: String(n) }))}
               />
-              <ThemedText type="caption" themeColor="textSecondary" testID="subdivision-pattern">
-                {subdivisionPattern(sections[0]?.beatsPerBar ?? 4, subdivision)}
-              </ThemedText>
             </View>
           </View>
 
@@ -720,6 +763,12 @@ const styles = StyleSheet.create({
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
   stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
   stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
+  changes: { gap: Spacing.two },
+  changeRow: { gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
+  changeRemove: { alignSelf: "flex-end" },
+  addChange: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44, alignSelf: "flex-start" },
+  addChangePressed: { opacity: 0.7 },
+  addChangeText: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   playsBadge: { flexDirection: "row", alignItems: "center", gap: 3, minHeight: 28, paddingHorizontal: Spacing.two, borderRadius: Radius.pill, marginLeft: Spacing.one },
   playsBadgeText: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
   numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
