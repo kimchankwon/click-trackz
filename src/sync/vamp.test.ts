@@ -44,7 +44,7 @@ describe("Vamp", () => {
   const vamping = { ...fresh, jumps: jumpsOf(repeatJumps(song, fresh, 1_000, true)) };
 
   it("loops the current Section from its end until someone ends the vamp", () => {
-    expect(vamping.jumps).toEqual([{ at: 8_000, toSection: 0, cueFrom: 2_000, loop: true }]);
+    expect(vamping.jumps).toEqual([{ at: 8_000, toSection: 0, cueFrom: 2_000, vamp: true }]);
     expect(vampingSection(song, vamping)).toBe(0);
     expect(playbackEndsAt(song, vamping)).toBe(Infinity);
     expect(countAt(vamping, 30_000)).toBe("4");
@@ -72,9 +72,9 @@ describe("Vamp", () => {
 
   it("ends the Song when the vamp is on the last Section", () => {
     const onVerse = { startsAt: 0, startSection: 1, jumps: [] as Jump[] };
-    const looping = { ...onVerse, jumps: jumpsOf(repeatJumps(song, onVerse, 500, true)) };
-    expect(looping.jumps).toEqual([{ at: 4_000, toSection: 1, cueFrom: 1_500, loop: true }]);
-    const ended = { ...looping, jumps: jumpsOf(endVampJumps(song, looping, 9_000)) };
+    const vampingVerse = { ...onVerse, jumps: jumpsOf(repeatJumps(song, onVerse, 500, true)) };
+    expect(vampingVerse.jumps).toEqual([{ at: 4_000, toSection: 1, cueFrom: 1_500, vamp: true }]);
+    const ended = { ...vampingVerse, jumps: jumpsOf(endVampJumps(song, vampingVerse, 9_000)) };
     expect(playbackEndsAt(song, ended)).toBe(12_000);
     expect(beatsBetween(song, ended, 12_000, 20_000)).toEqual([]);
   });
@@ -97,5 +97,24 @@ describe("Vamp", () => {
 
   it("looks far enough ahead to find the next Section start from anywhere in the Song", () => {
     expect(aheadWindowMs(song)).toBe(8_000 + 3 * 2_000);
+  });
+
+  it("gives the same beats deep into a long vamp whichever window is asked for", () => {
+    const deep = 10 * 60 * 60_000;
+    const narrow = beatsBetween(song, vamping, deep, deep + 6_000);
+    const wide = beatsBetween(song, vamping, deep - 60_000, deep + 6_000).filter((beat) => beat.at >= deep);
+    expect(narrow.length).toBeGreaterThan(0);
+    expect(narrow).toEqual(wide);
+    expect(narrow.find((beat) => beat.accent && beat.barInSection === 1)?.count).toBe("INTRO");
+  });
+
+  it("cues a one-bar Section before every repeat however far into the vamp", () => {
+    const tight: Song = { countIn: false, sections: [{ sectionType: "Chorus", bars: 1, beatsPerBar: 4, bpm: 120 }] };
+    const playback = { startsAt: 0, startSection: 0, jumps: [{ at: 2_000, toSection: 0, vamp: true }] as Jump[] };
+    const late = 3_600_000;
+    const narrow = beatsBetween(tight, playback, late, late + 4_000);
+    const wide = beatsBetween(tight, playback, late - 20_000, late + 4_000).filter((beat) => beat.at >= late);
+    expect(narrow).toEqual(wide);
+    expect(narrow.some((beat) => beat.voiceCue?.sectionType === "Chorus" || beat.spokenCount !== null)).toBe(true);
   });
 });

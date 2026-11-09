@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 
-import { nextInSetlist } from "../src/lib/setlist-next";
+import { nextInSetlist, setlistPosition } from "../src/lib/setlist-next";
 import { endVampJumps, jumpProblem, jumpsAfter, MIN_COMMAND_LEAD_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
 import { playbackEndsAt } from "../src/sync/timeline";
 import { internal } from "./_generated/api";
@@ -30,7 +30,7 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy, stoppedBy, advance } = playback;
+    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy, stoppedBy, advance, setlistIndex } = playback;
     return {
       songId,
       song,
@@ -44,6 +44,7 @@ export const current = query({
       stoppedBy: stoppedBy ?? null,
       stoppedByName: await displayNameIn(ctx, groupId, stoppedBy),
       advance: advance === true,
+      setlistIndex: setlistIndex ?? null,
     };
   },
 });
@@ -71,8 +72,9 @@ export const start = mutation({
     fromSection: v.optional(v.number()),
     fromBar: v.optional(v.number()),
     advance: v.optional(v.boolean()),
+    setlistIndex: v.optional(v.number()),
   },
-  handler: async (ctx, { groupId, songId, fromSection, fromBar, advance }) => {
+  handler: async (ctx, { groupId, songId, fromSection, fromBar, advance, setlistIndex }) => {
     const { user } = await requireAdmin(ctx, groupId);
     const group = await ctx.db.get(groupId);
     if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
@@ -85,6 +87,7 @@ export const start = mutation({
       songId,
       startedBy: user._id,
       ...(advance === true ? { advance } : {}),
+      ...(setlistIndex !== undefined && Number.isInteger(setlistIndex) && setlistIndex >= 0 ? { setlistIndex } : {}),
       ...startedPlayback(song, { fromSection, fromBar }, Date.now()),
     };
     const existing = await groupPlayback(ctx, groupId);
@@ -160,9 +163,10 @@ export const advance = internalMutation({
     const setlist = group?.currentSetlistId ? await ctx.db.get(group.currentSetlistId) : null;
     const order = setlist?.entries.map((entry) => entry.songId) ?? [];
     const songs = new Map((await Promise.all(order.map((id) => ctx.db.get(id)))).flatMap((song) => (song ? [[song._id, song] as const] : [])));
-    const nextId = nextInSetlist(order, playback.songId, (id) => (songs.get(id)?.sections.length ?? 0) > 0 && songs.get(id)?.groupId === groupId);
-    const next = nextId === null ? undefined : songs.get(nextId);
-    if (next === undefined) {
+    const position = setlistPosition(order, playback.songId, playback.setlistIndex);
+    const nextUp = position === null ? null : nextInSetlist(order, position, (id) => (songs.get(id)?.sections.length ?? 0) > 0 && songs.get(id)?.groupId === groupId);
+    const next = nextUp === null ? undefined : songs.get(nextUp.item);
+    if (next === undefined || nextUp === null) {
       await ctx.db.patch(playback._id, { advanceJob: undefined });
       return;
     }
@@ -172,6 +176,7 @@ export const advance = internalMutation({
       songId: next._id,
       startedBy: playback.startedBy,
       advance: true,
+      setlistIndex: nextUp.index,
       ...startedPlayback(next, {}, now, now + MIN_COMMAND_LEAD_MS),
     });
     await planAdvance(ctx, playback._id);

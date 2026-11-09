@@ -68,7 +68,7 @@ export function repeatJumps(song: Song, playback: Playback & { jumps: readonly J
   if (at === null) return { problem: "Playback has already ended" };
   const section = sectionIndexBefore(song, playback, at);
   if (section === null) return { problem: "Wait for the first Section before repeating it" };
-  const jump: Jump = { at, toSection: section, cueFrom: nowMs + MIN_COMMAND_LEAD_MS, ...(vamp ? { loop: true } : {}) };
+  const jump: Jump = { at, toSection: section, cueFrom: nowMs + MIN_COMMAND_LEAD_MS, ...(vamp ? { vamp: true } : {}) };
   return { jumps: [...playback.jumps.filter((j) => j.at < at), jump] };
 }
 

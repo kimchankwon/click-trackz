@@ -45,7 +45,7 @@ import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
-import { nextInSetlist } from "@/lib/setlist-next";
+import { nextInSetlist, setlistPosition } from "@/lib/setlist-next";
 import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
 import { hapticFor, isHapticBeat, isSide, type HapticBeat, type Side } from "@/settings/output";
 import { Switch } from "@/components/ui/switch";
@@ -138,6 +138,7 @@ type ShownPlayback = Playback & {
   stoppedBy: Id<"users"> | null;
   stoppedByName: string | null;
   advance?: boolean;
+  setlistIndex?: number | null;
 };
 
 type DevicePlayback = StartedPlayback & {
@@ -147,6 +148,7 @@ type DevicePlayback = StartedPlayback & {
   stoppedBy: null;
   stoppedByName: null;
   advance?: boolean;
+  setlistIndex?: number;
 };
 
 type OnOff = "on" | "off";
@@ -226,7 +228,9 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const library = useQuery(api.songs.list, { groupId });
   const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
-  const nextUpId = playback ? nextInSetlist(setlistOrder, playback.songId, (id) => playableInSetlist.has(id)) : null;
+  const playingPosition = playback ? setlistPosition(setlistOrder, playback.songId, playback.setlistIndex) : null;
+  const nextUp = playingPosition === null ? null : nextInSetlist(setlistOrder, playingPosition, (id) => playableInSetlist.has(id));
+  const nextUpId = nextUp?.item ?? null;
   const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
   const nextUpSong = useQuery(api.songs.get, nextUpId ? { songId: nextUpId } : "skip");
   const [orderAt, setOrderAt] = useState<number | null>(null);
@@ -447,11 +451,20 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   }, [beat]);
 
   const lineUpNext = useEffectEvent(() => {
-    if (!steers || playback === null || playback.stopsAt !== null || nextUpId === null) return;
-    setSelectedSongId(nextUpId);
-    setOrderAt(setlistOrder.indexOf(nextUpId));
+    if (!steers || playback === null || playback.stopsAt !== null || nextUp === null) return;
+    setSelectedSongId(nextUp.item);
+    setOrderAt(nextUp.index);
     setStartPick(null);
   });
+  const [followedStart, setFollowedStart] = useState<number | null>(null);
+  if (playback !== null && playback.startsAt !== followedStart) {
+    setFollowedStart(playback.startsAt);
+    if (steers && playback.advance === true && playback.songId !== selectedSongId) {
+      setSelectedSongId(playback.songId);
+      setOrderAt(playingPosition);
+      setStartPick(null);
+    }
+  }
   const wasPlaying = useRef(false);
   useEffect(() => {
     const ended = wasPlaying.current && !playing;
@@ -461,23 +474,24 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   useEffect(() => {
     if (!onDevice || devicePlayback === null || devicePlayback.advance !== true || devicePlayback.stopsAt !== null) return;
-    if (nextUpId === null || !nextUpSong || nextUpSong.sections.length === 0) return;
+    if (nextUp === null || !nextUpSong || nextUpSong.sections.length === 0) return;
     const endsAt = playbackEndsAt(devicePlayback.song, devicePlayback);
     if (!Number.isFinite(endsAt)) return;
     const timer = setTimeout(() => {
       const now = deviceNow();
       setDevicePlayback({
-        songId: nextUpId,
+        songId: nextUp.item,
         startedBy: null,
         startedByName: null,
         stoppedBy: null,
         stoppedByName: null,
         advance: true,
+        setlistIndex: nextUp.index,
         ...startedPlayback(nextUpSong, {}, now, now + MIN_COMMAND_LEAD_MS),
       });
     }, Math.max(0, endsAt - deviceNow()));
     return () => clearTimeout(timer);
-  }, [onDevice, devicePlayback, nextUpId, nextUpSong]);
+  }, [onDevice, devicePlayback, nextUp, nextUpSong]);
 
   useEffect(() => () => setPlayingHere(false), []);
 
@@ -543,6 +557,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     run(async () => {
       if (!startSongId) return;
       const from = { fromSection: pickedSection ?? undefined, fromBar: pickedBar ?? undefined };
+      const startPosition = setlistOrder.includes(startSongId) ? setlistPosition(setlistOrder, startSongId, orderAt) : null;
+      const position = startPosition === null ? {} : { setlistIndex: startPosition };
       if (onDevice) {
         if (!startSong) return;
         const problem = startProblem(startSong, from);
@@ -554,13 +570,14 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           stoppedBy: null,
           stoppedByName: null,
           ...(advancePreference === "on" ? { advance: true } : {}),
+          ...position,
           ...startedPlayback(startSong, from, deviceNow()),
         });
       } else {
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...(advancePreference === "on" ? { advance: true } : {}) });
+          await start({ groupId, songId: startSongId, ...from, ...position, ...(advancePreference === "on" ? { advance: true } : {}) });
         } finally {
           setStartPending(false);
         }
@@ -870,21 +887,21 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         </View>
       ) : null}
       {playing && (steers || vampTitle !== null) ? (
-        <View style={styles.loopBlock}>
+        <View style={styles.vampBlock}>
           {vampTitle !== null ? (
             <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
               {steers ? `Vamping ${vampTitle}` : `Vamping ${vampTitle} until an Admin ends it`}
             </ThemedText>
           ) : null}
           {steers ? (
-            <View style={styles.loopButtons}>
+            <View style={styles.vampButtons}>
               {vampTitle === null ? (
                 <>
                   <ActionButton medium rounded icon="repeat" label="Repeat" testID="repeat-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(false)} />
-                  <ActionButton medium rounded icon="loop" label="Vamp" testID="vamp-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
+                  <ActionButton medium rounded icon="vamp" label="Vamp" testID="vamp-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
                 </>
               ) : (
-                <ActionButton medium rounded accent icon="loop" label="End vamp" testID="end-vamp" disabled={stopping} onPress={endVampNow} />
+                <ActionButton medium rounded accent icon="vamp" label="End vamp" testID="end-vamp" disabled={stopping} onPress={endVampNow} />
               )}
             </View>
           ) : null}
@@ -967,8 +984,9 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const playSong = (songId: Id<"songs">) => {
+  const playSong = (songId: Id<"songs">, position: number | null = null) => {
     setSelectedSongId(songId);
+    setOrderAt(position);
     showTab("play");
   };
 
@@ -1373,8 +1391,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center", gap: Spacing.two },
-  loopBlock: { width: "100%", alignItems: "center", gap: Spacing.two },
-  loopButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: Spacing.two },
+  vampBlock: { width: "100%", alignItems: "center", gap: Spacing.two },
+  vampButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: Spacing.two },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MIN_COMMAND_LEAD_MS } from "../src/sync/commands";
 import { playbackEndsAt } from "../src/sync/timeline";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -58,7 +58,7 @@ describe("Repeat and Vamp on the server", () => {
     await expect(member.mutation(api.playback.repeatSection, { groupId })).rejects.toThrow(/Only Admins/);
     await admin.mutation(api.playback.repeatSection, { groupId, startsAt, vamp: true });
     const vamping = (await member.query(api.playback.current, { groupId }))!;
-    expect(vamping.jumps).toEqual([{ at: startsAt + 4_000, toSection: 0, cueFrom: startsAt + 1_500, loop: true }]);
+    expect(vamping.jumps).toEqual([{ at: startsAt + 4_000, toSection: 0, cueFrom: startsAt + 1_500, vamp: true }]);
     expect(playbackEndsAt(vamping.song, vamping)).toBe(Infinity);
     await expect(admin.mutation(api.playback.repeatSection, { groupId, startsAt })).rejects.toThrow(/Already vamping/);
 
@@ -116,6 +116,25 @@ describe("Setlist auto-advance", () => {
     await admin.mutation(api.playback.endVamp, { groupId, startsAt });
     await runAll(t);
     expect((await member.query(api.playback.current, { groupId }))!.songId).toBe(third);
+  });
+
+  it("follows the Setlist position, so a Song that appears twice still reaches the Songs after it", async () => {
+    const { t, admin, member, groupId, first, third } = await setup();
+    const fourth = await admin.mutation(api.songs.createSong, { groupId, title: "Fourth" });
+    await admin.mutation(api.songs.updateSong, { songId: fourth, countIn: false, sections: [chorus] });
+    const setlistId = await admin.mutation(api.setlists.createSetlist, { groupId, name: "Repeats" });
+    await admin.mutation(api.setlists.save, { setlistId, revision: 0, name: "Repeats", entries: [first, third, first, fourth].map((songId) => ({ songId })) });
+    await admin.mutation(api.setlists.setCurrent, { groupId, setlistId });
+    await admin.mutation(api.playback.start, { groupId, songId: first, advance: true, setlistIndex: 2 });
+    await runAll(t);
+    expect((await member.query(api.playback.current, { groupId }))!).toMatchObject({ songId: fourth, setlistIndex: 3 });
+
+    await admin.mutation(api.playback.start, { groupId, songId: first, advance: true });
+    const fromFirst = (await member.query(api.playback.current, { groupId }))!;
+    const firstEndsAt = playbackEndsAt(fromFirst.song, fromFirst);
+    vi.setSystemTime(firstEndsAt);
+    await t.mutation(internal.playback.advance, { groupId, startsAt: fromFirst.startsAt });
+    expect((await member.query(api.playback.current, { groupId }))!).toMatchObject({ songId: third, setlistIndex: 1 });
   });
 
   it("can be switched on or off while a Song plays", async () => {
