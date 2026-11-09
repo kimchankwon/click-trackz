@@ -26,11 +26,10 @@ export function timeChangesProblem(section: ChangeableSection): string | null {
 export function newTimeChange(section: ChangeableSection): TimeChange | null {
   const changes = section.timeChanges ?? [];
   if (section.bars < 2 || changes.length >= MAX_TIME_CHANGES) return null;
-  const covered = (bar: number) => changes.some((change) => bar >= change.bar && bar < change.bar + change.bars);
-  for (let bar = section.bars; bar >= 1; bar--) {
-    if (!covered(bar)) return { bar, bars: 1, beatsPerBar: section.beatsPerBar === 2 ? 3 : 2, beatUnit: section.beatUnit ?? 4 };
-  }
-  return null;
+  const free = (bar: number) => bar <= section.bars && !changes.some((change) => bar >= change.bar && bar < change.bar + change.bars);
+  const afterLastChange = changes.reduce((end, change) => Math.max(end, change.bar + change.bars), 1);
+  const bar = [afterLastChange, ...Array.from({ length: section.bars }, (_, index) => index + 1)].find(free);
+  return bar === undefined ? null : { bar, bars: 1, beatsPerBar: section.beatsPerBar === 2 ? 3 : 2, beatUnit: section.beatUnit ?? 4 };
 }
 
 export type MeterRun = { bars: number; beatsPerBar: number; beatUnit?: number };
