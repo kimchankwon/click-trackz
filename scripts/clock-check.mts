@@ -12,6 +12,8 @@ const pings = Number(process.argv[3] ?? 12);
 
 async function measure(label: string) {
   const client = new ConvexClient(url!);
+  const { tokens } = (await client.action(anyApi.auth.signIn, { provider: "anonymous" })) as { tokens: { token: string } };
+  client.setAuth(async () => tokens.token);
   const samples: ClockSample[] = [];
   for (let i = 0; i < pings; i++) {
     const sentAt = performance.timeOrigin + performance.now();

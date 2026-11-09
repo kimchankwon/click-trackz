@@ -38,6 +38,16 @@ describe("Cue vocabulary", () => {
     await admin.mutation(api.songs.updateSong, { songId, title: "Pure (live)", sections: [exhortation] });
   });
 
+  it("matches a word however it is typed and stores the vocabulary's spelling", async () => {
+    const { t, admin, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ sectionType: "pre chorus", bars: 4, beatsPerBar: 4, bpm: 72 }] });
+    expect((await t.run((ctx) => ctx.db.get(songId)))!.sections[0].sectionType).toBe("Pre-Chorus");
+    await t.run((ctx) => ctx.db.patch(songId, { sections: [{ sectionType: "Refrain", bars: 4, beatsPerBar: 4, bpm: 72 }] }));
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ sectionType: "refrain", bars: 2, beatsPerBar: 4, bpm: 72 }] });
+    expect((await t.run((ctx) => ctx.db.get(songId)))!.sections[0]).toMatchObject({ sectionType: "Refrain", bars: 2 });
+  });
+
   it("is only for Members", async () => {
     const { t, groupId } = await setupGroup();
     const strangerId = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));

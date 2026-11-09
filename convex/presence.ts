@@ -4,6 +4,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
+import { forgetGuestIfGone } from "./cleanup";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
@@ -28,6 +29,8 @@ export const heartbeat = mutation({
     checkScreenId(screenId);
     const ping = roundTripMs !== undefined && Number.isFinite(roundTripMs) ? Math.min(MAX_ROUND_TRIP_MS, Math.max(0, Math.round(roundTripMs))) : undefined;
     const { user, membership } = await requireMember(ctx, groupId);
+    const group = await ctx.db.get(groupId);
+    if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
     const seenAt = Date.now();
     if ((membership.lastSeenAt ?? 0) < seenAt - LAST_SEEN_EVERY_MS) await ctx.db.patch(membership._id, { lastSeenAt: seenAt });
     const mine = await ctx.db
@@ -70,9 +73,12 @@ export const removeAbsentGuests = internalMutation({
   args: {},
   handler: async (ctx) => {
     const cutoff = Date.now() - GUEST_ABSENCE_MS;
-    const memberships = await ctx.db.query("memberships").collect();
+    const memberships = await ctx.db
+      .query("memberships")
+      .withIndex("by_role_seen", (q) => q.eq("role", "member").lt("lastSeenAt", cutoff))
+      .collect();
     for (const membership of memberships) {
-      if (membership.role === "admin" || (membership.lastSeenAt ?? membership._creationTime) >= cutoff) continue;
+      if (membership.lastSeenAt === undefined && membership._creationTime >= cutoff) continue;
       const user = await ctx.db.get(membership.userId);
       if (user !== null && !isGuest(user)) continue;
       const screens = await ctx.db
@@ -82,6 +88,24 @@ export const removeAbsentGuests = internalMutation({
       if (screens.some((screen) => screen.seenAt >= cutoff)) continue;
       await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
       await ctx.db.delete(membership._id);
+      await forgetGuestIfGone(ctx, membership.userId);
+    }
+  },
+});
+
+export const forgetGuestsWhoNeverJoined = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - GUEST_ABSENCE_MS;
+    const users = await ctx.db.query("users").collect();
+    for (const user of users) {
+      if (!isGuest(user) || user._creationTime >= cutoff) continue;
+      const memberships = await ctx.db
+        .query("memberships")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+      if (memberships.some((membership) => (membership.lastSeenAt ?? membership._creationTime) >= cutoff)) continue;
+      await forgetGuestIfGone(ctx, user._id);
     }
   },
 });

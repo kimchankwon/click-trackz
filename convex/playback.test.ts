@@ -128,6 +128,14 @@ describe("Group Playback", () => {
     expect((await member.query(api.playback.current, { groupId }))!.stopsAt).toBe(NOW + 500 + STOP_LEAD_MS);
   });
 
+  it("never runs Offline on the server clock", async () => {
+    const { admin } = await setupGroup();
+    const offlineId = await admin.mutation(api.groups.openOffline, {});
+    const songId = await admin.mutation(api.songs.createSong, { groupId: offlineId, title: "Etude" });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [...demoSong.sections] });
+    await expect(admin.mutation(api.playback.start, { groupId: offlineId, songId })).rejects.toThrow(/Offline plays on this device only/);
+  });
+
   it("refuses Playback commands from Members and reads from people outside the Group", async () => {
     const { t, member, outsider, groupId, songId } = await setupGroup();
     await expect(member.mutation(api.playback.start, { groupId, songId })).rejects.toThrow(/Only Admins/);

@@ -214,6 +214,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const deleteGroup = useMutation(api.groups.deleteGroup);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [startPending, setStartPending] = useState(false);
   const updateSong = useMutation(api.songs.updateSong);
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
@@ -867,6 +871,22 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     }
   };
 
+  const confirmDelete = async () => {
+    if (deletePending) return;
+    setDeleteError(null);
+    setDeletePending(true);
+    setLeavingGroup(true);
+    try {
+      await deleteGroup({ groupId });
+      router.dismissTo("/");
+    } catch (error) {
+      setLeavingGroup(false);
+      setDeleteError(errorText(error));
+    } finally {
+      setDeletePending(false);
+    }
+  };
+
   const confirmLeave = async () => {
     if (leavingGroup) return;
     setLeaveError(null);
@@ -906,6 +926,18 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
             setConfirmingLeave(true);
           }}
         />
+        {isAdmin ? (
+          <ActionButton
+            variant="danger"
+            icon="trash"
+            label="Delete Group"
+            testID="delete-group"
+            onPress={() => {
+              setDeleteError(null);
+              setConfirmingDelete(true);
+            }}
+          />
+        ) : null}
       </View>
     </>
   );
@@ -1082,6 +1114,17 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         onConfirm={() => void confirmDuplicate()}
         onCancel={() => setConfirmingDuplicate(false)}
         testID="duplicate-group-dialog"
+      />
+      <ConfirmDialog
+        visible={confirmingDelete}
+        title={`Delete ${group.name}?`}
+        message={`${countOf(library?.length ?? 0, "Song")}, ${countOf(setlists?.length ?? 0, "Setlist")} and every Member go with it, for everyone, and the join code stops working. This cannot be undone.`}
+        confirmLabel="Delete"
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setConfirmingDelete(false)}
+        testID="delete-group-dialog"
       />
       <ConfirmDialog
         visible={confirmingLeave}

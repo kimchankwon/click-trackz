@@ -11,8 +11,10 @@
 import type * as accents from "../accents.js";
 import type * as access from "../access.js";
 import type * as auth from "../auth.js";
+import type * as cleanup from "../cleanup.js";
 import type * as clock from "../clock.js";
 import type * as crons from "../crons.js";
+import type * as devLogin from "../devLogin.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as playback from "../playback.js";
@@ -35,8 +37,10 @@ declare const fullApi: ApiFromModules<{
   accents: typeof accents;
   access: typeof access;
   auth: typeof auth;
+  cleanup: typeof cleanup;
   clock: typeof clock;
   crons: typeof crons;
+  devLogin: typeof devLogin;
   groups: typeof groups;
   http: typeof http;
   playback: typeof playback;

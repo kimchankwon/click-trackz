@@ -48,7 +48,8 @@ export default defineSchema({
   })
     .index("by_group", ["groupId"])
     .index("by_user", ["userId"])
-    .index("by_group_user", ["groupId", "userId"]),
+    .index("by_group_user", ["groupId", "userId"])
+    .index("by_role_seen", ["role", "lastSeenAt"]),
   songs: defineTable({
     groupId: v.id("groups"),
     title: v.string(),

@@ -44,7 +44,7 @@ npx convex env set AUTH_GOOGLE_ID <client id>
 npx convex env set AUTH_GOOGLE_SECRET <client secret>
 ```
 
-For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment only and start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. Never set `DEV_LOGIN_SECRET` on production.
+For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment and `DEV_LOGIN_DEPLOYMENT` to that deployment's own `CONVEX_CLOUD_URL` (for example `https://<deployment>.ap-southeast-2.convex.cloud`), then start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. The provider only exists when both variables are set and the deployment URL matches, so a secret copied to production does nothing on its own. Never set either on production.
 
 ## iOS app
 

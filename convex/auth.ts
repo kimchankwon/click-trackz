@@ -4,12 +4,19 @@ import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials"
 import { convexAuth, createAccount, retrieveAccount } from "@convex-dev/auth/server";
 
 import type { DataModel } from "./_generated/dataModel";
+import { devLoginEnabled, secretsMatch } from "./devLogin";
+
+const devLoginEnv = () => ({
+  DEV_LOGIN_SECRET: process.env.DEV_LOGIN_SECRET,
+  DEV_LOGIN_DEPLOYMENT: process.env.DEV_LOGIN_DEPLOYMENT,
+  CONVEX_CLOUD_URL: process.env.CONVEX_CLOUD_URL,
+});
 
 const DevLogin = ConvexCredentials<DataModel>({
   id: "dev",
   authorize: async (credentials, ctx) => {
     const expected = process.env.DEV_LOGIN_SECRET;
-    if (!expected || String(credentials.secret ?? "") !== expected) throw new Error("Dev login is not enabled");
+    if (!devLoginEnabled(devLoginEnv()) || !expected || !secretsMatch(String(credentials.secret ?? ""), expected)) throw new Error("Dev login is not enabled");
     const email = String(credentials.email ?? "").trim().toLowerCase();
     if (!email.endsWith("@example.com")) throw new Error("Dev login only accepts @example.com addresses");
     const existing = await retrieveAccount(ctx, { provider: "dev", account: { id: email } }).catch(() => null);
@@ -41,7 +48,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Anonymous,
     Google({ authorization: { params: { prompt: "select_account" } } }),
-    ...(process.env.DEV_LOGIN_SECRET ? [DevLogin] : []),
+    ...(devLoginEnabled(devLoginEnv()) ? [DevLogin] : []),
   ],
   callbacks: {
     async redirect({ redirectTo }) {
