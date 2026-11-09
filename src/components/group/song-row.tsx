@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
@@ -46,6 +46,10 @@ export function SongRow({
   const shownParts = [needsSections && !warningAsDot ? "No Sections yet" : null, ...metaParts].filter((part): part is string => Boolean(part));
   const spokenKey = showKey ? (songKey ? `Key of ${songKey}` : "No Key") : null;
   const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, metaLabel ?? metaParts.join(", "), spokenKey].filter(Boolean).join(", ") : undefined;
+  const spokenMeta = [needsSections && !warningAsDot ? "No Sections yet" : null, metaLabel ?? metaParts.join(", ")].filter(Boolean).join(", ");
+  const describesMeta = !selectable && shownParts.length > 0;
+  const groupsMeta = describesMeta && Platform.OS !== "web";
+  const narratesMeta = describesMeta && Platform.OS === "web";
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
       {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
@@ -73,9 +77,17 @@ export function SongRow({
                 <View role="img" aria-label="No Sections yet" style={[styles.dot, { backgroundColor: theme.warning }]} />
               ) : null}
               {shownParts.length > 0 ? (
-                <View style={styles.metaParts}>
+                <View style={styles.metaParts} accessible={groupsMeta} aria-label={groupsMeta ? spokenMeta : undefined}>
+                  {narratesMeta ? <ThemedText style={styles.screenReaderOnly}>{spokenMeta}</ThemedText> : null}
                   {shownParts.map((part, index) => (
-                    <ThemedText key={index} type="small" themeColor="textSecondary" numberOfLines={1} style={index === shownParts.length - 1 ? styles.meta : null}>
+                    <ThemedText
+                      key={index}
+                      type="small"
+                      themeColor="textSecondary"
+                      numberOfLines={1}
+                      aria-hidden={narratesMeta ? true : undefined}
+                      style={index === shownParts.length - 1 ? styles.meta : null}
+                    >
                       {part}
                     </ThemedText>
                   ))}
@@ -111,6 +123,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   meta: { flexShrink: 1 },
   metaParts: { flexDirection: "row", alignItems: "center", gap: Spacing.three, flexShrink: 1, minWidth: 0 },
+  screenReaderOnly: { position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   keyPill: { width: 44, height: 32, borderRadius: Radius.sm, alignItems: "center", justifyContent: "center" },
 });
