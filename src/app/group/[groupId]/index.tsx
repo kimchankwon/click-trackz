@@ -53,6 +53,7 @@ import { Switch } from "@/components/ui/switch";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
+import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import {
@@ -282,6 +283,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const { speaker, clickVolume, voiceVolume } = sound;
   const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
   const [nextStart, setNextStart] = useState<SectionStart | null>(null);
@@ -352,6 +354,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   useEffect(() => {
     if (engine.current) engine.current.latencyNudgeMs = Number(latencyNudge);
   }, [latencyNudge, soundOn]);
+
+  useEffect(() => {
+    if (engine.current) engine.current.voiceOffsetMs = Number(voiceOffset);
+  }, [voiceOffset, soundOn]);
 
   useEffect(() => {
     if (!soundOn) return;

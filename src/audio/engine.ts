@@ -8,6 +8,7 @@ import { preferPlaybackSession, probeAudioSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
+import { LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
@@ -80,6 +81,7 @@ export class CueAudioEngine {
   private disposed = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
+  voiceOffsetMs = 0;
   failure: string | null = null;
 
   get enabled() {
@@ -111,10 +113,16 @@ export class CueAudioEngine {
     const voiceBus = context.createGain();
     const clickPan = context.createStereoPanner();
     const voicePan = context.createStereoPanner();
+    const output = context.createGain();
+    const limiter = context.createWaveShaper();
+    output.gain.value = OUTPUT_BOOST / LIMITER_RANGE;
+    limiter.curve = limiterCurve();
+    output.connect(limiter);
+    limiter.connect(context.destination);
     clickBus.connect(clickPan);
     voiceBus.connect(voicePan);
-    clickPan.connect(context.destination);
-    voicePan.connect(context.destination);
+    clickPan.connect(output);
+    voicePan.connect(output);
     this.context = context;
     this.clickBus = clickBus;
     this.voiceBus = voiceBus;
@@ -388,7 +396,7 @@ export class CueAudioEngine {
     const latency = outputLatencyMs(context);
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? longestBeatMs(this.plan.song) : 0;
@@ -422,7 +430,7 @@ export class CueAudioEngine {
     if (this.mix.spokenCounts && beat.spokenCount !== null) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer && spokenCountFits(beat.at, this.onsetOf(buffer), this.voiceBusyUntil)) remember(this.playOnBeat(context, buffer, when).output);
+      if (buffer && spokenCountFits(beat.at, this.voiceLeadOf(buffer), this.voiceBusyUntil)) remember(this.playOnBeat(context, buffer, when).output);
     }
   }
 
@@ -448,9 +456,13 @@ export class CueAudioEngine {
   }
 
   private playOnBeat(context: AudioContext, buffer: AudioBuffer, beatAt: number): { leadMs: number; output: AudioNode } {
-    const leadMs = this.onsetOf(buffer);
+    const leadMs = this.voiceLeadOf(buffer);
     const output = this.playBuffer(context, buffer, Math.max(context.currentTime, beatAt - leadMs / 1000));
     return { leadMs, output };
+  }
+
+  private voiceLeadOf(buffer: AudioBuffer): number {
+    return this.onsetOf(buffer) - this.voiceOffsetMs;
   }
 
   private onsetOf(buffer: AudioBuffer): number {
