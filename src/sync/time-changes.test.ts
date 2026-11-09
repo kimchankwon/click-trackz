@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { jumpsAfter, repeatJumps, startedPlayback } from "./commands";
 import { mainTimeSignature } from "./song-summary";
 import { newTimeChange, timeChangesProblem } from "./time-changes";
-import { beatsBetween, playbackEndsAt, type Jump, type Playback, type Song } from "./timeline";
+import { beatsBetween, longestBeatMs, playbackEndsAt, type Jump, type Playback, type Song } from "./timeline";
 
 const chorus = { sectionType: "Chorus", bars: 8, beatsPerBar: 4, beatUnit: 4, bpm: 120, timeChanges: [{ bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 }] };
 const verse = { sectionType: "Verse", bars: 4, beatsPerBar: 4, bpm: 120 };
@@ -48,6 +48,12 @@ describe("Time changes", () => {
       [2_500, 250, 8],
     ]);
     expect(barAt(fresh, 2_750, eighths)).toBe("1:1/4 in 4/4");
+  });
+
+  it("knows the longest beat any Time change can make, for windows that look back one beat", () => {
+    expect(longestBeatMs(song)).toBe(500);
+    const slow: Song = { ...song, sections: [{ ...chorus, bpm: 30, beatUnit: 16, timeChanges: [{ bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 2 }] }] };
+    expect(longestBeatMs(slow)).toBe(16_000);
   });
 
   it("fills the progress bar by time, so the short bar takes a short share", () => {

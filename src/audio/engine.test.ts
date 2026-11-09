@@ -173,6 +173,20 @@ describe("Subdivision", () => {
     expect(context.gains.filter((gain) => gain.disconnected)).toHaveLength(13);
     engine.dispose();
   });
+
+  it("still plays the last softer Click of a Time change beat longer than the old two-second lookback", async () => {
+    const halfNotes: Song = {
+      countIn: false,
+      subdivision: 4,
+      sections: [{ sectionType: "Verse", bars: 2, beatsPerBar: 4, bpm: 30, timeChanges: [{ bar: 1, bars: 1, beatsPerBar: 2, beatUnit: 2 }] }],
+    };
+    const engine = new CueAudioEngine();
+    engine.setPlan(halfNotes, { startsAt: NOW - 2_500, startSection: 0 });
+    await engine.enable(serverNow, null);
+    engine.setHidden(true);
+    expect(contexts().at(-1)!.oscillators).toBe(1 + 4 + 16);
+    engine.dispose();
+  });
 });
 
 describe("Stereo split", () => {

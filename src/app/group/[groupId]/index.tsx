@@ -67,7 +67,7 @@ import {
   type CommandResult,
   type StartedPlayback,
 } from "@/sync/commands";
-import { aheadWindowMs, beatsBetween, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
 import { commonBpm } from "@/sync/song-tempo";
@@ -134,6 +134,8 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 const emptySong: Song = { countIn: false, sections: [] };
 
 const STAGE_HEAD_HEIGHT = 164;
+
+const RECENT_BEATS_MS = 10_000;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -422,7 +424,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     const draw = () => {
       const now = playNow();
       if (now !== null && playback && song.sections.length > 0) {
-        const recent = beatsBetween(song, playback, now - 10_000, now + 1);
+        const recent = beatsBetween(song, playback, now - Math.max(RECENT_BEATS_MS, longestBeatMs(song)), now + 1);
         const ahead = beatsBetween(song, playback, now, now + aheadWindowMs(song));
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));

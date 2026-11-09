@@ -173,6 +173,9 @@ const sectionMsOf = (section: Section) => msBeforeBar(section, section.bars + 1)
 
 const longestOf = (song: Song, measure: (section: Section) => number) => song.sections.reduce((longest, section) => Math.max(longest, measure(section)), 0);
 
+export const longestBeatMs = (song: Song) =>
+  longestOf(song, (section) => Math.max(beatMsOf(section), ...(section.timeChanges ?? []).map((change) => changedMeterOf(section, change).beatMs)));
+
 export const LOOKAHEAD_BARS = 3;
 
 const VAMP_PASSES_KEPT_BEHIND = 2;
