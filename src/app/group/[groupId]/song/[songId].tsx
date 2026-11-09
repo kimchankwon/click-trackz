@@ -15,6 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { Segmented } from "@/components/ui/segmented";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Switch } from "@/components/ui/switch";
@@ -345,6 +346,7 @@ function SongForm({
   const library = useQuery(api.songs.list, { groupId });
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.three);
+  const pinned = usePinnedHeader();
   const [title, setTitle] = useState(song.title);
   const [songKey, setSongKey] = useState(song.key ?? "");
   const [countIn, setCountIn] = useState(song.countIn);
@@ -460,8 +462,10 @@ function SongForm({
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <PinnedHeader scrolled={pinned.scrolled}>
           <ScreenHeader title="Edit Song" subtitle={song.title} onBack={() => router.back()} />
+        </PinnedHeader>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
           {song.tempoHint && sections.length === 0 ? (
             <View style={[styles.hint, { backgroundColor: theme.accentTint }]}>
               <Icon name="speed" size={20} color="accent" />
@@ -633,7 +637,7 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: PINNED_CONTENT_TOP,
     paddingBottom: Spacing.five,
     maxWidth: MaxContentWidth,
     alignSelf: "center",

@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { Toast, useToast } from "@/components/ui/toast";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
@@ -70,6 +71,7 @@ function SetlistForm({
   const setCurrent = useMutation(api.setlists.setCurrent);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const theme = useTheme();
+  const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const [name, setName] = useState(live.name);
   const [entries, setEntriesState] = useState<Entry[]>(() => toEntries(live));
@@ -157,12 +159,10 @@ function SetlistForm({
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ScreenHeader
-            title="Edit Setlist"
-            subtitle={live.name}
-            onBack={() => router.back()}
-          />
+        <PinnedHeader scrolled={pinned.scrolled}>
+          <ScreenHeader title="Edit Setlist" subtitle={live.name} onBack={() => router.back()} />
+        </PinnedHeader>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
           <ActionButton
             variant="secondary"
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: PINNED_CONTENT_TOP,
     paddingBottom: Spacing.five,
     maxWidth: MaxContentWidth,
     alignSelf: "center",
