@@ -414,23 +414,28 @@ export class CueAudioEngine {
   }
 
   private schedule(context: AudioContext, beat: Beat, when: number) {
-    const remember = (output: AudioNode | null, voiceEndsAt?: number) => {
-      if (output !== null) this.future.push({ output, beatAt: beat.at, voiceEndsAt });
+    const stopsAt = this.plan?.playback?.stopsAt ?? Infinity;
+    const startsBeforeStop = (leadMs: number) => beat.at - leadMs < stopsAt;
+    const remember = (output: AudioNode | null, leadMs = 0, voiceEndsAt?: number) => {
+      if (output !== null) this.future.push({ output, beatAt: Math.max(beat.at, beat.at - leadMs), voiceEndsAt });
     };
     if (this.mix.click) remember(this.click(context, when, accentLevelOf(beat)));
     if (this.mix.voiceCues && beat.voiceCue) {
       const key = chooseClip(beat.voiceCue, this.builtinKeys);
       const buffer = key ? this.clips.get(key as BuiltinClipKey) : undefined;
-      if (buffer) {
+      if (buffer && startsBeforeStop(this.voiceLeadOf(buffer))) {
         const { leadMs, output } = this.playOnBeat(context, buffer, when);
         this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
-        remember(output, this.voiceBusyUntil);
+        remember(output, leadMs, this.voiceBusyUntil);
       }
     }
     if (this.mix.spokenCounts && beat.spokenCount !== null) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer && spokenCountFits(beat.at, this.voiceLeadOf(buffer), this.voiceBusyUntil)) remember(this.playOnBeat(context, buffer, when).output);
+      const leadMs = buffer ? this.voiceLeadOf(buffer) : 0;
+      if (buffer && startsBeforeStop(leadMs) && spokenCountFits(beat.at, leadMs, this.voiceBusyUntil)) {
+        remember(this.playOnBeat(context, buffer, when).output, leadMs);
+      }
     }
   }
 

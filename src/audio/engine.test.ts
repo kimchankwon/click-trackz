@@ -69,20 +69,25 @@ const fake = vi.hoisted(() => {
     }
     played: FakeBuffer[] = [];
     voiceStarts: number[] = [];
+    sources: { disconnected: boolean }[] = [];
     createBufferSource() {
       const played = this.played;
       const voiceStarts = this.voiceStarts;
+      const sources = this.sources;
       const source = {
         buffer: null as FakeBuffer | null,
         connect() {
           return source;
         },
+        disconnected: false,
         disconnect() {
+          source.disconnected = true;
           return undefined;
         },
         start(when: number) {
           if (source.buffer) played.push(source.buffer);
           voiceStarts.push(when);
+          sources.push(source);
         },
       };
       return source;
@@ -224,6 +229,31 @@ describe("Voice cue offset", () => {
     expect(later.voice[0] - plain.voice[0]).toBeCloseTo(0.05);
     expect(plain.voice[0] - sooner.voice[0]).toBeCloseTo(0.05);
     expect([later.clicks, sooner.clicks]).toEqual([plain.clicks, plain.clicks]);
+  });
+
+  it("never lets a later Voice cue sound after a Stop that lands before the clip starts", async () => {
+    const verse: Song = { countIn: true, cueLeadBars: 1, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+    const playback = { startsAt: NOW + 300, startSection: 0 };
+    const known = new CueAudioEngine();
+    known.voiceOffsetMs = 200;
+    known.setPlan(verse, { ...playback, stopsAt: NOW + 400 });
+    await known.enable(serverNow, null);
+    await known.setSpeaker("adam");
+    known.setHidden(true);
+    expect(contexts().at(-1)!.voiceStarts).toEqual([]);
+    known.dispose();
+
+    const late = new CueAudioEngine();
+    late.voiceOffsetMs = 200;
+    late.setPlan(verse, playback);
+    await late.enable(serverNow, null);
+    await late.setSpeaker("adam");
+    late.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(context.sources).toHaveLength(1);
+    late.setPlan(verse, { ...playback, stopsAt: NOW + 400 });
+    expect(context.sources[0].disconnected).toBe(true);
+    late.dispose();
   });
 });
 

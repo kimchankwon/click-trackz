@@ -89,15 +89,17 @@ export const start = mutation({
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
     const roundTrips = presence.filter((row) => now - row.seenAt <= ONLINE_WITHIN_MS).map((row) => row.roundTripMs);
+    const existing = await groupPlayback(ctx, groupId);
+    const firstBeat = now + leadInMs(roundTrips);
+    const startsAt = existing?.startsAt === firstBeat ? firstBeat + 1 : firstBeat;
     const fields = {
       groupId,
       songId,
       startedBy: user._id,
       ...(advance === true ? { advance } : {}),
       ...(setlistIndex !== undefined && Number.isInteger(setlistIndex) && setlistIndex >= 0 ? { setlistIndex } : {}),
-      ...startedPlayback(song, { fromSection, fromBar }, now, now + leadInMs(roundTrips)),
+      ...startedPlayback(song, { fromSection, fromBar }, now, startsAt),
     };
-    const existing = await groupPlayback(ctx, groupId);
     if (existing) await cancelAdvance(ctx, existing);
     const playbackId = existing ? existing._id : await ctx.db.insert("playbacks", fields);
     if (existing) await ctx.db.replace(existing._id, fields);

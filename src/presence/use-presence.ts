@@ -54,6 +54,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
     if (!visible) return;
     const timer = setInterval(() => beat(onPlayRef.current), HEARTBEAT_MS);
     return () => {
+      visibleRef.current = false;
       clearInterval(timer);
       void leave({ groupId, screenId }).catch(() => undefined);
     };

@@ -41,6 +41,22 @@ describe("Group Playback", () => {
     expect(playback).toMatchObject({ songId, startsAt: NOW + MIN_LEAD_IN_MS, startSection: 0, jumps: [], stopsAt: null });
   });
 
+  it("gives a quick restart its own first beat even when a shorter Lead-in lands it on the same instant", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW - 1_000);
+    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 600 });
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const first = (await member.query(api.playback.current, { groupId }))!;
+    expect(first.startsAt).toBe(NOW + 1_000);
+    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 40 });
+    vi.setSystemTime(NOW + 500);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const second = (await member.query(api.playback.current, { groupId }))!;
+    expect(second.startsAt).toBe(NOW + 1_001);
+    await expect(admin.mutation(api.playback.stop, { groupId, startsAt: first.startsAt })).rejects.toThrow(/already ended/);
+  });
+
   it("waits longer before the first beat while an online Member's connection is slow, and ignores Members who went quiet", async () => {
     const { admin, member, groupId, songId } = await setupGroup();
     await member.mutation(api.presence.heartbeat, { groupId, screenId: "old-tab", onPlay: true, roundTripMs: 1_900 });
