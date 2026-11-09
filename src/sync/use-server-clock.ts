@@ -45,9 +45,10 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
     const sampleOnce = async () => {
       if (steady()) return;
       const sentAt = clientNow();
+      const epochAtSend = epochNow();
       const serverAt = await ping({});
       const receivedAt = clientNow();
-      if (cancelled || steady()) return;
+      if (cancelled || steady() || clockSlept(epochAtSend, epochNow())) return;
       samples.push({ sentAt, serverAt, receivedAt });
       epochAtLastSample = epochNow();
       if (samples.length > SAMPLE_WINDOW) samples.shift();
@@ -78,6 +79,8 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       if (!clockSlept(epochAtLastSample, epochNow())) return;
       samples.length = 0;
       hasEstimate = false;
+      epochAtLastSample = epochNow();
+      setEstimate(null);
     };
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {

@@ -214,6 +214,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const attempt = useRef(0);
   const deleteGroup = useMutation(api.groups.deleteGroup);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
@@ -859,13 +860,19 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     if (duplicatePending) return;
     setDuplicateError(null);
     setDuplicatePending(true);
+    const mine = ++attempt.current;
     try {
       const copy = await duplicateGroup({ groupId });
+      if (mine !== attempt.current) {
+        showToast(`${copy.name} is ready in Your Groups`);
+        return;
+      }
       setConfirmingDuplicate(false);
-      if (playing) toast.show(`${copy.name} is ready in Your Groups`);
+      if (playing) showToast(`${copy.name} is ready in Your Groups`);
       else router.replace({ pathname: "/group/[groupId]", params: { groupId: copy.groupId } });
     } catch (error) {
-      setDuplicateError(errorText(error));
+      if (mine !== attempt.current) showToast(errorText(error), "error");
+      else setDuplicateError(errorText(error));
     } finally {
       setDuplicatePending(false);
     }
@@ -876,12 +883,14 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     setDeleteError(null);
     setDeletePending(true);
     setLeavingGroup(true);
+    const mine = ++attempt.current;
     try {
       await deleteGroup({ groupId });
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
-      setDeleteError(errorText(error));
+      if (mine !== attempt.current) showToast(errorText(error), "error");
+      else setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
     }
@@ -891,12 +900,14 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     if (leavingGroup) return;
     setLeaveError(null);
     setLeavingGroup(true);
+    const mine = ++attempt.current;
     try {
       await leave({ groupId });
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
-      setLeaveError(errorText(error));
+      if (mine !== attempt.current) showToast(errorText(error), "error");
+      else setLeaveError(errorText(error));
     }
   };
 
@@ -1112,7 +1123,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         pending={duplicatePending}
         error={duplicateError}
         onConfirm={() => void confirmDuplicate()}
-        onCancel={() => setConfirmingDuplicate(false)}
+        onCancel={() => {
+          attempt.current += 1;
+          setConfirmingDuplicate(false);
+        }}
         testID="duplicate-group-dialog"
       />
       <ConfirmDialog
@@ -1123,7 +1137,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         pending={deletePending}
         error={deleteError}
         onConfirm={() => void confirmDelete()}
-        onCancel={() => setConfirmingDelete(false)}
+        onCancel={() => {
+          attempt.current += 1;
+          setConfirmingDelete(false);
+        }}
         testID="delete-group-dialog"
       />
       <ConfirmDialog
@@ -1134,7 +1151,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         pending={leavingGroup}
         error={leaveError}
         onConfirm={() => void confirmLeave()}
-        onCancel={() => setConfirmingLeave(false)}
+        onCancel={() => {
+          attempt.current += 1;
+          setConfirmingLeave(false);
+        }}
         testID="leave-group-dialog"
       />
       <ConfirmDialog
