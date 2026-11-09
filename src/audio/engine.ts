@@ -1,5 +1,6 @@
-import { AudioContext, type AudioBuffer, type AudioNode, type GainNode } from "react-native-audio-api";
+import { AudioContext, type AudioBuffer, type AudioNode, type GainNode, type StereoPannerNode } from "react-native-audio-api";
 
+import { panOf, type Side } from "@/settings/output";
 import { accentLevelOf, beatsBetween, offbeatsOf, subdivisionOf, type AccentLevel, type Beat, type Playback, type Song } from "@/sync/timeline";
 
 import { describeAudioError, describeAudioFailure } from "./audio-failure";
@@ -41,6 +42,11 @@ export type CueVolumes = {
   voice: number;
 };
 
+export type CueSides = {
+  click: Side;
+  voice: Side;
+};
+
 type Plan = { song: Song; playback: Playback | null };
 
 
@@ -50,7 +56,10 @@ export class CueAudioEngine {
   private context: AudioContext | null = null;
   private clickBus: GainNode | null = null;
   private voiceBus: GainNode | null = null;
+  private clickPan: StereoPannerNode | null = null;
+  private voicePan: StereoPannerNode | null = null;
   private volumes: CueVolumes = { click: 0.8, voice: 0.9 };
+  private sides: CueSides = { click: "both", voice: "both" };
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
@@ -101,12 +110,19 @@ export class CueAudioEngine {
     }
     const clickBus = context.createGain();
     const voiceBus = context.createGain();
-    clickBus.connect(context.destination);
-    voiceBus.connect(context.destination);
+    const clickPan = context.createStereoPanner();
+    const voicePan = context.createStereoPanner();
+    clickBus.connect(clickPan);
+    voiceBus.connect(voicePan);
+    clickPan.connect(context.destination);
+    voicePan.connect(context.destination);
     this.context = context;
     this.clickBus = clickBus;
     this.voiceBus = voiceBus;
+    this.clickPan = clickPan;
+    this.voicePan = voicePan;
     this.setVolumes(this.volumes);
+    this.setSides(this.sides);
     return true;
   }
 
@@ -248,6 +264,16 @@ export class CueAudioEngine {
       clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
     }
     return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
+  }
+
+  setSides(sides: CueSides) {
+    this.sides = sides;
+    if (this.clickPan) this.clickPan.pan.value = panOf(sides.click);
+    if (this.voicePan) this.voicePan.pan.value = panOf(sides.voice);
+  }
+
+  get panning() {
+    return { click: this.clickPan?.pan.value ?? null, voice: this.voicePan?.pan.value ?? null };
   }
 
   setVolumes(volumes: CueVolumes) {

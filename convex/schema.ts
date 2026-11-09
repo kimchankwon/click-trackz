@@ -81,10 +81,12 @@ export default defineSchema({
     startsAt: v.number(),
     startSection: v.number(),
     startBar: v.optional(v.number()),
-    jumps: v.array(v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()) })),
+    jumps: v.array(v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()), loop: v.optional(v.boolean()) })),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
     stoppedBy: v.optional(v.id("users")),
+    advance: v.optional(v.boolean()),
+    advanceJob: v.optional(v.id("_scheduled_functions")),
   }).index("by_group", ["groupId"]),
   presence: defineTable({
     groupId: v.id("groups"),

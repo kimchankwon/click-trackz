@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ComponentRef } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -45,13 +45,28 @@ import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
+import { nextInSetlist } from "@/lib/setlist-next";
+import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
+import { hapticFor, isHapticBeat, isSide, type HapticBeat, type Side } from "@/settings/output";
+import { Switch } from "@/components/ui/switch";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { useSoundSettings } from "@/settings/use-sound-settings";
-import { jumpProblem, jumpsAfter, startedPlayback, startProblem, stopTime, type StartedPlayback } from "@/sync/commands";
-import { beatsBetween, playbackEndsAt, timeSignatureOf, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import {
+  endVampJumps,
+  jumpProblem,
+  jumpsAfter,
+  MIN_COMMAND_LEAD_MS,
+  repeatJumps,
+  startedPlayback,
+  startProblem,
+  stopTime,
+  type CommandResult,
+  type StartedPlayback,
+} from "@/sync/commands";
+import { aheadWindowMs, beatsBetween, playbackEndsAt, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { nextSectionIndex } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
 import { commonBpm } from "@/sync/song-tempo";
@@ -122,9 +137,21 @@ type ShownPlayback = Playback & {
   startedByName: string | null;
   stoppedBy: Id<"users"> | null;
   stoppedByName: string | null;
+  advance?: boolean;
 };
 
-type DevicePlayback = StartedPlayback & { songId: Id<"songs">; startedBy: null; startedByName: null; stoppedBy: null; stoppedByName: null };
+type DevicePlayback = StartedPlayback & {
+  songId: Id<"songs">;
+  startedBy: null;
+  startedByName: null;
+  stoppedBy: null;
+  stoppedByName: null;
+  advance?: boolean;
+};
+
+type OnOff = "on" | "off";
+
+const isOnOff = (value: string): value is OnOff => value === "on" || value === "off";
 
 export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
@@ -198,6 +225,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
   const library = useQuery(api.songs.list, { groupId });
   const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
+  const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
+  const nextUpId = playback ? nextInSetlist(setlistOrder, playback.songId, (id) => playableInSetlist.has(id)) : null;
+  const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
+  const nextUpSong = useQuery(api.songs.get, onDevice && nextUpId ? { songId: nextUpId } : "skip");
   const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
@@ -206,6 +237,13 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
+  const repeatSection = useMutation(api.playback.repeatSection);
+  const endVamp = useMutation(api.playback.endVamp);
+  const setAdvance = useMutation(api.playback.setAdvance);
+  const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
+  const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
+  const [hapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
+  const [advancePreference, setAdvancePreference] = useDeviceSetting<OnOff>("autoAdvance", "off", isOnOff);
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
@@ -294,6 +332,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   }, [clickVolume, voiceVolume, soundOn]);
 
   useEffect(() => {
+    engine.current?.setSides({ click: clickSide, voice: voiceSide });
+  }, [clickSide, voiceSide, soundOn]);
+
+  useEffect(() => {
     if (engine.current) engine.current.latencyNudgeMs = Number(latencyNudge);
   }, [latencyNudge, soundOn]);
 
@@ -369,7 +411,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       const now = playNow();
       if (now !== null && playback && song.sections.length > 0) {
         const recent = beatsBetween(song, playback, now - 10_000, now + 1);
-        const ahead = beatsBetween(song, playback, now, now + 60 * 60_000);
+        const ahead = beatsBetween(song, playback, now, now + aheadWindowMs(song));
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
         const following = nextSectionIndex(ahead);
@@ -394,6 +436,48 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   useEffect(() => {
     setPlayingHere(playing);
   }, [playing]);
+
+  const tapBeat = useEffectEvent((latest: Beat) => {
+    if (!playing || !hapticsAvailable) return;
+    const strength = hapticFor(hapticBeat, latest);
+    if (strength !== null) tapHaptic(strength);
+  });
+  useEffect(() => {
+    if (beat) tapBeat(beat);
+  }, [beat]);
+
+  const lineUpNext = useEffectEvent(() => {
+    if (!steers || playback === null || playback.stopsAt !== null || nextUpId === null) return;
+    setSelectedSongId(nextUpId);
+    setOrderAt(setlistOrder.indexOf(nextUpId));
+    setStartPick(null);
+  });
+  const wasPlaying = useRef(false);
+  useEffect(() => {
+    const ended = wasPlaying.current && !playing;
+    wasPlaying.current = playing;
+    if (ended) lineUpNext();
+  }, [playing]);
+
+  useEffect(() => {
+    if (!onDevice || devicePlayback === null || devicePlayback.advance !== true || devicePlayback.stopsAt !== null) return;
+    if (nextUpId === null || !nextUpSong || nextUpSong.sections.length === 0) return;
+    const endsAt = playbackEndsAt(devicePlayback.song, devicePlayback);
+    if (!Number.isFinite(endsAt)) return;
+    const timer = setTimeout(() => {
+      const now = deviceNow();
+      setDevicePlayback({
+        songId: nextUpId,
+        startedBy: null,
+        startedByName: null,
+        stoppedBy: null,
+        stoppedByName: null,
+        advance: true,
+        ...startedPlayback(nextUpSong, {}, now, now + MIN_COMMAND_LEAD_MS),
+      });
+    }, Math.max(0, endsAt - deviceNow()));
+    return () => clearTimeout(timer);
+  }, [onDevice, devicePlayback, nextUpId, nextUpSong]);
 
   useEffect(() => () => setPlayingHere(false), []);
 
@@ -439,7 +523,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
   const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
-  const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : "End of Song";
+  const endLine = playback?.advance && nextUpTitle ? `Next Song: ${nextUpTitle}` : "End of Song";
+  const nextLine = !playing ? null : upcoming ? titleOf(upcoming) : followingSection ? titleOf(followingSection) : endLine;
+  const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
+  const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
   useEffect(() => {
     if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
@@ -466,13 +553,14 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           startedByName: null,
           stoppedBy: null,
           stoppedByName: null,
+          ...(advancePreference === "on" ? { advance: true } : {}),
           ...startedPlayback(startSong, from, deviceNow()),
         });
       } else {
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from });
+          await start({ groupId, songId: startSongId, ...from, ...(advancePreference === "on" ? { advance: true } : {}) });
         } finally {
           setStartPending(false);
         }
@@ -488,6 +576,38 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     if (jumps === null) throw new Error("Playback has already ended");
     setDevicePlayback({ ...devicePlayback, jumps });
   };
+
+  const commandOnDevice = (command: (current: DevicePlayback) => CommandResult) => {
+    if (devicePlayback === null) return;
+    const result = command(devicePlayback);
+    if ("problem" in result) throw new Error(result.problem);
+    setDevicePlayback({ ...devicePlayback, jumps: result.jumps });
+  };
+
+  const repeatNow = (vamp: boolean) =>
+    run(async () => {
+      if (onDevice) commandOnDevice((current) => repeatJumps(current.song, current, deviceNow(), vamp));
+      else await repeatSection({ groupId, startsAt: playback?.startsAt, ...(vamp ? { vamp } : {}) });
+      showToast(vamp ? "Vamps from the end of this pass until you end it" : "Plays once more after this pass");
+    });
+
+  const endVampNow = () =>
+    run(async () => {
+      if (onDevice) commandOnDevice((current) => endVampJumps(current.song, current, deviceNow()));
+      else await endVamp({ groupId, startsAt: playback?.startsAt });
+      showToast("Moves on at the end of this pass");
+    });
+
+  const advanceOn = playing && playback !== null ? playback.advance === true : advancePreference === "on";
+  const toggleAdvance = (on: boolean) => {
+    setAdvancePreference(on ? "on" : "off");
+    if (!playing || playback === null) return;
+    if (onDevice) {
+      if (devicePlayback !== null) setDevicePlayback({ ...devicePlayback, advance: on });
+    } else run(() => setAdvance({ groupId, startsAt: playback.startsAt, advance: on }));
+  };
+  const advanceSongId = playing && playback !== null ? playback.songId : startSongId;
+  const canAdvance = steers && currentSetlist != null && advanceSongId !== null && setlistOrder.includes(advanceSongId);
 
   const stopOnDevice = () => {
     if (devicePlayback === null) return;
@@ -748,6 +868,38 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
             </ThemedText>
           </View>
         </View>
+      ) : null}
+      {playing && (steers || vampTitle !== null) ? (
+        <View style={styles.loopBlock}>
+          {vampTitle !== null ? (
+            <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
+              {steers ? `Vamping ${vampTitle}` : `Vamping ${vampTitle} until an Admin ends it`}
+            </ThemedText>
+          ) : null}
+          {steers ? (
+            <View style={styles.loopButtons}>
+              {vampTitle === null ? (
+                <>
+                  <ActionButton medium rounded icon="repeat" label="Repeat" testID="repeat-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(false)} />
+                  <ActionButton medium rounded icon="loop" label="Vamp" testID="vamp-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
+                </>
+              ) : (
+                <ActionButton medium rounded accent icon="loop" label="End vamp" testID="end-vamp" disabled={stopping} onPress={endVampNow} />
+              )}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {canAdvance ? (
+        <Card title="Setlist">
+          <Switch
+            label="Play through the Setlist"
+            hint={`When a Song ends, the next one in ${currentSetlist?.name ?? "the Current setlist"} starts on its own.`}
+            value={advanceOn}
+            onChange={toggleAdvance}
+            testID="auto-advance"
+          />
+        </Card>
       ) : null}
       {shownSections.length > 0 ? (
         <Card title="Sections">
@@ -1221,6 +1373,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center", gap: Spacing.two },
+  loopBlock: { width: "100%", alignItems: "center", gap: Spacing.two },
+  loopButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: Spacing.two },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {

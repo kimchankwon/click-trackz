@@ -1,8 +1,11 @@
 import { ConvexError, v } from "convex/values";
 
-import { jumpProblem, jumpsAfter, startedPlayback, startProblem, stopTime } from "../src/sync/commands";
-import type { Id } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { nextInSetlist } from "../src/lib/setlist-next";
+import { endVampJumps, jumpProblem, jumpsAfter, MIN_COMMAND_LEAD_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
+import { playbackEndsAt } from "../src/sync/timeline";
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 
 async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users"> | undefined) {
@@ -27,7 +30,7 @@ export const current = query({
     await requireMember(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) return null;
-    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy, stoppedBy } = playback;
+    const { songId, song, startsAt, startSection, startBar, jumps, stopsAt, startedBy, stoppedBy, advance } = playback;
     return {
       songId,
       song,
@@ -40,13 +43,36 @@ export const current = query({
       startedByName: await displayNameIn(ctx, groupId, startedBy),
       stoppedBy: stoppedBy ?? null,
       stoppedByName: await displayNameIn(ctx, groupId, stoppedBy),
+      advance: advance === true,
     };
   },
 });
 
+async function cancelAdvance(ctx: MutationCtx, playback: Doc<"playbacks">) {
+  if (playback.advanceJob === undefined) return;
+  const job = await ctx.db.system.get(playback.advanceJob);
+  if (job?.state.kind === "pending") await ctx.scheduler.cancel(playback.advanceJob);
+}
+
+async function planAdvance(ctx: MutationCtx, playbackId: Id<"playbacks">) {
+  const playback = await ctx.db.get(playbackId);
+  if (playback === null) return;
+  await cancelAdvance(ctx, playback);
+  const endsAt = playback.song.sections.length > 0 ? playbackEndsAt(playback.song, playback) : -Infinity;
+  const due = playback.advance === true && playback.stopsAt === null && Number.isFinite(endsAt);
+  const advanceJob = due ? await ctx.scheduler.runAt(endsAt, internal.playback.advance, { groupId: playback.groupId, startsAt: playback.startsAt }) : undefined;
+  await ctx.db.patch(playbackId, { advanceJob });
+}
+
 export const start = mutation({
-  args: { groupId: v.id("groups"), songId: v.id("songs"), fromSection: v.optional(v.number()), fromBar: v.optional(v.number()) },
-  handler: async (ctx, { groupId, songId, fromSection, fromBar }) => {
+  args: {
+    groupId: v.id("groups"),
+    songId: v.id("songs"),
+    fromSection: v.optional(v.number()),
+    fromBar: v.optional(v.number()),
+    advance: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { groupId, songId, fromSection, fromBar, advance }) => {
     const { user } = await requireAdmin(ctx, groupId);
     const group = await ctx.db.get(groupId);
     if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
@@ -54,10 +80,18 @@ export const start = mutation({
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
     const problem = startProblem(song, { fromSection, fromBar });
     if (problem !== null) throw new ConvexError(problem);
-    const fields = { groupId, songId, startedBy: user._id, ...startedPlayback(song, { fromSection, fromBar }, Date.now()) };
+    const fields = {
+      groupId,
+      songId,
+      startedBy: user._id,
+      ...(advance === true ? { advance } : {}),
+      ...startedPlayback(song, { fromSection, fromBar }, Date.now()),
+    };
     const existing = await groupPlayback(ctx, groupId);
+    if (existing) await cancelAdvance(ctx, existing);
+    const playbackId = existing ? existing._id : await ctx.db.insert("playbacks", fields);
     if (existing) await ctx.db.replace(existing._id, fields);
-    else await ctx.db.insert("playbacks", fields);
+    await planAdvance(ctx, playbackId);
   },
 });
 
@@ -80,6 +114,67 @@ export const jump = mutation({
     const jumps = jumpsAfter(playback.song, playback, toSection, mode, Date.now());
     if (jumps === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { jumps });
+    await planAdvance(ctx, playback._id);
+  },
+});
+
+async function applyCommand(ctx: MutationCtx, groupId: Id<"groups">, startsAt: number | undefined, command: (playback: Doc<"playbacks">) => CommandResult) {
+  await requireAdmin(ctx, groupId);
+  const playback = await groupPlayback(ctx, groupId);
+  if (playback === null) throw new ConvexError("Nothing is playing");
+  if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
+  const result = command(playback);
+  if ("problem" in result) throw new ConvexError(result.problem);
+  await ctx.db.patch(playback._id, { jumps: result.jumps });
+  await planAdvance(ctx, playback._id);
+}
+
+export const repeatSection = mutation({
+  args: { groupId: v.id("groups"), startsAt: v.optional(v.number()), vamp: v.optional(v.boolean()) },
+  handler: async (ctx, { groupId, startsAt, vamp }) =>
+    applyCommand(ctx, groupId, startsAt, (playback) => repeatJumps(playback.song, playback, Date.now(), vamp === true)),
+});
+
+export const endVamp = mutation({
+  args: { groupId: v.id("groups"), startsAt: v.optional(v.number()) },
+  handler: async (ctx, { groupId, startsAt }) => applyCommand(ctx, groupId, startsAt, (playback) => endVampJumps(playback.song, playback, Date.now())),
+});
+
+export const setAdvance = mutation({
+  args: { groupId: v.id("groups"), startsAt: v.optional(v.number()), advance: v.boolean() },
+  handler: async (ctx, { groupId, startsAt, advance }) => {
+    await requireAdmin(ctx, groupId);
+    const playback = await groupPlayback(ctx, groupId);
+    if (playback === null || !samePlayback(playback, startsAt)) return;
+    await ctx.db.patch(playback._id, { advance: advance ? true : undefined });
+    await planAdvance(ctx, playback._id);
+  },
+});
+
+export const advance = internalMutation({
+  args: { groupId: v.id("groups"), startsAt: v.number() },
+  handler: async (ctx, { groupId, startsAt }) => {
+    const playback = await groupPlayback(ctx, groupId);
+    if (playback === null || playback.startsAt !== startsAt || playback.stopsAt !== null || playback.advance !== true) return;
+    const group = await ctx.db.get(groupId);
+    const setlist = group?.currentSetlistId ? await ctx.db.get(group.currentSetlistId) : null;
+    const order = setlist?.entries.map((entry) => entry.songId) ?? [];
+    const songs = new Map((await Promise.all(order.map((id) => ctx.db.get(id)))).flatMap((song) => (song ? [[song._id, song] as const] : [])));
+    const nextId = nextInSetlist(order, playback.songId, (id) => (songs.get(id)?.sections.length ?? 0) > 0 && songs.get(id)?.groupId === groupId);
+    const next = nextId === null ? undefined : songs.get(nextId);
+    if (next === undefined) {
+      await ctx.db.patch(playback._id, { advanceJob: undefined });
+      return;
+    }
+    const now = Date.now();
+    await ctx.db.replace(playback._id, {
+      groupId,
+      songId: next._id,
+      startedBy: playback.startedBy,
+      advance: true,
+      ...startedPlayback(next, {}, now, now + MIN_COMMAND_LEAD_MS),
+    });
+    await planAdvance(ctx, playback._id);
   },
 });
 
@@ -93,5 +188,6 @@ export const stop = mutation({
     const stopsAt = stopTime(playback.song, playback, Date.now());
     if (stopsAt === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { stopsAt, stoppedBy: user._id });
+    await planAdvance(ctx, playback._id);
   },
 });

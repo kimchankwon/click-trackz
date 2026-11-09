@@ -1,4 +1,4 @@
-import { commandBoundary, cueLeadBarsOf, playbackEndsAt, subdivisionOf, type Jump, type Playback, type Song } from "./timeline";
+import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionIndexBefore, subdivisionOf, vampingSection, type Jump, type Playback, type Song } from "./timeline";
 
 export const LEAD_IN_MS = 2_000;
 export const MIN_COMMAND_LEAD_MS = 1_000;
@@ -27,7 +27,7 @@ export function startProblem(song: Song & { title: string }, { fromSection, from
   return null;
 }
 
-export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number): StartedPlayback<S> {
+export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number, startsAt = nowMs + LEAD_IN_MS): StartedPlayback<S> {
   return {
     song: {
       countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true,
@@ -35,7 +35,7 @@ export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar 
       ...(cueLeadBarsOf(song) === 1 ? { cueLeadBars: 1 } : {}),
       sections: song.sections,
     },
-    startsAt: nowMs + LEAD_IN_MS,
+    startsAt,
     startSection: fromSection ?? 0,
     startBar: fromBar ?? 1,
     jumps: [],
@@ -58,4 +58,24 @@ export function jumpsAfter(song: Song, playback: Playback & { jumps: readonly Ju
 export function stopTime(song: Song, playback: Playback, nowMs: number, leadMs = STOP_LEAD_MS): number | null {
   const stopsAt = nowMs + leadMs;
   return stopsAt < playbackEndsAt(song, playback) ? stopsAt : null;
+}
+
+export type CommandResult = { jumps: Jump[] } | { problem: string };
+
+export function repeatJumps(song: Song, playback: Playback & { jumps: readonly Jump[] }, nowMs: number, vamp: boolean): CommandResult {
+  if (vampingSection(song, playback) !== null) return { problem: "Already vamping: end the vamp first" };
+  const at = commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode: "endOfSection" });
+  if (at === null) return { problem: "Playback has already ended" };
+  const section = sectionIndexBefore(song, playback, at);
+  if (section === null) return { problem: "Wait for the first Section before repeating it" };
+  const jump: Jump = { at, toSection: section, cueFrom: nowMs + MIN_COMMAND_LEAD_MS, ...(vamp ? { loop: true } : {}) };
+  return { jumps: [...playback.jumps.filter((j) => j.at < at), jump] };
+}
+
+export function endVampJumps(song: Song, playback: Playback & { jumps: readonly Jump[] }, nowMs: number): CommandResult {
+  const section = vampingSection(song, playback);
+  if (section === null) return { problem: "Nothing is vamping" };
+  const at = commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode: "endOfSection" });
+  if (at === null) return { problem: "Playback has already ended" };
+  return { jumps: [...playback.jumps.filter((j) => j.at < at), { at, toSection: section + 1, cueFrom: nowMs + MIN_COMMAND_LEAD_MS }] };
 }
