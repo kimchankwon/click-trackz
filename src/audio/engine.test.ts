@@ -255,6 +255,23 @@ describe("Voice cue offset", () => {
     expect(context.sources[0].disconnected).toBe(true);
     late.dispose();
   });
+
+  it("keeps a later Voice cue whose beat is already queued when the app comes back to the foreground", async () => {
+    let now = NOW;
+    const verse: Song = { countIn: true, cueLeadBars: 1, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+    const engine = new CueAudioEngine();
+    engine.voiceOffsetMs = 200;
+    engine.setPlan(verse, { startsAt: NOW + 100, startSection: 0 });
+    await engine.enable(() => now, null);
+    await engine.setSpeaker("adam");
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(context.sources).toHaveLength(1);
+    now = NOW + 50;
+    engine.setHidden(false);
+    expect(context.sources[0].disconnected).toBe(false);
+    engine.dispose();
+  });
 });
 
 describe("Stereo split", () => {

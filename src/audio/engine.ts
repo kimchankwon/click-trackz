@@ -69,7 +69,7 @@ export class CueAudioEngine {
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private hidden = false;
-  private future: { output: AudioNode; beatAt: number; voiceEndsAt?: number }[] = [];
+  private future: { output: AudioNode; beatAt: number; soundAt: number; voiceEndsAt?: number }[] = [];
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -316,8 +316,8 @@ export class CueAudioEngine {
       this.trimTo(now + LOOKAHEAD_MS);
     }
     const stopsAt = playback?.stopsAt ?? null;
-    if (stopsAt !== null && this.future.some((entry) => entry.beatAt >= stopsAt)) {
-      this.cancelWhere((beatAt) => beatAt >= stopsAt);
+    if (stopsAt !== null && this.future.some((entry) => entry.soundAt >= stopsAt)) {
+      this.cancelWhere((entry) => entry.soundAt >= stopsAt);
       this.voiceBusyUntil = this.latestVoiceEnd();
     }
     if (changed && this.hidden) this.tick();
@@ -352,13 +352,13 @@ export class CueAudioEngine {
   }
 
   private cancelAfter(beatAt: number) {
-    this.cancelWhere((at) => at > beatAt);
+    this.cancelWhere((entry) => entry.beatAt > beatAt);
   }
 
-  private cancelWhere(drop: (beatAt: number) => boolean) {
+  private cancelWhere(drop: (entry: (typeof this.future)[number]) => boolean) {
     const keep: typeof this.future = [];
     for (const entry of this.future) {
-      if (!drop(entry.beatAt)) {
+      if (!drop(entry)) {
         keep.push(entry);
         continue;
       }
@@ -407,7 +407,7 @@ export class CueAudioEngine {
       for (const at of offbeatsOf(beat, subdivision)) {
         if (at < from || at >= to || at >= stopsAt) continue;
         const output = this.click(context, scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs), "offbeat");
-        this.future.push({ output, beatAt: at });
+        this.future.push({ output, beatAt: at, soundAt: at });
       }
     }
     this.scheduledUntil = to;
@@ -417,7 +417,7 @@ export class CueAudioEngine {
     const stopsAt = this.plan?.playback?.stopsAt ?? Infinity;
     const startsBeforeStop = (leadMs: number) => beat.at - leadMs < stopsAt;
     const remember = (output: AudioNode | null, leadMs = 0, voiceEndsAt?: number) => {
-      if (output !== null) this.future.push({ output, beatAt: Math.max(beat.at, beat.at - leadMs), voiceEndsAt });
+      if (output !== null) this.future.push({ output, beatAt: beat.at, soundAt: Math.max(beat.at, beat.at - leadMs), voiceEndsAt });
     };
     if (this.mix.click) remember(this.click(context, when, accentLevelOf(beat)));
     if (this.mix.voiceCues && beat.voiceCue) {
