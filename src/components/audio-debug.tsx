@@ -26,7 +26,7 @@ export function AudioDebug({ engine, soundOn }: { engine: RefObject<CueAudioEngi
           snapshot?.failure ?? null,
         ]
           .filter((part) => part !== null)
-          .join(" · "),
+          .join(", "),
       );
     }, 300);
     return () => clearInterval(timer);

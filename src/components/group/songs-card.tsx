@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
+import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -33,7 +34,7 @@ export function SongsCard({
   const [title, setTitle] = useState("");
   const list = songs ?? [];
   return (
-    <Card title={`Song library · ${list.length}`}>
+    <Card title={`Song library (${list.length})`}>
       {list.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           No Songs yet.
@@ -45,15 +46,10 @@ export function SongsCard({
               divider={index > 0}
               key={song.songId}
               title={song.title}
-              meta={
-                [
-                  selectedSongId === song.songId ? "On Play" : null,
-                  song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || null
-              }
+              meta={[selectedSongId === song.songId ? "On Play" : null, ...summaryParts(song).shown].filter((part): part is string => part !== null)}
+              metaLabel={[selectedSongId === song.songId ? "On Play" : null, ...summaryParts(song).spoken].filter(Boolean).join(", ") || null}
               songKey={song.key}
+              showKey={false}
               needsSections={song.sectionCount === 0}
               selected={false}
               selectable={isAdmin}

@@ -122,7 +122,7 @@ function idleReadoutFor(song: LoadedSong | null | undefined, fromSection: number
 
 type Tempo = { bpm: number; beatsPerBar: number; beatUnit?: number };
 
-const tempoText = (tempo: Tempo | null | undefined) => (tempo ? `${timeSignatureOf(tempo)} · ${Math.round(tempo.bpm)} BPM` : null);
+const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSignatureOf(tempo), bpm: `${Math.round(tempo.bpm)} BPM` } : null);
 
 const emptySong: Song = { countIn: false, sections: [] };
 
@@ -726,10 +726,15 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       backTestID="groups-back"
       right={
         <View style={styles.headerRight}>
-          {tab === "play" && tempo ? (
-            <ThemedText testID="tempo" numberOfLines={1} style={styles.tempo}>
-              {tempo}
-            </ThemedText>
+          {tempo ? (
+            <View testID="tempo" aria-label={`${tempo.time}, ${tempo.bpm}`} style={styles.tempoRow}>
+              <ThemedText numberOfLines={1} style={styles.tempo}>
+                {tempo.time}
+              </ThemedText>
+              <ThemedText numberOfLines={1} style={styles.tempo}>
+                {tempo.bpm}
+              </ThemedText>
+            </View>
           ) : null}
           {offline ? null : (
             <View style={styles.pill}>
@@ -737,8 +742,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
               <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
                 {!connected ? "Connecting…" : estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
               </ThemedText>
-              <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
-                · {onlineMembers.length} online
+              <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={[styles.pillText, styles.pillGap]}>
+                {onlineMembers.length} online
               </ThemedText>
             </View>
           )}
@@ -1363,8 +1368,10 @@ const styles = StyleSheet.create({
   },
   headerRight: { alignItems: "flex-end", flexShrink: 0 },
   tempo: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
+  tempoRow: { flexDirection: "row", gap: Spacing.two },
   pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one, height: 24 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
+  pillGap: { marginLeft: Spacing.one },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
   playMode: { width: "100%", maxWidth: 320, gap: Spacing.one },

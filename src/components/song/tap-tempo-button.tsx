@@ -29,7 +29,7 @@ export function TapTempoButton({ onTempo, testID }: { onTempo: (bpm: number) => 
       ]}
     >
       <Icon name="touch" size={20} color="accent" />
-      <ThemedText style={styles.label}>{shown === null ? "Tap tempo" : `Tap · ${shown} BPM`}</ThemedText>
+      <ThemedText style={styles.label}>{shown === null ? "Tap tempo" : `Tap tempo: ${shown} BPM`}</ThemedText>
     </Pressable>
   );
 }

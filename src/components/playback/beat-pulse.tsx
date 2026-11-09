@@ -15,7 +15,7 @@ import { Fonts, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { accentLevelOf, beatGroupSize, type AccentLevel, type Beat } from "@/sync/timeline";
 
-export type IdleReadout = { value: string; unit: string; detail?: string; beatsPerBar?: number; beatUnit?: number };
+export type IdleReadout = { value: string; unit: string; beatsPerBar?: number; beatUnit?: number };
 
 type Props = {
   beat: Beat | null;
@@ -131,7 +131,7 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
                 {idle?.value ?? "--"}
               </ThemedText>
               <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={MIN_FONT_SCALE} themeColor="textSecondary" style={styles.idleUnit}>
-                {[idle?.unit ?? "No Song picked", idle?.detail].filter(Boolean).join(" · ")}
+                {idle?.unit ?? "No Song picked"}
               </ThemedText>
             </View>
           )}

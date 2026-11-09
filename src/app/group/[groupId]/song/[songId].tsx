@@ -520,7 +520,7 @@ function SongForm({
 
           <View style={styles.group}>
             <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
-              Sections · {rows.length}
+              Sections ({rows.length})
             </ThemedText>
             {rows.map((row, index) => (
               <Fragment key={row.id}>
