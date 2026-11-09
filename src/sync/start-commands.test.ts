@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jumpProblem, jumpsAfter, LEAD_IN_MS, startedPlayback, startProblem, STOP_LEAD_MS, stopTime } from "./commands";
+import { jumpProblem, jumpsAfter, leadInMs, MIN_LEAD_IN_MS, startedPlayback, startProblem, STOP_LEAD_MS, stopTime } from "./commands";
 import type { Song } from "./timeline";
 
 const song: Song & { title: string } = {
@@ -12,11 +12,27 @@ const song: Song & { title: string } = {
   ],
 };
 
+describe("Lead-in", () => {
+  it("starts half a second after the Start when every online Member has a quick connection", () => {
+    expect(leadInMs([])).toBe(500);
+    expect(leadInMs([40, 90])).toBe(500);
+  });
+
+  it("waits for the slowest online Member's round trip on top of a 400 ms margin", () => {
+    expect(leadInMs([40, 300])).toBe(700);
+    expect(leadInMs([40, null])).toBe(600);
+  });
+
+  it("never waits longer than two seconds", () => {
+    expect(leadInMs([5_000])).toBe(2_000);
+  });
+});
+
 describe("Playback commands", () => {
   it("starts after the lead-in, with a Count-in only when starting part way", () => {
     expect(startedPlayback(song, {}, 1_000)).toEqual({
       song: { countIn: false, sections: song.sections },
-      startsAt: 1_000 + LEAD_IN_MS,
+      startsAt: 1_000 + MIN_LEAD_IN_MS,
       startSection: 0,
       startBar: 1,
       jumps: [],

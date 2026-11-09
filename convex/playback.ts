@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
 
 import { nextInSetlist, setlistPosition } from "../src/lib/setlist-next";
-import { endVampJumps, jumpProblem, jumpsAfter, MIN_COMMAND_LEAD_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
+import { endVampJumps, jumpProblem, jumpsAfter, leadInMs, MIN_COMMAND_LEAD_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
+import { ONLINE_WITHIN_MS } from "../src/presence/online";
 import { playbackEndsAt } from "../src/sync/timeline";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -82,15 +83,23 @@ export const start = mutation({
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
     const problem = startProblem(song, { fromSection, fromBar });
     if (problem !== null) throw new ConvexError(problem);
+    const now = Date.now();
+    const online = await ctx.db
+      .query("presence")
+      .withIndex("by_group_seen", (q) => q.eq("groupId", groupId).gte("seenAt", now - ONLINE_WITHIN_MS))
+      .collect();
+    const roundTrips = online.map((row) => row.roundTripMs);
+    const existing = await groupPlayback(ctx, groupId);
+    const firstBeat = now + leadInMs(roundTrips);
+    const startsAt = existing?.startsAt === firstBeat ? firstBeat + 1 : firstBeat;
     const fields = {
       groupId,
       songId,
       startedBy: user._id,
       ...(advance === true ? { advance } : {}),
       ...(setlistIndex !== undefined && Number.isInteger(setlistIndex) && setlistIndex >= 0 ? { setlistIndex } : {}),
-      ...startedPlayback(song, { fromSection, fromBar }, Date.now()),
+      ...startedPlayback(song, { fromSection, fromBar }, now, startsAt),
     };
-    const existing = await groupPlayback(ctx, groupId);
     if (existing) await cancelAdvance(ctx, existing);
     const playbackId = existing ? existing._id : await ctx.db.insert("playbacks", fields);
     if (existing) await ctx.db.replace(existing._id, fields);

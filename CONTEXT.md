@@ -112,6 +112,10 @@ _Avoid_: Vibration, buzz
 Setting a Song tempo by tapping along with the beat in the Song editor.
 _Avoid_: Tap BPM
 
+**Voice cue offset**:
+A device's choice to play every Voice cue and spoken count a little sooner or later than its beat, in 10 ms steps, without moving the Click.
+_Avoid_: Voice delay, voice latency
+
 **Latency nudge**:
 A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite the delay of their own audio output, such as Bluetooth headphones.
 _Avoid_: Delay, offset, calibration
@@ -127,7 +131,7 @@ The Admin command that begins Playback at an agreed future instant on the shared
 _Avoid_: Play, go
 
 **Lead-in**:
-The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it.
+The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it: half a second, stretched by the slowest online Member's measured round trip, never past two seconds.
 _Avoid_: Count-in, pre-roll, delay
 
 **Jump**:

@@ -8,6 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
 
 const REFRESH_MS = 5_000;
+const ROUND_TRIP_CHANGE_MS = 100;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
@@ -20,6 +21,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   const visible = shared && focused && (active || playing);
   const onPlayRef = useRef(onPlay);
   const pingRef = useRef<number | null>(null);
+  const visibleRef = useRef(visible);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
@@ -28,18 +30,26 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
 
   const beat = useCallback(
     (onPlayNow: boolean) => {
-      const sentAt = performance.now();
-      void heartbeat({ groupId, screenId, onPlay: onPlayNow, roundTripMs: pingRef.current ?? undefined }).then(
-        () => {
-          pingRef.current = performance.now() - sentAt;
-        },
-        () => undefined,
-      );
+      const send = (onPlaySent: boolean, followUp: boolean) => {
+        const sentAt = performance.now();
+        const reported = pingRef.current;
+        void heartbeat({ groupId, screenId, onPlay: onPlaySent, roundTripMs: reported ?? undefined }).then(
+          () => {
+            const measured = performance.now() - sentAt;
+            pingRef.current = measured;
+            const changed = reported === null || Math.abs(measured - reported) >= ROUND_TRIP_CHANGE_MS;
+            if (!followUp && changed && visibleRef.current) send(onPlayRef.current, true);
+          },
+          () => undefined,
+        );
+      };
+      send(onPlayNow, false);
     },
     [groupId, screenId, heartbeat],
   );
 
   useEffect(() => {
+    visibleRef.current = visible;
     onPlayRef.current = onPlay;
     if (visible) beat(onPlay);
   }, [onPlay, visible, beat]);
@@ -48,6 +58,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
     if (!visible) return;
     const timer = setInterval(() => beat(onPlayRef.current), HEARTBEAT_MS);
     return () => {
+      visibleRef.current = false;
       clearInterval(timer);
       void leave({ groupId, screenId }).catch(() => undefined);
     };

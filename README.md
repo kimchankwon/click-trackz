@@ -92,7 +92,7 @@ It adds the 15 Songs with their keys, leaders and a suggested tempo (Sections st
 
 ## Voice cue recordings
 
-The built-in Voice cue clips in `assets/voice/<speaker>/` (six Speakers: Adam, Alice, Charlie, Sarah, George, River) were generated once with [ElevenLabs](https://elevenlabs.io) text-to-speech by `npm run voice-pack`, which only generates clips that are missing (needs `ELEVENLABS_API_KEY` in `.env.tts.local`). They are trimmed to start 4 ms before the first audible sample, and the app starts each one 40 ms ahead of its measured onset so the word lands on its beat.
+The built-in Voice cue clips in `assets/voice/<speaker>/` (six Speakers: Adam, Alice, Charlie, Sarah, George, River) were generated once with [ElevenLabs](https://elevenlabs.io) text-to-speech by `npm run voice-pack`, which only generates clips that are missing (needs `ELEVENLABS_API_KEY` in `.env.tts.local`). They are trimmed to start 4 ms before the first audible sample. The app lines up each clip's measured onset 20 ms after its beat, and each device can move that sooner or later with its Voice cue offset.
 
 ## Docs
 

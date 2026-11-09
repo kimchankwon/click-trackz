@@ -17,9 +17,7 @@ export function Chip({
   compact,
   queued,
   accessibleName,
-  badge,
 }: {
-  badge?: string;
   strong?: boolean;
   compact?: boolean;
   queued?: boolean;
@@ -60,11 +58,6 @@ export function Chip({
       <ThemedText type="default" themeColor={selected ? (strong ? "onAccent" : "accent") : "text"} style={selected ? styles.selectedLabel : styles.label}>
         {label}
       </ThemedText>
-      {badge ? (
-        <ThemedText themeColor={selected ? (strong ? "onAccent" : "accent") : "textSecondary"} style={styles.badge}>
-          {badge}
-        </ThemedText>
-      ) : null}
     </Pressable>
   );
 }
@@ -85,5 +78,4 @@ const styles = StyleSheet.create({
   queuedChip: { borderWidth: 3 },
   label: { fontSize: 15, lineHeight: 20, fontWeight: 500 },
   selectedLabel: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  badge: { fontSize: 13, lineHeight: 18, fontWeight: 700, fontVariant: ["tabular-nums"], marginLeft: -2 },
 });

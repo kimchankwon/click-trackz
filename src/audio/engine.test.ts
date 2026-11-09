@@ -27,6 +27,9 @@ const fake = vi.hoisted(() => {
   class FakePanner extends FakeNode {
     pan = new FakeParam();
   }
+  class FakeShaper extends FakeNode {
+    curve: Float32Array | null = null;
+  }
   class FakeOscillator extends FakeNode {
     frequency = new FakeParam();
     start() {}
@@ -54,23 +57,37 @@ const fake = vi.hoisted(() => {
     createStereoPanner() {
       return new FakePanner();
     }
+    shapers: FakeShaper[] = [];
+    createWaveShaper() {
+      const shaper = new FakeShaper();
+      this.shapers.push(shaper);
+      return shaper;
+    }
     createOscillator() {
       this.oscillators += 1;
       return new FakeOscillator();
     }
     played: FakeBuffer[] = [];
+    voiceStarts: number[] = [];
+    sources: { disconnected: boolean }[] = [];
     createBufferSource() {
       const played = this.played;
+      const voiceStarts = this.voiceStarts;
+      const sources = this.sources;
       const source = {
         buffer: null as FakeBuffer | null,
         connect() {
           return source;
         },
+        disconnected: false,
         disconnect() {
+          source.disconnected = true;
           return undefined;
         },
-        start() {
+        start(when: number) {
           if (source.buffer) played.push(source.buffer);
+          voiceStarts.push(when);
+          sources.push(source);
         },
       };
       return source;
@@ -106,6 +123,7 @@ const { CueAudioEngine } = await import("./engine");
 
 const song: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 8, beatsPerBar: 4, bpm: 120 }] };
 const NOW = 1_000_000;
+const SETUP_GAINS = 3;
 const serverNow = () => NOW;
 const contexts = () => fake.FakeAudioContext.instances;
 const VERSE = "verse.wav";
@@ -189,6 +207,73 @@ describe("Subdivision", () => {
   });
 });
 
+describe("Voice cue offset", () => {
+  it("moves the Voice cue sooner or later on this device without moving the Click", async () => {
+    const verse: Song = { countIn: true, cueLeadBars: 1, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+    const playFor = async (offsetMs: number) => {
+      const engine = new CueAudioEngine();
+      engine.voiceOffsetMs = offsetMs;
+      engine.setPlan(verse, { startsAt: NOW + 300, startSection: 0 });
+      await engine.enable(serverNow, null);
+      await engine.setSpeaker("adam");
+      engine.setHidden(true);
+      const context = contexts().at(-1)!;
+      const heard = { voice: [...context.voiceStarts], clicks: context.oscillators };
+      engine.dispose();
+      return heard;
+    };
+    const plain = await playFor(0);
+    const later = await playFor(50);
+    const sooner = await playFor(-50);
+    expect(plain.voice).toHaveLength(1);
+    expect(later.voice[0] - plain.voice[0]).toBeCloseTo(0.05);
+    expect(plain.voice[0] - sooner.voice[0]).toBeCloseTo(0.05);
+    expect([later.clicks, sooner.clicks]).toEqual([plain.clicks, plain.clicks]);
+  });
+
+  it("never lets a later Voice cue sound after a Stop that lands before the clip starts", async () => {
+    const verse: Song = { countIn: true, cueLeadBars: 1, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+    const playback = { startsAt: NOW + 300, startSection: 0 };
+    const known = new CueAudioEngine();
+    known.voiceOffsetMs = 200;
+    known.setPlan(verse, { ...playback, stopsAt: NOW + 400 });
+    await known.enable(serverNow, null);
+    await known.setSpeaker("adam");
+    known.setHidden(true);
+    expect(contexts().at(-1)!.voiceStarts).toEqual([]);
+    known.dispose();
+
+    const late = new CueAudioEngine();
+    late.voiceOffsetMs = 200;
+    late.setPlan(verse, playback);
+    await late.enable(serverNow, null);
+    await late.setSpeaker("adam");
+    late.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(context.sources).toHaveLength(1);
+    late.setPlan(verse, { ...playback, stopsAt: NOW + 400 });
+    expect(context.sources[0].disconnected).toBe(true);
+    late.dispose();
+  });
+
+  it("keeps a later Voice cue whose beat is already queued when the app comes back to the foreground", async () => {
+    let now = NOW;
+    const verse: Song = { countIn: true, cueLeadBars: 1, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+    const engine = new CueAudioEngine();
+    engine.voiceOffsetMs = 200;
+    engine.setPlan(verse, { startsAt: NOW + 100, startSection: 0 });
+    await engine.enable(() => now, null);
+    await engine.setSpeaker("adam");
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(context.sources).toHaveLength(1);
+    now = NOW + 50;
+    engine.setHidden(false);
+    expect(context.sources[0].disconnected).toBe(false);
+    engine.dispose();
+  });
+});
+
 describe("Stereo split", () => {
   it("pans the Click and the Voice cues to their own sides, set before or after sound is on", async () => {
     const engine = new CueAudioEngine();
@@ -223,7 +308,7 @@ describe("Stop", () => {
     const context = contexts().at(-1)!;
     expect(context.oscillators).toBeGreaterThan(0);
     engine.setPlan(bar, { ...playback, stopsAt: NOW + 40 });
-    expect(context.gains.slice(2).every((gain) => gain.disconnected)).toBe(true);
+    expect(context.gains.slice(SETUP_GAINS).every((gain) => gain.disconnected)).toBe(true);
     engine.dispose();
   });
 });
@@ -344,7 +429,7 @@ describe("sound recovery", () => {
     expect(context.oscillators).toBe(32);
 
     engine.setPlan(song, { ...playback, jumps: [{ at: NOW + 4_050, toSection: 0 }] });
-    const clickGains = context.gains.slice(2);
+    const clickGains = context.gains.slice(SETUP_GAINS);
     expect(clickGains.filter((gain) => gain.disconnected).length).toBeGreaterThan(20);
     expect(clickGains.slice(0, visibleClicks).every((gain) => !gain.disconnected)).toBe(true);
     engine.dispose();
@@ -360,7 +445,7 @@ describe("sound recovery", () => {
     const visibleClicks = context.oscillators;
     engine.setHidden(true);
     engine.setHidden(false);
-    const clickGains = context.gains.slice(2);
+    const clickGains = context.gains.slice(SETUP_GAINS);
     expect(clickGains.filter((gain) => !gain.disconnected).length).toBe(visibleClicks);
     engine.dispose();
   });
@@ -379,7 +464,7 @@ describe("sound recovery", () => {
     const [, context] = contexts();
     clock = null;
     engine.setPlan(song, { ...playback, jumps: [{ at: NOW + 4_050, toSection: 0 }] });
-    expect(context.gains.slice(2).every((gain) => gain.disconnected)).toBe(true);
+    expect(context.gains.slice(SETUP_GAINS).every((gain) => gain.disconnected)).toBe(true);
     engine.dispose();
   });
 

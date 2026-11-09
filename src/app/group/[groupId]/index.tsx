@@ -12,6 +12,7 @@ import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { SectionChip } from "@/components/playback/section-chip";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
@@ -53,6 +54,7 @@ import { Switch } from "@/components/ui/switch";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
+import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import {
@@ -282,6 +284,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const { speaker, clickVolume, voiceVolume } = sound;
   const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
   const [nextStart, setNextStart] = useState<SectionStart | null>(null);
@@ -352,6 +355,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   useEffect(() => {
     if (engine.current) engine.current.latencyNudgeMs = Number(latencyNudge);
   }, [latencyNudge, soundOn]);
+
+  useEffect(() => {
+    if (engine.current) engine.current.voiceOffsetMs = Number(voiceOffset);
+  }, [voiceOffset, soundOn]);
 
   useEffect(() => {
     if (!soundOn) return;
@@ -930,13 +937,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         <Card title="Sections">
           <View style={styles.wrap}>
             {shownSections.map((section, index) => (
-              <Chip
+              <SectionChip
                 key={index}
-                role="button"
-                strong
-                compact
                 label={shortTitleOf(section)}
-                badge={playsOf(section) > 1 ? `×${playsOf(section)}` : undefined}
+                plays={playsOf(section)}
                 accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
                 queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}

@@ -8,14 +8,17 @@ import { VolumeBar } from "@/components/playback/volume-bar";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { hapticsAvailable } from "@/audio/haptics";
 import { Segmented } from "@/components/ui/segmented";
 import { isLatencySetting } from "@/settings/latency";
 import { HAPTIC_BEATS, hapticBeatLabels, isHapticBeat, isSide, SIDES, sideLabels, type HapticBeat, type Side } from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
+import { isVoiceOffsetSetting, stepVoiceOffset, VOICE_OFFSET_MAX_MS, VOICE_OFFSET_MIN_MS, VOICE_OFFSET_STEP_MS, voiceOffsetText } from "@/settings/voice-offset";
 import type { Sound } from "@/settings/use-sound-settings";
 
 const MIX_TEXT_INSET = 38;
@@ -35,7 +38,11 @@ export function SoundSettings({
   speakerHint?: string | null;
   onSpeaker?: (speaker: SpeakerId) => void;
 }) {
+  const theme = useTheme();
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [voiceOffset, setVoiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
+  const offsetMs = Number(voiceOffset);
+  const moveVoice = (steps: number) => setVoiceOffset(String(stepVoiceOffset(offsetMs, steps)));
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
@@ -131,6 +138,32 @@ export function SoundSettings({
           </ThemedText>
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
+        <Divider />
+        <View style={styles.linkRow}>
+          <Icon name="speaking" size={22} color="textSecondary" />
+          <ThemedText style={[styles.rowTitle, styles.grow]}>Voice cue offset</ThemedText>
+          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Voice cue offset">
+            <IconButton
+              icon="minus"
+              size={36}
+              label={`Voice cues ${VOICE_OFFSET_STEP_MS} ms sooner`}
+              testID="voice-offset-sooner"
+              disabled={offsetMs <= VOICE_OFFSET_MIN_MS}
+              onPress={() => moveVoice(-1)}
+            />
+            <ThemedText themeColor={offsetMs === 0 ? "textSecondary" : "text"} style={styles.stepperValue} testID="voice-offset-value">
+              {voiceOffsetText(offsetMs)}
+            </ThemedText>
+            <IconButton
+              icon="add"
+              size={36}
+              label={`Voice cues ${VOICE_OFFSET_STEP_MS} ms later`}
+              testID="voice-offset-later"
+              disabled={offsetMs >= VOICE_OFFSET_MAX_MS}
+              onPress={() => moveVoice(1)}
+            />
+          </View>
+        </View>
       </Card>
       <ThemedText type="caption" themeColor={saveError ? "danger" : "textSecondary"} testID="sound-saved-caption" style={styles.caption}>
         {saveError ?? "Mix and Speaker are saved to your account, so every Group and device uses them. The rest stays on this device."}
@@ -148,6 +181,8 @@ const styles = StyleSheet.create({
   caption: { width: "100%", paddingHorizontal: Spacing.one },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
+  stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
+  stepperValue: { minWidth: 88, textAlign: "center", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
   latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
   deviceRow: { gap: Spacing.two },
 });
