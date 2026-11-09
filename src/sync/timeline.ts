@@ -181,6 +181,8 @@ export const LOOKAHEAD_BARS = 3;
 
 const VAMP_PASSES_KEPT_BEHIND = 2;
 
+const BARS_KEPT_BEHIND = 4;
+
 export function aheadWindowMs(song: Song): number {
   return longestOf(song, sectionMsOf) + LOOKAHEAD_BARS * longestOf(song, longestBarMsOf);
 }
@@ -244,11 +246,15 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
   if (segment.vamp) return vampBarsOf(song, segment, fromMs, untilMs);
   const sections = song.sections.slice(segment.startSection);
   const stop = Math.min(segment.endsAt, untilMs);
-  const bars: Bar[] = [];
+  const behind: Bar[] = [];
+  const current: Bar[] = [];
+  const bars = () => [...behind, ...current];
   let startsAt = segment.startsAt;
   const push = (meter: Meter, place: Pick<Bar, "section" | "sectionIndex" | "barNumber" | "pass" | "passes" | "repeatsPass" | "passMs" | "msIntoPass">) => {
-    bars.push({ startsAt, ...meter, ...place, segmentEndsAt: segment.endsAt, cueFrom: segment.cueFrom });
+    const bar = { startsAt, ...meter, ...place, segmentEndsAt: segment.endsAt, cueFrom: segment.cueFrom };
     startsAt += msOf(meter);
+    if (current.length > 0 || startsAt > fromMs) current.push(bar);
+    else if (behind.push(bar) > BARS_KEPT_BEHIND) behind.shift();
   };
   if (segment.countIn && sections.length > 0) {
     const meter = mainMeterOf(sections[0]);
@@ -266,14 +272,14 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
       const firstBar = offset === 0 && pass === firstPass ? segment.startBar : 1;
       let msIntoPass = msBeforeBar(section, firstBar);
       for (let barNumber = firstBar; barNumber <= section.bars; barNumber++) {
-        if (startsAt >= stop) return bars;
+        if (startsAt >= stop) return bars();
         const meter = meterOf(section, barNumber);
         push(meter, { section, sectionIndex, barNumber, pass, passes, repeatsPass: pass > firstPass, passMs, msIntoPass });
         msIntoPass += msOf(meter);
       }
     }
   }
-  return bars;
+  return bars();
 }
 
 function countOf(bar: Bar, beat: number): string {
