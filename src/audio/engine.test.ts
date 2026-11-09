@@ -32,7 +32,10 @@ const fake = vi.hoisted(() => {
   }
   class FakeOscillator extends FakeNode {
     frequency = new FakeParam();
-    start() {}
+    startedAt: number | null = null;
+    start(when: number) {
+      this.startedAt = when;
+    }
     stop() {}
   }
   class FakeAudioContext {
@@ -63,9 +66,12 @@ const fake = vi.hoisted(() => {
       this.shapers.push(shaper);
       return shaper;
     }
+    oscillatorNodes: FakeOscillator[] = [];
     createOscillator() {
       this.oscillators += 1;
-      return new FakeOscillator();
+      const oscillator = new FakeOscillator();
+      this.oscillatorNodes.push(oscillator);
+      return oscillator;
     }
     played: FakeBuffer[] = [];
     voiceStarts: number[] = [];
@@ -447,6 +453,26 @@ describe("sound recovery", () => {
     const queued = context.oscillators;
     expect(queued).toBeGreaterThanOrEqual(6);
     expect(queued).toBeLessThan(12);
+    engine.dispose();
+  });
+
+  it("keeps topping up the short background queue as time passes, with no gaps or repeats", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine({ hiddenLookaheadMs: 3_000 });
+    await engine.enable(() => now, null);
+    const [context] = contexts();
+    engine.setPlan(song, { startsAt: NOW + 50, startSection: 0 });
+    engine.setHidden(true);
+    for (let tick = 0; tick < 400; tick++) {
+      now += 25;
+      context.currentTime += 0.025;
+      await vi.advanceTimersByTimeAsync(25);
+    }
+    const starts = context.oscillatorNodes.map((oscillator) => oscillator.startedAt ?? NaN).sort((a, b) => a - b);
+    const spacing = new Set(starts.slice(1).map((at, index) => (at - starts[index]).toFixed(3)));
+    expect(starts.length).toBeGreaterThanOrEqual(24);
+    expect(starts.length).toBeLessThanOrEqual(28);
+    expect([...spacing]).toEqual(["0.500"]);
     engine.dispose();
   });
 
