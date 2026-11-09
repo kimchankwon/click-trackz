@@ -26,11 +26,10 @@ export function PinnedHeader({ scrolled, children }: { scrolled: boolean; childr
 
 const styles = StyleSheet.create({
   bar: {
-    paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: PINNED_CONTENT_TOP,
     borderBottomWidth: StyleSheet.hairlineWidth,
     zIndex: 1,
   },
-  inner: { maxWidth: MaxContentWidth, alignSelf: "center", width: "100%" },
+  inner: { maxWidth: MaxContentWidth, paddingHorizontal: Spacing.four, alignSelf: "center", width: "100%" },
 });
