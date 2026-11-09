@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { estimateClockOffset } from "./clock";
+import { clockSlept, estimateClockOffset } from "./clock";
 
 describe("estimateClockOffset", () => {
   it("places the server reading at the midpoint of a single round trip", () => {
@@ -15,6 +15,12 @@ describe("estimateClockOffset", () => {
       { sentAt: 2000, serverAt: 2700, receivedAt: 2300 },
     ]);
     expect(estimate).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
+  });
+
+  it("knows the device slept when the wall clock moved on but the monotonic clock did not", () => {
+    expect(clockSlept(1_000, 1_050)).toBe(false);
+    expect(clockSlept(1_000, 4_000)).toBe(true);
+    expect(clockSlept(4_000, 1_000)).toBe(true);
   });
 
   it("has no estimate until a usable sample arrives", () => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { router, useLocalSearchParams } from "expo-router";
-import { useRef, useState } from "react";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -32,6 +32,9 @@ type LiveSetlist = {
 
 const toEntries = (setlist: LiveSetlist): Entry[] =>
   setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }));
+
+const sameEntries = (a: readonly Entry[], b: readonly Entry[]) =>
+  a.length === b.length && a.every((entry, index) => entry.songId === b[index].songId && entry.key === b[index].key && entry.leader === b[index].leader);
 
 export default function SetlistScreen() {
   const params = useLocalSearchParams<{ groupId: string; setlistId: string }>();
@@ -85,6 +88,13 @@ function SetlistForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const changed = name !== live.name || !sameEntries(entries, toEntries(live));
+  const [askDiscard, setAskDiscard] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  usePreventRemove(changed && !saving && !leaving && !deletePending, () => setAskDiscard(true));
+  useEffect(() => {
+    if (leaving) router.back();
+  }, [leaving]);
   const confirmDelete = async () => {
     if (deletePending) return;
     setDeleteError(null);
@@ -284,11 +294,6 @@ function SetlistForm({
             )}
           </View>
 
-          {message ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="setlist-message" style={styles.centeredText}>
-              {message}
-            </ThemedText>
-          ) : null}
           <ActionButton
             variant="danger"
             icon="trash"
@@ -302,6 +307,11 @@ function SetlistForm({
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
+          {message ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="setlist-message" style={styles.centeredText}>
+              {message}
+            </ThemedText>
+          ) : null}
           <ActionButton
             large
             full
@@ -316,6 +326,15 @@ function SetlistForm({
         </View>
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
+      <ConfirmDialog
+        visible={askDiscard && !leaving}
+        title="Discard changes?"
+        message={`Your edits to ${live.name} are not saved.`}
+        confirmLabel="Discard"
+        onConfirm={() => setLeaving(true)}
+        onCancel={() => setAskDiscard(false)}
+        testID="discard-setlist-dialog"
+      />
       <ConfirmDialog
         visible={confirmingDelete}
         title={`Delete ${live.name}?`}
@@ -362,5 +381,5 @@ const styles = StyleSheet.create({
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },
   centeredText: { textAlign: "center" },
-  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
+  dock: { gap: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

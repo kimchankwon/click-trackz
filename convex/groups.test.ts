@@ -34,6 +34,21 @@ describe("Groups", () => {
     );
   });
 
+  it("lets an Admin rename the Group, which every Member sees and which resets the copy name", async () => {
+    const { t, as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const { groupId, joinCode } = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "Daniel" });
+    const guest = await as({ isAnonymous: true });
+    await guest.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Jisue" });
+    await t.run((ctx) => ctx.db.patch(groupId, { copyBase: "Band" }));
+    await daniel.client.mutation(api.groups.rename, { groupId, name: "  Sunday band  " });
+    expect((await guest.client.query(api.groups.myGroups, {}))[0]).toMatchObject({ groupId, name: "Sunday band", copyBase: null });
+    await expect(guest.client.mutation(api.groups.rename, { groupId, name: "Mine" })).rejects.toThrow(/Only Admins/);
+    await expect(daniel.client.mutation(api.groups.rename, { groupId, name: "   " })).rejects.toThrow(/Group name must be 1 to 40/);
+    const offlineId = await daniel.client.mutation(api.groups.openOffline, {});
+    await expect(daniel.client.mutation(api.groups.rename, { groupId: offlineId, name: "Me" })).rejects.toThrow(/Offline cannot be renamed/);
+  });
+
   it("lets anyone signed in, guests included, join with the code, once", async () => {
     const { as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });

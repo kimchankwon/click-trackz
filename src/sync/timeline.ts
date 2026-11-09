@@ -288,7 +288,7 @@ export function commandBoundary(song: Song, playback: Playback, timing: CommandT
   const bars = barsOfPlayback(song, playback);
   const songEndsAt = songEndOf(bars);
   const candidates = bars
-    .filter((bar) => timing.mode === "nextBar" || startsSection(bar))
+    .filter((bar) => bar.section !== null && (timing.mode === "nextBar" || startsSection(bar)))
     .map((bar) => bar.startsAt);
   if (songEndsAt !== null) candidates.push(songEndsAt);
   const stopsAt = playback.stopsAt ?? Infinity;

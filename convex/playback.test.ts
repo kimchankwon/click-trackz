@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STOP_LEAD_MS } from "../src/sync/commands";
+import { LEAD_IN_MS, STOP_LEAD_MS } from "../src/sync/commands";
 import { demoSong } from "../src/sync/demo-song";
 import { api } from "./_generated/api";
 import schema from "./schema";
@@ -111,6 +111,21 @@ describe("Group Playback", () => {
     vi.setSystemTime(startsAt + 10_000);
     await admin.mutation(api.playback.start, { groupId, songId });
     expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: null, stoppedBy: null, stoppedByName: null });
+  });
+
+  it("refuses a Stop or Jump meant for a Playback that another Start has already replaced", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const first = await member.query(api.playback.current, { groupId });
+    vi.setSystemTime(NOW + 500);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    await expect(admin.mutation(api.playback.stop, { groupId, startsAt: first!.startsAt })).rejects.toThrow(/already ended/);
+    await expect(admin.mutation(api.playback.jump, { groupId, toSection: 1, mode: "nextBar", startsAt: first!.startsAt })).rejects.toThrow(/already ended/);
+    const second = await member.query(api.playback.current, { groupId });
+    expect(second).toMatchObject({ startsAt: NOW + 500 + LEAD_IN_MS, stopsAt: null, jumps: [] });
+    await admin.mutation(api.playback.stop, { groupId, startsAt: second!.startsAt });
+    expect((await member.query(api.playback.current, { groupId }))!.stopsAt).toBe(NOW + 500 + STOP_LEAD_MS);
   });
 
   it("refuses Playback commands from Members and reads from people outside the Group", async () => {

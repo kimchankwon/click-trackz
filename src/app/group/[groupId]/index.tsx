@@ -19,6 +19,7 @@ import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
+import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
@@ -211,6 +212,9 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [startPending, setStartPending] = useState(false);
   const updateSong = useMutation(api.songs.updateSong);
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
   const [unclocked, setUnclocked] = useState(false);
@@ -226,7 +230,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [beat, setBeat] = useState<Beat | null>(null);
   const [nextIndex, setNextIndex] = useState<number | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<GroupTab>("play");
   const [dockHeight, setDockHeight] = useState(0);
   const [floatHeight, setFloatHeight] = useState(0);
@@ -234,6 +237,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
+  const showToast = toast.show;
   const connected = useConnected();
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -290,8 +294,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   useEffect(() => {
     if (!soundOn) return;
-    engine.current?.setSpeaker(speaker).catch((e: unknown) => setError(errorText(e)));
-  }, [speaker, soundOn]);
+    engine.current?.setSpeaker(speaker).catch((e: unknown) => showToast(errorText(e), "error"));
+  }, [speaker, soundOn, showToast]);
 
 
   useEffect(
@@ -388,10 +392,12 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   useEffect(() => () => setPlayingHere(false), []);
 
-  const run = useCallback((action: () => Promise<unknown>) => {
-    setError(null);
-    action().catch((e: unknown) => setError(errorText(e)));
-  }, []);
+  const run = useCallback(
+    (action: () => Promise<unknown>) => {
+      action().catch((e: unknown) => showToast(errorText(e), "error"));
+    },
+    [showToast],
+  );
 
   const enableSound = () =>
     run(async () => {
@@ -458,7 +464,13 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           ...startedPlayback(startSong, from, deviceNow()),
         });
       } else {
-        await start({ groupId, songId: startSongId, ...from });
+        if (startPending) return;
+        setStartPending(true);
+        try {
+          await start({ groupId, songId: startSongId, ...from });
+        } finally {
+          setStartPending(false);
+        }
       }
       setStartPick(null);
     });
@@ -484,7 +496,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       if (onDevice) return stopOnDevice();
       setStopPending(true);
       try {
-        await stop({ groupId });
+        await stop({ groupId, startsAt: playback?.startsAt });
       } finally {
         setStopPending(false);
       }
@@ -520,7 +532,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   const tapSection = (index: number) => {
     if (!steers) return;
-    if (playing) run(async () => (onDevice ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode })));
+    if (playing) run(async () => (onDevice ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode, startsAt: playback?.startsAt })));
     else if (startSongId) setStartPick({ songId: startSongId, index, bar: 1 });
   };
 
@@ -855,10 +867,24 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     }
   };
 
+  const confirmLeave = async () => {
+    if (leavingGroup) return;
+    setLeaveError(null);
+    setLeavingGroup(true);
+    try {
+      await leave({ groupId });
+      router.dismissTo("/");
+    } catch (error) {
+      setLeavingGroup(false);
+      setLeaveError(errorText(error));
+    }
+  };
+
   const groupTab = (
     <>
       <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
       <View style={styles.leave}>
+        {isAdmin ? <RenameGroup groupId={groupId} name={group.name} /> : null}
         {isAdmin ? (
           <ActionButton
             icon="copy"
@@ -875,18 +901,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           icon="logout"
           label="Leave Group"
           testID="leave-group"
-          onPress={() =>
-            run(async () => {
-              setLeavingGroup(true);
-              try {
-                await leave({ groupId });
-              } catch (error) {
-                setLeavingGroup(false);
-                throw error;
-              }
-              router.dismissTo("/");
-            })
-          }
+          onPress={() => {
+            setLeaveError(null);
+            setConfirmingLeave(true);
+          }}
         />
       </View>
     </>
@@ -942,6 +960,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
                 accessibleName="Start"
                 testID="start"
                 disabled={startBlocker !== null}
+                pending={startPending}
                 onPress={startPlayback}
               />
             )}
@@ -1014,7 +1033,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
             onPress={stopPlayback}
           />
         ) : (
-          <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} onPress={startPlayback} />
+          <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} pending={startPending} onPress={startPlayback} />
         )}
       </View>
     ) : null;
@@ -1041,11 +1060,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
               {content}
             </View>
           ))}
-          {error ? (
-            <ThemedText type="small" themeColor="danger" testID="error" style={styles.centered}>
-              {error}
-            </ThemedText>
-          ) : null}
         </ScrollView>
         </SwipeTabs>
         {floating ? (
@@ -1068,6 +1082,17 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         onConfirm={() => void confirmDuplicate()}
         onCancel={() => setConfirmingDuplicate(false)}
         testID="duplicate-group-dialog"
+      />
+      <ConfirmDialog
+        visible={confirmingLeave}
+        title={`Leave ${group.name}?`}
+        message={isAdmin ? "You will need the join code to come back, and the Group needs another Admin if you are the last one." : "You will need the join code to come back."}
+        confirmLabel="Leave"
+        pending={leavingGroup}
+        error={leaveError}
+        onConfirm={() => void confirmLeave()}
+        onCancel={() => setConfirmingLeave(false)}
+        testID="leave-group-dialog"
       />
       <ConfirmDialog
         visible={askLeave && !leaving}

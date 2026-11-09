@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sameDraft, type SongDraft } from "./song-draft";
+import { draftProblem, sameDraft, type SongDraft } from "./song-draft";
 
 const verse = { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 72, ownTempo: false };
 
@@ -15,5 +15,20 @@ describe("sameDraft", () => {
     expect(sameDraft(saved, { ...saved, cueLeadBars: 1 })).toBe(false);
     expect(sameDraft(saved, { ...saved, sections: [{ ...verse, bars: 4 }] })).toBe(false);
     expect(sameDraft(saved, { ...saved, sections: [verse, verse] })).toBe(false);
+  });
+});
+
+describe("draftProblem", () => {
+  it("accepts the saved Song", () => {
+    expect(draftProblem(saved)).toBeNull();
+  });
+
+  it("names the first thing the server would refuse, in order", () => {
+    expect(draftProblem({ ...saved, title: "  " })).toBe("Give the Song a title");
+    expect(draftProblem({ ...saved, bpm: 0 })).toBe("Song tempo must be from 30 to 300 BPM");
+    expect(draftProblem({ ...saved, sections: [{ ...verse, bars: 0 }] })).toBe("Section 1: Bars must be a whole number from 1 to 64");
+    expect(draftProblem({ ...saved, sections: [verse, { ...verse, bars: 4.5 }] })).toBe("Section 2: Bars must be a whole number from 1 to 64");
+    expect(draftProblem({ ...saved, sections: [{ ...verse, ownTempo: true, bpm: 500 }] })).toBe("Section 1: BPM must be from 30 to 300");
+    expect(draftProblem({ ...saved, sections: [{ ...verse, ownTempo: false, bpm: 500 }] })).toBeNull();
   });
 });

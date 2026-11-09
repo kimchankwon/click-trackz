@@ -12,6 +12,10 @@ export type ClockEstimate = {
 
 const roundTripOf = (sample: ClockSample) => sample.receivedAt - sample.sentAt;
 
+export const SLEEP_TOLERANCE_MS = 100;
+
+export const clockSlept = (epochBefore: number, epochNow: number, toleranceMs = SLEEP_TOLERANCE_MS) => Math.abs(epochNow - epochBefore) > toleranceMs;
+
 export function estimateClockOffset(samples: readonly ClockSample[]): ClockEstimate | null {
   const usable = samples.filter((sample) => roundTripOf(sample) >= 0);
   if (usable.length === 0) return null;

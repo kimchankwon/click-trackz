@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
-import { estimateClockOffset, type ClockEstimate, type ClockSample } from "./clock";
+import { clockSlept, estimateClockOffset, type ClockEstimate, type ClockSample } from "./clock";
 import { holdsClockSteady, pingDelayMs } from "./ping-schedule";
 
 const INITIAL_BURST = 8;
@@ -12,7 +12,8 @@ const SAMPLE_WINDOW = 12;
 const SAMPLES_BEFORE_READY = 4;
 
 const clientNow = () => performance.now();
-const deviceEpoch = Date.now() - clientNow();
+const epochNow = () => Date.now() - clientNow();
+const deviceEpoch = epochNow();
 export const deviceNow = () => deviceEpoch + clientNow();
 const isHidden = () => AppState.currentState !== "active";
 
@@ -39,6 +40,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
     const openedAt = clientNow();
     const samples: ClockSample[] = [];
     let hasEstimate = false;
+    let epochAtLastSample = epochNow();
     const steady = () => holdsClockSteady({ playing: playingRef.current, hasEstimate });
     const sampleOnce = async () => {
       if (steady()) return;
@@ -47,6 +49,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       const receivedAt = clientNow();
       if (cancelled || steady()) return;
       samples.push({ sentAt, serverAt, receivedAt });
+      epochAtLastSample = epochNow();
       if (samples.length > SAMPLE_WINDOW) samples.shift();
       if (samples.length >= SAMPLES_BEFORE_READY) {
         hasEstimate = true;
@@ -71,9 +74,16 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
     };
     rescheduleRef.current = schedule;
     void burst(INITIAL_BURST);
+    const forgetStaleSamples = () => {
+      if (!clockSlept(epochAtLastSample, epochNow())) return;
+      samples.length = 0;
+      hasEstimate = false;
+    };
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void burst(WAKE_BURST);
-      else schedule();
+      if (state === "active") {
+        forgetStaleSamples();
+        void burst(WAKE_BURST);
+      } else schedule();
     });
     return () => {
       cancelled = true;

@@ -285,6 +285,7 @@ export class CueAudioEngine {
       this.cancelWhere((beatAt) => beatAt >= stopsAt);
       this.voiceBusyUntil = this.latestVoiceEnd();
     }
+    if (changed && this.hidden) this.tick();
   }
 
   setHidden(hidden: boolean) {

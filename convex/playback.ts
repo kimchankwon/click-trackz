@@ -59,16 +59,20 @@ export const start = mutation({
   },
 });
 
+const samePlayback = (playback: { startsAt: number }, startsAt: number | undefined) => startsAt === undefined || startsAt === playback.startsAt;
+
 export const jump = mutation({
   args: {
     groupId: v.id("groups"),
     toSection: v.number(),
     mode: v.union(v.literal("nextBar"), v.literal("endOfSection")),
+    startsAt: v.optional(v.number()),
   },
-  handler: async (ctx, { groupId, toSection, mode }) => {
+  handler: async (ctx, { groupId, toSection, mode, startsAt }) => {
     await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
+    if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
     const problem = jumpProblem(playback.song, toSection);
     if (problem !== null) throw new ConvexError(problem);
     const jumps = jumpsAfter(playback.song, playback, toSection, mode, Date.now());
@@ -78,11 +82,12 @@ export const jump = mutation({
 });
 
 export const stop = mutation({
-  args: { groupId: v.id("groups") },
-  handler: async (ctx, { groupId }) => {
+  args: { groupId: v.id("groups"), startsAt: v.optional(v.number()) },
+  handler: async (ctx, { groupId, startsAt }) => {
     const { user } = await requireAdmin(ctx, groupId);
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
+    if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
     const stopsAt = stopTime(playback.song, playback, Date.now());
     if (stopsAt === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { stopsAt, stoppedBy: user._id });

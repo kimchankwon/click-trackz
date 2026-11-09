@@ -31,6 +31,14 @@ describe("commandBoundary", () => {
     expect(commandBoundary(song, playback, { nowMs: 12_500, minLeadMs: 0, mode: "nextBar" })).toBeNull();
   });
 
+  it("never lands inside a Count-in, so a Jump during the Lead-in still gets the Count-in", () => {
+    const counted: Song = { ...song, countIn: true };
+    const leadIn = { startsAt: 2_000, startSection: 0 };
+    expect(commandBoundary(counted, leadIn, { nowMs: 500, minLeadMs: 1_000, mode: "nextBar" })).toBe(6_000);
+    expect(commandBoundary(counted, leadIn, { nowMs: 3_000, minLeadMs: 1_000, mode: "nextBar" })).toBe(6_000);
+    expect(commandBoundary(counted, leadIn, { nowMs: 6_500, minLeadMs: 1_000, mode: "nextBar" })).toBe(8_000);
+  });
+
   it("follows the bars of a Jump that is already scheduled", () => {
     const jumped = { ...playback, jumps: [{ at: 2_000, toSection: 1 }] };
     expect(commandBoundary(song, jumped, { nowMs: 2_300, minLeadMs: 0, mode: "endOfSection" })).toBe(6_000);

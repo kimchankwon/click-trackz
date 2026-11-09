@@ -27,9 +27,7 @@ export function ConfirmDialog({
   testID?: string;
 }) {
   const theme = useTheme();
-  const cancel = () => {
-    if (!pending) onCancel();
-  };
+  const cancel = () => onCancel();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={cancel}>
       <View style={styles.layer}>
@@ -47,7 +45,7 @@ export function ConfirmDialog({
             </ThemedText>
           ) : null}
           <View style={styles.actions}>
-            <ActionButton full label="Cancel" testID={testID ? `${testID}-cancel` : undefined} disabled={pending} onPress={cancel} />
+            <ActionButton full label="Cancel" testID={testID ? `${testID}-cancel` : undefined} onPress={cancel} />
             <ActionButton
               full
               accent
