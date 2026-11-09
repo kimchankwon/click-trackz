@@ -1,3 +1,4 @@
+import { byBar, timeChangesProblem } from "@/sync/time-changes";
 import { playsOf, type Section } from "@/sync/timeline";
 
 import { MAX_SONG_TITLE } from "./copy-title";
@@ -25,6 +26,7 @@ const sectionShape = (section: DraftSection) => [
   section.customLabel?.trim() || null,
   section.ownTempo === true,
   playsOf(section),
+  byBar(section.timeChanges ?? []).map((change) => [change.bar, change.bars, change.beatsPerBar, change.beatUnit]),
 ];
 
 const shapeOf = (draft: SongDraft) =>
@@ -51,6 +53,8 @@ export function draftProblem(draft: Pick<SongDraft, "title" | "key" | "bpm" | "s
     const where = `Section ${index + 1}`;
     if (!wholeBetween(section.bars, 1, MAX_BARS)) return `${where}: Bars must be a whole number from 1 to ${MAX_BARS}`;
     if (section.ownTempo === true && !bpmOk(section.bpm)) return `${where}: BPM must be from ${MIN_BPM} to ${MAX_BPM}`;
+    const timeProblem = timeChangesProblem(section);
+    if (timeProblem) return `${where}: ${timeProblem}`;
   }
   return null;
 }

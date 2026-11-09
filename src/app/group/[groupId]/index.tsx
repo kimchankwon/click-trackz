@@ -540,7 +540,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const queuedSections = queuedKey === "" ? [] : queuedKey.split(",").map(Number);
   const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
   const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
-  const tempo = tempoText(tempoSection ?? (playing ? null : startSong?.tempoHint));
+  const barTempo = playing && beat !== null && beat.sectionIndex !== null && tempoSection ? { bpm: tempoSection.bpm, beatsPerBar: beat.beatsPerBar, beatUnit: beat.beatUnit } : tempoSection;
+  const tempo = tempoText(barTempo ?? (playing ? null : startSong?.tempoHint));
   const followingSection = nextStart === null ? undefined : song.sections[nextStart.sectionIndex];
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;

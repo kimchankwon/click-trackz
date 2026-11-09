@@ -1,6 +1,7 @@
+import { meterRunsOf } from "./time-changes";
 import { playsOf, timeSignatureOf, type Section } from "./timeline";
 
-type SummarySection = Pick<Section, "bars" | "beatsPerBar" | "beatUnit" | "bpm" | "plays">;
+type SummarySection = Pick<Section, "bars" | "beatsPerBar" | "beatUnit" | "bpm" | "plays" | "timeChanges">;
 
 function mostBars<T>(sections: readonly SummarySection[], valueOf: (section: SummarySection) => T): T | null {
   const bars = new Map<T, number>();
@@ -10,7 +11,11 @@ function mostBars<T>(sections: readonly SummarySection[], valueOf: (section: Sum
   return best;
 }
 
-export const mainTimeSignature = (sections: readonly SummarySection[]) => mostBars(sections, timeSignatureOf);
+export const mainTimeSignature = (sections: readonly SummarySection[]) =>
+  mostBars(
+    sections.flatMap((section) => meterRunsOf(section).map((run) => ({ ...run, bpm: section.bpm, plays: section.plays }))),
+    timeSignatureOf,
+  );
 
 export const mainBpm = (song: { bpm?: number; sections: readonly SummarySection[] }) => song.bpm ?? mostBars(song.sections, (section) => section.bpm);
 

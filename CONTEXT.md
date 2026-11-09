@@ -27,8 +27,12 @@ An ordered list of Sections, plus whether it has a Count-in, its Clicks per beat
 _Avoid_: Track, chart, arrangement
 
 **Section**:
-A run of consecutive bars sharing one Section type, one tempo and one time signature.
+A run of consecutive bars sharing one Section type and one tempo, in one time signature apart from any Time changes.
 _Avoid_: Part, segment, block
+
+**Time change**:
+A few bars inside a Section that play in another time signature, such as one bar of 2/4 at bar 8, before the Section's own time signature returns. A Time change has no Voice cue of its own, so a Cue lead counts straight across it, and the beat keeps its note value: a quarter note stays a quarter note.
+_Avoid_: Subsection, meter change, odd bar
 
 **Song tempo**:
 The BPM every Section of a Song plays at, unless that Section has its own tempo.

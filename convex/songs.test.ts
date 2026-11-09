@@ -79,6 +79,23 @@ describe("Songs", () => {
     await expect(bad(2.5)).rejects.toThrow(/Plays/);
   });
 
+  it("saves a Section's time changes in bar order, and refuses ones that do not fit", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Odd" });
+    const twoFour = { bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 };
+    const threeEight = { bar: 1, bars: 1, beatsPerBar: 3, beatUnit: 8 };
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, timeChanges: [twoFour, threeEight] }, { ...verse, number: 2, timeChanges: [] }] });
+    const saved = await member.query(api.songs.get, { songId });
+    expect(saved?.sections[0].timeChanges).toEqual([threeEight, twoFour]);
+    expect(saved?.sections[1]).not.toHaveProperty("timeChanges");
+
+    const bad = (timeChanges: (typeof twoFour)[]) => admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, timeChanges }] });
+    await expect(bad([{ ...twoFour, bar: 9 }])).rejects.toThrow(/Section 1: A time change must start/);
+    await expect(bad([{ ...twoFour, bars: 2 }])).rejects.toThrow(/runs past the end/);
+    await expect(bad([twoFour, { ...twoFour, bar: 7, bars: 2 }])).rejects.toThrow(/overlaps/);
+    await expect(bad([{ ...twoFour, beatUnit: 5 }])).rejects.toThrow(/halves, quarters/);
+  });
+
   it("saves the Song's Clicks per beat, from 1 to 4", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Waltz" });

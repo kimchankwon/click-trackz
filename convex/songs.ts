@@ -9,6 +9,7 @@ import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, MAX_PLAYS, SUBDIVISIONS, subd
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 import { mainBpm, mainTimeSignature } from "../src/sync/song-summary";
+import { byBar, timeChangesProblem } from "../src/sync/time-changes";
 import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
 const cleanTitle = (title: string) => {
@@ -90,8 +91,15 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   if (section.plays !== undefined && !wholeBetween(section.plays, 1, MAX_PLAYS)) {
     throw new ConvexError(`${where}: Plays must be a whole number from 1 to ${MAX_PLAYS}`);
   }
-  const { plays, ...rest } = section;
-  return { ...rest, ...(plays !== undefined && plays > 1 ? { plays } : {}), sectionType };
+  const timeProblem = timeChangesProblem(section);
+  if (timeProblem) throw new ConvexError(`${where}: ${timeProblem}`);
+  const { plays, timeChanges, ...rest } = section;
+  return {
+    ...rest,
+    ...(plays !== undefined && plays > 1 ? { plays } : {}),
+    ...(timeChanges?.length ? { timeChanges: byBar(timeChanges) } : {}),
+    sectionType,
+  };
 }
 
 export const updateSong = mutation({

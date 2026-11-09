@@ -15,6 +15,7 @@ export const sectionFields = v.object({
   customLabel: v.optional(v.string()),
   ownTempo: v.optional(v.boolean()),
   plays: v.optional(v.number()),
+  timeChanges: v.optional(v.array(v.object({ bar: v.number(), bars: v.number(), beatsPerBar: v.number(), beatUnit: v.number() }))),
 });
 
 export default defineSchema({
