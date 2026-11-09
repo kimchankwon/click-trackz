@@ -87,6 +87,17 @@ export const duplicateGroup = mutation({
   },
 });
 
+export const rename = mutation({
+  args: { groupId: v.id("groups"), name: v.string() },
+  handler: async (ctx, { groupId, name }) => {
+    await requireAdmin(ctx, groupId);
+    const group = await ctx.db.get(groupId);
+    if (group === null) throw new ConvexError("That Group no longer exists");
+    if (group.offline === true) throw new ConvexError("Offline cannot be renamed");
+    await ctx.db.patch(groupId, { name: cleanName(name, "Group name"), copyBase: undefined });
+  },
+});
+
 const OFFLINE_NAME = "Offline";
 
 export const openOffline = mutation({

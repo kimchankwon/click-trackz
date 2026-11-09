@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { router, useLocalSearchParams } from "expo-router";
-import { Fragment, useState } from "react";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -23,7 +23,7 @@ import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/the
 import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
-import { sameDraft, type SongDraft } from "@/lib/song-draft";
+import { draftProblem, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
@@ -77,14 +77,14 @@ function TimeSignatureField({ section, open, onToggle, testID }: { section: Edit
 }
 type SectionRowState = { id: number; section: EditableSection };
 
-function NumberField({ label, value, onChange, testID }: { label: string; value: number; onChange: (next: number) => void; testID: string }) {
+function NumberField({ label, value, onChange, testID, integer = false }: { label: string; value: number; onChange: (next: number) => void; testID: string; integer?: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <Field
       label={label}
       testID={testID}
       value={draft ?? String(value)}
-      inputMode="decimal"
+      inputMode={integer ? "numeric" : "decimal"}
       onFocus={() => setDraft(String(value))}
       onBlur={() => setDraft(null)}
       onChangeText={(next) => {
@@ -197,7 +197,7 @@ function SectionRow({
         </View>
       ) : null}
       <View style={styles.fields}>
-        <NumberField label="Bars" value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
+        <NumberField label="Bars" integer value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
         <TimeSignatureField section={section} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`section-${index}-time`} />
         {section.ownTempo ? (
           <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
@@ -360,9 +360,22 @@ function SongForm({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, sections };
   const changed = !sameDraft(draft, savedDraftOf(song));
+  const problem = draftProblem(draft);
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const toast = useToast();
+  const [askDiscard, setAskDiscard] = useState(false);
+  const [departure, setDeparture] = useState<(() => void) | null>(null);
+  const attempt = useRef(0);
+  const beginAttempt = () => ++attempt.current;
+  const abandonAttempt = () => {
+    attempt.current += 1;
+  };
+  usePreventRemove(changed && departure === null, () => setAskDiscard(true));
+  useEffect(() => {
+    departure?.();
+  }, [departure]);
   const copyName = library
     ? copyTitle(
         copyBaseOf({ title, copyBase: song.copyBase }),
@@ -371,15 +384,22 @@ function SongForm({
     : null;
   const confirmDuplicate = async () => {
     if (duplicatePending) return;
+    if (changed && problem !== null) {
+      setDuplicateError(problem);
+      return;
+    }
     setDuplicateError(null);
     setDuplicatePending(true);
+    const mine = beginAttempt();
     try {
       if (changed) await updateSong({ songId, ...draft });
       const copy = await duplicateSong({ songId });
+      if (mine !== attempt.current) return;
       setConfirmingDuplicate(false);
-      router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } });
+      setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
     } catch (error) {
-      setDuplicateError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDuplicateError(errorText(error));
     } finally {
       setDuplicatePending(false);
     }
@@ -388,17 +408,19 @@ function SongForm({
     if (deletePending) return;
     setDeleteError(null);
     setDeletePending(true);
+    const mine = beginAttempt();
     try {
       await deleteSong({ songId });
+      if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      router.back();
+      setDeparture(() => () => router.back());
     } catch (error) {
-      setDeleteError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
     }
   };
-  const toast = useToast();
 
   const run = (action: () => Promise<unknown>) => {
     setMessage(null);
@@ -517,11 +539,6 @@ function SongForm({
             <ActionButton icon="add" label="Add Section" testID="add-section" onPress={() => insertSection(rows.length)} />
           </View>
 
-          {message ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="editor-message" style={styles.centeredText}>
-              {message}
-            </ThemedText>
-          ) : null}
           <ActionButton
             icon="copy"
             label="Duplicate Song"
@@ -543,6 +560,11 @@ function SongForm({
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
+          {problem ?? message ? (
+            <ThemedText type="small" themeColor={problem ? "danger" : "textSecondary"} testID="editor-message" style={styles.centeredText}>
+              {problem ?? message}
+            </ThemedText>
+          ) : null}
           <ActionButton
             large
             full
@@ -552,6 +574,7 @@ function SongForm({
             accessibleName="Save"
             testID="save-song"
             pending={saving}
+            disabled={problem !== null}
             onPress={save}
           />
         </View>
@@ -567,8 +590,20 @@ function SongForm({
           pending={duplicatePending}
           error={duplicateError}
           onConfirm={() => void confirmDuplicate()}
-          onCancel={() => setConfirmingDuplicate(false)}
+          onCancel={() => {
+            abandonAttempt();
+            setConfirmingDuplicate(false);
+          }}
           testID="duplicate-song-dialog"
+        />
+        <ConfirmDialog
+          visible={askDiscard && departure === null}
+          title="Discard changes?"
+          message={`Your edits to ${song.title} are not saved.`}
+          confirmLabel="Discard"
+          onConfirm={() => setDeparture(() => () => router.back())}
+          onCancel={() => setAskDiscard(false)}
+          testID="discard-song-dialog"
         />
         <ConfirmDialog
           visible={confirmingDelete}
@@ -578,7 +613,10 @@ function SongForm({
           pending={deletePending}
           error={deleteError}
           onConfirm={() => void confirmDelete()}
-          onCancel={() => setConfirmingDelete(false)}
+          onCancel={() => {
+            abandonAttempt();
+            setConfirmingDelete(false);
+          }}
           testID="delete-song-dialog"
         />
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
@@ -634,5 +672,5 @@ const styles = StyleSheet.create({
   timeButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
   timeText: { fontSize: 17, fontVariant: ["tabular-nums"] },
   centeredText: { textAlign: "center" },
-  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
+  dock: { gap: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

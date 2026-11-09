@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { router, useLocalSearchParams } from "expo-router";
-import { useRef, useState } from "react";
+import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -32,6 +32,10 @@ type LiveSetlist = {
 
 const toEntries = (setlist: LiveSetlist): Entry[] =>
   setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }));
+
+const sameEntries = (a: readonly Entry[], b: readonly Entry[]) =>
+  a.length === b.length &&
+  a.every((entry, index) => entry.songId === b[index].songId && entry.key.trim() === b[index].key.trim() && entry.leader.trim() === b[index].leader.trim());
 
 export default function SetlistScreen() {
   const params = useLocalSearchParams<{ groupId: string; setlistId: string }>();
@@ -85,16 +89,27 @@ function SetlistForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const changed = name.trim() !== live.name || !sameEntries(entries, toEntries(live));
+  const [askDiscard, setAskDiscard] = useState(false);
+  const [departure, setDeparture] = useState<(() => void) | null>(null);
+  const attempt = useRef(0);
+  usePreventRemove(changed && departure === null, () => setAskDiscard(true));
+  useEffect(() => {
+    departure?.();
+  }, [departure]);
   const confirmDelete = async () => {
     if (deletePending) return;
     setDeleteError(null);
     setDeletePending(true);
+    const mine = ++attempt.current;
     try {
       await deleteSetlist({ setlistId });
+      if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      router.back();
+      setDeparture(() => () => router.back());
     } catch (error) {
-      setDeleteError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
     }
@@ -284,11 +299,6 @@ function SetlistForm({
             )}
           </View>
 
-          {message ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="setlist-message" style={styles.centeredText}>
-              {message}
-            </ThemedText>
-          ) : null}
           <ActionButton
             variant="danger"
             icon="trash"
@@ -302,6 +312,11 @@ function SetlistForm({
           />
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
+          {message ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="setlist-message" style={styles.centeredText}>
+              {message}
+            </ThemedText>
+          ) : null}
           <ActionButton
             large
             full
@@ -317,6 +332,15 @@ function SetlistForm({
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
       <ConfirmDialog
+        visible={askDiscard && departure === null}
+        title="Discard changes?"
+        message={`Your edits to ${live.name} are not saved.`}
+        confirmLabel="Discard"
+        onConfirm={() => setDeparture(() => () => router.back())}
+        onCancel={() => setAskDiscard(false)}
+        testID="discard-setlist-dialog"
+      />
+      <ConfirmDialog
         visible={confirmingDelete}
         title={`Delete ${live.name}?`}
         message="This Setlist will be deleted for everyone in the Group. Its Songs stay in the Song library."
@@ -324,7 +348,10 @@ function SetlistForm({
         pending={deletePending}
         error={deleteError}
         onConfirm={() => void confirmDelete()}
-        onCancel={() => setConfirmingDelete(false)}
+        onCancel={() => {
+          attempt.current += 1;
+          setConfirmingDelete(false);
+        }}
         testID="delete-setlist-dialog"
       />
     </ThemedView>
@@ -362,5 +389,5 @@ const styles = StyleSheet.create({
   library: { borderRadius: Radius.lg, overflow: "hidden" },
   libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 48, paddingHorizontal: Spacing.three },
   centeredText: { textAlign: "center" },
-  dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
+  dock: { gap: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });
