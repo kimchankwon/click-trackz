@@ -15,21 +15,33 @@ const EVENT_OF = {
 
 const UNUSED_CONTROLS: readonly PlaybackControlName[] = ["skipForward", "skipBackward", "seekTo"];
 
-export async function showOnLockScreen(info: LockScreenInfo): Promise<void> {
-  if (!lockScreenAvailable) return;
-  await PlaybackNotificationManager.show({ ...info, state: info.speed > 0 ? "playing" : "paused" });
+let queue: Promise<void> = Promise.resolve();
+
+function inTurn(task: () => Promise<void>): Promise<void> {
+  const turn = queue.then(task, task);
+  queue = turn.catch(() => undefined);
+  return turn;
 }
 
-export async function setLockScreenControls(enabled: Record<LockScreenCommand, boolean>): Promise<void> {
-  if (!lockScreenAvailable) return;
-  for (const control of UNUSED_CONTROLS) await PlaybackNotificationManager.enableControl(control, false);
-  for (const command of LOCK_SCREEN_COMMANDS) await PlaybackNotificationManager.enableControl(command, enabled[command]);
+export function showOnLockScreen(info: LockScreenInfo): Promise<void> {
+  if (!lockScreenAvailable) return Promise.resolve();
+  return inTurn(() => PlaybackNotificationManager.show({ ...info, state: info.speed > 0 ? "playing" : "paused" }));
 }
 
-export async function clearLockScreen(): Promise<void> {
-  if (!lockScreenAvailable) return;
-  for (const control of [...UNUSED_CONTROLS, ...LOCK_SCREEN_COMMANDS]) await PlaybackNotificationManager.enableControl(control, false);
-  await PlaybackNotificationManager.hide();
+export function setLockScreenControls(enabled: Record<LockScreenCommand, boolean>): Promise<void> {
+  if (!lockScreenAvailable) return Promise.resolve();
+  return inTurn(async () => {
+    for (const control of UNUSED_CONTROLS) await PlaybackNotificationManager.enableControl(control, false);
+    for (const command of LOCK_SCREEN_COMMANDS) await PlaybackNotificationManager.enableControl(command, enabled[command]);
+  });
+}
+
+export function clearLockScreen(): Promise<void> {
+  if (!lockScreenAvailable) return Promise.resolve();
+  return inTurn(async () => {
+    for (const control of [...UNUSED_CONTROLS, ...LOCK_SCREEN_COMMANDS]) await PlaybackNotificationManager.enableControl(control, false);
+    await PlaybackNotificationManager.hide();
+  });
 }
 
 export function onLockScreenCommand(handler: (command: LockScreenCommand) => void): () => void {

@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { AudioManager } from "react-native-audio-api";
 
 import { describeAudioError } from "./audio-failure";
@@ -8,10 +9,19 @@ export function preferPlaybackSession() {
   AudioManager.setAudioSessionOptions({ iosCategory: "playback", iosMode: "default", iosOptions: ownsNowPlaying ? [] : ["mixWithOthers"] });
 }
 
-export function setOwnsNowPlaying(owns: boolean) {
+export function setOwnsNowPlaying(owns: boolean, { applyNow = true }: { applyNow?: boolean } = {}) {
   if (owns === ownsNowPlaying) return;
   ownsNowPlaying = owns;
-  preferPlaybackSession();
+  if (applyNow) preferPlaybackSession();
+}
+
+export function onInterruptionEnded(handler: (shouldResume: boolean) => void): () => void {
+  if (Platform.OS !== "ios") return () => undefined;
+  AudioManager.observeAudioInterruptions(true);
+  const subscription = AudioManager.addSystemEventListener("interruption", (event) => {
+    if (event.type === "ended") handler(event.shouldResume);
+  });
+  return () => subscription.remove();
 }
 
 export async function probeAudioSession(): Promise<string | null> {

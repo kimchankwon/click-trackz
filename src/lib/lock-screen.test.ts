@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenState } from "./lock-screen";
+import type { Playback, Song } from "@/sync/timeline";
+
+import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenState } from "./lock-screen";
+
+const BAR_MS = 2_000;
+const section = (bars: number) => ({ sectionType: "Verse", bars, beatsPerBar: 4, bpm: 120, voiceCueEnabled: false });
 
 const idleAdmin: LockScreenState = {
   steers: true,
@@ -82,6 +87,26 @@ describe("lockScreenInfo", () => {
 
   it("holds still while muted or vamping", () => {
     expect(lockScreenInfo({ ...base, playing: true, muted: true, span: { startsAt: 1_000, endsAt: 61_000 } })).toMatchObject({ artist: "Chorus 2, muted", speed: 0 });
-    expect(lockScreenInfo({ ...base, playing: true, span: { startsAt: 1_000, endsAt: Infinity } })).toMatchObject({ duration: 0, elapsedTime: 0 });
+    expect(lockScreenInfo({ ...base, playing: true, span: { startsAt: 1_000, endsAt: Infinity } })).toMatchObject({ artist: "Chorus 2", duration: 0, elapsedTime: 0, speed: 0 });
+  });
+});
+
+describe("livePlayback", () => {
+  const song: Song = { countIn: false, sections: [section(4), section(4)] };
+  const playback: Playback = { startsAt: 10_000, startSection: 0, startBar: 1 };
+
+  it("reads the playing Section from the clock, not from the last frame drawn", () => {
+    expect(livePlayback(song, playback, 10_000 + 5 * BAR_MS)).toMatchObject({ playing: true, latest: { sectionIndex: 1 } });
+    expect(livePlayback(song, playback, 10_000 + BAR_MS)).toMatchObject({ playing: true, latest: { sectionIndex: 0 } });
+  });
+
+  it("is idle before a Playback, after its end and without a clock", () => {
+    expect(livePlayback(song, playback, 10_000 + 9 * BAR_MS)).toEqual({ playing: false, latest: null });
+    expect(livePlayback(song, null, 20_000)).toEqual({ playing: false, latest: null });
+    expect(livePlayback(song, playback, null)).toEqual({ playing: false, latest: null });
+  });
+
+  it("stops being live at a Stop", () => {
+    expect(livePlayback(song, { ...playback, stopsAt: 10_000 + BAR_MS }, 10_000 + 2 * BAR_MS).playing).toBe(false);
   });
 });

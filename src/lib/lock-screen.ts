@@ -1,4 +1,17 @@
-export const LOCK_SCREEN_COMMANDS = ["play", "pause", "stop", "nextTrack", "previousTrack"] as const;
+import { beatsBetween, longestBeatMs, playbackEndsAt, type Beat, type Playback, type Song } from "@/sync/timeline";
+
+const RECENT_BEATS_MS = 10_000;
+
+export type LivePlayback = { playing: boolean; latest: Beat | null };
+
+export function livePlayback(song: Song, playback: Playback | null, nowMs: number | null): LivePlayback {
+  if (playback === null || nowMs === null || song.sections.length === 0) return { playing: false, latest: null };
+  if (nowMs >= playbackEndsAt(song, playback)) return { playing: false, latest: null };
+  const recent = beatsBetween(song, playback, nowMs - Math.max(RECENT_BEATS_MS, longestBeatMs(song)), nowMs + 1);
+  return { playing: true, latest: recent.at(-1) ?? null };
+}
+
+export const LOCK_SCREEN_COMMANDS =["play", "pause", "stop", "nextTrack", "previousTrack"] as const;
 
 export type LockScreenCommand = (typeof LOCK_SCREEN_COMMANDS)[number];
 
@@ -86,6 +99,6 @@ export function lockScreenInfo({
     album: place,
     duration: Math.max(0, durationMs) / 1000,
     elapsedTime: elapsedMs / 1000,
-    speed: playing && !muted ? 1 : 0,
+    speed: playing && !muted && playingSpan !== null ? 1 : 0,
   };
 }
