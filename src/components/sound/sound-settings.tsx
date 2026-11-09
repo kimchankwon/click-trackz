@@ -141,7 +141,7 @@ export function SoundSettings({
         </Pressable>
       </Card>
       <ThemedText type="caption" themeColor={saveError ? "danger" : "textSecondary"} testID="sound-saved-caption" style={styles.caption}>
-        {saveError ?? "Saved to your account, so every Group and device uses the same sound."}
+        {saveError ?? "Mix and Speaker are saved to your account, so every Group and device uses them. The rest stays on this device."}
       </ThemedText>
     </>
   );

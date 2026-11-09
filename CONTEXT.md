@@ -92,6 +92,18 @@ _Avoid_: Voice, narrator, announcer
 The built-in recordings of the chosen Speaker that play the Voice cues and spoken counts.
 _Avoid_: Samples, voice, sound bank
 
+**Stereo split**:
+A per-device choice of which ear hears the Click and which hears the Voice cues: Left, Right or Both, for split in-ear monitors.
+_Avoid_: Panning, channel
+
+**Haptic beat**:
+A per-device choice to feel the downbeats, or every beat, as a tap on the phone while Play is open.
+_Avoid_: Vibration, buzz
+
+**Tap tempo**:
+Setting a Song tempo by tapping along with the beat in the Song editor.
+_Avoid_: Tap BPM
+
 **Latency nudge**:
 A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite the delay of their own audio output, such as Bluetooth headphones.
 _Avoid_: Delay, offset, calibration
@@ -113,6 +125,18 @@ _Avoid_: Count-in, pre-roll, delay
 **Jump**:
 The Admin command that moves Playback to another Section at the next bar line.
 _Avoid_: Skip, seek, goto
+
+**Repeat**:
+The Admin command that plays the current Section once more from the end of its pass, then carries on with the Song.
+_Avoid_: Again, replay
+
+**Vamp**:
+The Admin command that keeps repeating the current Section from the end of its pass until an Admin ends the vamp. The Voice cue speaks the Section before each repeat, and ending the vamp goes on to the next Section at the end of the current pass, or ends the Song on the last Section. While a Group vamps, its Playback has no end time.
+_Avoid_: Loop, hold
+
+**Play through**:
+An Admin's choice, when starting a Song from the Current setlist, that the next Song in that Setlist with Sections starts a second after this one ends, with its own Count-in. A Stop ends the run, and a Vamp holds it until the vamp ends.
+_Avoid_: Autoplay, continuous play, medley
 
 **Mute**:
 A Member silencing the Click and Voice cues on their own device while Play keeps showing the shared beat and Playback carries on for everyone else; Unmute brings the sound back on the next beat, and the next Start unmutes them on its own.

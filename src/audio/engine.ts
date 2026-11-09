@@ -219,6 +219,7 @@ export class CueAudioEngine {
       latencyMs: context ? outputLatencyMs(context) : null,
       needsFreshContext: this.needsFreshContext,
       failure: this.failure,
+      pan: this.panning,
     };
   }
 

@@ -228,7 +228,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
   const nextUpId = playback ? nextInSetlist(setlistOrder, playback.songId, (id) => playableInSetlist.has(id)) : null;
   const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
-  const nextUpSong = useQuery(api.songs.get, onDevice && nextUpId ? { songId: nextUpId } : "skip");
+  const nextUpSong = useQuery(api.songs.get, nextUpId ? { songId: nextUpId } : "skip");
   const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
