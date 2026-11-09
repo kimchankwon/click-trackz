@@ -121,6 +121,7 @@ type Bar = {
   barNumber: number;
   pass: number;
   passes: number;
+  repeatsPass: boolean;
   passMs: number;
   msIntoPass: number;
   segmentEndsAt: number;
@@ -227,6 +228,7 @@ function vampBarsOf(song: Song, segment: Segment, fromMs: number, untilMs: numbe
         barNumber,
         pass: 1,
         passes: 1,
+        repeatsPass: false,
         passMs,
         msIntoPass,
         segmentEndsAt: segment.endsAt,
@@ -244,7 +246,7 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
   const stop = Math.min(segment.endsAt, untilMs);
   const bars: Bar[] = [];
   let startsAt = segment.startsAt;
-  const push = (meter: Meter, place: Pick<Bar, "section" | "sectionIndex" | "barNumber" | "pass" | "passes" | "passMs" | "msIntoPass">) => {
+  const push = (meter: Meter, place: Pick<Bar, "section" | "sectionIndex" | "barNumber" | "pass" | "passes" | "repeatsPass" | "passMs" | "msIntoPass">) => {
     bars.push({ startsAt, ...meter, ...place, segmentEndsAt: segment.endsAt, cueFrom: segment.cueFrom });
     startsAt += msOf(meter);
   };
@@ -252,7 +254,7 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
     const meter = mainMeterOf(sections[0]);
     const leadBars = cueLeadBarsOf(song);
     for (let bar = 1; bar <= leadBars && startsAt < stop; bar++) {
-      push(meter, { section: null, sectionIndex: null, barNumber: bar, pass: 1, passes: 1, passMs: leadBars * msOf(meter), msIntoPass: (bar - 1) * msOf(meter) });
+      push(meter, { section: null, sectionIndex: null, barNumber: bar, pass: 1, passes: 1, repeatsPass: false, passMs: leadBars * msOf(meter), msIntoPass: (bar - 1) * msOf(meter) });
     }
   }
   for (const [offset, section] of sections.entries()) {
@@ -266,7 +268,7 @@ function barsOf(song: Song, segment: Segment, fromMs: number, untilMs: number): 
       for (let barNumber = firstBar; barNumber <= section.bars; barNumber++) {
         if (startsAt >= stop) return bars;
         const meter = meterOf(section, barNumber);
-        push(meter, { section, sectionIndex, barNumber, pass, passes, passMs, msIntoPass });
+        push(meter, { section, sectionIndex, barNumber, pass, passes, repeatsPass: pass > firstPass, passMs, msIntoPass });
         msIntoPass += msOf(meter);
       }
     }
@@ -286,7 +288,7 @@ const voiceCueOf = (section: Section): VoiceCue =>
 
 const entersSection = (bars: readonly Bar[], index: number) => {
   const bar = bars[index];
-  return bar?.section != null && (bar.barNumber === 1 || bars[index - 1]?.section === null);
+  return bar?.section != null && !bar.repeatsPass && (bar.barNumber === 1 || bars[index - 1]?.section === null);
 };
 
 const spacingOf = (bar: Bar, leadBars: number) => {

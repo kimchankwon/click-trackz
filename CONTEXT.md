@@ -43,7 +43,7 @@ A Section's choice to play at its own BPM instead of the Song tempo.
 _Avoid_: Override, custom BPM
 
 **Plays**:
-How many times in a row a Section plays before the Song moves on, once unless an Admin sets more. Each time through is a pass: the Voice cue speaks the Section before every pass, and Play shows which pass is playing.
+How many times in a row a Section plays before the Song moves on, once unless an Admin sets more. Each time through is a pass: the Voice cue speaks the Section before the first pass only, the later passes play without one, and Play shows which pass is playing.
 _Avoid_: Repeats, times, loop count
 
 **Section type**:
@@ -135,7 +135,7 @@ The Admin command that moves Playback to another Section at the next bar line.
 _Avoid_: Skip, seek, goto
 
 **Repeat**:
-The Admin command that plays the current pass of a Section once more from its end, then carries on with the Song, including any passes the Section's Plays still has to go.
+The Admin command that plays the current pass of a Section once more from its end, then carries on with the Song, including any passes the Section's Plays still has to go. Being unplanned, the extra pass gets the Section's Voice cue.
 _Avoid_: Again, replay
 
 **Vamp**:
