@@ -13,7 +13,8 @@ export function timeChangesProblem(section: ChangeableSection): string | null {
   for (const change of byBar(changes)) {
     const where = `The time change at bar ${change.bar}`;
     if (!wholeBetween(change.bar, 1, section.bars)) return `A time change must start on a bar from 1 to ${section.bars}`;
-    if (!wholeBetween(change.bars, 1, section.bars) || change.bar + change.bars - 1 > section.bars) return `${where} runs past the end of the Section`;
+    if (!Number.isInteger(change.bars) || change.bars < 1) return `${where} needs a whole number of bars`;
+    if (change.bar + change.bars - 1 > section.bars) return `${where} runs past the end of the Section`;
     if (change.bar < firstFreeBar) return `${where} overlaps the one before it`;
     if (!wholeBetween(change.beatsPerBar, 1, 12)) return `${where} needs 1 to 12 beats per bar`;
     if (!BEAT_UNITS.some((unit) => unit === change.beatUnit)) return `${where} must count halves, quarters, eighths or sixteenths`;
