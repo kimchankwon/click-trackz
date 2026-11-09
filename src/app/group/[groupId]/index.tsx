@@ -12,6 +12,7 @@ import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { SectionChip } from "@/components/playback/section-chip";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
@@ -936,13 +937,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         <Card title="Sections">
           <View style={styles.wrap}>
             {shownSections.map((section, index) => (
-              <Chip
+              <SectionChip
                 key={index}
-                role="button"
-                strong
-                compact
                 label={shortTitleOf(section)}
-                badge={playsOf(section) > 1 ? `×${playsOf(section)}` : undefined}
+                plays={playsOf(section)}
                 accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
                 queued={playing && queuedSections.includes(index)}
                 testID={`play-section-${index}`}

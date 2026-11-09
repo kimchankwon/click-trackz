@@ -5,10 +5,17 @@ import { shortTitleOf } from "./section-short";
 
 describe("shortTitleOf", () => {
   it("shortens built-in Section types and keeps the number", () => {
-    expect(shortTitleOf({ sectionType: "Intro", number: 1 })).toBe("I1");
-    expect(shortTitleOf({ sectionType: "Verse", number: 1 })).toBe("V1");
+    expect(shortTitleOf({ sectionType: "Intro", number: 1 })).toBe("Intr1");
+    expect(shortTitleOf({ sectionType: "Verse", number: 1 })).toBe("Vs1");
     expect(shortTitleOf({ sectionType: "Pre-Chorus" })).toBe("Pr");
-    expect(shortTitleOf({ sectionType: "Chorus", number: 2 })).toBe("C2");
+    expect(shortTitleOf({ sectionType: "Interlude" })).toBe("Intl");
+    expect(shortTitleOf({ sectionType: "Instrumental" })).toBe("Ins");
+  });
+
+  it("puts a space between a short name ending in a full stop and its number", () => {
+    expect(shortTitleOf({ sectionType: "Chorus" })).toBe("Ch.");
+    expect(shortTitleOf({ sectionType: "Chorus", number: 2 })).toBe("Ch. 2");
+    expect(shortTitleOf({ sectionType: "Bridge", number: 1 })).toBe("Br. 1");
   });
 
   it("gives every built-in Section type its own short name", () => {
