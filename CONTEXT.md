@@ -147,7 +147,7 @@ The Admin command that keeps repeating the current Section from the end of its p
 _Avoid_: Loop, hold
 
 **Play through**:
-An Admin's choice, when starting a Song from the Current setlist, that the next Song in that Setlist with Sections starts a second after this one ends, with its own Count-in. A Stop ends the run, and a Vamp holds it until the vamp ends.
+What happens when an Admin starts a Song picked from the Current setlist: the next Song in that Setlist with Sections starts a second after this one ends, with its own Count-in, and Play shows the Setlist's name in place of the Group's. A Song picked from the Song library plays on its own. A Stop ends the run, and a Vamp holds it until the vamp ends.
 _Avoid_: Autoplay, continuous play, medley
 
 **Mute**:
