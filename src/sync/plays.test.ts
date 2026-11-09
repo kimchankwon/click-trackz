@@ -31,6 +31,7 @@ describe("Plays", () => {
     expect(playsOf(song.sections[0])).toBe(1);
     expect(playsOf(song.sections[1])).toBe(3);
     expect(playsOf({ ...song.sections[1], plays: 0 })).toBe(1);
+    expect(playsOf({ ...song.sections[1], plays: 1_000 })).toBe(16);
   });
 
   it("plays a Section as many times in a row as its Plays, then moves on", () => {

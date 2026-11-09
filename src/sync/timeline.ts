@@ -12,7 +12,7 @@ export type Section = {
 export const MAX_PLAYS = 16;
 
 export const playsOf = (section: Pick<Section, "plays">): number =>
-  section.plays !== undefined && Number.isInteger(section.plays) && section.plays > 1 ? section.plays : 1;
+  section.plays !== undefined && Number.isInteger(section.plays) && section.plays > 1 ? Math.min(section.plays, MAX_PLAYS) : 1;
 
 export const BEAT_UNITS = [2, 4, 8, 16] as const;
 
