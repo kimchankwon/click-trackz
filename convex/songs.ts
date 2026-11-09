@@ -5,7 +5,7 @@ import { mutation, query } from "./_generated/server";
 import { requireAdmin, requireMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
-import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
+import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, MAX_PLAYS, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 import { mainBpm, mainTimeSignature } from "../src/sync/song-summary";
@@ -87,7 +87,11 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   if (section.customLabel !== undefined && section.customLabel.trim().length > 20) {
     throw new ConvexError(`${where}: Custom label must be 20 characters or fewer`);
   }
-  return { ...section, sectionType };
+  if (section.plays !== undefined && !wholeBetween(section.plays, 1, MAX_PLAYS)) {
+    throw new ConvexError(`${where}: Plays must be a whole number from 1 to ${MAX_PLAYS}`);
+  }
+  const { plays, ...rest } = section;
+  return { ...rest, ...(plays !== undefined && plays > 1 ? { plays } : {}), sectionType };
 }
 
 export const updateSong = mutation({

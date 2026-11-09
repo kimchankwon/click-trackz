@@ -14,6 +14,7 @@ export const sectionFields = v.object({
   voiceCueEnabled: v.optional(v.boolean()),
   customLabel: v.optional(v.string()),
   ownTempo: v.optional(v.boolean()),
+  plays: v.optional(v.number()),
 });
 
 export default defineSchema({
@@ -81,7 +82,9 @@ export default defineSchema({
     startsAt: v.number(),
     startSection: v.number(),
     startBar: v.optional(v.number()),
-    jumps: v.array(v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()), vamp: v.optional(v.boolean()) })),
+    jumps: v.array(
+      v.object({ at: v.number(), toSection: v.number(), cueFrom: v.optional(v.number()), vamp: v.optional(v.boolean()), pass: v.optional(v.number()) }),
+    ),
     stopsAt: v.union(v.number(), v.null()),
     startedBy: v.id("users"),
     stoppedBy: v.optional(v.id("users")),

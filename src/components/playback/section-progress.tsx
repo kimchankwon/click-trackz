@@ -12,6 +12,8 @@ export function SectionProgress({ beat, serverNow }: { beat: Beat; serverNow: ()
   const theme = useTheme();
   const progress = useSharedValue(0);
   const countIn = beat.sectionIndex === null;
+  const repeats = !countIn && beat.passesInSection > 1;
+  const passLabel = repeats ? `, pass ${beat.passInSection} of ${beat.passesInSection}` : "";
 
   useEffect(() => {
     const { start, to, durationMs } = sectionProgressFrom(beat, serverNow());
@@ -23,7 +25,7 @@ export function SectionProgress({ beat, serverNow }: { beat: Beat; serverNow: ()
 
   return (
     <View style={styles.block} testID="section-progress">
-      <View style={styles.readout} aria-label={countIn ? "Count-in" : `Bar ${beat.barInSection} of ${beat.barsInSection}`}>
+      <View style={styles.readout} aria-label={countIn ? "Count-in" : `Bar ${beat.barInSection} of ${beat.barsInSection}${passLabel}`}>
         <ThemedText themeColor="textSecondary" style={styles.caption}>
           {countIn ? "Count-in" : "Bar"}
         </ThemedText>
@@ -35,6 +37,19 @@ export function SectionProgress({ beat, serverNow }: { beat: Beat; serverNow: ()
             </ThemedText>
           </ThemedText>
         )}
+        {repeats ? (
+          <>
+            <ThemedText themeColor="textSecondary" style={[styles.caption, styles.passCaption]}>
+              Pass
+            </ThemedText>
+            <ThemedText testID="section-pass" style={styles.barNumber}>
+              {beat.passInSection}
+              <ThemedText themeColor="textSecondary" style={styles.barTotal}>
+                {" "}/ {beat.passesInSection}
+              </ThemedText>
+            </ThemedText>
+          </>
+        ) : null}
       </View>
       <View style={[styles.track, { backgroundColor: theme.backgroundElement }]}>
         <Animated.View style={[styles.fill, { backgroundColor: countIn ? theme.textTertiary : theme.accent }, fillStyle]} />
@@ -47,6 +62,7 @@ const styles = StyleSheet.create({
   block: { width: "100%", maxWidth: 360, gap: Spacing.two },
   readout: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", gap: Spacing.two, minHeight: 30 },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
+  passCaption: { marginLeft: Spacing.three },
   barNumber: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: 700, fontVariant: ["tabular-nums"] },
   barTotal: { fontFamily: Fonts.display, fontSize: 18, lineHeight: 30, fontWeight: 600, fontVariant: ["tabular-nums"] },
   track: { height: 8, borderRadius: Radius.pill, overflow: "hidden", width: "100%" },

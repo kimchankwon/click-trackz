@@ -1,4 +1,4 @@
-import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionIndexBefore, subdivisionOf, vampingSection, type Jump, type Playback, type Song } from "./timeline";
+import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionPassBefore, subdivisionOf, vampingSection, type Jump, type Playback, type Song } from "./timeline";
 
 export const LEAD_IN_MS = 2_000;
 export const MIN_COMMAND_LEAD_MS = 1_000;
@@ -66,9 +66,10 @@ export function repeatJumps(song: Song, playback: Playback & { jumps: readonly J
   if (vampingSection(song, playback) !== null) return { problem: "Already vamping: end the vamp first" };
   const at = commandBoundary(song, playback, { nowMs, minLeadMs: MIN_COMMAND_LEAD_MS, mode: "endOfSection" });
   if (at === null) return { problem: "Playback has already ended" };
-  const section = sectionIndexBefore(song, playback, at);
-  if (section === null) return { problem: "Wait for the first Section before repeating it" };
-  const jump: Jump = { at, toSection: section, cueFrom: nowMs + MIN_COMMAND_LEAD_MS, ...(vamp ? { vamp: true } : {}) };
+  const ending = sectionPassBefore(song, playback, at);
+  if (ending === null) return { problem: "Wait for the first Section before repeating it" };
+  const replayedPass = vamp || ending.pass === 1 ? {} : { pass: ending.pass };
+  const jump: Jump = { at, toSection: ending.sectionIndex, ...replayedPass, cueFrom: nowMs + MIN_COMMAND_LEAD_MS, ...(vamp ? { vamp: true } : {}) };
   return { jumps: [...playback.jumps.filter((j) => j.at < at), jump] };
 }
 

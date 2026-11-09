@@ -65,6 +65,20 @@ describe("Songs", () => {
     await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
   });
 
+  it("saves how many times in a row each Section plays, from 1 to 16", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Again" });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, plays: 3 }, { ...verse, number: 2, plays: 1 }] });
+    const saved = await member.query(api.songs.get, { songId });
+    expect(saved?.sections[0]).toMatchObject({ plays: 3 });
+    expect(saved?.sections[1]).not.toHaveProperty("plays");
+
+    const bad = (plays: number) => admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, plays }] });
+    await expect(bad(0)).rejects.toThrow(/Plays/);
+    await expect(bad(17)).rejects.toThrow(/Plays/);
+    await expect(bad(2.5)).rejects.toThrow(/Plays/);
+  });
+
   it("saves the Song's Clicks per beat, from 1 to 4", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Waltz" });

@@ -89,7 +89,7 @@ describe("beatsBetween", () => {
       [1500, "4", 1],
       [2000, "INTRO", 2],
     ]);
-    expect(beats[8].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 1, beat: 1, beats: 4 });
+    expect(beats[8].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 1, beat: 1, beats: 4, pass: 1, passes: 1 });
     expect(beats[7].lead).toBeNull();
   });
 
@@ -129,9 +129,9 @@ describe("beatsBetween", () => {
   it("tells each lead-in beat the coming cue, how many bars are left and how far through it is", () => {
     const song: Song = { countIn: false, sections: [{ ...intro, bars: 2 }, { sectionType: "Chorus", bars: 1, beatsPerBar: 4, bpm: 120 }] };
     const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 60_000);
-    expect(beats[0].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 2, beat: 1, beats: 8 });
-    expect(beats[7].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 1, beat: 8, beats: 8 });
-    expect(beats[8].lead).toEqual({ cue: null, barsLeft: 1, beat: 1, beats: 4 });
+    expect(beats[0].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 2, beat: 1, beats: 8, pass: 1, passes: 1 });
+    expect(beats[7].lead).toEqual({ cue: { sectionType: "Chorus" }, barsLeft: 1, beat: 8, beats: 8, pass: 1, passes: 1 });
+    expect(beats[8].lead).toEqual({ cue: null, barsLeft: 1, beat: 1, beats: 4, pass: 1, passes: 1 });
   });
 
   it("stays silent before a Section whose Voice cue is switched off", () => {
