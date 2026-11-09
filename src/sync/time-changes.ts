@@ -27,8 +27,9 @@ export function newTimeChange(section: ChangeableSection): TimeChange | null {
   const changes = section.timeChanges ?? [];
   if (section.bars < 2 || changes.length >= MAX_TIME_CHANGES) return null;
   const free = (bar: number) => bar <= section.bars && !changes.some((change) => bar >= change.bar && bar < change.bar + change.bars);
-  const afterLastChange = changes.reduce((end, change) => Math.max(end, change.bar + change.bars), 1);
-  const bar = [afterLastChange, ...Array.from({ length: section.bars }, (_, index) => index + 1)].find(free);
+  const ends = changes.map((change) => change.bar + change.bars);
+  const afterLastChange = Math.max(1, ...ends);
+  const bar = [afterLastChange, ...[1, ...ends].sort((a, b) => a - b)].find(free);
   return bar === undefined ? null : { bar, bars: 1, beatsPerBar: section.beatsPerBar === 2 ? 3 : 2, beatUnit: section.beatUnit ?? 4 };
 }
 

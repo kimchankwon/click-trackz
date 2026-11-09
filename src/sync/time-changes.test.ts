@@ -122,6 +122,13 @@ describe("newTimeChange", () => {
     expect(newTimeChange({ bars: 10, beatsPerBar: 4, timeChanges: [change] })).toMatchObject({ bar: 9 });
   });
 
+  it("answers at once for a huge Bars value typed before saving", () => {
+    const started = performance.now();
+    expect(newTimeChange({ bars: 1_000_000_000, beatsPerBar: 4 })).toMatchObject({ bar: 1 });
+    expect(newTimeChange({ bars: 1_000_000_000, beatsPerBar: 4, timeChanges: [{ bar: 1, bars: 999_999_999, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 1_000_000_000 });
+    expect(performance.now() - started).toBeLessThan(50);
+  });
+
   it("falls back to the first free bar when nothing fits after the last change", () => {
     expect(newTimeChange({ bars: 8, beatsPerBar: 4, timeChanges: [{ bar: 7, bars: 2, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 1 });
     expect(newTimeChange({ bars: 8, beatsPerBar: 4, timeChanges: [{ bar: 1, bars: 1, beatsPerBar: 2, beatUnit: 4 }, { bar: 8, bars: 1, beatsPerBar: 2, beatUnit: 4 }] })).toMatchObject({ bar: 2 });
