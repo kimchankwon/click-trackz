@@ -60,7 +60,6 @@ import {
   endVampJumps,
   jumpProblem,
   jumpsAfter,
-  MIN_COMMAND_LEAD_MS,
   repeatJumps,
   startedPlayback,
   startProblem,
@@ -157,7 +156,6 @@ type DevicePlayback = StartedPlayback & {
   startedByName: null;
   stoppedBy: null;
   stoppedByName: null;
-  advance?: boolean;
   setlistIndex?: number;
 };
 
@@ -193,6 +191,8 @@ export default function GroupRoute() {
     </ThemedView>
   );
 }
+
+const startedFromSetlist = (playback: { setlistIndex?: number | null }) => playback.setlistIndex !== null && playback.setlistIndex !== undefined;
 
 const countOf = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
@@ -239,7 +239,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const nextUp = playingPosition === null ? null : nextInSetlist(setlistOrder, playingPosition, (id) => playableInSetlist.has(id));
   const nextUpId = nextUp?.item ?? null;
   const nextUpTitle = nextUpId === null ? null : (currentSetlist?.entries.find((entry) => entry.songId === nextUpId)?.title ?? null);
-  const nextUpSong = useQuery(api.songs.get, nextUpId ? { songId: nextUpId } : "skip");
   const [orderAt, setOrderAt] = useState<number | null>(null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
@@ -462,20 +461,22 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   }, [beat]);
 
   const lineUpNext = useEffectEvent(() => {
-    if (!steers || playback === null || playback.stopsAt !== null || nextUp === null) return;
+    if (!steers || playback === null || !startedFromSetlist(playback) || playback.stopsAt !== null || nextUp === null) return;
     setSelectedSongId(nextUp.item);
-    setPickedFromSetlist(playback.advance === true);
+    setPickedFromSetlist(true);
     setOrderAt(nextUp.index);
     setStartPick(null);
   });
   const [followedStart, setFollowedStart] = useState<number | null>(null);
   if (playback !== null && playback.startsAt !== followedStart) {
     setFollowedStart(playback.startsAt);
-    if (steers && playback.advance === true && playback.songId !== selectedSongId) {
-      setSelectedSongId(playback.songId);
+    if (steers && startedFromSetlist(playback)) {
       setPickedFromSetlist(true);
-      setOrderAt(playingPosition);
-      setStartPick(null);
+      if (playback.songId !== selectedSongId) {
+        setSelectedSongId(playback.songId);
+        setOrderAt(playingPosition);
+        setStartPick(null);
+      }
     }
   }
   const wasPlaying = useRef(false);
@@ -484,27 +485,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     wasPlaying.current = playing;
     if (ended) lineUpNext();
   }, [playing]);
-
-  useEffect(() => {
-    if (!onDevice || devicePlayback === null || devicePlayback.advance !== true || devicePlayback.stopsAt !== null) return;
-    if (nextUp === null || !nextUpSong || nextUpSong.sections.length === 0) return;
-    const endsAt = playbackEndsAt(devicePlayback.song, devicePlayback);
-    if (!Number.isFinite(endsAt)) return;
-    const timer = setTimeout(() => {
-      const now = deviceNow();
-      setDevicePlayback({
-        songId: nextUp.item,
-        startedBy: null,
-        startedByName: null,
-        stoppedBy: null,
-        stoppedByName: null,
-        advance: true,
-        setlistIndex: nextUp.index,
-        ...startedPlayback(nextUpSong, {}, now, now + MIN_COMMAND_LEAD_MS),
-      });
-    }, Math.max(0, endsAt - deviceNow()));
-    return () => clearTimeout(timer);
-  }, [onDevice, devicePlayback, nextUp, nextUpSong]);
 
   useEffect(() => () => setPlayingHere(false), []);
 
@@ -577,9 +557,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     run(async () => {
       if (!startSongId) return;
       const from = { fromSection: pickedSection ?? undefined, fromBar: pickedBar ?? undefined };
-      const startPosition = setlistOrder.includes(startSongId) ? setlistPosition(setlistOrder, startSongId, orderAt) : null;
+      const startPosition = pickedFromSetlist && setlistOrder.includes(startSongId) ? setlistPosition(setlistOrder, startSongId, orderAt) : null;
       const position = startPosition === null ? {} : { setlistIndex: startPosition };
-      const throughSetlist = startPosition !== null && pickedFromSetlist ? { advance: true } : {};
       if (onDevice) {
         if (!startSong) return;
         const problem = startProblem(startSong, from);
@@ -590,7 +569,6 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           startedByName: null,
           stoppedBy: null,
           stoppedByName: null,
-          ...throughSetlist,
           ...position,
           ...startedPlayback(startSong, from, deviceNow()),
         });
@@ -598,7 +576,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...position, ...throughSetlist });
+          await start({ groupId, songId: startSongId, ...from, ...position });
         } finally {
           setStartPending(false);
         }
@@ -636,8 +614,9 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       showToast("Moves on at the end of this pass");
     });
 
+  const runCarriesOn = playing || nextUp !== null;
   const onSetlistRun = showPlayback
-    ? playback.advance === true
+    ? startedFromSetlist(playback) && playback.stopsAt === null && runCarriesOn
     : pickedFromSetlist && startSongId !== null && setlistOrder.includes(startSongId);
   const screenTitle = onSetlistRun && currentSetlist ? currentSetlist.name : group.name;
 
@@ -993,10 +972,17 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     scroller.current?.scrollTo({ y: 0, animated: false });
   };
 
-  const playSong = (songId: Id<"songs">, position: number | null = null) => {
+  const playSong = (songId: Id<"songs">) => {
     setSelectedSongId(songId);
-    setPickedFromSetlist(position !== null);
-    setOrderAt(position);
+    setPickedFromSetlist(false);
+    setOrderAt(null);
+    showTab("play");
+  };
+
+  const playSetlistSong = (songId: Id<"songs">, position: number, fromCurrentSetlist: boolean) => {
+    setSelectedSongId(songId);
+    setPickedFromSetlist(fromCurrentSetlist);
+    setOrderAt(fromCurrentSetlist ? position : null);
     showTab("play");
   };
 
@@ -1006,7 +992,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       isAdmin={isAdmin}
       canPick={steers}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
-      onSelect={playSong}
+      onSelect={playSetlistSong}
       run={run}
     />
   );
