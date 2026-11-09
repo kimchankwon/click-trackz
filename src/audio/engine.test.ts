@@ -118,6 +118,7 @@ vi.mock("react-native-audio-api", () => ({ AudioContext: fake.FakeAudioContext }
 vi.mock("./audio-session", () => ({ preferPlaybackSession: () => undefined, probeAudioSession: async () => null }));
 vi.mock("./builtin-voice-clips", () => ({ speakers: [{ id: "adam", name: "Adam" }], builtinVoiceClips: { adam: { verse: "verse.wav" } } }));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
+vi.mock("./hidden-lookahead", () => ({ HIDDEN_LOOKAHEAD_MS: 15 * 60_000 }));
 
 const { CueAudioEngine } = await import("./engine");
 
@@ -432,6 +433,20 @@ describe("sound recovery", () => {
     const clickGains = context.gains.slice(SETUP_GAINS);
     expect(clickGains.filter((gain) => gain.disconnected).length).toBeGreaterThan(20);
     expect(clickGains.slice(0, visibleClicks).every((gain) => !gain.disconnected)).toBe(true);
+    engine.dispose();
+  });
+
+  it("keeps the background queue to a few seconds on a phone, where the audio thread stalls under thousands of queued Clicks", async () => {
+    const engine = new CueAudioEngine({ hiddenLookaheadMs: 3_000 });
+    await startStuck(engine);
+    await engine.wake();
+    engine.setPlan(song, { startsAt: NOW + 50, startSection: 0 });
+    await vi.advanceTimersByTimeAsync(50);
+    const [, context] = contexts();
+    engine.setHidden(true);
+    const queued = context.oscillators;
+    expect(queued).toBeGreaterThanOrEqual(6);
+    expect(queued).toBeLessThan(12);
     engine.dispose();
   });
 

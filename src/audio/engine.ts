@@ -9,6 +9,7 @@ import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builti
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
+import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
@@ -18,7 +19,6 @@ import { takePrimedContext } from "./primed-context";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
-const HIDDEN_LOOKAHEAD_MS = 15 * 60_000;
 const FUTURE_PRUNE_MS = 2_000;
 const CLICK_MS = 40;
 type ClickLevel = AccentLevel | "offbeat";
@@ -83,6 +83,11 @@ export class CueAudioEngine {
   latencyNudgeMs = 0;
   voiceOffsetMs = 0;
   failure: string | null = null;
+  private readonly hiddenLookaheadMs: number;
+
+  constructor({ hiddenLookaheadMs = HIDDEN_LOOKAHEAD_MS }: { hiddenLookaheadMs?: number } = {}) {
+    this.hiddenLookaheadMs = hiddenLookaheadMs;
+  }
 
   get enabled() {
     return this.context !== null;
@@ -396,7 +401,7 @@ export class CueAudioEngine {
     const latency = outputLatencyMs(context);
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + (this.hidden ? HIDDEN_LOOKAHEAD_MS : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, latency + this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? longestBeatMs(this.plan.song) : 0;
