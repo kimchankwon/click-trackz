@@ -8,6 +8,7 @@ import { wordKey } from "../src/audio/clip-choice";
 import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
+import { mainBpm, mainTimeSignature } from "../src/sync/song-summary";
 import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
 const cleanTitle = (title: string) => {
@@ -45,6 +46,8 @@ export const list = query({
       key: song.key ?? null,
       countIn: song.countIn,
       sectionCount: song.sections.length,
+      timeSignature: mainTimeSignature(song.sections),
+      bpm: mainBpm(song),
     }));
   },
 });

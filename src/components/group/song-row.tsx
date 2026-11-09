@@ -10,7 +10,9 @@ export function SongRow({
   index,
   title,
   meta,
+  metaLabel,
   songKey,
+  showKey = true,
   needsSections,
   selected,
   selectable,
@@ -25,7 +27,9 @@ export function SongRow({
   index?: number;
   title: string;
   meta?: string | null;
+  metaLabel?: string | null;
   songKey?: string | null;
+  showKey?: boolean;
   needsSections?: boolean;
   selected: boolean;
   selectable: boolean;
@@ -38,7 +42,8 @@ export function SongRow({
   divider?: boolean;
 }) {
   const theme = useTheme();
-  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, meta, songKey ? `Key of ${songKey}` : "No Key"].filter(Boolean).join(", ") : undefined;
+  const spokenKey = showKey ? (songKey ? `Key of ${songKey}` : "No Key") : null;
+  const spokenLabel = label ? [label, needsSections ? "No Sections yet" : null, metaLabel ?? meta, spokenKey].filter(Boolean).join(", ") : undefined;
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
       {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
@@ -73,7 +78,7 @@ export function SongRow({
             </View>
           ) : null}
         </View>
-        {songKey ? (
+        {!showKey ? null : songKey ? (
           <View style={[styles.keyPill, { backgroundColor: selected ? theme.background : theme.backgroundSelected }]} aria-label={`Key of ${songKey}`}>
             <ThemedText type="smallBold" style={styles.keyText}>
               {songKey}

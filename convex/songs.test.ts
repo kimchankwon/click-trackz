@@ -32,6 +32,20 @@ describe("Songs", () => {
     await expect(member.mutation(api.songs.createSong, { groupId, title: "x" })).rejects.toThrow(/Only Admins/);
   });
 
+  it("lists each Song's main time signature and tempo for the Song library", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Waltz", key: "G" });
+    await admin.mutation(api.songs.updateSong, {
+      songId,
+      bpm: 96,
+      sections: [
+        { sectionType: "Intro", bars: 2, beatsPerBar: 4, bpm: 96 },
+        { sectionType: "Verse", bars: 16, beatsPerBar: 3, bpm: 96 },
+      ],
+    });
+    expect(await member.query(api.songs.list, { groupId })).toEqual([expect.objectContaining({ key: "G", timeSignature: "3/4", bpm: 96, sectionCount: 2 })]);
+  });
+
   it("saves an Admin's Sections only when every Section is playable", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });

@@ -10,8 +10,11 @@ import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
+import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+const summaryLine = (onPlay: boolean, parts: readonly string[], separator: string) => [onPlay ? "On Play" : null, ...parts].filter(Boolean).join(separator) || null;
 
 export function SongsCard({
   groupId,
@@ -45,15 +48,10 @@ export function SongsCard({
               divider={index > 0}
               key={song.songId}
               title={song.title}
-              meta={
-                [
-                  selectedSongId === song.songId ? "On Play" : null,
-                  song.sectionCount === 0 ? null : `${song.sectionCount} ${song.sectionCount === 1 ? "Section" : "Sections"}`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") || null
-              }
+              meta={summaryLine(selectedSongId === song.songId, summaryParts(song).shown, " · ")}
+              metaLabel={summaryLine(selectedSongId === song.songId, summaryParts(song).spoken, ", ")}
               songKey={song.key}
+              showKey={false}
               needsSections={song.sectionCount === 0}
               selected={false}
               selectable={isAdmin}

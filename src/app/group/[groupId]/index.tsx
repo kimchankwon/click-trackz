@@ -726,7 +726,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       backTestID="groups-back"
       right={
         <View style={styles.headerRight}>
-          {tab === "play" && tempo ? (
+          {tempo ? (
             <ThemedText testID="tempo" numberOfLines={1} style={styles.tempo}>
               {tempo}
             </ThemedText>
