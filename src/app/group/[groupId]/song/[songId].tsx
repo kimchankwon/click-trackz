@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -364,12 +364,18 @@ function SongForm({
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+  const toast = useToast();
   const [askDiscard, setAskDiscard] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  usePreventRemove(changed && !saving && !leaving && !deletePending && !duplicatePending, () => setAskDiscard(true));
+  const [departure, setDeparture] = useState<(() => void) | null>(null);
+  const attempt = useRef(0);
+  const beginAttempt = () => ++attempt.current;
+  const abandonAttempt = () => {
+    attempt.current += 1;
+  };
+  usePreventRemove(changed && departure === null, () => setAskDiscard(true));
   useEffect(() => {
-    if (leaving) router.back();
-  }, [leaving]);
+    departure?.();
+  }, [departure]);
   const copyName = library
     ? copyTitle(
         copyBaseOf({ title, copyBase: song.copyBase }),
@@ -384,13 +390,16 @@ function SongForm({
     }
     setDuplicateError(null);
     setDuplicatePending(true);
+    const mine = beginAttempt();
     try {
       if (changed) await updateSong({ songId, ...draft });
       const copy = await duplicateSong({ songId });
+      if (mine !== attempt.current) return;
       setConfirmingDuplicate(false);
-      router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } });
+      setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
     } catch (error) {
-      setDuplicateError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDuplicateError(errorText(error));
     } finally {
       setDuplicatePending(false);
     }
@@ -399,17 +408,19 @@ function SongForm({
     if (deletePending) return;
     setDeleteError(null);
     setDeletePending(true);
+    const mine = beginAttempt();
     try {
       await deleteSong({ songId });
+      if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      router.back();
+      setDeparture(() => () => router.back());
     } catch (error) {
-      setDeleteError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
     }
   };
-  const toast = useToast();
 
   const run = (action: () => Promise<unknown>) => {
     setMessage(null);
@@ -579,15 +590,18 @@ function SongForm({
           pending={duplicatePending}
           error={duplicateError}
           onConfirm={() => void confirmDuplicate()}
-          onCancel={() => setConfirmingDuplicate(false)}
+          onCancel={() => {
+            abandonAttempt();
+            setConfirmingDuplicate(false);
+          }}
           testID="duplicate-song-dialog"
         />
         <ConfirmDialog
-          visible={askDiscard && !leaving}
+          visible={askDiscard && departure === null}
           title="Discard changes?"
           message={`Your edits to ${song.title} are not saved.`}
           confirmLabel="Discard"
-          onConfirm={() => setLeaving(true)}
+          onConfirm={() => setDeparture(() => () => router.back())}
           onCancel={() => setAskDiscard(false)}
           testID="discard-song-dialog"
         />
@@ -599,7 +613,10 @@ function SongForm({
           pending={deletePending}
           error={deleteError}
           onConfirm={() => void confirmDelete()}
-          onCancel={() => setConfirmingDelete(false)}
+          onCancel={() => {
+            abandonAttempt();
+            setConfirmingDelete(false);
+          }}
           testID="delete-song-dialog"
         />
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />

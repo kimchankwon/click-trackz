@@ -224,6 +224,7 @@ export class CueAudioEngine {
       if (this.speaker !== speaker || this.clipGeneration !== generation) return;
       this.clips = loaded;
       this.clipsSpeaker = speaker;
+      this.rescheduleWithClips();
     })();
     const loading = { speaker, done };
     this.loadingSpeaker = loading;
@@ -297,6 +298,13 @@ export class CueAudioEngine {
     }
     const now = this.serverNow();
     if (now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) this.trimTo(now + LOOKAHEAD_MS);
+  }
+
+  private rescheduleWithClips() {
+    const now = this.serverNow();
+    if (now === null || this.scheduledUntil <= now + LOOKAHEAD_MS) return;
+    this.trimTo(now + LOOKAHEAD_MS);
+    if (this.hidden) this.tick();
   }
 
   private trimTo(until: number) {

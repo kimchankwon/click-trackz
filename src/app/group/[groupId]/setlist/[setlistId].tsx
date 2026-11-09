@@ -34,7 +34,8 @@ const toEntries = (setlist: LiveSetlist): Entry[] =>
   setlist.entries.map((e) => ({ songId: e.songId, title: e.title, key: e.key ?? "", leader: e.leader ?? "" }));
 
 const sameEntries = (a: readonly Entry[], b: readonly Entry[]) =>
-  a.length === b.length && a.every((entry, index) => entry.songId === b[index].songId && entry.key === b[index].key && entry.leader === b[index].leader);
+  a.length === b.length &&
+  a.every((entry, index) => entry.songId === b[index].songId && entry.key.trim() === b[index].key.trim() && entry.leader.trim() === b[index].leader.trim());
 
 export default function SetlistScreen() {
   const params = useLocalSearchParams<{ groupId: string; setlistId: string }>();
@@ -88,23 +89,27 @@ function SetlistForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const changed = name !== live.name || !sameEntries(entries, toEntries(live));
+  const changed = name.trim() !== live.name || !sameEntries(entries, toEntries(live));
   const [askDiscard, setAskDiscard] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  usePreventRemove(changed && !saving && !leaving && !deletePending, () => setAskDiscard(true));
+  const [departure, setDeparture] = useState<(() => void) | null>(null);
+  const attempt = useRef(0);
+  usePreventRemove(changed && departure === null, () => setAskDiscard(true));
   useEffect(() => {
-    if (leaving) router.back();
-  }, [leaving]);
+    departure?.();
+  }, [departure]);
   const confirmDelete = async () => {
     if (deletePending) return;
     setDeleteError(null);
     setDeletePending(true);
+    const mine = ++attempt.current;
     try {
       await deleteSetlist({ setlistId });
+      if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      router.back();
+      setDeparture(() => () => router.back());
     } catch (error) {
-      setDeleteError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
     }
@@ -327,11 +332,11 @@ function SetlistForm({
         <Toast message={toast.message} bottom={dockInset + ControlHeight.large + Spacing.three * 2 + Spacing.two} />
       </SafeAreaView>
       <ConfirmDialog
-        visible={askDiscard && !leaving}
+        visible={askDiscard && departure === null}
         title="Discard changes?"
         message={`Your edits to ${live.name} are not saved.`}
         confirmLabel="Discard"
-        onConfirm={() => setLeaving(true)}
+        onConfirm={() => setDeparture(() => () => router.back())}
         onCancel={() => setAskDiscard(false)}
         testID="discard-setlist-dialog"
       />
@@ -343,7 +348,10 @@ function SetlistForm({
         pending={deletePending}
         error={deleteError}
         onConfirm={() => void confirmDelete()}
-        onCancel={() => setConfirmingDelete(false)}
+        onCancel={() => {
+          attempt.current += 1;
+          setConfirmingDelete(false);
+        }}
         testID="delete-setlist-dialog"
       />
     </ThemedView>
