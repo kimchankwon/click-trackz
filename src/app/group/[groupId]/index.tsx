@@ -49,7 +49,10 @@ import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
 import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
-import { hapticFor, isHapticBeat, isSide, type HapticBeat, type Side } from "@/settings/output";
+import { hapticFor, isHapticBeat, isLockScreenSetting, isSide, type HapticBeat, type LockScreenSetting, type Side } from "@/settings/output";
+import { lockScreenAvailable } from "@/audio/now-playing";
+import { useLockScreen } from "@/audio/use-lock-screen";
+import { lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
@@ -251,6 +254,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
+  const [lockScreenSetting] = useDeviceSetting<LockScreenSetting>("lockScreenControls", "off", isLockScreenSetting);
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
@@ -699,6 +703,37 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
   const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, cueLeadBars: startSong.cueLeadBars, sections: startSong.sections }, startSection, startBar) : 0;
+
+  const lockScreenState: LockScreenState = {
+    steers,
+    playing,
+    muted,
+    stopping,
+    canStart: startBlocker === null && !startPending && !unclocked,
+    sectionIndex: playing ? (beat?.sectionIndex ?? null) : null,
+    sectionCount: song.sections.length,
+    hasPreviousSong: previousSong !== null,
+    hasNextSong: nextSong !== null,
+  };
+  const lockScreenTitle = shownTitle ?? (steers ? "Pick a Song" : "Waiting for an Admin");
+  const runLockScreenCommand = (command: LockScreenCommand) => {
+    const action = lockScreenActionFor(command, lockScreenState);
+    if (action === null) return;
+    if (action.kind === "start") startPlayback();
+    else if (action.kind === "stop") stopPlayback();
+    else if (action.kind === "mute") mute();
+    else if (action.kind === "unmute") unmute();
+    else if (action.kind === "jump") tapSection(action.toSection);
+    else stepSong(action.step === 1 ? nextSong : previousSong);
+  };
+  useLockScreen({
+    on: lockScreenAvailable && lockScreenSetting === "on",
+    infoKey: [lockScreenTitle, currentSection, screenTitle, playing, muted, songSpan?.startsAt, songSpan?.endsAt, startLength].join("|"),
+    readInfo: () =>
+      lockScreenInfo({ songTitle: lockScreenTitle, section: currentSection, place: screenTitle, playing, muted, span: songSpan, lengthMs: startLength, nowMs: playNow() }),
+    controls: lockScreenControls(lockScreenState),
+    onCommand: runLockScreenCommand,
+  });
 
   const header = (
     <ScreenHeader

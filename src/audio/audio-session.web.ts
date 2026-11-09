@@ -5,6 +5,8 @@ export function preferPlaybackSession() {
   if (session && session.type !== "playback") session.type = "playback";
 }
 
+export function setOwnsNowPlaying(_owns: boolean) {}
+
 export async function probeAudioSession(): Promise<string | null> {
   return null;
 }

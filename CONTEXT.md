@@ -154,6 +154,10 @@ _Avoid_: Play through, autoplay, auto-advance
 A Member silencing the Click and Voice cues on their own device while Play keeps showing the shared beat and Playback carries on for everyone else; Unmute brings the sound back on the next beat, and the next Start unmutes them on its own.
 _Avoid_: Pause, sit out
 
+**Lock screen controls**:
+A per-device choice, on iPhone and iPad, to show the Song and its current Section on the lock screen and in Control Center, and steer Play from there or from headphone buttons while Play is open. For an Admin, play is Start and pause is Stop; next and previous Jump one Section either way while playing, or pick the next or previous Song while idle. For a Member, pause is Mute and play is Unmute. Turning it on stops other apps' audio while Play is open.
+_Avoid_: Now playing, media controls, remote controls
+
 **Started by**:
 The Member who pressed Start for the current Playback, shown to everyone on Play, where their avatar beside the beat is larger and in the accent colour while it plays.
 _Avoid_: Leader, host, owner

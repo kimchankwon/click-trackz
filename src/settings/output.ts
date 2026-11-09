@@ -18,6 +18,12 @@ export const isHapticBeat = (value: string): value is HapticBeat => HAPTIC_BEATS
 
 export const hapticBeatLabels: Record<HapticBeat, string> = { off: "Off", downbeat: "Downbeats", every: "Every beat" };
 
+export const LOCK_SCREEN_SETTINGS = ["off", "on"] as const;
+
+export type LockScreenSetting = (typeof LOCK_SCREEN_SETTINGS)[number];
+
+export const isLockScreenSetting = (value: string): value is LockScreenSetting => LOCK_SCREEN_SETTINGS.some((setting) => setting === value);
+
 export type HapticStrength = "strong" | "light";
 
 export function hapticFor(setting: HapticBeat, beat: Pick<Beat, "accent">): HapticStrength | null {
