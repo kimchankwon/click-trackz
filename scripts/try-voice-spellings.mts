@@ -7,12 +7,12 @@ import { slug, speakers } from "./voice-pack-clips.mts";
 const [outDir, expected, ...spellings] = process.argv.slice(2);
 if (!outDir || !expected || spellings.length === 0) throw new Error("Usage: try-voice-spellings.mts <outDir> <expected word> <spelling>...");
 
-const jobs = speakers.flatMap((speaker) => spellings.map((spelling) => ({ speaker, spelling })));
+const jobs = speakers.flatMap((speaker) => spellings.map((spelling, index) => ({ speaker, spelling, index })));
 const rows: { speaker: string; spelling: string; ms: number; heard: string }[] = [];
-await inParallel(jobs, MAX_CONCURRENT_REQUESTS - 1, async ({ speaker, spelling }) => {
+await inParallel(jobs, MAX_CONCURRENT_REQUESTS - 1, async ({ speaker, spelling, index }) => {
   const dir = path.resolve(outDir, speaker.id);
   await mkdir(dir, { recursive: true });
-  const file = path.join(dir, `${slug(spelling)}.wav`);
+  const file = path.join(dir, `${index + 1}-${slug(spelling)}.wav`);
   const pcm = trimSilence(await synthesize(speaker.voiceId, `${spelling}.`));
   await writeFile(file, wav(pcm));
   rows.push({ speaker: speaker.id, spelling, ms: Math.round((pcm.length / SAMPLE_RATE) * 1000), heard: await transcribe(file) });

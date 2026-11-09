@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { SAMPLE_RATE, synthesize, transcribe, trimSilence, wav } from "./voice-pack-audio.mts";
@@ -23,14 +23,18 @@ for (const target of targets) {
   if (!speaker || !clip) throw new Error(`Unknown clip ${target}`);
   const file = path.join(dir, speaker.id, `${clip.key}.wav`);
   const trial = path.join(dir, speaker.id, `${clip.key}.trial.wav`);
-  let best: Int16Array | null = null;
+  const current = await readFile(file);
+  const currentRight = comparable(await transcribe(file)) === comparable(clip.heard);
+  let best: Int16Array | null = currentRight ? new Int16Array(current.buffer.slice(current.byteOffset + 44, current.byteOffset + current.byteLength)) : null;
+  const startedWith = best;
   for (let take = 1; take <= takes; take++) {
     const pcm = trimSilence(await synthesize(speaker.voiceId, clip.text));
     await writeFile(trial, wav(pcm));
     const heard = await transcribe(trial);
     if (comparable(heard) === comparable(clip.heard) && (best === null || pcm.length < best.length)) best = pcm;
   }
-  if (best) await writeFile(file, wav(best));
+  if (best && best !== startedWith) await writeFile(file, wav(best));
   await writeFile(trial, Buffer.alloc(0));
-  console.log(`${target}: ${best ? `kept a ${Math.round((best.length / SAMPLE_RATE) * 1000)} ms take` : "no take read back right, left as it was"}`);
+  const outcome = !best ? "no take read back right, left as it was" : best === startedWith ? "the existing clip was already the shortest correct take" : `kept a ${Math.round((best.length / SAMPLE_RATE) * 1000)} ms take`;
+  console.log(`${target}: ${outcome}`);
 }
