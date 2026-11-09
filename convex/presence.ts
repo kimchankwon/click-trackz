@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
@@ -93,12 +94,14 @@ export const removeAbsentGuests = internalMutation({
   },
 });
 
+const SWEEP_PAGE = 100;
+
 export const forgetGuestsWhoNeverJoined = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { cursor: v.optional(v.string()), pageSize: v.optional(v.number()) },
+  handler: async (ctx, { cursor, pageSize }) => {
     const cutoff = Date.now() - GUEST_ABSENCE_MS;
-    const users = await ctx.db.query("users").collect();
-    for (const user of users) {
+    const { page, isDone, continueCursor } = await ctx.db.query("users").paginate({ cursor: cursor ?? null, numItems: pageSize ?? SWEEP_PAGE });
+    for (const user of page) {
       if (!isGuest(user) || user._creationTime >= cutoff) continue;
       const memberships = await ctx.db
         .query("memberships")
@@ -107,6 +110,7 @@ export const forgetGuestsWhoNeverJoined = internalMutation({
       if (memberships.some((membership) => (membership.lastSeenAt ?? membership._creationTime) >= cutoff)) continue;
       await forgetGuestIfGone(ctx, user._id);
     }
+    if (!isDone) await ctx.scheduler.runAfter(0, internal.presence.forgetGuestsWhoNeverJoined, { cursor: continueCursor, pageSize });
   },
 });
 

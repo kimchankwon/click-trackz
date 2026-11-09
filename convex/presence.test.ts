@@ -143,7 +143,8 @@ describe("Presence", () => {
 
     vi.setSystemTime(NOW + 61 * 60_000);
     const late = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
-    await t.mutation(internal.presence.forgetGuestsWhoNeverJoined, {});
+    await t.mutation(internal.presence.forgetGuestsWhoNeverJoined, { pageSize: 2 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
 
     expect(await t.run((ctx) => ctx.db.get(idle))).toBeNull();
     expect(await t.run((ctx) => ctx.db.get(fresh))).toBeNull();

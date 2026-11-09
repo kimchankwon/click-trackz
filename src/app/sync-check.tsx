@@ -1,3 +1,5 @@
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +20,11 @@ const voiceText = (beat: Beat) =>
       : "";
 
 export default function SyncCheckScreen() {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signIn } = useAuthActions();
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) void signIn("anonymous").catch(() => undefined);
+  }, [isLoading, isAuthenticated, signIn]);
   const { estimate, serverNow } = useServerClock();
   const theme = useTheme();
   const songMs = useMemo(() => {
