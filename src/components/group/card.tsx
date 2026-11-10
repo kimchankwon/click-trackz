@@ -16,7 +16,7 @@ export function Card({
 }: {
   tight?: boolean;
   banner?: ReactNode;
-  title: string;
+  title?: string;
   heading?: string;
   action?: ReactNode;
   children: ReactNode;
@@ -25,19 +25,23 @@ export function Card({
   const theme = useTheme();
   return (
     <View style={styles.section}>
-      <View style={styles.header}>
-        <View style={styles.titles}>
-          <ThemedText type="label" themeColor="textSecondary" role={heading ? undefined : "heading"}>
-            {title}
-          </ThemedText>
-          {heading ? (
-            <ThemedText type="heading" role="heading" numberOfLines={2} style={styles.heading}>
-              {heading}
-            </ThemedText>
-          ) : null}
+      {title !== undefined || heading || action ? (
+        <View style={styles.header}>
+          <View style={styles.titles}>
+            {title !== undefined ? (
+              <ThemedText type="label" themeColor="textSecondary" role={heading ? undefined : "heading"}>
+                {title}
+              </ThemedText>
+            ) : null}
+            {heading ? (
+              <ThemedText type="heading" role="heading" numberOfLines={2} style={styles.heading}>
+                {heading}
+              </ThemedText>
+            ) : null}
+          </View>
+          {action && !heading ? action : null}
         </View>
-        {action && !heading ? action : null}
-      </View>
+      ) : null}
       {action && heading ? <View style={styles.actionRow}>{action}</View> : null}
       {banner}
       <View

@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { router, useIsFocused } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,7 +20,7 @@ import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
 import { Connecting } from "@/components/ui/connecting";
-import { SwipeTabs } from "@/components/ui/swipe-tabs";
+import { TabPager } from "@/components/ui/tab-pager";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -41,7 +41,6 @@ const homeTabs: readonly TabItem<HomeTab>[] = [
   { id: "sound", label: "Sound", icon: "sound" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
-const homeTabIds = homeTabs.map((item) => item.id);
 
 type Run = (action: () => Promise<unknown>) => void;
 
@@ -268,11 +267,7 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
   const [tab, setTab] = useState<HomeTab>("groups");
-  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
-  const showTab = useCallback((next: HomeTab) => {
-    setTab(next);
-    scroller.current?.scrollTo({ y: 0, animated: false });
-  }, []);
+  const showTab = useCallback((next: HomeTab) => setTab(next), []);
   const panes: readonly [HomeTab, ReactNode][] = [
     ["groups", <GroupsTab key="groups" run={run} />],
     ["sound", <SoundTab key="sound" active={tab === "sound"} />],
@@ -280,22 +275,21 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
   ];
   return (
     <>
-      <SwipeTabs tabs={homeTabIds} active={tab} onChange={showTab}>
-        <ScrollView ref={scroller} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {panes.map(([pane, content]) => (
-            <View
-              key={pane}
-              role="tabpanel"
-              id={panelId(pane, "home")}
-              aria-labelledby={tabId(pane, "home")}
-              style={tab === pane ? styles.pane : styles.hidden}
-            >
-              {content}
-            </View>
-          ))}
-          {footer}
-        </ScrollView>
-      </SwipeTabs>
+      <TabPager
+        active={tab}
+        onChange={showTab}
+        pages={panes.map(([pane, content]) => ({
+          key: pane,
+          content: (
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+              <View role="tabpanel" id={panelId(pane, "home")} aria-labelledby={tabId(pane, "home")} style={styles.pane}>
+                {content}
+              </View>
+              {footer}
+            </ScrollView>
+          ),
+        }))}
+      />
       <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
         <TabBar tabs={homeTabs} active={tab} onChange={showTab} scope="home" />
       </View>
@@ -404,7 +398,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   pane: { gap: Spacing.four },
-  hidden: { display: "none" },
   dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
   welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
   helper: { maxWidth: 300, alignSelf: "center" },

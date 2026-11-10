@@ -15,6 +15,15 @@ export function usePinnedHeader() {
   return { scrolled, scrollProps: { onScroll, scrollEventThrottle: 16 } };
 }
 
+export function usePagedPinnedHeader<T extends string>(active: T) {
+  const [scrolledPages, setScrolledPages] = useState<Partial<Record<T, boolean>>>({});
+  const onScroll = useCallback((page: T, event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = event.nativeEvent.contentOffset.y > 0;
+    setScrolledPages((previous) => (previous[page] === next ? previous : { ...previous, [page]: next }));
+  }, []);
+  return { scrolled: scrolledPages[active] === true, onScroll };
+}
+
 export function PinnedHeader({ scrolled, children }: { scrolled: boolean; children: ReactNode }) {
   const theme = useTheme();
   return (

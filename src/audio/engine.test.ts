@@ -129,6 +129,7 @@ vi.mock("./audio-session", () => ({ preferPlaybackSession: () => undefined, prob
 vi.mock("./builtin-voice-clips", () => ({ speakers: [{ id: "adam", name: "Adam" }], builtinVoiceClips: { adam: { verse: "verse.wav" } } }));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
 vi.mock("./hidden-lookahead", () => ({ HIDDEN_LOOKAHEAD_MS: 15 * 60_000 }));
+vi.mock("./output-latency", () => ({ outputLatencyMs: () => 0 }));
 
 const { CueAudioEngine } = await import("./engine");
 

@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ComponentRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,11 +29,11 @@ import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
+import { PinnedHeader, PINNED_CONTENT_TOP, usePagedPinnedHeader } from "@/components/ui/pinned-header";
 import { Segmented } from "@/components/ui/segmented";
 import { SoundSettings } from "@/components/sound/sound-settings";
 import { Connecting } from "@/components/ui/connecting";
-import { SwipeTabs } from "@/components/ui/swipe-tabs";
+import { TabPager } from "@/components/ui/tab-pager";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Toast, useToast } from "@/components/ui/toast";
 import { AudioDebug } from "@/components/audio-debug";
@@ -140,7 +140,7 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-const STAGE_HEAD_HEIGHT = 128;
+const STAGE_HEAD_HEIGHT = 144;
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -295,8 +295,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [tab, setTab] = useState<GroupTab>("play");
   const [dockHeight, setDockHeight] = useState(0);
   const [floatHeight, setFloatHeight] = useState(0);
-  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
-  const pinned = usePinnedHeader();
+  const pinnedScroll = usePagedPinnedHeader(tab);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
@@ -305,9 +304,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
-  usePreventRemove(playing && !leaving && !leavingGroup, () => setAskLeave(true));
+  usePreventRemove((playing || tab !== "play") && !leaving && !leavingGroup, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
   const tabs = useMemo(() => (offline ? groupTabs.filter((item) => item.id !== "group") : groupTabs), [offline]);
-  const tabIds = useMemo(() => tabs.map((item) => item.id), [tabs]);
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
@@ -845,8 +843,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           "Member"
         )
       }
-      onBack={() => (playing && !leaving ? setAskLeave(true) : router.dismissTo("/"))}
-      backLabel="Your Groups"
+      onBack={() => (tab !== "play" ? setTab("play") : playing && !leaving ? setAskLeave(true) : router.dismissTo("/"))}
+      backLabel={tab === "play" ? "Your Groups" : "Play"}
       backTestID="groups-back"
       right={
         <View style={styles.headerRight}>
@@ -1034,8 +1032,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         </ThemedText>
       ) : null}
       {shownSections.length > 0 ? (
-        <Card title="Sections">
-          <View style={styles.wrap}>
+        <Card>
+          <View style={styles.wrap} role="group" aria-label="Sections">
             {shownSections.map((section, index) => (
               <SectionChip
                 key={index}
@@ -1107,10 +1105,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     </View>
   );
 
-  const showTab = (next: GroupTab) => {
-    setTab(next);
-    scroller.current?.scrollTo({ y: 0, animated: false });
-  };
+  const showTab = (next: GroupTab) => setTab(next);
 
   const playSong = (songId: Id<"songs">) => {
     setSelectedSongId(songId);
@@ -1381,33 +1376,31 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     ) : null;
 
   const floating = playCard ?? miniCard;
+  const paneContent: Record<GroupTab, ReactNode> = { play: playTab, setlist: setlistTab, songs: songsTab, sound: soundTab, group: offline ? null : groupTab };
 
   return (
     <ThemedView style={styles.container}>
       {playing ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <PinnedHeader scrolled={pinned.scrolled}>{header}</PinnedHeader>
-        <SwipeTabs tabs={tabIds} active={tab} onChange={showTab}>
-        <ScrollView
-          ref={scroller}
-          contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
-          {...pinned.scrollProps}
-        >
-          {(
-            [
-              ["play", playTab],
-              ["setlist", setlistTab],
-              ["songs", songsTab],
-              ["sound", soundTab],
-              ["group", offline ? null : groupTab],
-            ] as const
-          ).map(([pane, content]) => (
-            <View key={pane} role="tabpanel" id={panelId(pane)} aria-labelledby={tabId(pane)} style={tab === pane ? styles.tabPane : styles.hidden}>
-              {content}
-            </View>
-          ))}
-        </ScrollView>
-        </SwipeTabs>
+        <PinnedHeader scrolled={pinnedScroll.scrolled}>{header}</PinnedHeader>
+        <TabPager
+          active={tab}
+          onChange={showTab}
+          pages={tabs.map(({ id: pane }) => ({
+            key: pane,
+            content: (
+              <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
+                onScroll={(event) => pinnedScroll.onScroll(pane, event)}
+                scrollEventThrottle={16}
+              >
+                <View role="tabpanel" id={panelId(pane)} aria-labelledby={tabId(pane)} style={styles.tabPane}>
+                  {paneContent[pane]}
+                </View>
+              </ScrollView>
+            ),
+          }))}
+        />
         {floating ? (
           <View pointerEvents="box-none" style={[styles.floatLayer, { bottom: dockHeight }]} onLayout={(event) => setFloatHeight(event.nativeEvent.layout.height)}>
             {floating}
@@ -1504,8 +1497,7 @@ const styles = StyleSheet.create({
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
-  hidden: { display: "none" },
-  sectionHeading: { fontSize: 40, lineHeight: 46 },
+  sectionHeading: { fontSize: 40, lineHeight: 46, flexShrink: 0 },
   sectionHeadingLong: { fontSize: 32, lineHeight: 40 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 28, lineHeight: 34 },
