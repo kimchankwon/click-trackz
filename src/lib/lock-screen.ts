@@ -11,7 +11,11 @@ export function livePlayback(song: Song, playback: Playback | null, nowMs: numbe
   return { playing: true, latest: recent.at(-1) ?? null };
 }
 
-export const LOCK_SCREEN_COMMANDS =["play", "pause", "stop", "nextTrack", "previousTrack"] as const;
+export const LOCK_SCREEN_CONTROLS = ["play", "pause", "stop", "nextTrack", "previousTrack"] as const;
+
+export type LockScreenControl = (typeof LOCK_SCREEN_CONTROLS)[number];
+
+export const LOCK_SCREEN_COMMANDS = [...LOCK_SCREEN_CONTROLS, "togglePlayPause"] as const;
 
 export type LockScreenCommand = (typeof LOCK_SCREEN_COMMANDS)[number];
 
@@ -36,6 +40,7 @@ export type LockScreenState = {
 };
 
 export function lockScreenActionFor(command: LockScreenCommand, state: LockScreenState): LockScreenAction | null {
+  if (command === "togglePlayPause") return lockScreenActionFor(state.playing && !state.muted ? "pause" : "play", state);
   if (command === "play") {
     if (state.playing) return state.muted ? { kind: "unmute" } : null;
     return state.steers && state.canStart ? { kind: "start" } : null;
