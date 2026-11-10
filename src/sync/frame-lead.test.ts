@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { drawLeadMs, frameMsOf } from "./frame-lead";
+import { drawLeadMs, frameMsOf, shownTimeMs } from "./frame-lead";
 
 const frames = (count: number, gapMs: number) => Array.from({ length: count }, () => gapMs);
 
@@ -28,5 +28,25 @@ describe("drawLeadMs", () => {
   it("draws one and a half frames ahead, so a slower screen leads by more", () => {
     expect(drawLeadMs(frames(15, 8.33))).toBeCloseTo(12.5, 1);
     expect(drawLeadMs(frames(15, 16.67))).toBeCloseTo(25, 1);
+  });
+});
+
+describe("shownTimeMs", () => {
+  it("runs ahead of the clock by the lead", () => {
+    expect(shownTimeMs(-Infinity, 976, 25)).toBe(1001);
+  });
+
+  it("holds instead of stepping back over a beat when the lead shrinks, then moves on", () => {
+    const beatAt = 1000;
+    const first = shownTimeMs(-Infinity, 976, 25);
+    const second = shownTimeMs(first, 984.33, 12.5);
+    const third = shownTimeMs(second, 992.66, 12.5);
+    expect(first).toBeGreaterThan(beatAt);
+    expect(second).toBe(first);
+    expect(third).toBeCloseTo(1005.16);
+  });
+
+  it("holds through a small backward correction of the clock", () => {
+    expect(shownTimeMs(1001, 973, 25)).toBe(1001);
   });
 });

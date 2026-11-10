@@ -11,3 +11,5 @@ export function frameMsOf(gapsMs: readonly number[]): number {
 }
 
 export const drawLeadMs = (gapsMs: readonly number[]) => frameMsOf(gapsMs) * FRAMES_AHEAD;
+
+export const shownTimeMs = (shownBeforeMs: number, nowMs: number, leadMs: number) => Math.max(shownBeforeMs, nowMs + leadMs);
