@@ -3,12 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
-import { clockSlept, estimateClockOffset, type ClockEstimate, type ClockSample } from "./clock";
-import { holdsClockSteady, pingDelayMs } from "./ping-schedule";
+import { clockSlept, estimateClockOffset, SAMPLE_WINDOW, type ClockEstimate, type ClockSample } from "./clock";
+import { pingDelayMs } from "./ping-schedule";
 
 const INITIAL_BURST = 8;
 const WAKE_BURST = 4;
-const SAMPLE_WINDOW = 12;
 const SAMPLES_BEFORE_READY = 4;
 
 const clientNow = () => performance.now();
@@ -22,20 +21,11 @@ export type ServerClock = {
   serverNow: () => number | null;
 };
 
-export function useServerClock({ playing = false, onDevice = false }: { playing?: boolean; onDevice?: boolean } = {}): ServerClock {
+export function useServerClock({ onDevice = false }: { onDevice?: boolean } = {}): ServerClock {
   const ping = useMutation(api.clock.now);
   const { isAuthenticated } = useConvexAuth();
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
-  const playingRef = useRef(playing);
-  const rescheduleRef = useRef<(() => void) | null>(null);
-  const resampleRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    const ended = playingRef.current && !playing;
-    playingRef.current = playing;
-    if (ended && resampleRef.current) resampleRef.current();
-    else rescheduleRef.current?.();
-  }, [playing]);
+  const offsetMs = useRef<number | null>(null);
 
   useEffect(() => {
     if (onDevice || !isAuthenticated) return;
@@ -45,27 +35,29 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
     const samples: ClockSample[] = [];
     let hasEstimate = false;
     let epochAtLastSample = epochNow();
-    const steady = () => holdsClockSteady({ playing: playingRef.current, hasEstimate });
+    const show = (next: ClockEstimate | null) => {
+      offsetMs.current = next?.offsetMs ?? null;
+      setEstimate(next);
+    };
     const sampleOnce = async () => {
-      if (steady()) return;
       const sentAt = clientNow();
       const epochAtSend = epochNow();
       const serverAt = await ping({});
       const receivedAt = clientNow();
-      if (cancelled || steady() || clockSlept(epochAtSend, epochNow())) return;
+      if (cancelled || clockSlept(epochAtSend, epochNow())) return;
       samples.push({ sentAt, serverAt, receivedAt });
       epochAtLastSample = epochNow();
       if (samples.length > SAMPLE_WINDOW) samples.shift();
       if (samples.length >= SAMPLES_BEFORE_READY) {
         hasEstimate = true;
-        setEstimate(estimateClockOffset(samples));
+        show(estimateClockOffset(samples));
       }
     };
     const schedule = () => {
       if (timer !== null) clearTimeout(timer);
       timer = null;
       if (cancelled) return;
-      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, playing: playingRef.current, hidden: isHidden(), hasEstimate });
+      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, hidden: isHidden(), hasEstimate });
       if (delay === null) return;
       timer = setTimeout(() => {
         void sampleOnce()
@@ -77,15 +69,13 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       for (let i = 0; i < count && !cancelled; i++) await sampleOnce().catch(() => undefined);
       schedule();
     };
-    rescheduleRef.current = schedule;
-    resampleRef.current = () => void burst(WAKE_BURST);
     void burst(INITIAL_BURST);
     const forgetStaleSamples = () => {
       if (!clockSlept(epochAtLastSample, epochNow())) return;
       samples.length = 0;
       hasEstimate = false;
       epochAtLastSample = epochNow();
-      setEstimate(null);
+      show(null);
     };
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -96,16 +86,15 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
     return () => {
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
-      rescheduleRef.current = null;
-      resampleRef.current = null;
       subscription.remove();
     };
   }, [ping, onDevice, isAuthenticated]);
 
-  const serverNow = useCallback(
-    () => (onDevice ? deviceNow() : estimate === null ? null : clientNow() + estimate.offsetMs),
-    [estimate, onDevice],
-  );
+  const measured = estimate !== null;
+  const serverNow = useCallback(() => {
+    if (onDevice) return deviceNow();
+    return measured && offsetMs.current !== null ? clientNow() + offsetMs.current : null;
+  }, [measured, onDevice]);
 
   return { estimate: onDevice ? null : estimate, serverNow };
 }

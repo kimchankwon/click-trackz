@@ -212,7 +212,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const steers = isAdmin || onDevice;
   const [playing, setPlaying] = useState(false);
   const [finishedStart, setFinishedStart] = useState<number | null>(null);
-  const { estimate, serverNow } = useServerClock({ playing, onDevice: offline });
+  const { estimate, serverNow } = useServerClock({ onDevice: offline });
   const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
