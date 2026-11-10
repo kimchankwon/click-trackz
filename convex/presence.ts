@@ -70,15 +70,17 @@ export const list = query({
   },
 });
 
+const SWEEP_PAGE = 100;
+
 export const removeAbsentGuests = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const cutoff = Date.now() - GUEST_ABSENCE_MS;
-    const memberships = await ctx.db
+  args: { cursor: v.optional(v.string()), cutoff: v.optional(v.number()), pageSize: v.optional(v.number()) },
+  handler: async (ctx, { cursor, cutoff: sweepCutoff, pageSize }) => {
+    const cutoff = sweepCutoff ?? Date.now() - GUEST_ABSENCE_MS;
+    const { page, isDone, continueCursor } = await ctx.db
       .query("memberships")
       .withIndex("by_role_seen", (q) => q.eq("role", "member").lt("lastSeenAt", cutoff))
-      .collect();
-    for (const membership of memberships) {
+      .paginate({ cursor: cursor ?? null, numItems: pageSize ?? SWEEP_PAGE });
+    for (const membership of page) {
       if (membership.lastSeenAt === undefined && membership._creationTime >= cutoff) continue;
       const user = await ctx.db.get(membership.userId);
       if (user !== null && !isGuest(user)) continue;
@@ -91,10 +93,10 @@ export const removeAbsentGuests = internalMutation({
       await ctx.db.delete(membership._id);
       await forgetGuestIfGone(ctx, membership.userId);
     }
+    if (!isDone) await ctx.scheduler.runAfter(0, internal.presence.removeAbsentGuests, { cursor: continueCursor, cutoff, pageSize });
   },
 });
 
-const SWEEP_PAGE = 100;
 
 export const forgetGuestsWhoNeverJoined = internalMutation({
   args: { cursor: v.optional(v.string()), pageSize: v.optional(v.number()) },
