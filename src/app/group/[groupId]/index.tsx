@@ -424,6 +424,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     current?.setHidden(state !== "active");
     if (state === "background" && lockScreenAvailable && !lockScreenOn) current?.silence();
     if (state !== "active" || !current?.enabled) return;
+    current.allowSound();
     void current.resume().then((running) => {
       setSoundOn(running);
       setSoundBlocked(!running);

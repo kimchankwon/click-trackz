@@ -493,17 +493,20 @@ describe("sound recovery", () => {
     engine.silence();
     expect(queued.every((gain) => gain.disconnected)).toBe(true);
     expect(context.state).toBe("suspended");
+    const frozenAudioTime = context.currentTime;
     now += 5_000;
-    context.currentTime += 5;
     await vi.advanceTimersByTimeAsync(100);
     expect(context.gains.length).toBe(SETUP_GAINS + queued.length);
+    expect(await engine.wake()).toBe(false);
+    expect(await engine.resume()).toBe(false);
+    expect(context.state).toBe("suspended");
 
+    engine.allowSound();
     engine.setHidden(false);
     expect(await engine.resume()).toBe(true);
     await vi.advanceTimersByTimeAsync(50);
     const replayed = context.oscillatorNodes.slice(queued.length).map((oscillator) => oscillator.startedAt ?? NaN);
-    expect(replayed.length).toBeGreaterThan(0);
-    expect(Math.min(...replayed)).toBeGreaterThanOrEqual(5);
+    expect(Math.min(...replayed)).toBeCloseTo(frozenAudioTime + (NOW + 5_050 - now) / 1000, 2);
     engine.dispose();
   });
 
