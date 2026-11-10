@@ -11,6 +11,6 @@ Members must hear every Count at the same instant, so no device ever receives be
 ## Consequences
 
 - Every timestamp that matters comes from the Convex server, never from `Date.now()` on a client.
-- Admin commands always target a future instant, never "now". Start and Jump land on a bar line. Stop lands 200 ms after it is pressed (`STOP_LEAD_MS`), since waiting for the bar line felt slow; 200 ms is enough for every device to hear of it first, and each device drops any sound it had already queued past that instant.
-- Start's Lead-in is 400 ms plus the slowest online Member's latest round trip, never less than half a second or more than two seconds (`leadInMs`). A device that still hears of the Start late joins on the next beat, in sync, and only misses the first Count-in clicks.
+- Admin commands always target a future instant, never "now". Start and Jump land on a bar line. Stop lands one second after it is pressed (`STOP_LEAD_MS`), without waiting for the bar line; a second gives every device time to hear of it first, and each device drops any sound it had already queued past that instant. A shorter 200 ms lead let slower devices stop late.
+- Start's Lead-in is a fixed second on the server clock (`LEAD_IN_MS`). A Lead-in sized from measured round trips (half a second to two) left devices starting out of step; a fixed second is short enough to feel immediate and long enough for every device to hear of the Start first. A device that still hears of it late joins on the next beat, in sync.
 - Clients keep measuring their clock offset during Playback and slew towards a new estimate instead of jumping.

@@ -131,7 +131,7 @@ The Admin command that begins Playback at an agreed future instant on the shared
 _Avoid_: Play, go
 
 **Lead-in**:
-The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it: half a second, stretched by the slowest online Member's measured round trip, never past two seconds.
+The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it: one second on the shared clock, or half a second in Offline play.
 _Avoid_: Count-in, pre-roll, delay
 
 **Jump**:
@@ -167,7 +167,7 @@ A Member's choice, on a Group's Play screen, to play the Group's Songs only on t
 _Avoid_: Solo, practice mode, personal Playback
 
 **Stop**:
-The Admin command that ends Playback 200 ms after it is pressed, without waiting for the bar line, so every device stops together.
+The Admin command that ends Playback one second after it is pressed, on the shared clock and without waiting for the bar line, so every device stops together.
 _Avoid_: Pause, halt
 
 **Stopped by**:
