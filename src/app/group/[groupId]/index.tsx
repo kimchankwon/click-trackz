@@ -45,6 +45,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
+import { useAppActive } from "@/lib/use-app-active";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
@@ -443,7 +444,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     });
   }, [soundOn]);
 
+  const appActive = useAppActive();
+
   useEffect(() => {
+    if (!appActive) return;
     let handle = 0;
     const endsAt = playback && song.sections.length > 0 ? playbackEndsAt(song, playback) : -Infinity;
     const draw = () => {
@@ -471,7 +475,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
-  }, [playNow, playback, song]);
+  }, [appActive, playNow, playback, song]);
 
   useEffect(() => {
     if (playback === null || song.sections.length === 0) return;
