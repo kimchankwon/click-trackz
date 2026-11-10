@@ -1,16 +1,9 @@
 import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionPassBefore, subdivisionOf, vampingSection, type Jump, type Playback, type Song } from "./timeline";
 
-export const MIN_LEAD_IN_MS = 500;
-export const MAX_LEAD_IN_MS = 2_000;
-const LEAD_IN_MARGIN_MS = 400;
-const UNMEASURED_ROUND_TRIP_MS = 200;
-
-export function leadInMs(roundTripsMs: readonly (number | null | undefined)[]): number {
-  const slowest = roundTripsMs.reduce<number>((worst, ms) => Math.max(worst, ms ?? UNMEASURED_ROUND_TRIP_MS), 0);
-  return Math.min(MAX_LEAD_IN_MS, Math.max(MIN_LEAD_IN_MS, LEAD_IN_MARGIN_MS + slowest));
-}
+export const LEAD_IN_MS = 1_000;
+export const OFFLINE_LEAD_IN_MS = 500;
 export const MIN_COMMAND_LEAD_MS = 1_000;
-export const STOP_LEAD_MS = 200;
+export const STOP_LEAD_MS = 1_000;
 
 export type StartFrom = { fromSection?: number; fromBar?: number };
 
@@ -35,7 +28,7 @@ export function startProblem(song: Song & { title: string }, { fromSection, from
   return null;
 }
 
-export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number, startsAt = nowMs + MIN_LEAD_IN_MS): StartedPlayback<S> {
+export function startedPlayback<S extends Song>(song: S, { fromSection, fromBar }: StartFrom, nowMs: number, startsAt = nowMs + LEAD_IN_MS): StartedPlayback<S> {
   return {
     song: {
       countIn: fromSection === undefined && fromBar === undefined ? song.countIn : true,
@@ -64,8 +57,9 @@ export function jumpsAfter(song: Song, playback: Playback & { jumps: readonly Ju
 }
 
 export function stopTime(song: Song, playback: Playback, nowMs: number, leadMs = STOP_LEAD_MS): number | null {
-  const stopsAt = nowMs + leadMs;
-  return stopsAt < playbackEndsAt(song, playback) ? stopsAt : null;
+  if (playback.stopsAt !== null && playback.stopsAt !== undefined) return null;
+  const endsAt = playbackEndsAt(song, playback);
+  return nowMs < endsAt ? Math.min(nowMs + leadMs, endsAt) : null;
 }
 
 export type CommandResult = { jumps: Jump[] } | { problem: string };

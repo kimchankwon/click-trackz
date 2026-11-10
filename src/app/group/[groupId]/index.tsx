@@ -65,6 +65,7 @@ import {
   endVampJumps,
   jumpProblem,
   jumpsAfter,
+  OFFLINE_LEAD_IN_MS,
   repeatJumps,
   startedPlayback,
   startProblem,
@@ -625,7 +626,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           stoppedBy: null,
           stoppedByName: null,
           ...position,
-          ...startedPlayback(startSong, from, deviceNow()),
+          ...startedPlayback(startSong, from, deviceNow(), deviceNow() + OFFLINE_LEAD_IN_MS),
         });
       } else {
         if (startPending) return;

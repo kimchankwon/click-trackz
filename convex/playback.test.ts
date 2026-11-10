@@ -2,8 +2,9 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MIN_LEAD_IN_MS, STOP_LEAD_MS } from "../src/sync/commands";
+import { LEAD_IN_MS, STOP_LEAD_MS } from "../src/sync/commands";
 import { demoSong } from "../src/sync/demo-song";
+import { playbackEndsAt } from "../src/sync/timeline";
 import { api } from "./_generated/api";
 import schema from "./schema";
 
@@ -38,35 +39,28 @@ describe("Group Playback", () => {
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     const playback = await member.query(api.playback.current, { groupId });
-    expect(playback).toMatchObject({ songId, startsAt: NOW + MIN_LEAD_IN_MS, startSection: 0, jumps: [], stopsAt: null });
+    expect(playback).toMatchObject({ songId, startsAt: NOW + LEAD_IN_MS, startSection: 0, jumps: [], stopsAt: null });
   });
 
-  it("gives a quick restart its own first beat even when a shorter Lead-in lands it on the same instant", async () => {
+  it("gives a restart in the same instant its own first beat", async () => {
     const { admin, member, groupId, songId } = await setupGroup();
-    vi.setSystemTime(NOW - 1_000);
-    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 600 });
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     const first = (await member.query(api.playback.current, { groupId }))!;
-    expect(first.startsAt).toBe(NOW + 1_000);
-    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 40 });
-    vi.setSystemTime(NOW + 500);
+    expect(first.startsAt).toBe(NOW + LEAD_IN_MS);
     await admin.mutation(api.playback.start, { groupId, songId });
     const second = (await member.query(api.playback.current, { groupId }))!;
-    expect(second.startsAt).toBe(NOW + 1_001);
+    expect(second.startsAt).toBe(NOW + LEAD_IN_MS + 1);
     await expect(admin.mutation(api.playback.stop, { groupId, startsAt: first.startsAt })).rejects.toThrow(/already ended/);
   });
 
-  it("waits longer before the first beat while an online Member's connection is slow, and ignores Members who went quiet", async () => {
+  it("starts one second after the press on the shared clock, however slow a Member's connection", async () => {
     const { admin, member, groupId, songId } = await setupGroup();
-    await member.mutation(api.presence.heartbeat, { groupId, screenId: "old-tab", onPlay: true, roundTripMs: 1_900 });
-    const later = NOW + 20_000;
-    vi.setSystemTime(later - 1_000);
-    await admin.mutation(api.presence.heartbeat, { groupId, screenId: "admin-phone", onPlay: true, roundTripMs: 40 });
-    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 600 });
-    vi.setSystemTime(later);
+    vi.setSystemTime(NOW - 1_000);
+    await member.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 1_900 });
+    vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
-    expect((await member.query(api.playback.current, { groupId }))?.startsAt).toBe(later + 1_000);
+    expect((await member.query(api.playback.current, { groupId }))?.startsAt).toBe(NOW + 1_000);
   });
 
   it("gives every Member the Song's Clicks per beat with the Start", async () => {
@@ -99,7 +93,7 @@ describe("Group Playback", () => {
     const { admin, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
-    const startsAt = NOW + MIN_LEAD_IN_MS;
+    const startsAt = NOW + LEAD_IN_MS;
     vi.setSystemTime(startsAt + 3_000);
     await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
     const playback = await admin.query(api.playback.current, { groupId });
@@ -111,7 +105,7 @@ describe("Group Playback", () => {
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId, fromSection: 3 });
     const playback = await member.query(api.playback.current, { groupId });
-    expect(playback).toMatchObject({ startsAt: NOW + MIN_LEAD_IN_MS, startSection: 3, song: { countIn: true } });
+    expect(playback).toMatchObject({ startsAt: NOW + LEAD_IN_MS, startSection: 3, song: { countIn: true } });
   });
 
   it("starts from a chosen bar of a Section", async () => {
@@ -132,13 +126,24 @@ describe("Group Playback", () => {
     vi.setSystemTime(NOW);
     await admin.mutation(api.playback.start, { groupId, songId });
     expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stoppedBy: null, stoppedByName: null });
-    const startsAt = NOW + MIN_LEAD_IN_MS;
+    const startsAt = NOW + LEAD_IN_MS;
     vi.setSystemTime(startsAt + 6_200);
     await admin.mutation(api.playback.stop, { groupId });
     expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: startsAt + 6_200 + STOP_LEAD_MS, stoppedByName: "Admin" });
     vi.setSystemTime(startsAt + 10_000);
     await admin.mutation(api.playback.start, { groupId, songId });
     expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: null, stoppedBy: null, stoppedByName: null });
+  });
+
+  it("still records a Stop pressed in the Song's last second, landing on its natural end", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const started = (await member.query(api.playback.current, { groupId }))!;
+    const endsAt = playbackEndsAt(started.song, started);
+    vi.setSystemTime(endsAt - 600);
+    await admin.mutation(api.playback.stop, { groupId, startsAt: started.startsAt });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: endsAt, stoppedByName: "Admin" });
   });
 
   it("refuses a Stop or Jump meant for a Playback that another Start has already replaced", async () => {
@@ -151,7 +156,7 @@ describe("Group Playback", () => {
     await expect(admin.mutation(api.playback.stop, { groupId, startsAt: first!.startsAt })).rejects.toThrow(/already ended/);
     await expect(admin.mutation(api.playback.jump, { groupId, toSection: 1, mode: "nextBar", startsAt: first!.startsAt })).rejects.toThrow(/already ended/);
     const second = await member.query(api.playback.current, { groupId });
-    expect(second).toMatchObject({ startsAt: NOW + 500 + MIN_LEAD_IN_MS, stopsAt: null, jumps: [] });
+    expect(second).toMatchObject({ startsAt: NOW + 500 + LEAD_IN_MS, stopsAt: null, jumps: [] });
     await admin.mutation(api.playback.stop, { groupId, startsAt: second!.startsAt });
     expect((await member.query(api.playback.current, { groupId }))!.stopsAt).toBe(NOW + 500 + STOP_LEAD_MS);
   });
@@ -187,7 +192,7 @@ describe("Group Playback", () => {
     });
     const playback = await member.query(api.playback.current, { groupId });
     expect(playback?.song.sections).toEqual([...demoSong.sections]);
-    const startsAt = NOW + MIN_LEAD_IN_MS;
+    const startsAt = NOW + LEAD_IN_MS;
     vi.setSystemTime(startsAt + 3_000);
     await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });
     expect((await member.query(api.playback.current, { groupId }))?.jumps).toEqual([{ at: startsAt + 5_000, toSection: 3, cueFrom: startsAt + 4_000 }]);
