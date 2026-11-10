@@ -60,14 +60,27 @@ describe("outputLatencyMs on native", () => {
     expect(outputLatencyMs(context)).toBe(0);
   });
 
-  it("ignores a failed or nonsense reading", async () => {
+  it("falls back to none when the first reading fails", async () => {
     native.ms = () => {
       throw new Error("session gone");
     };
     const outputLatencyMs = await load();
     expect(outputLatencyMs(context)).toBe(0);
+  });
+
+  it("keeps the last good reading through a failed or nonsense one", async () => {
+    const outputLatencyMs = await load();
+    expect(outputLatencyMs(context)).toBe(28.5);
     clock = 1_000;
+    native.ms = () => {
+      throw new Error("session gone");
+    };
+    expect(outputLatencyMs(context)).toBe(28.5);
+    clock = 2_000;
     native.ms = Number.NaN;
-    expect(outputLatencyMs(context)).toBe(0);
+    expect(outputLatencyMs(context)).toBe(28.5);
+    clock = 3_000;
+    native.ms = 160;
+    expect(outputLatencyMs(context)).toBe(160);
   });
 });
