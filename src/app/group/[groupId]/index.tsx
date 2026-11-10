@@ -502,7 +502,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     const waitForEnd = (from: number) => {
       timer = setTimeout(() => {
         const later = playNow();
-        if (later !== null && later < endsAt) {
+        if (later === null) return;
+        if (later < endsAt) {
           waitForEnd(later);
           return;
         }
