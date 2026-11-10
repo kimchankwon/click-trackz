@@ -24,6 +24,8 @@ export type LockScreenSetting = (typeof LOCK_SCREEN_SETTINGS)[number];
 
 export const isLockScreenSetting = (value: string): value is LockScreenSetting => LOCK_SCREEN_SETTINGS.some((setting) => setting === value);
 
+export const DEFAULT_LOCK_SCREEN_SETTING: LockScreenSetting = "on";
+
 export type HapticStrength = "strong" | "light";
 
 export function hapticFor(setting: HapticBeat, beat: Pick<Beat, "accent">): HapticStrength | null {
