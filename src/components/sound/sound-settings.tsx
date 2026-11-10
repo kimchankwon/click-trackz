@@ -16,7 +16,20 @@ import { useTheme } from "@/hooks/use-theme";
 import { hapticsAvailable } from "@/audio/haptics";
 import { Segmented } from "@/components/ui/segmented";
 import { isLatencySetting } from "@/settings/latency";
-import { HAPTIC_BEATS, hapticBeatLabels, isHapticBeat, isSide, SIDES, sideLabels, type HapticBeat, type Side } from "@/settings/output";
+import { lockScreenAvailable } from "@/audio/now-playing";
+import {
+  DEFAULT_LOCK_SCREEN_SETTING,
+  HAPTIC_BEATS,
+  hapticBeatLabels,
+  isHapticBeat,
+  isLockScreenSetting,
+  isSide,
+  SIDES,
+  sideLabels,
+  type HapticBeat,
+  type LockScreenSetting,
+  type Side,
+} from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { isVoiceOffsetSetting, stepVoiceOffset, VOICE_OFFSET_MAX_MS, VOICE_OFFSET_MIN_MS, VOICE_OFFSET_STEP_MS, voiceOffsetText } from "@/settings/voice-offset";
 import type { Sound } from "@/settings/use-sound-settings";
@@ -46,6 +59,7 @@ export function SoundSettings({
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
+  const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>("lockScreenControls", DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
   return (
     <>
@@ -120,6 +134,23 @@ export function SoundSettings({
                 onChange={setHapticBeat}
                 options={HAPTIC_BEATS.map((setting) => ({ value: setting, label: hapticBeatLabels[setting] }))}
               />
+            </View>
+          </>
+        ) : null}
+        {lockScreenAvailable ? (
+          <>
+            <Divider />
+            <View style={styles.mixHead}>
+              <Icon name="phone" size={22} color="textSecondary" />
+              <View style={styles.grow}>
+                <Switch
+                  label="Lock screen controls"
+                  hint="Control Playback from the lock screen and Control Center. Other apps' audio stops while Play is open."
+                  testID="lock-screen-controls"
+                  value={lockScreen === "on"}
+                  onChange={(on) => setLockScreen(on ? "on" : "off")}
+                />
+              </View>
             </View>
           </>
         ) : null}

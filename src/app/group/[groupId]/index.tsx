@@ -49,7 +49,11 @@ import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
 import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
-import { hapticFor, isHapticBeat, isSide, type HapticBeat, type Side } from "@/settings/output";
+import { DEFAULT_LOCK_SCREEN_SETTING, hapticFor, isHapticBeat, isLockScreenSetting, isSide, type HapticBeat, type LockScreenSetting, type Side } from "@/settings/output";
+import { lockScreenAvailable } from "@/audio/now-playing";
+import { useLockScreen } from "@/audio/use-lock-screen";
+import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
+import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, usePresence } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
@@ -136,6 +140,8 @@ const emptySong: Song = { countIn: false, sections: [] };
 const STAGE_HEAD_HEIGHT = 164;
 
 const RECENT_BEATS_MS = 10_000;
+
+const END_TIMER_SLACK_MS = 50;
 
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
@@ -248,6 +254,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
+  const [lockScreenSetting, , , lockScreenLoaded] = useDeviceSetting<LockScreenSetting>("lockScreenControls", DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
+  const lockScreenOn = lockScreenAvailable && lockScreenLoaded && lockScreenSetting === "on";
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
@@ -365,6 +373,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   );
 
   useEffect(() => {
+    if (!lockScreenLoaded) return;
+    setOwnsNowPlaying(lockScreenOn, { applyNow: false });
     let cancelled = false;
     if (!engine.current) engine.current = new CueAudioEngine();
     engine.current
@@ -384,7 +394,26 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockScreenLoaded]);
+
+  const wakeEngine = useCallback(() => {
+    const current = engine.current;
+    if (!current?.enabled || current.running) return;
+    void current.wake().then((running) => {
+      if (engine.current !== current) return;
+      setSoundOn(running);
+      setSoundBlocked(!running);
+      setSoundProblem(running ? null : current.failure);
+    });
   }, []);
+
+  useEffect(
+    () =>
+      onInterruptionEnded((shouldResume) => {
+        if (shouldResume) wakeEngine();
+      }),
+    [wakeEngine],
+  );
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -442,6 +471,18 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
+  }, [playNow, playback, song]);
+
+  useEffect(() => {
+    if (playback === null || song.sections.length === 0) return;
+    const endsAt = playbackEndsAt(song, playback);
+    const now = playNow();
+    if (!Number.isFinite(endsAt) || now === null || now >= endsAt) return;
+    const timer = setTimeout(() => {
+      setPlaying(false);
+      setFinishedStart(playback.startsAt);
+    }, endsAt - now + END_TIMER_SLACK_MS);
+    return () => clearTimeout(timer);
   }, [playNow, playback, song]);
 
   useEffect(() => {
@@ -695,6 +736,55 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
   const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, cueLeadBars: startSong.cueLeadBars, sections: startSong.sections }, startSection, startBar) : 0;
+
+  const readLockScreen = () => {
+    const nowMs = playNow();
+    const live = livePlayback(song, playback, nowMs);
+    const liveMuted = live.playing && playback !== null && mutedStart === playback.startsAt;
+    const liveStopping = live.playing && (stopPending || (playback?.stopsAt ?? null) !== null);
+    const liveSection = live.latest?.sectionIndex ?? null;
+    const sectionTitle = !live.playing || live.latest === null ? "Ready" : liveSection === null ? "Count-in" : song.sections[liveSection] ? titleOf(song.sections[liveSection]) : "Ready";
+    const showsPlayback = playback !== null && (live.playing || selectedSongId === null);
+    const shownSongId = showsPlayback ? playback.songId : selectedSongId;
+    const loadedTitle = showsPlayback ? playingSong?.title : selectedSong?.title;
+    const libraryTitle = library?.find((entry) => entry.songId === shownSongId)?.title;
+    const songTitle = loadedTitle ?? libraryTitle ?? (steers ? "Pick a Song" : "Waiting for an Admin");
+    const state: LockScreenState = {
+      steers,
+      playing: live.playing,
+      muted: liveMuted,
+      stopping: liveStopping,
+      canStart: startBlocker === null && !startPending && !unclocked,
+      sectionIndex: live.playing ? liveSection : null,
+      sectionCount: song.sections.length,
+      hasPreviousSong: previousSong !== null,
+      hasNextSong: nextSong !== null,
+    };
+    const span = live.playing && playback !== null ? playbackSpan(song, playback) : null;
+    return {
+      state,
+      info: lockScreenInfo({ songTitle, section: sectionTitle, place: screenTitle, playing: live.playing, muted: liveMuted, span, lengthMs: startLength, nowMs }),
+      controls: lockScreenControls(state),
+    };
+  };
+  const runLockScreenCommand = (command: LockScreenCommand) => {
+    wakeEngine();
+    const action = lockScreenActionFor(command, readLockScreen().state);
+    if (action === null) return;
+    if (action.kind === "start") startPlayback();
+    else if (action.kind === "stop") stopPlayback();
+    else if (action.kind === "mute") mute();
+    else if (action.kind === "unmute") unmute();
+    else if (action.kind === "jump") tapSection(action.toSection);
+    else stepSong(action.step === 1 ? nextSong : previousSong);
+  };
+  useLockScreen({
+    on: lockScreenOn,
+    sessionBusy: playing,
+    refreshKey: [shownTitle, currentSection, screenTitle, playing, muted, stopping, playback?.startsAt, playback?.stopsAt, queuedKey, startSongId, startLength, startBlocker].join("|"),
+    read: readLockScreen,
+    onCommand: runLockScreenCommand,
+  });
 
   const header = (
     <ScreenHeader
