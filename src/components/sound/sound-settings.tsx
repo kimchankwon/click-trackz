@@ -145,7 +145,7 @@ export function SoundSettings({
               <View style={styles.grow}>
                 <Switch
                   label="Lock screen controls"
-                  hint="Keep the Click playing when you leave the app, and control Playback from the lock screen, Control Center and headphones. Other apps' audio stops while Play is open. Off: sound stops as soon as you leave the app."
+                  hint="Keeps playing when you leave the app."
                   testID="lock-screen-controls"
                   value={lockScreen === "on"}
                   onChange={(on) => setLockScreen(on ? "on" : "off")}

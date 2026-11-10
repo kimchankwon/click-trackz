@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { Asset } from "expo-asset";
 import { PlaybackNotificationManager, type PlaybackControlName } from "react-native-audio-api";
 
 import { LOCK_SCREEN_CONTROLS, type LockScreenCommand, type LockScreenControl, type LockScreenInfo } from "@/lib/lock-screen";
@@ -19,6 +20,18 @@ const UNUSED_CONTROLS: readonly PlaybackControlName[] = ["skipForward", "skipBac
 
 let queue: Promise<void> = Promise.resolve();
 
+let artwork: Promise<string | null> | null = null;
+
+const filePathOf = (uri: string) => (uri.startsWith("file://") ? decodeURIComponent(uri.slice("file://".length)) : uri);
+
+function artworkPath(): Promise<string | null> {
+  artwork ??= Asset.fromModule(require("../../assets/images/now-playing.png"))
+    .downloadAsync()
+    .then((asset) => filePathOf(asset.localUri ?? asset.uri))
+    .catch(() => null);
+  return artwork;
+}
+
 function inTurn(task: () => Promise<void>): Promise<void> {
   const turn = queue.then(task, task);
   queue = turn.catch(() => undefined);
@@ -27,7 +40,10 @@ function inTurn(task: () => Promise<void>): Promise<void> {
 
 export function showOnLockScreen(info: LockScreenInfo): Promise<void> {
   if (!lockScreenAvailable) return Promise.resolve();
-  return inTurn(() => PlaybackNotificationManager.show({ ...info, state: info.speed > 0 ? "playing" : "paused" }));
+  return inTurn(async () => {
+    const path = await artworkPath();
+    await PlaybackNotificationManager.show({ ...info, state: info.speed > 0 ? "playing" : "paused", ...(path === null ? {} : { artwork: path }) });
+  });
 }
 
 export function setLockScreenControls(enabled: Record<LockScreenCommand, boolean>): Promise<void> {
