@@ -57,8 +57,9 @@ export function jumpsAfter(song: Song, playback: Playback & { jumps: readonly Ju
 }
 
 export function stopTime(song: Song, playback: Playback, nowMs: number, leadMs = STOP_LEAD_MS): number | null {
-  const stopsAt = nowMs + leadMs;
-  return stopsAt < playbackEndsAt(song, playback) ? stopsAt : null;
+  if (playback.stopsAt !== null && playback.stopsAt !== undefined) return null;
+  const endsAt = playbackEndsAt(song, playback);
+  return nowMs < endsAt ? Math.min(nowMs + leadMs, endsAt) : null;
 }
 
 export type CommandResult = { jumps: Jump[] } | { problem: string };

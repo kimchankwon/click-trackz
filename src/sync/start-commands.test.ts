@@ -65,4 +65,11 @@ describe("Playback commands", () => {
     expect(stopTime(song, { startsAt: 0, startSection: 0 }, 20_000)).toBeNull();
     expect(stopTime(song, { startsAt: 0, startSection: 0, stopsAt: 2_400 }, 2_300)).toBeNull();
   });
+
+  it("still stops in the Song's last second, landing on its natural end", () => {
+    const endsAt = 12_000;
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, endsAt - 600)).toBe(endsAt);
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, endsAt - STOP_LEAD_MS - 1)).toBe(endsAt - 1);
+    expect(stopTime(song, { startsAt: 0, startSection: 0 }, endsAt)).toBeNull();
+  });
 });

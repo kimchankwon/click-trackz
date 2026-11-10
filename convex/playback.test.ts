@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LEAD_IN_MS, STOP_LEAD_MS } from "../src/sync/commands";
 import { demoSong } from "../src/sync/demo-song";
+import { playbackEndsAt } from "../src/sync/timeline";
 import { api } from "./_generated/api";
 import schema from "./schema";
 
@@ -132,6 +133,17 @@ describe("Group Playback", () => {
     vi.setSystemTime(startsAt + 10_000);
     await admin.mutation(api.playback.start, { groupId, songId });
     expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: null, stoppedBy: null, stoppedByName: null });
+  });
+
+  it("still records a Stop pressed in the Song's last second, landing on its natural end", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await admin.mutation(api.playback.start, { groupId, songId });
+    const started = (await member.query(api.playback.current, { groupId }))!;
+    const endsAt = playbackEndsAt(started.song, started);
+    vi.setSystemTime(endsAt - 600);
+    await admin.mutation(api.playback.stop, { groupId, startsAt: started.startsAt });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ stopsAt: endsAt, stoppedByName: "Admin" });
   });
 
   it("refuses a Stop or Jump meant for a Playback that another Start has already replaced", async () => {
