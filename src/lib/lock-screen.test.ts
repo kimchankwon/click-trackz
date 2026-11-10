@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Playback, Song } from "@/sync/timeline";
 
-import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenState } from "./lock-screen";
+import { infoKeyOf, livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, needsReshow, type LockScreenState } from "./lock-screen";
 
 const BAR_MS = 2_000;
 const section = (bars: number) => ({ sectionType: "Verse", bars, beatsPerBar: 4, bpm: 120, voiceCueEnabled: false });
@@ -71,9 +71,10 @@ describe("lockScreenActionFor", () => {
 });
 
 describe("lockScreenControls", () => {
-  it("enables only the buttons that would do something", () => {
-    expect(lockScreenControls(playingMember)).toEqual({ play: false, pause: true, stop: true, nextTrack: false, previousTrack: false, togglePlayPause: true });
-    expect(lockScreenControls({ ...idleAdmin, steers: false }).togglePlayPause).toBe(false);
+  it("keeps the same buttons through a Song, since each change re-sends stale Now Playing time", () => {
+    expect(lockScreenControls(playingMember)).toEqual({ play: true, pause: true, stop: true, nextTrack: false, previousTrack: false, togglePlayPause: true });
+    expect(lockScreenControls(idleAdmin)).toEqual(lockScreenControls(playingAdmin));
+    expect(lockScreenControls(playingAdmin)).toEqual({ play: true, pause: true, stop: true, nextTrack: true, previousTrack: true, togglePlayPause: true });
   });
 });
 
@@ -98,6 +99,25 @@ describe("lockScreenInfo", () => {
   it("holds still while muted or vamping", () => {
     expect(lockScreenInfo({ ...base, playing: true, muted: true, span: { startsAt: 1_000, endsAt: 61_000 } })).toMatchObject({ artist: "Chorus 2, muted", speed: 0 });
     expect(lockScreenInfo({ ...base, playing: true, span: { startsAt: 1_000, endsAt: Infinity } })).toMatchObject({ artist: "Chorus 2", duration: 0, elapsedTime: 0, speed: 0 });
+  });
+});
+
+describe("Now Playing timing", () => {
+  const base = { songTitle: "You Alone", section: "Count-in", place: "First Setlist", muted: false, lengthMs: 60_000, playing: true, span: { startsAt: 10_000, endsAt: 70_000 } };
+
+  it("holds the clock still through the Lead-in, so it starts with the first beat", () => {
+    expect(lockScreenInfo({ ...base, nowMs: 9_000 })).toMatchObject({ elapsedTime: 0, speed: 0 });
+    expect(lockScreenInfo({ ...base, nowMs: 10_000 })).toMatchObject({ elapsedTime: 0, speed: 1 });
+  });
+
+  it("re-sends the time only when what iOS extrapolates has drifted from the real position", () => {
+    const shown = lockScreenInfo({ ...base, nowMs: 12_000 });
+    const previous = { key: infoKeyOf(shown), elapsedTime: shown.elapsedTime, speed: shown.speed, atMs: 0 };
+    expect(needsReshow(null, shown, 0)).toBe(true);
+    expect(needsReshow(previous, lockScreenInfo({ ...base, nowMs: 13_000 }), 1_000)).toBe(false);
+    expect(needsReshow(previous, lockScreenInfo({ ...base, nowMs: 17_000 }), 1_000)).toBe(true);
+    expect(needsReshow(previous, lockScreenInfo({ ...base, section: "Verse", nowMs: 13_000 }), 1_000)).toBe(true);
+    expect(needsReshow(previous, lockScreenInfo({ ...base, playing: false, nowMs: 13_000 }), 1_000)).toBe(true);
   });
 });
 
