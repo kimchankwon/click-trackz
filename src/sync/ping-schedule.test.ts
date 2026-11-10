@@ -2,27 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import { pingDelayMs } from "./ping-schedule";
 
-const idle = { sinceOpenMs: 10 * 60_000, playing: false, hidden: false, hasEstimate: true };
+const settled = { sinceOpenMs: 10 * 60_000, hidden: false, hasEstimate: true };
 
 describe("pingDelayMs", () => {
   it("pings every 5 seconds for the first 15 seconds after opening", () => {
-    expect(pingDelayMs({ ...idle, sinceOpenMs: 10_000 })).toBe(5_000);
+    expect(pingDelayMs({ ...settled, sinceOpenMs: 10_000 })).toBe(5_000);
   });
 
-  it("slows to once every 2 minutes when nothing is playing", () => {
-    expect(pingDelayMs(idle)).toBe(120_000);
+  it("pings every 10 seconds after that, during Playback too, so the clock never drifts far between pings", () => {
+    expect(pingDelayMs(settled)).toBe(10_000);
   });
 
-  it("holds the clock steady while Playback is running", () => {
-    expect(pingDelayMs({ ...idle, playing: true })).toBeNull();
-    expect(pingDelayMs({ ...idle, playing: true, sinceOpenMs: 10_000 })).toBeNull();
-  });
-
-  it("keeps measuring during Playback until a late joiner has its first estimate", () => {
-    expect(pingDelayMs({ ...idle, playing: true, hasEstimate: false, sinceOpenMs: 3_000 })).toBe(5_000);
+  it("keeps the faster pace until the first estimate", () => {
+    expect(pingDelayMs({ ...settled, hasEstimate: false })).toBe(5_000);
   });
 
   it("stops pinging while the app is hidden", () => {
-    expect(pingDelayMs({ ...idle, sinceOpenMs: 10_000, hidden: true })).toBeNull();
+    expect(pingDelayMs({ ...settled, hidden: true })).toBeNull();
+    expect(pingDelayMs({ ...settled, sinceOpenMs: 10_000, hidden: true })).toBeNull();
   });
 });

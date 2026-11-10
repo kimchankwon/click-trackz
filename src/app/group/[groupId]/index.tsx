@@ -213,7 +213,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const steers = isAdmin || onDevice;
   const [playing, setPlaying] = useState(false);
   const [finishedStart, setFinishedStart] = useState<number | null>(null);
-  const { estimate, serverNow } = useServerClock({ playing, onDevice: offline });
+  const { estimate, serverNow } = useServerClock({ onDevice: offline });
   const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
@@ -510,10 +510,20 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     const endsAt = playbackEndsAt(song, playback);
     const now = playNow();
     if (!Number.isFinite(endsAt) || now === null || now >= endsAt) return;
-    const timer = setTimeout(() => {
-      setPlaying(false);
-      setFinishedStart(playback.startsAt);
-    }, endsAt - now + END_TIMER_SLACK_MS);
+    let timer: ReturnType<typeof setTimeout>;
+    const waitForEnd = (from: number) => {
+      timer = setTimeout(() => {
+        const later = playNow();
+        if (later === null) return;
+        if (later < endsAt) {
+          waitForEnd(later);
+          return;
+        }
+        setPlaying(false);
+        setFinishedStart(playback.startsAt);
+      }, endsAt - from + END_TIMER_SLACK_MS);
+    };
+    waitForEnd(now);
     return () => clearTimeout(timer);
   }, [playNow, playback, song]);
 

@@ -11,21 +11,29 @@ export type ClockEstimate = {
 };
 
 const roundTripOf = (sample: ClockSample) => sample.receivedAt - sample.sentAt;
+const offsetOf = (sample: ClockSample) => sample.serverAt - (sample.sentAt + sample.receivedAt) / 2;
 
 export const SLEEP_TOLERANCE_MS = 100;
 
 export const clockSlept = (epochBefore: number, epochNow: number, toleranceMs = SLEEP_TOLERANCE_MS) => Math.abs(epochNow - epochBefore) > toleranceMs;
 
-export const MAX_SAMPLE_AGE_MS = 10 * 60_000;
+export const SAMPLE_WINDOW = 24;
+export const MAX_SAMPLE_AGE_MS = 2 * 60_000;
+export const NEAR_BEST_ROUND_TRIP_MS = 5;
 
-export function estimateClockOffset(samples: readonly ClockSample[], maxAgeMs = MAX_SAMPLE_AGE_MS): ClockEstimate | null {
+export function estimateClockOffset(
+  samples: readonly ClockSample[],
+  maxAgeMs = MAX_SAMPLE_AGE_MS,
+  nearBestMs = NEAR_BEST_ROUND_TRIP_MS,
+): ClockEstimate | null {
   const newest = samples.reduce((latest, sample) => Math.max(latest, sample.receivedAt), -Infinity);
   const usable = samples.filter((sample) => roundTripOf(sample) >= 0 && newest - sample.receivedAt <= maxAgeMs);
   if (usable.length === 0) return null;
-  const best = usable.reduce((a, b) => (roundTripOf(b) < roundTripOf(a) ? b : a));
+  const bestRoundTrip = usable.reduce((best, sample) => Math.min(best, roundTripOf(sample)), Infinity);
+  const trusted = usable.filter((sample) => roundTripOf(sample) <= bestRoundTrip + nearBestMs);
   return {
-    offsetMs: best.serverAt - (best.sentAt + best.receivedAt) / 2,
-    uncertaintyMs: roundTripOf(best) / 2,
-    roundTripMs: roundTripOf(best),
+    offsetMs: trusted.reduce((sum, sample) => sum + offsetOf(sample), 0) / trusted.length,
+    uncertaintyMs: bestRoundTrip / 2,
+    roundTripMs: bestRoundTrip,
   };
 }

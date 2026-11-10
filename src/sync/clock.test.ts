@@ -17,11 +17,20 @@ describe("estimateClockOffset", () => {
     expect(estimate).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
   });
 
-  it("drops samples far older than the newest one, so a long set without pings cannot keep a drifted offset", () => {
+  it("averages the samples whose round trips are within 5 ms of the shortest", () => {
+    const estimate = estimateClockOffset([
+      { sentAt: 0, serverAt: 520, receivedAt: 40 },
+      { sentAt: 10_000, serverAt: 10_528, receivedAt: 10_044 },
+      { sentAt: 20_000, serverAt: 20_560, receivedAt: 20_060 },
+    ]);
+    expect(estimate).toEqual({ offsetMs: 503, uncertaintyMs: 20, roundTripMs: 40 });
+  });
+
+  it("drops samples more than 2 minutes older than the newest, so a drifting device clock cannot keep a stale offset", () => {
     const old = { sentAt: 0, serverAt: 520, receivedAt: 40 };
-    const fresh = { sentAt: 90 * 60_000, serverAt: 90 * 60_000 + 750, receivedAt: 90 * 60_000 + 100 };
-    expect(estimateClockOffset([old, fresh])).toEqual({ offsetMs: 700, uncertaintyMs: 50, roundTripMs: 100 });
-    expect(estimateClockOffset([old, { ...fresh, sentAt: 5 * 60_000, serverAt: 5 * 60_000 + 750, receivedAt: 5 * 60_000 + 100 }])).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
+    const freshAt = (at: number) => ({ sentAt: at, serverAt: at + 750, receivedAt: at + 100 });
+    expect(estimateClockOffset([old, freshAt(5 * 60_000)])).toEqual({ offsetMs: 700, uncertaintyMs: 50, roundTripMs: 100 });
+    expect(estimateClockOffset([old, freshAt(60_000)])).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
   });
 
   it("knows the device slept when the wall clock moved on but the monotonic clock did not", () => {
