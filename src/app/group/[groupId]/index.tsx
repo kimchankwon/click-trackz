@@ -45,6 +45,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
+import { useAppActive } from "@/lib/use-app-active";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
@@ -143,6 +144,8 @@ const RECENT_BEATS_MS = 10_000;
 
 const END_TIMER_SLACK_MS = 50;
 
+const BACKGROUND_STATE_MS = 250;
+
 type MyGroup = FunctionReturnType<typeof api.groups.myGroups>[number];
 
 type ShownPlayback = Playback & {
@@ -233,7 +236,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const startBar = pickedBar ?? 1;
   const [stopPending, setStopPending] = useState(false);
   const [mutedStart, setMutedStart] = useState<number | null>(null);
-  const muted = playing && playback !== null && mutedStart === playback.startsAt;
+  const mutedHere = playback !== null && mutedStart === playback.startsAt;
+  const muted = playing && mutedHere;
   const currentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
   const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
   const library = useQuery(api.songs.list, { groupId });
@@ -334,8 +338,8 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   }, [groupEndsAt, serverNow]);
 
   useEffect(() => {
-    engine.current?.setPlan(song, song.sections.length > 0 && !muted ? playback : null);
-  }, [song, playback, soundOn, muted]);
+    engine.current?.setPlan(song, song.sections.length > 0 && !mutedHere ? playback : null);
+  }, [song, playback, soundOn, mutedHere]);
 
   useEffect(() => {
     if (engine.current) engine.current.mix = mix;
@@ -443,9 +447,20 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     });
   }, [soundOn]);
 
+  const appActive = useAppActive();
+
   useEffect(() => {
-    let handle = 0;
     const endsAt = playback && song.sections.length > 0 ? playbackEndsAt(song, playback) : -Infinity;
+    if (!appActive) {
+      const keepPlayingCurrent = () => {
+        const now = playNow();
+        setPlaying(now !== null && now < endsAt);
+        if (playback && now !== null && now >= endsAt) setFinishedStart(playback.startsAt);
+      };
+      const timer = setInterval(keepPlayingCurrent, BACKGROUND_STATE_MS);
+      return () => clearInterval(timer);
+    }
+    let handle = 0;
     const draw = () => {
       const now = playNow();
       if (now !== null && playback && song.sections.length > 0) {
@@ -471,7 +486,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
-  }, [playNow, playback, song]);
+  }, [appActive, playNow, playback, song]);
 
   useEffect(() => {
     if (playback === null || song.sections.length === 0) return;
@@ -702,9 +717,12 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     }
   };
 
+  const jumpTo = (index: number) =>
+    run(async () => (onDevice ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode, startsAt: playback?.startsAt })));
+
   const tapSection = (index: number) => {
     if (!steers) return;
-    if (playing) run(async () => (onDevice ? jumpOnDevice(index) : jump({ groupId, toSection: index, mode: jumpMode, startsAt: playback?.startsAt })));
+    if (playing) jumpTo(index);
     else if (startSongId) setStartPick({ songId: startSongId, index, bar: 1 });
   };
 
@@ -775,7 +793,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     else if (action.kind === "stop") stopPlayback();
     else if (action.kind === "mute") mute();
     else if (action.kind === "unmute") unmute();
-    else if (action.kind === "jump") tapSection(action.toSection);
+    else if (action.kind === "jump") jumpTo(action.toSection);
     else stepSong(action.step === 1 ? nextSong : previousSong);
   };
   useLockScreen({
