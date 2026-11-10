@@ -498,10 +498,19 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     const endsAt = playbackEndsAt(song, playback);
     const now = playNow();
     if (!Number.isFinite(endsAt) || now === null || now >= endsAt) return;
-    const timer = setTimeout(() => {
-      setPlaying(false);
-      setFinishedStart(playback.startsAt);
-    }, endsAt - now + END_TIMER_SLACK_MS);
+    let timer: ReturnType<typeof setTimeout>;
+    const waitForEnd = (from: number) => {
+      timer = setTimeout(() => {
+        const later = playNow();
+        if (later !== null && later < endsAt) {
+          waitForEnd(later);
+          return;
+        }
+        setPlaying(false);
+        setFinishedStart(playback.startsAt);
+      }, endsAt - from + END_TIMER_SLACK_MS);
+    };
+    waitForEnd(now);
     return () => clearTimeout(timer);
   }, [playNow, playback, song]);
 
