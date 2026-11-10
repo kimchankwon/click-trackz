@@ -97,7 +97,7 @@ describe("lockScreenInfo", () => {
   });
 
   it("holds still while muted or vamping", () => {
-    expect(lockScreenInfo({ ...base, playing: true, muted: true, span: { startsAt: 1_000, endsAt: 61_000 } })).toMatchObject({ artist: "Chorus 2, muted", speed: 0 });
+    expect(lockScreenInfo({ ...base, playing: true, muted: true, span: { startsAt: 1_000, endsAt: 61_000 } })).toMatchObject({ artist: "Chorus 2", speed: 0 });
     expect(lockScreenInfo({ ...base, playing: true, span: { startsAt: 1_000, endsAt: Infinity } })).toMatchObject({ artist: "Chorus 2", duration: 0, elapsedTime: 0, speed: 0 });
   });
 });
