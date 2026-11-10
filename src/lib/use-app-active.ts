@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
+const subscribe = (onChange: () => void) => {
+  const subscription = AppState.addEventListener("change", onChange);
+  return () => subscription.remove();
+};
+
+const isActive = () => AppState.currentState === "active";
+
 export function useAppActive(): boolean {
-  const [active, setActive] = useState(AppState.currentState === "active");
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => setActive(state === "active"));
-    return () => subscription.remove();
-  }, []);
-  return active;
+  return useSyncExternalStore(subscribe, isActive);
 }
