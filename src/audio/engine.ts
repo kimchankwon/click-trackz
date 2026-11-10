@@ -79,6 +79,7 @@ export class CueAudioEngine {
   private waking: Promise<boolean> | null = null;
   private needsFreshContext = false;
   private disposed = false;
+  private silenced = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
   voiceOffsetMs = 0;
@@ -151,7 +152,7 @@ export class CueAudioEngine {
 
   async resume(): Promise<boolean> {
     const context = this.context;
-    if (context === null) return false;
+    if (context === null || this.silenced) return false;
     const isRunning = () => context.state === "running";
     if (isRunning()) {
       this.failure = null;
@@ -191,7 +192,7 @@ export class CueAudioEngine {
 
   wake(): Promise<boolean> {
     const context = this.context;
-    if (context === null) return Promise.resolve(false);
+    if (context === null || this.silenced) return Promise.resolve(false);
     if (context.state === "running") return Promise.resolve(true);
     if (this.waking) return this.waking;
     const waking = (this.needsFreshContext || context.state !== "suspended" ? this.renew() : this.resume()).finally(() => {
@@ -328,6 +329,18 @@ export class CueAudioEngine {
     if (changed && this.hidden) this.tick();
   }
 
+  silence() {
+    this.silenced = true;
+    this.cancelAfter(-Infinity);
+    this.scheduledUntil = -Infinity;
+    this.voiceBusyUntil = -Infinity;
+    if (this.context?.state === "running") this.context.suspend().catch(() => undefined);
+  }
+
+  allowSound() {
+    this.silenced = false;
+  }
+
   setHidden(hidden: boolean) {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
@@ -394,7 +407,7 @@ export class CueAudioEngine {
   private tick() {
     const context = this.context;
     const now = this.serverNow();
-    if (context === null || now === null || context.state !== "running") return;
+    if (context === null || now === null || context.state !== "running" || this.silenced) return;
     this.mapping = slewMapping(this.mapping, context.currentTime * 1000 - now);
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
