@@ -61,10 +61,8 @@ export function lockScreenActionFor(command: LockScreenCommand, state: LockScree
   return hasSong ? { kind: "stepSong", step } : null;
 }
 
-export function lockScreenControls(state: LockScreenState): Record<LockScreenCommand, boolean> {
-  const controls = {} as Record<LockScreenCommand, boolean>;
-  for (const command of LOCK_SCREEN_COMMANDS) controls[command] = lockScreenActionFor(command, state) !== null;
-  return controls;
+export function lockScreenControls({ steers }: Pick<LockScreenState, "steers">): Record<LockScreenCommand, boolean> {
+  return { play: true, pause: true, stop: true, nextTrack: steers, previousTrack: steers, togglePlayPause: true };
 }
 
 export type LockScreenInfo = {
@@ -98,12 +96,26 @@ export function lockScreenInfo({
   const playingSpan = playing && span !== null && Number.isFinite(span.endsAt) ? span : null;
   const durationMs = playing ? (playingSpan ? playingSpan.endsAt - playingSpan.startsAt : 0) : lengthMs;
   const elapsedMs = playingSpan && nowMs !== null ? Math.min(durationMs, Math.max(0, nowMs - playingSpan.startsAt)) : 0;
+  const sounding = playingSpan !== null && nowMs !== null && nowMs >= playingSpan.startsAt;
   return {
     title: songTitle,
     artist: playing ? (muted ? `${section}, muted` : section) : place,
     album: place,
     duration: Math.max(0, durationMs) / 1000,
     elapsedTime: elapsedMs / 1000,
-    speed: playing && !muted && playingSpan !== null ? 1 : 0,
+    speed: playing && !muted && sounding ? 1 : 0,
   };
+}
+
+export const infoKeyOf = ({ title, artist, album, duration, speed }: LockScreenInfo) => [title, artist, album, duration, speed].join("|");
+
+export const RESHOW_DRIFT_S = 0.25;
+
+export type ShownInfo = { key: string; elapsedTime: number; speed: number; atMs: number };
+
+export function needsReshow(previous: ShownInfo | null, info: LockScreenInfo, atMs: number): boolean {
+  if (previous === null || previous.key !== infoKeyOf(info)) return true;
+  if (info.speed === 0) return false;
+  const expected = previous.elapsedTime + ((atMs - previous.atMs) / 1000) * previous.speed;
+  return Math.abs(info.elapsedTime - expected) > RESHOW_DRIFT_S;
 }

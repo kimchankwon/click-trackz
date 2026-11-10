@@ -5,6 +5,7 @@ import { PlaybackNotificationManager, type PlaybackControlName } from "react-nat
 import { LOCK_SCREEN_CONTROLS, type LockScreenCommand, type LockScreenControl, type LockScreenInfo } from "@/lib/lock-screen";
 
 import { onHeadsetPlayPause, setHeadsetPlayPause } from "./headset-play-pause";
+import { nowPlayingArtwork } from "./now-playing-artwork";
 
 export const lockScreenAvailable = Platform.OS === "ios";
 
@@ -25,7 +26,7 @@ let artwork: Promise<string | null> | null = null;
 const filePathOf = (uri: string) => (uri.startsWith("file://") ? decodeURIComponent(uri.slice("file://".length)) : uri);
 
 function artworkPath(): Promise<string | null> {
-  artwork ??= Asset.fromModule(require("../../assets/images/now-playing.png"))
+  artwork ??= Asset.fromModule(nowPlayingArtwork)
     .downloadAsync()
     .then((asset) => filePathOf(asset.localUri ?? asset.uri))
     .catch(() => null);
@@ -38,19 +39,30 @@ function inTurn(task: () => Promise<void>): Promise<void> {
   return turn;
 }
 
+const enabledNow = new Map<PlaybackControlName, boolean>();
+
+async function setControl(control: PlaybackControlName, enabled: boolean) {
+  if (enabledNow.get(control) === enabled) return;
+  await PlaybackNotificationManager.enableControl(control, enabled);
+  enabledNow.set(control, enabled);
+}
+
 export function showOnLockScreen(info: LockScreenInfo): Promise<void> {
   if (!lockScreenAvailable) return Promise.resolve();
+  const queuedAt = performance.now();
   return inTurn(async () => {
     const path = await artworkPath();
-    await PlaybackNotificationManager.show({ ...info, state: info.speed > 0 ? "playing" : "paused", ...(path === null ? {} : { artwork: path }) });
+    const waitedS = info.speed > 0 ? (performance.now() - queuedAt) / 1000 : 0;
+    const elapsedTime = info.duration > 0 ? Math.min(info.duration, info.elapsedTime + waitedS) : info.elapsedTime + waitedS;
+    await PlaybackNotificationManager.show({ ...info, elapsedTime, state: info.speed > 0 ? "playing" : "paused", ...(path === null ? {} : { artwork: path }) });
   });
 }
 
 export function setLockScreenControls(enabled: Record<LockScreenCommand, boolean>): Promise<void> {
   if (!lockScreenAvailable) return Promise.resolve();
   return inTurn(async () => {
-    for (const control of UNUSED_CONTROLS) await PlaybackNotificationManager.enableControl(control, false);
-    for (const control of LOCK_SCREEN_CONTROLS) await PlaybackNotificationManager.enableControl(control, enabled[control]);
+    for (const control of UNUSED_CONTROLS) await setControl(control, false);
+    for (const control of LOCK_SCREEN_CONTROLS) await setControl(control, enabled[control]);
     setHeadsetPlayPause(enabled.togglePlayPause);
   });
 }
@@ -59,7 +71,7 @@ export function clearLockScreen(): Promise<void> {
   if (!lockScreenAvailable) return Promise.resolve();
   return inTurn(async () => {
     setHeadsetPlayPause(false);
-    for (const control of [...UNUSED_CONTROLS, ...LOCK_SCREEN_CONTROLS]) await PlaybackNotificationManager.enableControl(control, false);
+    for (const control of [...UNUSED_CONTROLS, ...LOCK_SCREEN_CONTROLS]) await setControl(control, false);
     await PlaybackNotificationManager.hide();
   });
 }

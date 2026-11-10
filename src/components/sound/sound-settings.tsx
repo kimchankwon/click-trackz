@@ -19,6 +19,7 @@ import { isLatencySetting } from "@/settings/latency";
 import { lockScreenAvailable } from "@/audio/now-playing";
 import {
   DEFAULT_LOCK_SCREEN_SETTING,
+  LOCK_SCREEN_SETTING_KEY,
   HAPTIC_BEATS,
   hapticBeatLabels,
   isHapticBeat,
@@ -59,7 +60,7 @@ export function SoundSettings({
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
-  const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>("lockScreenControls", DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
+  const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>(LOCK_SCREEN_SETTING_KEY, DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
   return (
     <>

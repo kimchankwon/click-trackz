@@ -50,7 +50,7 @@ import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
 import { hapticsAvailable, tapHaptic } from "@/audio/haptics";
-import { DEFAULT_LOCK_SCREEN_SETTING, hapticFor, isHapticBeat, isLockScreenSetting, isSide, type HapticBeat, type LockScreenSetting, type Side } from "@/settings/output";
+import { DEFAULT_LOCK_SCREEN_SETTING, LOCK_SCREEN_SETTING_KEY, hapticFor, isHapticBeat, isLockScreenSetting, isSide, type HapticBeat, type LockScreenSetting, type Side } from "@/settings/output";
 import { lockScreenAvailable } from "@/audio/now-playing";
 import { useLockScreen } from "@/audio/use-lock-screen";
 import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
@@ -258,7 +258,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
-  const [lockScreenSetting, , , lockScreenLoaded] = useDeviceSetting<LockScreenSetting>("lockScreenControls", DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
+  const [lockScreenSetting, , , lockScreenLoaded] = useDeviceSetting<LockScreenSetting>(LOCK_SCREEN_SETTING_KEY, DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const lockScreenOn = lockScreenAvailable && lockScreenLoaded && lockScreenSetting === "on";
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
