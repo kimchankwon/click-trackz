@@ -139,7 +139,7 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-const STAGE_HEAD_HEIGHT = 164;
+const STAGE_HEAD_HEIGHT = 128;
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -885,17 +885,43 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       {soundPromptFor("enable-sound")}
       {playing ? (
         <View style={[styles.stageHead, styles.titleBlock]}>
-          <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
-            {shownTitle ?? " "}
-          </ThemedText>
-          {starterName ? (
-            <View style={styles.starter} testID="started-by">
-              <Icon name="member" size={14} color="textSecondary" />
-              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
-                Started by {starterName}
-              </ThemedText>
+          <View style={styles.headRow}>
+            <View style={styles.headSide}>
+              {steers ? (
+                <IconButton
+                  icon="repeat"
+                  label="Repeat this Section"
+                  testID="repeat-section"
+                  round
+                  filled
+                  disabled={beat?.sectionIndex == null || stopping || vampTitle !== null}
+                  onPress={() => repeatNow(false)}
+                />
+              ) : null}
             </View>
-          ) : null}
+            <View style={styles.headMiddle}>
+              <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
+                {shownTitle ?? " "}
+              </ThemedText>
+              {starterName ? (
+                <View style={styles.starter} testID="started-by">
+                  <Icon name="member" size={14} color="textSecondary" />
+                  <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                    Started by {starterName}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.headSide}>
+              {steers ? (
+                vampTitle === null ? (
+                  <IconButton icon="vamp" label="Vamp this Section" testID="vamp-section" round filled disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
+                ) : (
+                  <IconButton icon="vamp" label="End vamp" testID="end-vamp" round filled active disabled={stopping} onPress={endVampNow} />
+                )
+              ) : null}
+            </View>
+          </View>
           <ThemedText
             type="title"
             testID="current-section"
@@ -980,26 +1006,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           </View>
         </View>
       ) : null}
-      {playing && (steers || vampTitle !== null) ? (
-        <View style={styles.vampBlock}>
-          {vampTitle !== null ? (
-            <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
-              {steers ? `Vamping ${vampTitle}` : `Vamping ${vampTitle} until an Admin ends it`}
-            </ThemedText>
-          ) : null}
-          {steers ? (
-            <View style={styles.vampButtons}>
-              {vampTitle === null ? (
-                <>
-                  <ActionButton medium rounded icon="repeat" label="Repeat" testID="repeat-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(false)} />
-                  <ActionButton medium rounded icon="vamp" label="Vamp" testID="vamp-section" disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
-                </>
-              ) : (
-                <ActionButton medium rounded accent icon="vamp" label="End vamp" testID="end-vamp" disabled={stopping} onPress={endVampNow} />
-              )}
-            </View>
-          ) : null}
-        </View>
+      {playing && vampTitle !== null && !steers ? (
+        <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
+          {`Vamping ${vampTitle} until an Admin ends it`}
+        </ThemedText>
       ) : null}
       {shownSections.length > 0 ? (
         <Card title="Sections">
@@ -1234,7 +1244,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           <View style={styles.transport}>
             {playing && !onDevice ? (
               <IconButton
-                icon={muted ? "sound" : "muted"}
+                icon="muted"
                 label={muted ? "Unmute" : "Mute"}
                 testID={muted ? "unmute" : "mute"}
                 size={ControlHeight.large}
@@ -1293,25 +1303,18 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
             />
           </View>
         ) : null}
-        {playing && (!steers || muted) ? (
+        {playing && !steers ? (
           <View style={styles.personal}>
-            {muted ? (
-              <ThemedText type="caption" themeColor="textSecondary" testID="muted-notice" style={styles.grow} numberOfLines={2}>
-                Muted on this device. Playback carries on for everyone else.
-              </ThemedText>
-            ) : null}
-            {steers ? null : (
-              <ActionButton
-                medium
-                rounded
-                full={!muted}
-                accent={muted}
-                icon={muted ? "sound" : "muted"}
-                label={muted ? "Unmute" : "Mute"}
-                testID={muted ? "unmute" : "mute"}
-                onPress={muted ? unmute : mute}
-              />
-            )}
+            <IconButton
+              icon="muted"
+              label={muted ? "Unmute" : "Mute"}
+              testID={muted ? "unmute" : "mute"}
+              size={ControlHeight.large}
+              round
+              filled
+              active={muted}
+              onPress={muted ? unmute : mute}
+            />
           </View>
         ) : null}
         <SongProgress span={songSpan} lengthMs={startLength} serverNow={playNow} />
@@ -1476,19 +1479,19 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
   pillGap: { marginLeft: Spacing.one },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
-  playColumn: { width: "100%", alignItems: "center", gap: Spacing.three },
+  playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
   hidden: { display: "none" },
-  sectionHeading: { fontSize: 56, lineHeight: 62 },
-  sectionHeadingLong: { fontSize: 40, lineHeight: 50 },
+  sectionHeading: { fontSize: 40, lineHeight: 46 },
+  sectionHeadingLong: { fontSize: 32, lineHeight: 40 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  idleTitle: { fontSize: 34, lineHeight: 40 },
+  idleTitle: { fontSize: 28, lineHeight: 34 },
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
-  nextText: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: 700 },
+  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 700 },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   soundPrompt: {
     flexDirection: "row",
@@ -1501,8 +1504,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   leave: { width: "100%", paddingTop: Spacing.two, alignItems: "center", gap: Spacing.two },
-  vampBlock: { width: "100%", alignItems: "center", gap: Spacing.two },
-  vampButtons: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: Spacing.two },
+  headRow: { flexDirection: "row", alignItems: "center", width: "100%", gap: Spacing.two },
+  headSide: { width: 44, alignItems: "center" },
+  headMiddle: { flex: 1, minWidth: 0, alignItems: "center", gap: Spacing.one },
   miniOpen: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 44 },
   pressed: { opacity: 0.6 },
   miniBar: {
@@ -1541,7 +1545,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  personal: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%", paddingLeft: Spacing.one },
+  personal: { flexDirection: "row", alignItems: "center", justifyContent: "center", width: "100%" },
   starter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.one, maxWidth: "100%" },
   starterName: { flexShrink: 1 },
   transport: { flexDirection: "row", alignItems: "center", gap: Spacing.two, width: "100%" },

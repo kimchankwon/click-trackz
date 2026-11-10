@@ -99,7 +99,7 @@ export function lockScreenInfo({
   const sounding = playingSpan !== null && nowMs !== null && nowMs >= playingSpan.startsAt;
   return {
     title: songTitle,
-    artist: playing ? (muted ? `${section}, muted` : section) : place,
+    artist: playing ? section : place,
     album: place,
     duration: Math.max(0, durationMs) / 1000,
     elapsedTime: elapsedMs / 1000,

@@ -108,7 +108,10 @@ const STARTER_AVATAR = 40;
 const RING = 2.5;
 const SIDE_GAP = 14;
 const COLUMN = AVATAR + RING * 2 + 4;
-const MAX_PER_SIDE = 5;
+const COLUMN_GAP = 6;
+const SLOT = AVATAR + RING * 2 + 2;
+const STARTER_SLOT = STARTER_AVATAR + RING * 2 + 2;
+const MAX_PER_SIDE = Math.max(1, Math.floor((DISC - STARTER_SLOT + SLOT + COLUMN_GAP) / (SLOT + COLUMN_GAP)));
 
 const PULSE_SCALE: Record<AccentLevel, number> = { bar: 1.14, group: 1.1, beat: 1.07 };
 
@@ -205,9 +208,9 @@ export function StageMembers({
 const styles = StyleSheet.create({
   overlay: { position: "absolute", top: 0, left: 0, right: 0, height: DISC, flexDirection: "row", justifyContent: "center", gap: SIDE_GAP },
   discSpace: { width: DISC },
-  column: { width: COLUMN, height: DISC, justifyContent: "center", alignItems: "center", gap: 6 },
+  column: { width: COLUMN, height: DISC, justifyContent: "center", alignItems: "center", gap: COLUMN_GAP },
   ring: { borderWidth: RING, borderRadius: AVATAR, padding: 1 },
-  more: { width: AVATAR + RING * 2 + 2, height: AVATAR + RING * 2 + 2, alignItems: "center", justifyContent: "center" },
+  more: { width: SLOT, height: SLOT, alignItems: "center", justifyContent: "center" },
   moreText: { fontSize: 12, fontWeight: 700 },
   ping: { position: "absolute", right: -6, bottom: -4, paddingHorizontal: 3, paddingVertical: 2, borderRadius: 6 },
   dismiss: { flex: 1 },
