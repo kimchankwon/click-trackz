@@ -109,6 +109,24 @@ describe("Presence", () => {
     expect(await t.run((ctx) => ctx.db.get(member.userId))).toBeNull();
   });
 
+  it("sweeps absent guests a page at a time, passing signed-in Members over without stopping", async () => {
+    const { t, admin, groupId } = await setupGroup();
+    const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
+    const join = async (profile: { email?: string; isAnonymous?: boolean }, displayName: string) => {
+      const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+      await t.withIdentity({ subject: `${userId}|session` }).mutation(api.groups.joinGroup, { joinCode, displayName });
+    };
+    for (const name of ["Ana", "Ben", "Cho"]) await join({ email: `${name}@example.com` }, name);
+    for (const name of ["Dee", "Eli", "Fay", "Gus"]) await join({ isAnonymous: true }, name);
+
+    vi.setSystemTime(NOW + 61 * 60_000);
+    await t.mutation(internal.presence.removeAbsentGuests, { pageSize: 2 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    const names = (await admin.client.query(api.groups.members, { groupId })).map((m) => m.displayName);
+    expect(names.sort()).toEqual(["Admin", "Ana", "Ben", "Cho"]);
+  });
+
   it("forgets a guest's account and empty Offline space with their last membership, but keeps a guest who has Songs in Offline", async () => {
     const { t, member, groupId } = await setupGroup();
     const offlineId = await member.client.mutation(api.groups.openOffline, {});

@@ -16,8 +16,11 @@ export const SLEEP_TOLERANCE_MS = 100;
 
 export const clockSlept = (epochBefore: number, epochNow: number, toleranceMs = SLEEP_TOLERANCE_MS) => Math.abs(epochNow - epochBefore) > toleranceMs;
 
-export function estimateClockOffset(samples: readonly ClockSample[]): ClockEstimate | null {
-  const usable = samples.filter((sample) => roundTripOf(sample) >= 0);
+export const MAX_SAMPLE_AGE_MS = 10 * 60_000;
+
+export function estimateClockOffset(samples: readonly ClockSample[], maxAgeMs = MAX_SAMPLE_AGE_MS): ClockEstimate | null {
+  const newest = samples.reduce((latest, sample) => Math.max(latest, sample.receivedAt), -Infinity);
+  const usable = samples.filter((sample) => roundTripOf(sample) >= 0 && newest - sample.receivedAt <= maxAgeMs);
   if (usable.length === 0) return null;
   const best = usable.reduce((a, b) => (roundTripOf(b) < roundTripOf(a) ? b : a));
   return {

@@ -28,10 +28,13 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
   const playingRef = useRef(playing);
   const rescheduleRef = useRef<(() => void) | null>(null);
+  const resampleRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    const ended = playingRef.current && !playing;
     playingRef.current = playing;
-    rescheduleRef.current?.();
+    if (ended && resampleRef.current) resampleRef.current();
+    else rescheduleRef.current?.();
   }, [playing]);
 
   useEffect(() => {
@@ -75,6 +78,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       schedule();
     };
     rescheduleRef.current = schedule;
+    resampleRef.current = () => void burst(WAKE_BURST);
     void burst(INITIAL_BURST);
     const forgetStaleSamples = () => {
       if (!clockSlept(epochAtLastSample, epochNow())) return;
@@ -93,6 +97,7 @@ export function useServerClock({ playing = false, onDevice = false }: { playing?
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
       rescheduleRef.current = null;
+      resampleRef.current = null;
       subscription.remove();
     };
   }, [ping, onDevice, isAuthenticated]);
