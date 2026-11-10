@@ -5,6 +5,7 @@ import { PlaybackNotificationManager, type PlaybackControlName } from "react-nat
 import { LOCK_SCREEN_CONTROLS, type LockScreenCommand, type LockScreenControl, type LockScreenInfo } from "@/lib/lock-screen";
 
 import { onHeadsetPlayPause, setHeadsetPlayPause } from "./headset-play-pause";
+import { nowPlayingArtwork } from "./now-playing-artwork";
 
 export const lockScreenAvailable = Platform.OS === "ios";
 
@@ -25,7 +26,7 @@ let artwork: Promise<string | null> | null = null;
 const filePathOf = (uri: string) => (uri.startsWith("file://") ? decodeURIComponent(uri.slice("file://".length)) : uri);
 
 function artworkPath(): Promise<string | null> {
-  artwork ??= Asset.fromModule(require("../../assets/images/now-playing.png"))
+  artwork ??= Asset.fromModule(nowPlayingArtwork)
     .downloadAsync()
     .then((asset) => filePathOf(asset.localUri ?? asset.uri))
     .catch(() => null);
