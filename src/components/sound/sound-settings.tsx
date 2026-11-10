@@ -145,7 +145,7 @@ export function SoundSettings({
               <View style={styles.grow}>
                 <Switch
                   label="Lock screen controls"
-                  hint="Control Playback from the lock screen and Control Center. Other apps' audio stops while Play is open."
+                  hint="Control Playback from the lock screen, Control Center and headphones. Other apps' audio stops while Play is open."
                   testID="lock-screen-controls"
                   value={lockScreen === "on"}
                   onChange={(on) => setLockScreen(on ? "on" : "off")}

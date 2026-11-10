@@ -45,6 +45,15 @@ describe("lockScreenActionFor", () => {
     expect(lockScreenActionFor("play", playingMember)).toBeNull();
   });
 
+  it("treats the headset press as pause while sound plays, and as play otherwise", () => {
+    expect(lockScreenActionFor("togglePlayPause", idleAdmin)).toEqual({ kind: "start" });
+    expect(lockScreenActionFor("togglePlayPause", playingAdmin)).toEqual({ kind: "stop" });
+    expect(lockScreenActionFor("togglePlayPause", playingMember)).toEqual({ kind: "mute" });
+    expect(lockScreenActionFor("togglePlayPause", { ...playingMember, muted: true })).toEqual({ kind: "unmute" });
+    expect(lockScreenActionFor("togglePlayPause", { ...playingAdmin, muted: true })).toEqual({ kind: "unmute" });
+    expect(lockScreenActionFor("togglePlayPause", { ...idleAdmin, steers: false })).toBeNull();
+  });
+
   it("jumps one Section either way while playing, inside the Song", () => {
     expect(lockScreenActionFor("nextTrack", playingAdmin)).toEqual({ kind: "jump", toSection: 2 });
     expect(lockScreenActionFor("previousTrack", playingAdmin)).toEqual({ kind: "jump", toSection: 0 });
@@ -63,7 +72,8 @@ describe("lockScreenActionFor", () => {
 
 describe("lockScreenControls", () => {
   it("enables only the buttons that would do something", () => {
-    expect(lockScreenControls(playingMember)).toEqual({ play: false, pause: true, stop: true, nextTrack: false, previousTrack: false });
+    expect(lockScreenControls(playingMember)).toEqual({ play: false, pause: true, stop: true, nextTrack: false, previousTrack: false, togglePlayPause: true });
+    expect(lockScreenControls({ ...idleAdmin, steers: false }).togglePlayPause).toBe(false);
   });
 });
 
