@@ -17,6 +17,13 @@ describe("estimateClockOffset", () => {
     expect(estimate).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
   });
 
+  it("drops samples far older than the newest one, so a long set without pings cannot keep a drifted offset", () => {
+    const old = { sentAt: 0, serverAt: 520, receivedAt: 40 };
+    const fresh = { sentAt: 90 * 60_000, serverAt: 90 * 60_000 + 750, receivedAt: 90 * 60_000 + 100 };
+    expect(estimateClockOffset([old, fresh])).toEqual({ offsetMs: 700, uncertaintyMs: 50, roundTripMs: 100 });
+    expect(estimateClockOffset([old, { ...fresh, sentAt: 5 * 60_000, serverAt: 5 * 60_000 + 750, receivedAt: 5 * 60_000 + 100 }])).toEqual({ offsetMs: 500, uncertaintyMs: 20, roundTripMs: 40 });
+  });
+
   it("knows the device slept when the wall clock moved on but the monotonic clock did not", () => {
     expect(clockSlept(1_000, 1_050)).toBe(false);
     expect(clockSlept(1_000, 4_000)).toBe(true);
