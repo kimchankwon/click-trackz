@@ -74,6 +74,7 @@ import {
   type StartedPlayback,
 } from "@/sync/commands";
 import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { drawLeadMs, FRAMES_PER_MEASURE } from "@/sync/frame-lead";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
 import { commonBpm } from "@/sync/song-tempo";
@@ -453,6 +454,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   }, [soundOn]);
 
   const appActive = useAppActive();
+  const drawLead = useRef(drawLeadMs([]));
 
   useEffect(() => {
     const endsAt = playback && song.sections.length > 0 ? playbackEndsAt(song, playback) : -Infinity;
@@ -466,10 +468,19 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       return () => clearInterval(timer);
     }
     let handle = 0;
-    const draw = () => {
+    let lastFrameAt: number | null = null;
+    const frameGaps: number[] = [];
+    const draw = (frameAt: number) => {
+      if (lastFrameAt !== null) frameGaps.push(frameAt - lastFrameAt);
+      lastFrameAt = frameAt;
+      if (frameGaps.length >= FRAMES_PER_MEASURE) {
+        drawLead.current = drawLeadMs(frameGaps);
+        frameGaps.length = 0;
+      }
       const now = playNow();
       if (now !== null && playback && song.sections.length > 0) {
-        const recent = beatsBetween(song, playback, now - Math.max(RECENT_BEATS_MS, longestBeatMs(song)), now + 1);
+        const shownAt = now + drawLead.current;
+        const recent = beatsBetween(song, playback, shownAt - Math.max(RECENT_BEATS_MS, longestBeatMs(song)), shownAt + 1);
         const ahead = beatsBetween(song, playback, now, now + aheadWindowMs(song));
         const latest = recent.at(-1) ?? null;
         setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
