@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ComponentRef } from "react";
-import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
@@ -419,17 +419,20 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     [wakeEngine],
   );
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      const current = engine.current;
-      current?.setHidden(state !== "active");
-      if (state !== "active" || !current?.enabled) return;
-      void current.resume().then((running) => {
-        setSoundOn(running);
-        setSoundBlocked(!running);
-        setSoundProblem(running ? null : current.failure);
-      });
+  const followAppState = useEffectEvent((state: AppStateStatus) => {
+    const current = engine.current;
+    current?.setHidden(state !== "active");
+    if (state === "background" && lockScreenAvailable && !lockScreenOn) current?.silence();
+    if (state !== "active" || !current?.enabled) return;
+    void current.resume().then((running) => {
+      setSoundOn(running);
+      setSoundBlocked(!running);
+      setSoundProblem(running ? null : current.failure);
     });
+  });
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => followAppState(state));
     return () => subscription.remove();
   }, []);
 

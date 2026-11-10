@@ -328,6 +328,13 @@ export class CueAudioEngine {
     if (changed && this.hidden) this.tick();
   }
 
+  silence() {
+    this.cancelAfter(-Infinity);
+    this.scheduledUntil = -Infinity;
+    this.voiceBusyUntil = -Infinity;
+    if (this.context?.state === "running") this.context.suspend().catch(() => undefined);
+  }
+
   setHidden(hidden: boolean) {
     if (hidden === this.hidden) return;
     this.hidden = hidden;

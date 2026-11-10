@@ -108,6 +108,10 @@ const fake = vi.hoisted(() => {
       this.state = "closed";
       return Promise.resolve();
     }
+    suspend() {
+      if (this.state !== "closed") this.state = "suspended";
+      return Promise.resolve();
+    }
   }
   const fakeBuffer = (sampleRate: number, source: unknown) => ({
     duration: 0.5,
@@ -473,6 +477,33 @@ describe("sound recovery", () => {
     expect(starts.length).toBeGreaterThanOrEqual(24);
     expect(starts.length).toBeLessThanOrEqual(28);
     expect([...spacing]).toEqual(["0.500"]);
+    engine.dispose();
+  });
+
+  it("drops every queued sound and suspends audio when told to fall silent, then plays on from the right beat once resumed", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine({ hiddenLookaheadMs: 3_000 });
+    await engine.enable(() => now, null);
+    const [context] = contexts();
+    engine.setPlan(song, { startsAt: NOW + 50, startSection: 0 });
+    engine.setHidden(true);
+    const queued = context.gains.slice(SETUP_GAINS);
+    expect(queued.length).toBeGreaterThan(0);
+
+    engine.silence();
+    expect(queued.every((gain) => gain.disconnected)).toBe(true);
+    expect(context.state).toBe("suspended");
+    now += 5_000;
+    context.currentTime += 5;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(context.gains.length).toBe(SETUP_GAINS + queued.length);
+
+    engine.setHidden(false);
+    expect(await engine.resume()).toBe(true);
+    await vi.advanceTimersByTimeAsync(50);
+    const replayed = context.oscillatorNodes.slice(queued.length).map((oscillator) => oscillator.startedAt ?? NaN);
+    expect(replayed.length).toBeGreaterThan(0);
+    expect(Math.min(...replayed)).toBeGreaterThanOrEqual(5);
     engine.dispose();
   });
 

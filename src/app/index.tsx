@@ -75,12 +75,6 @@ function GroupsTab({ run }: { run: Run }) {
             Connecting…
           </ThemedText>
         )}
-        <View style={styles.account}>
-          <Icon name="person" size={16} color="textSecondary" />
-          <ThemedText type="caption" themeColor="textSecondary" testID="viewer-status">
-            {viewer ? (isGuest ? "Signed in as a guest" : "Signed in with Google") : "Loading…"}
-          </ThemedText>
-        </View>
       </View>
 
       {(groups ?? []).length === 0 ? (

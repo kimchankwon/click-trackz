@@ -155,7 +155,7 @@ A Member silencing the Click and Voice cues on their own device while Play keeps
 _Avoid_: Pause, sit out
 
 **Lock screen controls**:
-A per-device choice, on iPhone and iPad and on by default, to show the Song and its current Section on the lock screen and in Control Center, and steer Play from there or with a headphone press while Play is open. For an Admin, play is Start and pause is Stop, and a headphone press does whichever fits; next and previous Jump one Section either way while playing, or pick the next or previous Song while idle. For a Member, pause is Mute and play is Unmute. While it is on, other apps' audio stops while Play is open; turning it off lets them mix again.
+A per-device choice, on iPhone and iPad and on by default, to show the Song and its current Section on the lock screen and in Control Center, and steer Play from there or with a headphone press while Play is open. For an Admin, play is Start and pause is Stop, and a headphone press does whichever fits; next and previous Jump one Section either way while playing, or pick the next or previous Song while idle. For a Member, pause is Mute and play is Unmute. While it is on, sound keeps playing when the app goes to the background and other apps' audio stops while Play is open. With it off, other apps' audio mixes in and this device's sound stops as soon as the app goes to the background, while Playback carries on for everyone else.
 _Avoid_: Now playing, media controls, remote controls
 
 **Started by**:
