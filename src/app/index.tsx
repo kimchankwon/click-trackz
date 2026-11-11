@@ -94,8 +94,7 @@ function GroupsTab({ run }: { run: Run }) {
 
       <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following. Free holds 10 Songs; Plus and Pro
-          hold 1000.
+          {`Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.${usage?.enforced ? " Free holds 10 Songs; Plus and Pro hold 1000." : ""}`}
         </ThemedText>
         <ActionButton
           variant="outline"
@@ -170,7 +169,7 @@ function GroupsTab({ run }: { run: Run }) {
             </ThemedText>
             <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
           </>
-        ) : usage === undefined ? null : usage.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
+        ) : usage?.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
           <>
             <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
               {usage.plan === "free"
@@ -293,7 +292,7 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
               <View role="tabpanel" id={panelId(pane, "home")} aria-labelledby={tabId(pane, "home")} style={styles.pane}>
                 {content}
               </View>
-              {footer}
+              {pane === tab ? footer : null}
             </ScrollView>
           ),
         }))}

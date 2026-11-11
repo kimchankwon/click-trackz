@@ -15,7 +15,7 @@ import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { errorText } from "@/lib/error-text";
-import { PLAN_NAMES, type PaidPlan, type PlanLimits } from "@/lib/plans";
+import { PLAN_NAMES, usageSummary, type PaidPlan } from "@/lib/plans";
 import { api } from "../../convex/_generated/api";
 
 const PLAN_PERKS: Record<PaidPlan, readonly string[]> = {
@@ -25,11 +25,6 @@ const PLAN_PERKS: Record<PaidPlan, readonly string[]> = {
 
 const BILLING_LABEL = { monthly: "a month", annual: "a year" } as const;
 
-const used = (count: number, limit: number | null, noun: string) => (limit === null ? `${count} ${noun}` : `${count} of ${limit} ${noun}`);
-
-function usageLine(usage: { groups: number; songs: number; librarySongs: number; limits: PlanLimits }) {
-  return [used(usage.groups, usage.limits.groups, "Groups"), used(usage.songs, usage.limits.songs, "Group Songs"), used(usage.librarySongs, usage.limits.librarySongs, "My Library Songs")].join(" · ");
-}
 
 export default function SubscribeScreen() {
   const pinned = usePinnedHeader();
@@ -121,7 +116,7 @@ export default function SubscribeScreen() {
           ) : null}
           {usage ? (
             <ThemedText type="small" themeColor="textSecondary" testID="plan-usage">
-              {usageLine(usage)}
+              {usageSummary(usage)}
             </ThemedText>
           ) : null}
           {(["plus", "pro"] as const).map((plan) => {

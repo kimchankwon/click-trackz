@@ -28,4 +28,16 @@ export const canAddLibrarySongs = (plan: Plan, librarySongs: number, adding: num
 
 export const isGroupLocked = (plan: Plan, oldestFirstIndex: number) => !within(planLimits(plan).groups, oldestFirstIndex + 1);
 
+type Usage = { groups: number; songs: number; librarySongs: number; limits: PlanLimits; enforced: boolean };
+
+const counted = (count: number, singular: string, plural: string, limit: number | null, enforced: boolean) =>
+  enforced && limit !== null ? `${count} of ${limit} ${plural}` : `${count} ${count === 1 ? singular : plural}`;
+
+export const usageSummary = ({ groups, songs, librarySongs, limits, enforced }: Usage) =>
+  [
+    counted(groups, "Group", "Groups", limits.groups, enforced),
+    counted(songs, "Group Song", "Group Songs", limits.songs, enforced),
+    counted(librarySongs, "My Library Song", "My Library Songs", limits.librarySongs, enforced),
+  ].join(" · ");
+
 export const isPaidPlan = (value: unknown): value is PaidPlan => value === "plus" || value === "pro";

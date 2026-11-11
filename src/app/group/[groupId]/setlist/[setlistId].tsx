@@ -69,6 +69,7 @@ function SetlistForm({
 }) {
   const save = useMutation(api.setlists.save);
   const setCurrent = useMutation(api.setlists.setCurrent);
+  const isCurrent = useQuery(api.setlists.currentSetlistId, { groupId }) === setlistId;
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const theme = useTheme();
   const pinned = usePinnedHeader();
@@ -166,10 +167,11 @@ function SetlistForm({
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
           <ActionButton
             variant="secondary"
-            icon="star"
-            label="Make this the Current setlist"
-            accessibleName="Make current"
+            icon={isCurrent ? "check" : "star"}
+            label={isCurrent ? "This is the Current setlist" : "Make this the Current setlist"}
+            accessibleName={isCurrent ? "This is the Current setlist" : "Make current"}
             testID="make-current"
+            disabled={isCurrent}
             onPress={() =>
               run(async () => {
                 await setCurrent({ groupId, setlistId });

@@ -38,6 +38,13 @@ describe("Groups", () => {
     );
   });
 
+  it("names the Admin after their account when they leave their name in the Group blank", async () => {
+    const { as } = await setup();
+    const named = await as({ email: "ada@example.com" });
+    const { groupId } = await named.client.mutation(api.groups.createGroup, { name: "Band", displayName: "   " });
+    expect((await named.client.query(api.groups.members, { groupId }))[0].displayName).toBe("ada");
+  });
+
   it("lets the Admin or a Group Manager rename the Group, which every Member sees and which resets the copy name", async () => {
     const { t, as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });
