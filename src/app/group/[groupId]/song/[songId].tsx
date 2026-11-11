@@ -460,7 +460,7 @@ function SongForm({
   const copyLabel = copyTargets.every((target) => target.offline)
     ? "Copy to My Library"
     : copyTargets.some((target) => target.offline)
-      ? "Copy to another Group or My Library"
+      ? "Copy Song to…"
       : "Copy to another Group";
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState<Id<"groups"> | null>(null);

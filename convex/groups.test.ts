@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
+import { clipToLength } from "./groups";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -36,6 +37,11 @@ describe("Groups", () => {
     await expect(guest.client.mutation(api.groups.createGroup, { name: "x", displayName: "G" })).rejects.toThrow(
       /Sign in with Google to create a Group/,
     );
+  });
+
+  it("clips a default name without splitting a character", () => {
+    expect(clipToLength(`${"a".repeat(39)}🎸`, 40)).toBe("a".repeat(39));
+    expect(clipToLength("Ada 🎸", 40)).toBe("Ada 🎸");
   });
 
   it("names the Admin after their account when they leave their name in the Group blank", async () => {

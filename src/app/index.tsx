@@ -62,7 +62,7 @@ function GroupsTab({ run }: { run: Run }) {
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
-  const usage = useQuery(api.subscriptions.mine, isGuest ? "skip" : {});
+  const usage = useQuery(api.subscriptions.mine, viewer ? {} : "skip");
   const seen = useQuery(api.presence.myGroupsSeen, {});
   const connected = useConnected();
   const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
@@ -194,7 +194,7 @@ function GroupsTab({ run }: { run: Run }) {
               label="Create"
               accent
               testID="create-group"
-              disabled={groupName.trim().length === 0}
+              disabled={groupName.trim().length === 0 || usage === undefined}
               onPress={() => {
                 primeAudio();
                 run(async () => {

@@ -31,7 +31,16 @@ async function uniqueJoinCode(ctx: MutationCtx) {
   throw new ConvexError("Could not create a join code, try again");
 }
 
-const accountNameOf = (user: Doc<"users">) => (user.name?.trim() || user.email?.split("@")[0] || "Admin").slice(0, MAX_GROUP_NAME);
+export function clipToLength(text: string, maxLength: number) {
+  let clipped = "";
+  for (const character of text) {
+    if (clipped.length + character.length > maxLength) break;
+    clipped += character;
+  }
+  return clipped;
+}
+
+const accountNameOf = (user: Doc<"users">) => clipToLength(user.name?.trim() || user.email?.split("@")[0] || "Admin", MAX_GROUP_NAME);
 
 export const createGroup = mutation({
   args: { name: v.string(), displayName: v.string() },
