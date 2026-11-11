@@ -65,6 +65,18 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   }, [groupId, screenId, visible, beat, leave]);
 }
 
+export const STILL_HERE_MS = 20 * 60_000;
+
+export function useStillHere(groupId: Id<"groups">, enabled: boolean) {
+  const stillHere = useMutation(api.presence.stillHere);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => void stillHere({ groupId }).catch(() => undefined), STILL_HERE_MS);
+    return () => clearInterval(timer);
+  }, [groupId, enabled, stillHere]);
+}
+
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null, shared = true) {
   const rows = useQuery(api.presence.list, shared ? { groupId } : "skip");
   const [nowMs, setNowMs] = useState(() => serverNow() ?? Date.now());

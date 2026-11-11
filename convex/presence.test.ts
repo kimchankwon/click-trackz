@@ -90,6 +90,25 @@ describe("Presence", () => {
     expect((await member.client.query(api.presence.list, { groupId })).map((row) => row.roundTripMs)).toEqual([null, null]);
   });
 
+  it("keeps a guest whose quiet Play screen still says it is there, without showing them online", async () => {
+    const { t, admin, groupId } = await setupGroup();
+    const waiting = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    const waitingClient = t.withIdentity({ subject: `${waiting}|session` });
+    const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
+    await waitingClient.mutation(api.groups.joinGroup, { joinCode, displayName: "Minwoo" });
+    await waitingClient.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true });
+    await waitingClient.mutation(api.presence.leave, { groupId, screenId: "phone" });
+
+    vi.setSystemTime(NOW + 40 * 60_000);
+    await waitingClient.mutation(api.presence.stillHere, { groupId });
+    vi.setSystemTime(NOW + 61 * 60_000);
+    await t.mutation(internal.presence.removeAbsentGuests, {});
+
+    expect((await admin.client.query(api.groups.members, { groupId })).map((m) => m.displayName)).toContain("Minwoo");
+    expect((await admin.client.query(api.presence.list, { groupId })).map((row) => row.userId)).not.toContain(waiting);
+    await expect(t.withIdentity({ subject: "nobody|session" }).mutation(api.presence.stillHere, { groupId })).rejects.toThrow();
+  });
+
   it("removes guests who have been away for an hour, but not signed-in Members or guests still around", async () => {
     const { t, admin, member, groupId } = await setupGroup();
     const signedIn = await t.run((ctx) => ctx.db.insert("users", { email: "joanne@example.com" }));
