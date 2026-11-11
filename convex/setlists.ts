@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireAdmin, requireMember } from "./access";
+import { requireMember, requireRoleInGroup, requireSignedInMember } from "./access";
+import { touchLibrary } from "./library";
 
 const cleanName = (name: string) => {
   const trimmed = name.trim();
@@ -12,15 +13,17 @@ const cleanName = (name: string) => {
 export const createSetlist = mutation({
   args: { groupId: v.id("groups"), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
-    await requireAdmin(ctx, groupId);
-    return ctx.db.insert("setlists", { groupId, name: cleanName(name), entries: [] });
+    await requireRoleInGroup(ctx, groupId, "songManager");
+    const setlistId = await ctx.db.insert("setlists", { groupId, name: cleanName(name), entries: [] });
+    await touchLibrary(ctx, groupId);
+    return setlistId;
   },
 });
 
 export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireMember(ctx, groupId);
+    await requireSignedInMember(ctx, groupId);
     const group = await ctx.db.get(groupId);
     const setlists = await ctx.db
       .query("setlists")
@@ -38,12 +41,13 @@ export const list = query({
 export const setCurrent = mutation({
   args: { groupId: v.id("groups"), setlistId: v.union(v.id("setlists"), v.null()) },
   handler: async (ctx, { groupId, setlistId }) => {
-    await requireAdmin(ctx, groupId);
+    await requireRoleInGroup(ctx, groupId, "songManager");
     if (setlistId !== null) {
       const setlist = await ctx.db.get(setlistId);
       if (setlist === null || setlist.groupId !== groupId) throw new ConvexError("That Setlist is not in this Group");
     }
     await ctx.db.patch(groupId, { currentSetlistId: setlistId ?? undefined });
+    await touchLibrary(ctx, groupId);
   },
 });
 
@@ -64,10 +68,10 @@ export const save = mutation({
   handler: async (ctx, { setlistId, revision, name, entries }) => {
     const setlist = await ctx.db.get(setlistId);
     if (setlist === null) throw new ConvexError("That Setlist no longer exists");
-    await requireAdmin(ctx, setlist.groupId);
+    await requireRoleInGroup(ctx, setlist.groupId, "songManager");
     const current = setlist.revision ?? 0;
     if (current !== revision) {
-      throw new ConvexError("Another Admin changed this Setlist after you opened it. Load their changes, then save again.");
+      throw new ConvexError("Someone else changed this Setlist after you opened it. Load their changes, then save again.");
     }
     if (entries.length > 100) throw new ConvexError("A Setlist can have at most 100 Songs");
     const cleaned = await Promise.all(
@@ -78,6 +82,7 @@ export const save = mutation({
       }),
     );
     await ctx.db.patch(setlistId, { name: cleanName(name), entries: cleaned, revision: current + 1 });
+    await touchLibrary(ctx, setlist.groupId);
   },
 });
 
@@ -109,10 +114,11 @@ export const deleteSetlist = mutation({
   handler: async (ctx, { setlistId }) => {
     const setlist = await ctx.db.get(setlistId);
     if (setlist === null) return;
-    await requireAdmin(ctx, setlist.groupId);
+    await requireRoleInGroup(ctx, setlist.groupId, "songManager");
     const group = await ctx.db.get(setlist.groupId);
     if (group?.currentSetlistId === setlistId) await ctx.db.patch(group._id, { currentSetlistId: undefined });
     await ctx.db.delete(setlistId);
+    await touchLibrary(ctx, setlist.groupId);
   },
 });
 

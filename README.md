@@ -31,9 +31,9 @@ npm run typecheck
 npm test
 ```
 
-## Admin sign-in with Google
+## Sign-in with Google
 
-Members can join as guests; creating a Group or being an Admin needs a Google account.
+Members can join as guests; creating a Group or holding any Role above Member needs a Google account.
 
 1. In Google Cloud Console, create an OAuth client of type **Web application**.
 2. Add the authorised redirect URI `https://<deployment>.convex.site/api/auth/callback/google` (the `EXPO_PUBLIC_CONVEX_SITE_URL` from `.env.local`, plus that path).
@@ -45,6 +45,10 @@ npx convex env set AUTH_GOOGLE_SECRET <client secret>
 ```
 
 For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment and `DEV_LOGIN_DEPLOYMENT` to that deployment's own `CONVEX_CLOUD_URL` (for example `https://<deployment>.ap-southeast-2.convex.cloud`), then start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. The provider only exists when both variables are set and the deployment URL matches, so a secret copied to production does nothing on its own. Never set either on production.
+
+## Roles migration
+
+After deploying the one-Admin Roles, run `npx convex run migrations:oneAdminPerGroup` once on each deployment. Each Group's creator stays Admin, other Admins become Group Managers, and a Group whose creator left goes to its longest-standing Admin.
 
 ## iOS app
 

@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { router, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
@@ -10,12 +10,12 @@ import { ActionButton } from "@/components/action-button";
 import { primeAudio } from "@/audio/primed-context";
 import { useSpeakerPreview } from "@/audio/use-speaker-preview";
 import { Card } from "@/components/group/card";
+import { GroupList } from "@/components/group/group-list";
 import { panelId, TabBar, tabId, type TabItem } from "@/components/group/tab-bar";
 import { SoundSettings } from "@/components/sound/sound-settings";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { AccentPicker } from "@/components/ui/accent-picker";
-import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
@@ -28,6 +28,7 @@ import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
+import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import { api } from "../../convex/_generated/api";
@@ -48,11 +49,13 @@ function GroupsTab({ run }: { run: Run }) {
   const viewer = useQuery(api.users.viewer, {});
   const allGroups = useQuery(api.groups.myGroups, {});
   const groups = allGroups?.filter((group) => !group.offline);
+  const ownedGroups = (groups ?? []).filter((group) => group.owned);
+  const joinedGroups = (groups ?? []).filter((group) => !group.owned);
   const openOffline = useMutation(api.groups.openOffline);
+  const storedLibrary = useStoredLibrary();
   const createGroup = useMutation(api.groups.createGroup);
   const joinGroup = useMutation(api.groups.joinGroup);
   const signInWithGoogle = useGoogleSignIn();
-  const theme = useTheme();
   const [displayName, setDisplayName] = useState("");
   const [invited, setInvited] = useState(readPendingJoin);
   const [joinCode, setJoinCode] = useState(invited ?? "");
@@ -67,7 +70,7 @@ function GroupsTab({ run }: { run: Run }) {
     <>
       <View style={styles.pageHead}>
         <ThemedText type="title" role="heading">
-          Your Groups
+          Groups
         </ThemedText>
         {connected ? null : (
           <ThemedText type="smallBold" themeColor="warningText" testID="connecting">
@@ -76,51 +79,32 @@ function GroupsTab({ run }: { run: Run }) {
         )}
       </View>
 
-      {(groups ?? []).length === 0 ? (
-        <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText>
-      ) : (
-        <View style={[styles.list, { backgroundColor: theme.backgroundElement }]}>
-          {(groups ?? []).map((group, index) => (
-            <Pressable
-              key={group.groupId}
-              role="link"
-              testID={`open-group-${group.name}`}
-              onPress={() => {
-                primeAudio();
-                router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } });
-              }}
-              style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
-            >
-              {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-              <Avatar name={group.name} position={index} />
-              <View style={styles.grow}>
-                <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
-                  {group.name}
-                </ThemedText>
-                <View style={styles.roleRow} testID={`online-${group.name}`}>
-                  <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
-                  <ThemedText themeColor="textSecondary" style={styles.role}>
-                    {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
-                  </ThemedText>
-                </View>
-              </View>
-              <Icon name="forward" size={22} color="textTertiary" />
-            </Pressable>
-          ))}
+      {groups !== undefined && groups.length === 0 ? <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText> : null}
+      {joinedGroups.length > 0 ? <GroupList groups={joinedGroups} onlineIn={onlineIn} testID="joined-groups" /> : null}
+      {ownedGroups.length > 0 ? (
+        <View style={styles.subsection}>
+          <ThemedText type="subtitle" role="heading" testID="your-groups-heading">
+            Your Groups
+          </ThemedText>
+          <GroupList groups={ownedGroups} onlineIn={onlineIn} testID="your-groups" />
         </View>
-      )}
+      ) : null}
 
-      <Card title="Offline">
+      <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          Practise by yourself. Make Songs and Setlists and play them on this device, with no one else following.
+          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.
         </ThemedText>
         <ActionButton
           variant="outline"
-          icon="person"
-          label="Open Offline"
+          icon="library"
+          label="Open My Library"
           testID="open-offline"
           onPress={() => {
             primeAudio();
+            if (!connected && storedLibrary) {
+              router.push({ pathname: "/group/[groupId]", params: { groupId: storedLibrary.groupId } });
+              return;
+            }
             run(async () => {
               const groupId = await openOffline({});
               router.push({ pathname: "/group/[groupId]", params: { groupId } });
@@ -258,7 +242,18 @@ function SettingsTab({ run }: { run: Run }) {
         ) : null}
       </Card>
       <AccentPicker />
-      <ActionButton variant="danger" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
+      <ActionButton
+        variant="danger"
+        icon="logout"
+        label="Sign out"
+        testID="sign-out"
+        onPress={() =>
+          run(async () => {
+            await forgetStoredLibrary();
+            await signOut();
+          })
+        }
+      />
     </>
   );
 }
@@ -304,7 +299,7 @@ export default function HomeScreen() {
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const accountGone = isAuthenticated && viewer === null;
   useEffect(() => {
-    if (accountGone) void signOut().catch(() => undefined);
+    if (accountGone) void forgetStoredLibrary().then(() => signOut().catch(() => undefined));
   }, [accountGone, signOut]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -407,13 +402,7 @@ const styles = StyleSheet.create({
   centered: { textAlign: "center" },
   pageHead: { gap: Spacing.one },
   account: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
-  list: { borderRadius: Radius.lg, overflow: "hidden" },
+  subsection: { gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
-  groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },
-  groupName: { fontWeight: 600, fontSize: 17 },
-  role: { fontSize: 15, lineHeight: 20, fontWeight: 400 },
-  onlineDot: { width: 8, height: 8, borderRadius: 4 },
-  roleRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
-  separator: { position: "absolute", top: 0, left: 72, right: Spacing.three, height: StyleSheet.hairlineWidth },
 });

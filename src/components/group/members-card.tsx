@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { assignableRoles, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES, type Role } from "@/lib/roles";
 import { timeAgo } from "@/lib/time-ago";
 import { lastSeenOf, memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
@@ -20,22 +21,24 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 type MemberAction =
   | { kind: "remove"; userId: Id<"users">; name: string }
-  | { kind: "role"; userId: Id<"users">; name: string; role: "admin" | "member" };
+  | { kind: "role"; userId: Id<"users">; name: string; role: Role };
+
+const ROLE_POWERS: Record<Role, string> = {
+  admin: "do everything, including deleting the Group",
+  groupManager: "edit Songs and Setlists, run Playback, rename the Group and its Members, and make Song and Playback Managers",
+  songManager: "edit Songs and Setlists and run Playback",
+  playbackManager: "start, steer and stop Playback",
+  member: "see the Songs and Setlists and follow Playback",
+};
+
+const withArticle = (role: Role) => `${/^[AEIOU]/.test(ROLE_NAMES[role]) ? "an" : "a"} ${ROLE_NAMES[role]}`;
 
 function dialogFor(action: MemberAction | null, groupName: string) {
-  if (action?.kind === "role" && action.role === "admin") {
-    return {
-      title: `Make ${action.name} an Admin?`,
-      message: `${action.name} will be able to edit Songs and Setlists, start and stop Playback, and manage Members of ${groupName}.`,
-      confirmLabel: "Make Admin",
-      testID: "role-dialog",
-    };
-  }
   if (action?.kind === "role") {
     return {
-      title: `Make ${action.name} a Member?`,
-      message: `${action.name} will no longer be able to edit Songs and Setlists, run Playback or manage Members.`,
-      confirmLabel: "Make Member",
+      title: `Make ${action.name} ${withArticle(action.role)}?`,
+      message: `In ${groupName}, ${action.name} will be able to ${ROLE_POWERS[action.role]}.`,
+      confirmLabel: `Make ${ROLE_NAMES[action.role]}`,
       testID: "role-dialog",
     };
   }
@@ -52,12 +55,12 @@ const presenceText: Record<MemberPresence, string> = { onPlay: "On Play", online
 export function MembersCard({
   groupId,
   groupName,
-  isAdmin,
+  role: myRole,
   presence,
 }: {
   groupId: Id<"groups">;
   groupName: string;
-  isAdmin: boolean;
+  role: Role;
   presence: { rows: readonly PresenceRow[]; nowMs: number };
 }) {
   const members = useQuery(api.groups.members, { groupId });
@@ -65,16 +68,20 @@ export function MembersCard({
   const setRole = useMutation(api.groups.setRole);
   const removeMember = useMutation(api.groups.removeMember);
   const setDisplayName = useMutation(api.groups.setDisplayName);
-  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const setMemberName = useMutation(api.groups.setMemberName);
+  const [nameEdit, setNameEdit] = useState<{ userId: Id<"users">; draft: string } | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const managing = canManageGroup(myRole);
+  const roleChoices = assignableRoles(myRole);
   const saveName = async () => {
-    if (nameDraft === null || nameSaving) return;
+    if (nameEdit === null || nameSaving) return;
     setNameError(null);
     setNameSaving(true);
     try {
-      await setDisplayName({ groupId, displayName: nameDraft });
-      setNameDraft(null);
+      if (nameEdit.userId === viewer?.id) await setDisplayName({ groupId, displayName: nameEdit.draft });
+      else await setMemberName({ groupId, userId: nameEdit.userId, displayName: nameEdit.draft });
+      setNameEdit(null);
     } catch (error) {
       setNameError(errorText(error));
     } finally {
@@ -112,10 +119,13 @@ export function MembersCard({
   return (
     <Card title={`Members (${list.length}, ${onlineCount} online)`}>
       {list.map((member, index) => {
-        const role = member.role === "admin" ? "Admin" : member.isGuest ? "Guest" : "Member";
+        const roleName = member.isGuest ? "Guest" : ROLE_NAMES[member.role];
+        const isYou = member.userId === viewer?.id;
+        const canChange = managing && !isYou && outranks(myRole, member.role);
+        const editingName = nameEdit !== null && nameEdit.userId === member.userId;
         const status = statusOf(member.userId);
         const pingMs =
-          isAdmin && status !== "offline" ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null;
+          canSteerPlayback(myRole) && status !== "offline" ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs) : null;
         return (
           <View key={member.userId} style={styles.item} testID={`member-${member.displayName}`}>
             {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
@@ -137,9 +147,9 @@ export function MembersCard({
                   {member.userId === viewer?.id ? " (you)" : ""}
                 </ThemedText>
                 <View style={styles.roleRow}>
-                  <Icon name={member.role === "admin" ? "admin" : "member"} size={16} color="textSecondary" />
+                  <Icon name={member.role === "member" ? "member" : "admin"} size={16} color="textSecondary" />
                   <ThemedText type="small" themeColor="textSecondary">
-                    {role}
+                    {roleName}
                   </ThemedText>
                   <ThemedText type="small" themeColor={status === "offline" ? "textTertiary" : "success"} testID={`status-${member.displayName}`} style={styles.status}>
                     {status === "offline" ? offlineText(lastSeenOf(presence.rows, member.userId, member.lastSeenAt)) : presenceText[status]}
@@ -155,7 +165,7 @@ export function MembersCard({
                 </View>
               </View>
             </View>
-            {member.userId === viewer?.id && nameDraft === null ? (
+            {isYou && !editingName ? (
               <View style={styles.actions}>
                 <ActionButton
                   tiny
@@ -165,18 +175,18 @@ export function MembersCard({
                   testID="change-name"
                   onPress={() => {
                     setNameError(null);
-                    setNameDraft(member.displayName);
+                    setNameEdit({ userId: member.userId, draft: member.displayName });
                   }}
                 />
               </View>
             ) : null}
-            {member.userId === viewer?.id && nameDraft !== null ? (
+            {editingName ? (
               <View style={styles.nameEditor}>
                 <Field
-                  label="Your name in this Group"
-                  testID="my-name-input"
-                  value={nameDraft}
-                  onChangeText={setNameDraft}
+                  label={isYou ? "Your name in this Group" : `${member.displayName}'s name in this Group`}
+                  testID={isYou ? "my-name-input" : `name-input-${member.displayName}`}
+                  value={nameEdit.draft}
+                  onChangeText={(draft) => setNameEdit({ userId: member.userId, draft })}
                   autoCapitalize="words"
                   autoFocus
                   inset
@@ -188,7 +198,7 @@ export function MembersCard({
                   </ThemedText>
                 ) : null}
                 <View style={styles.nameButtons}>
-                  <ActionButton small label="Cancel" testID="my-name-cancel" disabled={nameSaving} onPress={() => setNameDraft(null)} />
+                  <ActionButton small label="Cancel" testID="my-name-cancel" disabled={nameSaving} onPress={() => setNameEdit(null)} />
                   <ActionButton
                     small
                     accent
@@ -196,25 +206,40 @@ export function MembersCard({
                     accessibleName="Save name"
                     testID="my-name-save"
                     pending={nameSaving}
-                    disabled={nameDraft.trim().length === 0}
+                    disabled={nameEdit.draft.trim().length === 0}
                     onPress={() => void saveName()}
                   />
                 </View>
               </View>
             ) : null}
-            {isAdmin && member.userId !== viewer?.id ? (
+            {canChange && !editingName ? (
               <View style={styles.actions}>
-                {!member.isGuest ? (
-                  <ActionButton
-                    tiny
-                    variant="pill"
-                    label={member.role === "admin" ? "Make Member" : "Make Admin"}
-                    testID={`toggle-admin-${member.displayName}`}
-                    onPress={() =>
-                      ask({ kind: "role", userId: member.userId, name: member.displayName, role: member.role === "admin" ? "member" : "admin" })
-                    }
-                  />
-                ) : null}
+                {member.isGuest
+                  ? null
+                  : roleChoices
+                      .filter((choice) => choice !== member.role)
+                      .map((choice) => (
+                        <ActionButton
+                          key={choice}
+                          tiny
+                          variant="pill"
+                          label={`Make ${ROLE_NAMES[choice]}`}
+                          testID={`make-${choice}-${member.displayName}`}
+                          onPress={() => ask({ kind: "role", userId: member.userId, name: member.displayName, role: choice })}
+                        />
+                      ))}
+                <ActionButton
+                  tiny
+                  variant="pill"
+                  icon="edit"
+                  label="Rename"
+                  accessibleName={`Rename ${member.displayName}`}
+                  testID={`rename-${member.displayName}`}
+                  onPress={() => {
+                    setNameError(null);
+                    setNameEdit({ userId: member.userId, draft: member.displayName });
+                  }}
+                />
                 <ActionButton
                   tiny
                   variant="pill"

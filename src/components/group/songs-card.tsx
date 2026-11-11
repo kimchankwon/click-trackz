@@ -10,26 +10,28 @@ import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
+import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export function SongsCard({
   groupId,
-  isAdmin,
+  canEdit,
   canPlay,
   selectedSongId,
   onPlay,
   run,
 }: {
   groupId: Id<"groups">;
-  isAdmin: boolean;
+  canEdit: boolean;
   canPlay: boolean;
   selectedSongId: Id<"songs"> | null;
   onPlay: (songId: Id<"songs">) => void;
   run: (action: () => Promise<unknown>) => void;
 }) {
-  const songs = useQuery(api.songs.list, { groupId });
+  const stored = useStoredLibraryFor(groupId);
+  const songs = liveOr(useQuery(api.songs.list, { groupId }), () => stored?.songs);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const list = songs ?? [];
@@ -52,7 +54,7 @@ export function SongsCard({
               showKey={false}
               needsSections={song.sectionCount === 0}
               selected={false}
-              selectable={isAdmin}
+              selectable={canEdit}
               opens
               label={`Edit ${song.title}`}
               onSelect={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: song.songId } })}
@@ -72,7 +74,7 @@ export function SongsCard({
           ))}
         </View>
       )}
-      {isAdmin ? (
+      {canEdit ? (
         <>
           <Divider />
           <View style={styles.addRow}>

@@ -17,6 +17,8 @@ import type * as crons from "../crons.js";
 import type * as devLogin from "../devLogin.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as library from "../library.js";
+import type * as migrations from "../migrations.js";
 import type * as playback from "../playback.js";
 import type * as presence from "../presence.js";
 import type * as recordings from "../recordings.js";
@@ -43,6 +45,8 @@ declare const fullApi: ApiFromModules<{
   devLogin: typeof devLogin;
   groups: typeof groups;
   http: typeof http;
+  library: typeof library;
+  migrations: typeof migrations;
   playback: typeof playback;
   presence: typeof presence;
   recordings: typeof recordings;

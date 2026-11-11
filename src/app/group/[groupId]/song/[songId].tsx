@@ -24,6 +24,7 @@ import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/the
 import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
+import { canEditSongs } from "@/lib/roles";
 import { draftProblem, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
@@ -453,6 +454,13 @@ function SongForm({
   const deleteSong = useMutation(api.songs.deleteSong);
   const duplicateSong = useMutation(api.songs.duplicateSong);
   const library = useQuery(api.songs.list, { groupId });
+  const myGroups = useQuery(api.groups.myGroups, {});
+  const copyToGroup = useMutation(api.songs.copyToGroup);
+  const copyTargets = (myGroups ?? []).filter((other) => other.groupId !== groupId && canEditSongs(other.role));
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyTarget, setCopyTarget] = useState<Id<"groups"> | null>(null);
+  const [copyPending, setCopyPending] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const theme = useTheme();
   const dockInset = useDockInset(Spacing.three);
   const pinned = usePinnedHeader();
@@ -514,6 +522,31 @@ function SongForm({
       else setDuplicateError(errorText(error));
     } finally {
       setDuplicatePending(false);
+    }
+  };
+  const confirmCopy = async () => {
+    if (copyPending) return;
+    if (copyTarget === null) {
+      setCopyError("Pick a Group to copy it to");
+      return;
+    }
+    if (changed && problem !== null) {
+      setCopyError(problem);
+      return;
+    }
+    setCopyError(null);
+    setCopyPending(true);
+    const mine = beginAttempt();
+    try {
+      if (changed) await updateSong({ songId, ...draft });
+      const copy = await copyToGroup({ songId, toGroupId: copyTarget });
+      toast.show(`${copy.title} is now in ${copy.groupName}`);
+      if (mine === attempt.current) setCopyOpen(false);
+    } catch (error) {
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setCopyError(errorText(error));
+    } finally {
+      setCopyPending(false);
     }
   };
   const confirmDelete = async () => {
@@ -648,6 +681,18 @@ function SongForm({
               setConfirmingDuplicate(true);
             }}
           />
+          {copyTargets.length > 0 ? (
+            <ActionButton
+              icon="share"
+              label="Copy to another Group"
+              testID="copy-song-to-group"
+              onPress={() => {
+                setCopyError(null);
+                setCopyTarget(copyTargets.length === 1 ? copyTargets[0].groupId : null);
+                setCopyOpen(true);
+              }}
+            />
+          ) : null}
           <ActionButton
             variant="danger"
             icon="trash"
@@ -697,6 +742,38 @@ function SongForm({
           testID="duplicate-song-dialog"
         />
         <ConfirmDialog
+          visible={copyOpen}
+          title={`Copy ${song.title}?`}
+          message={
+            changed
+              ? `Your changes are saved to ${song.title} first. Then a copy goes to the Group you pick ${SONG_COPY_DETAILS}.`
+              : `A copy goes to the Group you pick ${SONG_COPY_DETAILS}.`
+          }
+          confirmLabel={changed ? "Save and copy" : "Copy"}
+          pending={copyPending}
+          error={copyError}
+          onConfirm={() => void confirmCopy()}
+          onCancel={() => {
+            abandonAttempt();
+            setCopyOpen(false);
+          }}
+          testID="copy-song-dialog"
+        >
+          <ScrollView style={styles.copyScroll} contentContainerStyle={styles.copyTargets} role="radiogroup" aria-label="Group to copy to">
+            {copyTargets.map((target) => (
+              <Chip
+                key={target.groupId}
+                role="radio"
+                selected={copyTarget === target.groupId}
+                icon={target.offline ? "library" : "group"}
+                label={target.name}
+                testID={`copy-target-${target.name}`}
+                onPress={() => setCopyTarget(target.groupId)}
+              />
+            ))}
+          </ScrollView>
+        </ConfirmDialog>
+        <ConfirmDialog
           visible={askDiscard && departure === null}
           title="Discard changes?"
           message={`Your edits to ${song.title} are not saved.`}
@@ -726,6 +803,8 @@ function SongForm({
 }
 
 const styles = StyleSheet.create({
+  copyScroll: { maxHeight: 220, flexGrow: 0, flexShrink: 1 },
+  copyTargets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   container: { flex: 1 },
   subdivision: { gap: Spacing.two },
   content: {

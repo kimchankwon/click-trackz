@@ -13,25 +13,27 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export function SetlistCard({
   groupId,
-  isAdmin,
+  canEdit,
   canPick,
   selectedSongId,
   onSelect,
   run,
 }: {
   groupId: Id<"groups">;
-  isAdmin: boolean;
+  canEdit: boolean;
   canPick: boolean;
   selectedSongId: Id<"songs"> | null;
   onSelect: (songId: Id<"songs">, position: number, fromCurrentSetlist: boolean) => void;
   run: (action: () => Promise<unknown>) => void;
 }) {
-  const setlists = useQuery(api.setlists.list, { groupId });
+  const stored = useStoredLibraryFor(groupId);
+  const setlists = liveOr(useQuery(api.setlists.list, { groupId }), () => stored?.setlists);
   const createSetlist = useMutation(api.setlists.createSetlist);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const [deleting, setDeleting] = useState<{ setlistId: Id<"setlists">; name: string } | null>(null);
@@ -41,8 +43,9 @@ export function SetlistCard({
   const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
   const current = setlists?.find((s) => s.isCurrent) ?? null;
   const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
-  const setlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
-  if (!setlists || (setlists.length === 0 && !isAdmin)) return null;
+  const liveSetlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
+  const setlist = liveOr(liveSetlist, () => (shown && stored ? stored.setlist(shown.setlistId) : undefined));
+  if (!setlists || (setlists.length === 0 && !canEdit)) return null;
   const entries = setlist?.entries ?? [];
   const allNeedSections = entries.length > 0 && entries.every((entry) => entry.needsStructure);
   const someNeedSections = entries.some((entry) => entry.needsStructure);
@@ -81,7 +84,7 @@ export function SetlistCard({
       title={shown?.isCurrent ? "Current setlist" : "Setlist"}
       heading={shown?.name}
       action={
-        isAdmin ? (
+        canEdit ? (
           <View style={styles.actions}>
             {shown ? (
               <ActionButton

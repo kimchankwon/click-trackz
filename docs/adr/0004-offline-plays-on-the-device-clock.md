@@ -1,5 +1,7 @@
 # Offline plays on the device clock
 
+Offline is now called My Library. It is also kept on the device, as one snapshot read whenever it opens online rather than a live subscription, so a large library is not re-read on every edit; with no connection it plays from that snapshot and cannot be edited.
+
 Offline has no other Members to stay in step with, so its Playback never touches the server. Start, Jump and Stop use the same rules as a Group's (`src/sync/commands.ts`), but the Playback lives in the screen's state and every instant comes from the device's monotonic clock. Songs and Setlists in Offline are still ordinary Convex rows, saved to the person's account.
 
 ## Considered Options

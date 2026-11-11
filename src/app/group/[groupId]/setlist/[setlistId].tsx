@@ -180,7 +180,7 @@ function SetlistForm({
           {changedElsewhere ? (
             <View style={[styles.conflict, { backgroundColor: theme.accentTint }]} testID="setlist-changed">
               <ThemedText type="small" style={styles.grow}>
-                Another Admin changed this Setlist. Load their changes before you save; your edits here will be replaced.
+                Someone else changed this Setlist. Load their changes before you save; your edits here will be replaced.
               </ThemedText>
               <ActionButton small label="Load their changes" testID="load-latest" onPress={loadLatest} />
             </View>

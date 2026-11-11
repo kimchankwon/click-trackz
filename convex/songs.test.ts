@@ -15,9 +15,11 @@ async function setupGroup() {
   };
   const admin = await as({ email: "admin@example.com" });
   const { groupId, joinCode } = await admin.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
-  const member = await as({ isAnonymous: true });
+  const member = await as({ email: "member@example.com" });
   await member.mutation(api.groups.joinGroup, { joinCode, displayName: "Member" });
-  return { admin, member, groupId };
+  const guest = await as({ isAnonymous: true });
+  await guest.mutation(api.groups.joinGroup, { joinCode, displayName: "Guest" });
+  return { admin, member, guest, groupId };
 }
 
 const verse = { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 72 };
@@ -29,7 +31,7 @@ describe("Songs", () => {
     expect(await member.query(api.songs.list, { groupId })).toEqual([
       expect.objectContaining({ songId, title: "So Will I", key: "D", sectionCount: 0, countIn: true }),
     ]);
-    await expect(member.mutation(api.songs.createSong, { groupId, title: "x" })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.songs.createSong, { groupId, title: "x" })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("lists each Song's main time signature and tempo for the Song library", async () => {
@@ -62,7 +64,7 @@ describe("Songs", () => {
     await expect(bad({ sectionType: "Spontaneous" })).rejects.toThrow(/Section type/);
     await expect(bad({ bars: 2.5 })).rejects.toThrow(/Bars/);
     await expect(bad({ beatUnit: 3 })).rejects.toThrow(/time signature/);
-    await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.songs.updateSong, { songId, sections: [verse] })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("saves how many times in a row each Section plays, from 1 to 16", async () => {
@@ -104,7 +106,7 @@ describe("Songs", () => {
     expect(await member.query(api.songs.get, { songId })).toMatchObject({ subdivision: 2 });
     await expect(admin.mutation(api.songs.updateSong, { songId, subdivision: 5 })).rejects.toThrow(/Clicks per beat/);
     await expect(admin.mutation(api.songs.updateSong, { songId, subdivision: 1.5 })).rejects.toThrow(/Clicks per beat/);
-    await expect(member.mutation(api.songs.updateSong, { songId, subdivision: 3 })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.songs.updateSong, { songId, subdivision: 3 })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("saves whether the Song's cues start one or two bars before each Section", async () => {
@@ -114,7 +116,7 @@ describe("Songs", () => {
     await admin.mutation(api.songs.updateSong, { songId, cueLeadBars: 1 });
     expect(await member.query(api.songs.get, { songId })).toMatchObject({ cueLeadBars: 1 });
     await expect(admin.mutation(api.songs.updateSong, { songId, cueLeadBars: 3 })).rejects.toThrow(/one or two bars/);
-    await expect(member.mutation(api.songs.updateSong, { songId, cueLeadBars: 2 })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.songs.updateSong, { songId, cueLeadBars: 2 })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("duplicates a Song under the next free number, with the same Key, tempo, cues and Sections", async () => {
@@ -133,7 +135,7 @@ describe("Songs", () => {
       "Remembrance 3",
       "Remembrance 4",
     ]);
-    await expect(member.mutation(api.songs.duplicateSong, { songId })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.songs.duplicateSong, { songId })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("keeps a number that belongs to the title when copying it", async () => {

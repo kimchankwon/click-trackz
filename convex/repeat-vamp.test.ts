@@ -38,7 +38,7 @@ describe("Repeat and Vamp on the server", () => {
     await admin.mutation(api.playback.start, { groupId, songId: first });
     const { startsAt } = (await member.query(api.playback.current, { groupId }))!;
     vi.setSystemTime(startsAt + 500);
-    await expect(member.mutation(api.playback.repeatSection, { groupId })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.playback.repeatSection, { groupId })).rejects.toThrow(/Only Playback Managers and above/);
     await admin.mutation(api.playback.repeatSection, { groupId, startsAt, vamp: true });
     const vamping = (await member.query(api.playback.current, { groupId }))!;
     expect(vamping.jumps).toEqual([{ at: startsAt + 4_000, toSection: 0, cueFrom: startsAt + 1_500, vamp: true }]);

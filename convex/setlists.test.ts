@@ -15,10 +15,12 @@ async function setupGroup() {
   };
   const admin = await as({ email: "admin@example.com" });
   const { groupId, joinCode } = await admin.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
-  const member = await as({ isAnonymous: true });
+  const member = await as({ email: "member@example.com" });
   await member.mutation(api.groups.joinGroup, { joinCode, displayName: "Member" });
+  const guest = await as({ isAnonymous: true });
+  await guest.mutation(api.groups.joinGroup, { joinCode, displayName: "Guest" });
   const song = (title: string) => admin.mutation(api.songs.createSong, { groupId, title });
-  return { t, as, admin, member, groupId, song };
+  return { t, as, admin, member, guest, groupId, song };
 }
 
 describe("Setlists", () => {
@@ -30,8 +32,8 @@ describe("Setlists", () => {
     ]);
     await admin.mutation(api.setlists.setCurrent, { groupId, setlistId });
     expect((await member.query(api.setlists.list, { groupId }))[0].isCurrent).toBe(true);
-    await expect(member.mutation(api.setlists.createSetlist, { groupId, name: "x" })).rejects.toThrow(/Only Admins/);
-    await expect(member.mutation(api.setlists.setCurrent, { groupId, setlistId })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.setlists.createSetlist, { groupId, name: "x" })).rejects.toThrow(/Only Song Managers and above/);
+    await expect(member.mutation(api.setlists.setCurrent, { groupId, setlistId })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("keeps an ordered list of the Group's Songs with an optional Key and Leader for each", async () => {
@@ -57,7 +59,7 @@ describe("Setlists", () => {
     await expect(
       admin.mutation(api.setlists.save, { setlistId, revision: 1, name: "Sunday", entries: [{ songId: foreign }] }),
     ).rejects.toThrow(/not in this Group/);
-    await expect(member.mutation(api.setlists.save, { setlistId, revision: 1, name: "Sunday", entries: [] })).rejects.toThrow(/Only Admins/);
+    await expect(member.mutation(api.setlists.save, { setlistId, revision: 1, name: "Sunday", entries: [] })).rejects.toThrow(/Only Song Managers and above/);
   });
 
   it("drops a deleted Song from every Setlist and forgets a deleted current Setlist", async () => {
@@ -85,7 +87,7 @@ describe("Setlists", () => {
     expect(await member.query(api.setlists.get, { setlistId })).toMatchObject({ name: "Sunday", entries: [], revision: 0 });
   });
 
-  it("refuses a save from a form opened before another Admin's change", async () => {
+  it("refuses a save from a form opened before another Song Manager's change", async () => {
     const { as, admin, member, groupId, song } = await setupGroup();
     const pure = await song("Pure");
     const promises = await song("Promises");
@@ -94,7 +96,7 @@ describe("Setlists", () => {
     const { joinCode } = (await admin.query(api.groups.myGroups, {}))[0];
     await secondAdmin.mutation(api.groups.joinGroup, { joinCode: joinCode!, displayName: "Second" });
     const secondId = (await admin.query(api.groups.members, { groupId })).find((m) => m.displayName === "Second")!.userId;
-    await admin.mutation(api.groups.setRole, { groupId, userId: secondId, role: "admin" });
+    await admin.mutation(api.groups.setRole, { groupId, userId: secondId, role: "songManager" });
 
     await secondAdmin.mutation(api.setlists.save, { setlistId, revision: 0, name: "Sunday", entries: [{ songId: promises }] });
     await expect(admin.mutation(api.setlists.save, { setlistId, revision: 0, name: "Sunday", entries: [{ songId: pure }] })).rejects.toThrow(

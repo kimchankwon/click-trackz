@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { endVampJumps, jumpProblem, jumpsAfter, LEAD_IN_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireAdmin, requireMember } from "./access";
+import { requireMember, requireRole, requireRoleInGroup } from "./access";
 
 async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users"> | undefined) {
   if (userId === undefined) return null;
@@ -55,9 +55,8 @@ export const start = mutation({
     setlistIndex: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, songId, fromSection, fromBar, setlistIndex }) => {
-    const { user } = await requireAdmin(ctx, groupId);
-    const group = await ctx.db.get(groupId);
-    if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
+    const { user, group } = await requireRoleInGroup(ctx, groupId, "playbackManager");
+    if (group.offline === true) throw new ConvexError("My Library plays on this device only");
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
     const problem = startProblem(song, { fromSection, fromBar });
@@ -88,7 +87,7 @@ export const jump = mutation({
     startsAt: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, toSection, mode, startsAt }) => {
-    await requireAdmin(ctx, groupId);
+    await requireRoleInGroup(ctx, groupId, "playbackManager");
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
@@ -101,7 +100,7 @@ export const jump = mutation({
 });
 
 async function applyCommand(ctx: MutationCtx, groupId: Id<"groups">, startsAt: number | undefined, command: (playback: Doc<"playbacks">) => CommandResult) {
-  await requireAdmin(ctx, groupId);
+  await requireRoleInGroup(ctx, groupId, "playbackManager");
   const playback = await groupPlayback(ctx, groupId);
   if (playback === null) throw new ConvexError("Nothing is playing");
   if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
@@ -124,7 +123,7 @@ export const endVamp = mutation({
 export const stop = mutation({
   args: { groupId: v.id("groups"), startsAt: v.optional(v.number()) },
   handler: async (ctx, { groupId, startsAt }) => {
-    const { user } = await requireAdmin(ctx, groupId);
+    const { user } = await requireRole(ctx, groupId, "playbackManager");
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
