@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
 import { deleteGroupRows } from "./cleanup";
 import { groupLocked, requireOwnerRoomForSongs, requireRoomForGroup } from "./plans";
@@ -31,6 +31,17 @@ async function uniqueJoinCode(ctx: MutationCtx) {
   throw new ConvexError("Could not create a join code, try again");
 }
 
+export function clipToLength(text: string, maxLength: number) {
+  let clipped = "";
+  for (const character of text) {
+    if (clipped.length + character.length > maxLength) break;
+    clipped += character;
+  }
+  return clipped;
+}
+
+const accountNameOf = (user: Doc<"users">) => clipToLength(user.name?.trim() || user.email?.split("@")[0] || "Admin", MAX_GROUP_NAME);
+
 export const createGroup = mutation({
   args: { name: v.string(), displayName: v.string() },
   handler: async (ctx, args) => {
@@ -47,7 +58,7 @@ export const createGroup = mutation({
       groupId,
       userId: user._id,
       role: "admin",
-      displayName: cleanName(args.displayName, "Your name"),
+      displayName: cleanName(args.displayName.trim() || accountNameOf(user), "Your name"),
     });
     return { groupId, joinCode };
   },

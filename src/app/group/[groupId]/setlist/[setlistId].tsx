@@ -69,6 +69,7 @@ function SetlistForm({
 }) {
   const save = useMutation(api.setlists.save);
   const setCurrent = useMutation(api.setlists.setCurrent);
+  const isCurrent = useQuery(api.setlists.currentSetlistId, { groupId }) === setlistId;
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const theme = useTheme();
   const pinned = usePinnedHeader();
@@ -164,19 +165,26 @@ function SetlistForm({
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
-          <ActionButton
-            variant="secondary"
-            icon="star"
-            label="Make this the Current setlist"
-            accessibleName="Make current"
-            testID="make-current"
-            onPress={() =>
-              run(async () => {
-                await setCurrent({ groupId, setlistId });
-                setMessage("This is now the Current setlist");
-              })
-            }
-          />
+          {isCurrent ? (
+            <View style={[styles.currentStatus, { backgroundColor: theme.accentTint }]} testID="current-setlist-status">
+              <Icon name="check" size={18} color="accent" />
+              <ThemedText type="smallBold">This is the Current setlist</ThemedText>
+            </View>
+          ) : (
+            <ActionButton
+              variant="secondary"
+              icon="star"
+              label="Make this the Current setlist"
+              accessibleName="Make current"
+              testID="make-current"
+              onPress={() =>
+                run(async () => {
+                  await setCurrent({ groupId, setlistId });
+                  setMessage("This is now the Current setlist");
+                })
+              }
+            />
+          )}
           {changedElsewhere ? (
             <View style={[styles.conflict, { backgroundColor: theme.accentTint }]} testID="setlist-changed">
               <ThemedText type="small" style={styles.grow}>
@@ -370,6 +378,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   conflict: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
+  currentStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.two, minHeight: ControlHeight.regular, borderRadius: Radius.md },
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
   entries: { borderRadius: Radius.lg, overflow: "hidden" },

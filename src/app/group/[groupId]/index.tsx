@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
@@ -336,7 +336,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
-  usePreventRemove((playing || tab !== "play") && !leaving && !leavingGroup, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
+  const screenFocused = useIsFocused();
+  usePreventRemove((playing || (tab !== "play" && screenFocused)) && !leaving && !leavingGroup, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
   const tabs = useMemo(
     () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
     [offline, seesLibrary],
@@ -1124,7 +1125,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           ) : null}
         </Card>
       ) : null}
-      {offline ? null : (
+      {offline || !seesLibrary ? null : (
         <Card title="Play mode">
           <Segmented
             label="Play mode"

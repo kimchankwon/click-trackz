@@ -457,6 +457,11 @@ function SongForm({
   const myGroups = useQuery(api.groups.myGroups, {});
   const copyToGroup = useMutation(api.songs.copyToGroup);
   const copyTargets = (myGroups ?? []).filter((other) => other.groupId !== groupId && canEditSongs(other.role) && !other.locked);
+  const copyLabel = copyTargets.every((target) => target.offline)
+    ? "Copy to My Library"
+    : copyTargets.some((target) => target.offline)
+      ? "Copy Song to…"
+      : "Copy to another Group";
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState<Id<"groups"> | null>(null);
   const [copyPending, setCopyPending] = useState(false);
@@ -684,7 +689,7 @@ function SongForm({
           {copyTargets.length > 0 ? (
             <ActionButton
               icon="share"
-              label="Copy to another Group"
+              label={copyLabel}
               testID="copy-song-to-group"
               onPress={() => {
                 setCopyError(null);
@@ -746,8 +751,8 @@ function SongForm({
           title={`Copy ${song.title}?`}
           message={
             changed
-              ? `Your changes are saved to ${song.title} first. Then a copy goes to the Group you pick ${SONG_COPY_DETAILS}.`
-              : `A copy goes to the Group you pick ${SONG_COPY_DETAILS}.`
+              ? `Your changes are saved to ${song.title} first. Then a copy goes where you pick ${SONG_COPY_DETAILS}.`
+              : `A copy goes where you pick ${SONG_COPY_DETAILS}.`
           }
           confirmLabel={changed ? "Save and copy" : "Copy"}
           pending={copyPending}
