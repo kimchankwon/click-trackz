@@ -248,15 +248,62 @@ describe("RevenueCat sync", () => {
     expect(response.status).toBe(401);
   });
 
-  it("stores the best active plan and drops it once nothing is active", async () => {
+  it("stores the best active plan and keeps a row saying Free once nothing is active", async () => {
     const { t, as } = await setup();
     const daniel = await as({ email: "daniel@example.com" });
-    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, entitled: { plan: "plus", expiresAt: null, store: "app_store" } });
+    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, requestedAt: 1, entitled: { plan: "plus", expiresAt: null, store: "app_store" } });
     expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "plus" });
-    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, entitled: { plan: "pro", expiresAt: null, store: "stripe" } });
+    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, requestedAt: 2, entitled: { plan: "pro", expiresAt: null, store: "stripe" } });
     expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "pro" });
-    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, entitled: null });
+    await t.mutation(internal.subscriptions.store, { userId: daniel.userId, requestedAt: 3, entitled: null });
     expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "free" });
+    expect(await t.run((ctx) => ctx.db.query("subscriptions").collect())).toEqual([expect.objectContaining({ plan: null, syncedAt: 3 })]);
+  });
+
+  it("ignores a RevenueCat read that started before the one already saved", async () => {
+    const { t, as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    expect(await t.mutation(internal.subscriptions.store, { userId: daniel.userId, requestedAt: 20, entitled: { plan: "pro", expiresAt: null } })).toBe("saved");
+    expect(await t.mutation(internal.subscriptions.store, { userId: daniel.userId, requestedAt: 10, entitled: null })).toBe("older than saved");
+    expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "pro" });
+  });
+
+  it("syncs before answering a webhook, and asks RevenueCat to retry when it cannot read the subscriber", async () => {
+    vi.stubEnv("REVENUECAT_WEBHOOK_AUTH", "Bearer s3cret");
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "sk_test");
+    const { t, as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const subscriber = { subscriber: { entitlements: { plus: { expires_date: null, product_identifier: "plus_monthly" } } } };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(subscriber), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const deliver = () =>
+      t.fetch("/revenuecat", { method: "POST", headers: { Authorization: "Bearer s3cret" }, body: JSON.stringify({ event: { app_user_id: daniel.userId } }) });
+    expect((await deliver()).status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(`https://api.revenuecat.com/v1/subscribers/${daniel.userId}`, expect.anything());
+    expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "plus" });
+    fetchMock.mockImplementation(async () => new Response("down", { status: 503 }));
+    expect((await deliver()).status).toBe(500);
+    expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "plus" });
+    vi.unstubAllGlobals();
+  });
+
+  it("re-checks Plans about to expire, so a missed renewal does not lock anyone", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000_000);
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "sk_test");
+    const { t, as } = await setup();
+    const renewing = await as({ email: "renewing@example.com" }, "plus", 1_000_000_000 + 60_000);
+    const later = await as({ email: "later@example.com" }, "plus", 1_000_000_000 + 30 * 24 * 60 * 60_000);
+    const renewed = new Date(1_000_000_000 + 31 * 24 * 60 * 60_000).toISOString();
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ subscriber: { entitlements: { plus: { expires_date: renewed } } } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await t.action(internal.subscriptions.recheckExpiring, {});
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(`https://api.revenuecat.com/v1/subscribers/${renewing.userId}`, expect.anything());
+    const rows = await t.run((ctx) => ctx.db.query("subscriptions").collect());
+    expect(rows.find((row) => row.userId === renewing.userId)?.expiresAt).toBe(Date.parse(renewed));
+    expect(rows.find((row) => row.userId === later.userId)?.syncedAt).toBe(0);
+    vi.unstubAllGlobals();
   });
 });
 

@@ -108,11 +108,13 @@ export default defineSchema({
   }).index("by_group", ["groupId"]),
   subscriptions: defineTable({
     userId: v.id("users"),
-    plan: paidPlanValidator,
+    plan: v.union(paidPlanValidator, v.null()),
     expiresAt: v.union(v.number(), v.null()),
     store: v.optional(v.string()),
     syncedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_expires", ["expiresAt"]),
   presence: defineTable({
     groupId: v.id("groups"),
     userId: v.id("users"),

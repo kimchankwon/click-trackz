@@ -2,7 +2,7 @@
 
 Creating a Group needs a Plan, Plus or Pro, while joining one, Offline play and My Library stay free. The app ships on iOS, Android and web, and Apple and Google require their own in-app purchase for digital subscriptions sold in the app, so purchases go through RevenueCat: one SDK (`react-native-purchases`) over StoreKit, Play Billing and, on web, RevenueCat Web Billing on Stripe.
 
-Convex never trusts the client or the webhook body about what someone bought. RevenueCat's webhook at `/revenuecat` only names who changed; Convex then reads that person's entitlements from RevenueCat's REST API with the secret key and stores the best active one in `subscriptions`. The app calls `subscriptions.refreshMine` after a purchase or restore so the new Plan shows straight away. The RevenueCat app user id is the Convex user id.
+Convex never trusts the client or the webhook body about what someone bought. RevenueCat's webhook at `/revenuecat` only names who changed; Convex then reads that person's entitlements from RevenueCat's REST API with the secret key and stores the best active one in `subscriptions`. The app calls `subscriptions.refreshMine` after a purchase or restore so the new Plan shows straight away. The RevenueCat app user id is the Convex user id. The webhook syncs before it answers and returns 500 when RevenueCat cannot be read, so RevenueCat retries the delivery. Each stored result records when its RevenueCat read started, and an older read never replaces a newer one. Every hour Convex also re-reads Plans that expire within two hours (or expired in the last three days), so one lost renewal event cannot lock anyone.
 
 ## Considered Options
 

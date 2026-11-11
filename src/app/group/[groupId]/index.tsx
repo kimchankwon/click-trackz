@@ -240,6 +240,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const locked = group.locked;
   const connected = useConnected();
   const steersGroup = canSteerPlayback(group.role) && !locked;
+  const stopsLockedPlayback = locked && canSteerPlayback(group.role);
   const editsSongs = canEditSongs(group.role) && !locked && (connected || !offline);
   const managesGroup = canManageGroup(group.role);
   const seesLibrary = offline || !group.guest;
@@ -1373,7 +1374,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           </View>
         ) : null}
         {playing && !steers ? (
-          <View style={styles.personal}>
+          <View style={stopsLockedPlayback ? styles.transport : styles.personal}>
             <IconButton
               icon="muted"
               label={muted ? "Unmute" : "Mute"}
@@ -1384,6 +1385,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               active={muted}
               onPress={muted ? unmute : mute}
             />
+            {stopsLockedPlayback && !onDevice ? (
+              <ActionButton
+                large
+                full
+                variant={stopping ? "secondary" : "stop"}
+                icon="stop"
+                label={stopping ? "Stopping…" : "Stop"}
+                accessibleName="Stop"
+                testID="stop-locked"
+                pending={stopping}
+                onPress={stopPlayback}
+              />
+            ) : null}
           </View>
         ) : null}
         <SongProgress span={songSpan} lengthMs={startLength} serverNow={playNow} />

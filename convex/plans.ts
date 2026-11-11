@@ -29,7 +29,7 @@ export async function planOf(ctx: QueryCtx, userId: Id<"users">): Promise<Plan> 
     .query("subscriptions")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique();
-  const paid = row !== null && subscriptionActive(row, Date.now()) ? row.plan : "free";
+  const paid = row !== null && row.plan !== null && subscriptionActive(row, Date.now()) ? row.plan : "free";
   return betterPlan(paid, compedPlan(user.email));
 }
 
