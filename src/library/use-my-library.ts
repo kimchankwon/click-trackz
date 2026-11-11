@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } f
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { clearStoredLibrary, readStoredLibrary, writeStoredLibrary } from "./library-store";
-import { librarySetlist, librarySetlists, librarySong, librarySongs, parseSnapshot, type LibrarySnapshot } from "./snapshot";
+import { librarySetlist, librarySetlists, librarySong, librarySongs, parseSnapshot, SNAPSHOT_FORMAT, type LibrarySnapshot } from "./snapshot";
 
 let stored: LibrarySnapshot | null | undefined;
 let loading: Promise<void> | null = null;
@@ -49,7 +49,7 @@ export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) 
     convex.query(api.library.snapshot, { groupId }).then(
       (fresh) => {
         if (cancelled) return;
-        const snapshot: LibrarySnapshot = { ...fresh, savedAt: Date.now() };
+        const snapshot: LibrarySnapshot = { ...fresh, savedAt: Date.now(), format: SNAPSHOT_FORMAT };
         publish(snapshot);
         void writeStoredLibrary(JSON.stringify(snapshot)).catch(() => undefined);
       },

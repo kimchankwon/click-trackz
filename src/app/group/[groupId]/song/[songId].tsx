@@ -540,9 +540,8 @@ function SongForm({
     try {
       if (changed) await updateSong({ songId, ...draft });
       const copy = await copyToGroup({ songId, toGroupId: copyTarget });
-      if (mine !== attempt.current) return;
-      setCopyOpen(false);
       toast.show(`${copy.title} is now in ${copy.groupName}`);
+      if (mine === attempt.current) setCopyOpen(false);
     } catch (error) {
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setCopyError(errorText(error));
@@ -762,12 +761,11 @@ function SongForm({
         >
           <ScrollView style={styles.copyScroll} contentContainerStyle={styles.copyTargets} role="radiogroup" aria-label="Group to copy to">
             {copyTargets.map((target) => (
-              <ActionButton
+              <Chip
                 key={target.groupId}
-                small
-                variant="pill"
-                accent={copyTarget === target.groupId}
-                icon={copyTarget === target.groupId ? "check" : target.offline ? "library" : "group"}
+                role="radio"
+                selected={copyTarget === target.groupId}
+                icon={target.offline ? "library" : "group"}
                 label={target.name}
                 testID={`copy-target-${target.name}`}
                 onPress={() => setCopyTarget(target.groupId)}

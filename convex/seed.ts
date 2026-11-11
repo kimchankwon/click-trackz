@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
 import { internalMutation } from "./_generated/server";
+import { touchLibrary } from "./library";
 
 const firstSetlist = [
   { title: "Send Me Out", key: "B?", leader: "Jason", bpm: 144, beatsPerBar: 4 },
@@ -49,6 +50,7 @@ export const firstSetlistForGroup = internalMutation({
     }
     const setlistId = await ctx.db.insert("setlists", { groupId, name: name ?? "First Setlist", entries });
     await ctx.db.patch(groupId, { currentSetlistId: setlistId });
+    await touchLibrary(ctx, groupId);
     return { setlistId, songs: entries.length };
   },
 });

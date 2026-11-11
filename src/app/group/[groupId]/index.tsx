@@ -24,7 +24,7 @@ import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
 import { liveOr, StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
-import type { LibrarySnapshot } from "@/library/snapshot";
+import { storedLibraryGroup, type LibrarySnapshot } from "@/library/snapshot";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -211,17 +211,6 @@ export default function GroupRoute() {
 }
 
 const countOf = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
-
-const storedLibraryGroup = (snapshot: LibrarySnapshot): MyGroup => ({
-  groupId: snapshot.groupId,
-  name: snapshot.name,
-  role: "admin",
-  offline: true,
-  copyBase: null,
-  guest: false,
-  owned: true,
-  joinCode: null,
-});
 
 function GroupScreen({ group, groupNames, storedLibrary }: { group: MyGroup; groupNames: readonly string[]; storedLibrary: LibrarySnapshot | null }) {
   return (
