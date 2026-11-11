@@ -10,7 +10,7 @@ export function parseSnapshot(json: string | null): LibrarySnapshot | null {
   if (json === null) return null;
   try {
     const value = JSON.parse(json) as Partial<LibrarySnapshot>;
-    if (typeof value.groupId !== "string" || !Array.isArray(value.songs) || !Array.isArray(value.setlists) || typeof value.savedAt !== "number") return null;
+    if (typeof value.groupId !== "string" || typeof value.revision !== "number" || !Array.isArray(value.songs) || !Array.isArray(value.setlists) || typeof value.savedAt !== "number") return null;
     return value as LibrarySnapshot;
   } catch {
     return null;

@@ -1,8 +1,6 @@
-import { useConvex } from "convex/react";
-import { useIsFocused } from "expo-router";
+import { useConvex, useQuery } from "convex/react";
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 
-import { useConnected } from "@/lib/use-connected";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { clearStoredLibrary, readStoredLibrary, writeStoredLibrary } from "./library-store";
@@ -40,11 +38,13 @@ export async function forgetStoredLibrary() {
 
 export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) {
   const convex = useConvex();
-  const connected = useConnected();
-  const focused = useIsFocused();
+  const liveRevision = useQuery(api.library.revision, enabled ? { groupId } : "skip");
+  const saved = useStoredLibrary();
+  const readFromDisk = saved !== undefined;
+  const savedRevision = saved && saved.groupId === groupId ? saved.revision : null;
 
   useEffect(() => {
-    if (!enabled || !connected || !focused) return;
+    if (!enabled || !readFromDisk || liveRevision === undefined || liveRevision === null || liveRevision === savedRevision) return;
     let cancelled = false;
     convex.query(api.library.snapshot, { groupId }).then(
       (fresh) => {
@@ -58,8 +58,10 @@ export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) 
     return () => {
       cancelled = true;
     };
-  }, [convex, groupId, enabled, connected, focused]);
+  }, [convex, groupId, enabled, readFromDisk, liveRevision, savedRevision]);
 }
+
+export const liveOr = <T,>(live: T | undefined, saved: () => T | undefined): T | undefined => (live !== undefined ? live : saved());
 
 export const StoredLibraryContext = createContext<LibrarySnapshot | null>(null);
 

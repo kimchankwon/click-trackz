@@ -48,6 +48,7 @@ export default defineSchema({
     currentSetlistId: v.optional(v.id("setlists")),
     offline: v.optional(v.boolean()),
     copyBase: v.optional(v.string()),
+    libraryRevision: v.optional(v.number()),
   }).index("by_join_code", ["joinCode"]),
   memberships: defineTable({
     groupId: v.id("groups"),

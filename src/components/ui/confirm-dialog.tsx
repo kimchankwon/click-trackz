@@ -68,7 +68,7 @@ export function ConfirmDialog({
 const styles = StyleSheet.create({
   layer: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.four },
   scrim: { backgroundColor: "rgba(0, 0, 0, 0.5)" },
-  dialog: { width: "100%", maxWidth: MaxContentWidth * 0.7, gap: Spacing.three, padding: Spacing.four, borderRadius: Radius.lg },
+  dialog: { width: "100%", maxWidth: MaxContentWidth * 0.7, maxHeight: "100%", gap: Spacing.three, padding: Spacing.four, borderRadius: Radius.lg },
   title: { fontSize: 22, lineHeight: 28 },
   actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
 });

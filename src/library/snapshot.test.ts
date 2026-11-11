@@ -7,6 +7,7 @@ const verse = { sectionType: "Verse", bars: 8, beatsPerBar: 3, bpm: 96 };
 
 const snapshot: LibrarySnapshot = {
   groupId: "g1" as Id<"groups">,
+  revision: 3,
   name: "My Library",
   currentSetlistId: "l1" as Id<"setlists">,
   savedAt: 5,
@@ -55,6 +56,7 @@ describe("My Library snapshot", () => {
     expect(parseSnapshot(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(parseSnapshot("{oops")).toBeNull();
     expect(parseSnapshot(JSON.stringify({ groupId: "g1" }))).toBeNull();
+    expect(parseSnapshot(JSON.stringify({ ...snapshot, revision: undefined }))).toBeNull();
     expect(parseSnapshot(null)).toBeNull();
   });
 });

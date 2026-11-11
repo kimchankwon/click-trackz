@@ -13,7 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { useStoredLibraryFor } from "@/library/use-my-library";
+import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -33,7 +33,7 @@ export function SetlistCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const setlists = useQuery(api.setlists.list, { groupId }) ?? stored?.setlists;
+  const setlists = liveOr(useQuery(api.setlists.list, { groupId }), () => stored?.setlists);
   const createSetlist = useMutation(api.setlists.createSetlist);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const [deleting, setDeleting] = useState<{ setlistId: Id<"setlists">; name: string } | null>(null);
@@ -44,7 +44,7 @@ export function SetlistCard({
   const current = setlists?.find((s) => s.isCurrent) ?? null;
   const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
   const liveSetlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
-  const setlist = liveSetlist ?? (shown && stored ? stored.setlist(shown.setlistId) : undefined);
+  const setlist = liveOr(liveSetlist, () => (shown && stored ? stored.setlist(shown.setlistId) : undefined));
   if (!setlists || (setlists.length === 0 && !canEdit)) return null;
   const entries = setlist?.entries ?? [];
   const allNeedSections = entries.length > 0 && entries.every((entry) => entry.needsStructure);
