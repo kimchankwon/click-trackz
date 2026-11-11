@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireMember, requireRoleInGroup, requireSignedInMember } from "./access";
+import { requireMember, requireRoleInUnlocked, requireSignedInMember } from "./access";
 
 const cleanName = (name: string) => {
   const trimmed = name.trim();
@@ -12,7 +12,7 @@ const cleanName = (name: string) => {
 export const createSetlist = mutation({
   args: { groupId: v.id("groups"), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
-    await requireRoleInGroup(ctx, groupId, "songManager");
+    await requireRoleInUnlocked(ctx, groupId, "songManager");
     return ctx.db.insert("setlists", { groupId, name: cleanName(name), entries: [] });
   },
 });
@@ -38,7 +38,7 @@ export const list = query({
 export const setCurrent = mutation({
   args: { groupId: v.id("groups"), setlistId: v.union(v.id("setlists"), v.null()) },
   handler: async (ctx, { groupId, setlistId }) => {
-    await requireRoleInGroup(ctx, groupId, "songManager");
+    await requireRoleInUnlocked(ctx, groupId, "songManager");
     if (setlistId !== null) {
       const setlist = await ctx.db.get(setlistId);
       if (setlist === null || setlist.groupId !== groupId) throw new ConvexError("That Setlist is not in this Group");
@@ -64,7 +64,7 @@ export const save = mutation({
   handler: async (ctx, { setlistId, revision, name, entries }) => {
     const setlist = await ctx.db.get(setlistId);
     if (setlist === null) throw new ConvexError("That Setlist no longer exists");
-    await requireRoleInGroup(ctx, setlist.groupId, "songManager");
+    await requireRoleInUnlocked(ctx, setlist.groupId, "songManager");
     const current = setlist.revision ?? 0;
     if (current !== revision) {
       throw new ConvexError("Someone else changed this Setlist after you opened it. Load their changes, then save again.");
@@ -109,7 +109,7 @@ export const deleteSetlist = mutation({
   handler: async (ctx, { setlistId }) => {
     const setlist = await ctx.db.get(setlistId);
     if (setlist === null) return;
-    await requireRoleInGroup(ctx, setlist.groupId, "songManager");
+    await requireRoleInUnlocked(ctx, setlist.groupId, "songManager");
     const group = await ctx.db.get(setlist.groupId);
     if (group?.currentSetlistId === setlistId) await ctx.db.patch(group._id, { currentSetlistId: undefined });
     await ctx.db.delete(setlistId);

@@ -23,6 +23,7 @@ import { MembersCard } from "@/components/group/members-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
+import { LockedNotice } from "@/components/group/locked-notice";
 import { StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
 import type { LibrarySnapshot } from "@/library/snapshot";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
@@ -218,6 +219,7 @@ const storedLibraryGroup = (snapshot: LibrarySnapshot): MyGroup => ({
   role: "admin",
   offline: true,
   copyBase: null,
+  locked: false,
   guest: false,
   owned: true,
   joinCode: null,
@@ -235,8 +237,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const groupId = group.groupId;
   const offline = group.offline;
   const isAdmin = group.role === "admin";
-  const steersGroup = canSteerPlayback(group.role);
-  const editsSongs = canEditSongs(group.role);
+  const locked = group.locked;
+  const steersGroup = canSteerPlayback(group.role) && !locked;
+  const editsSongs = canEditSongs(group.role) && !locked;
   const managesGroup = canManageGroup(group.role);
   const seesLibrary = offline || !group.guest;
   useKeepLibraryOnDevice(groupId, offline);
@@ -935,6 +938,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
+      {locked ? <LockedNotice isAdmin={isAdmin} /> : null}
       {offlinePlay ? (
         <View style={[styles.offlineBadge, { backgroundColor: theme.backgroundSelected }]} testID="offline-play-badge">
           <Icon name="person" size={14} color="textSecondary" />
@@ -1036,7 +1040,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         <View style={styles.nextBlock}>
           {!steers ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              A Playback Manager starts and steers Playback.
+              {locked ? "This Group is locked, so Playback cannot start." : "A Playback Manager starts and steers Playback."}
             </ThemedText>
           ) : null}
           {editsSongs && startBlocker === "needsSections" && startSongId ? (

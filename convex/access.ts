@@ -3,6 +3,7 @@ import { ConvexError } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
+import { groupLocked } from "./plans";
 import { atLeast, ROLE_NAMES, type Role } from "../src/lib/roles";
 
 export async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
@@ -44,9 +45,17 @@ export async function requireRole(ctx: QueryCtx, groupId: Id<"groups">, needed: 
   return access;
 }
 
-export async function requireRoleInGroup(ctx: QueryCtx, groupId: Id<"groups">, needed: Role) {
-  const access = await requireRole(ctx, groupId, needed);
+export const LOCKED_MESSAGE = "This Group is locked until its Admin renews their subscription";
+
+export async function requireUnlocked(ctx: QueryCtx, groupId: Id<"groups">) {
   const group = await ctx.db.get(groupId);
   if (group === null) throw new ConvexError("That Group no longer exists");
+  if (await groupLocked(ctx, group)) throw new ConvexError(LOCKED_MESSAGE);
+  return group;
+}
+
+export async function requireRoleInUnlocked(ctx: QueryCtx, groupId: Id<"groups">, needed: Role) {
+  const access = await requireRole(ctx, groupId, needed);
+  const group = await requireUnlocked(ctx, groupId);
   return { ...access, group };
 }

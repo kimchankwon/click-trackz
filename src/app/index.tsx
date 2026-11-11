@@ -28,6 +28,7 @@ import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
+import { canCreateGroup, PLAN_NAMES } from "@/lib/plans";
 import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
@@ -45,7 +46,7 @@ const homeTabs: readonly TabItem<HomeTab>[] = [
 
 type Run = (action: () => Promise<unknown>) => void;
 
-type ListedGroup = { groupId: string; name: string };
+type ListedGroup = { groupId: string; name: string; locked: boolean };
 
 function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[]; onlineIn: (groupId: string) => number; testID: string }) {
   const theme = useTheme();
@@ -69,10 +70,21 @@ function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[
                   {group.name}
                 </ThemedText>
                 <View style={styles.roleRow} testID={`online-${group.name}`}>
-                  <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
-                  <ThemedText themeColor="textSecondary" style={styles.role}>
-                    {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
-                  </ThemedText>
+                  {group.locked ? (
+                    <>
+                      <Icon name="warning" size={14} color="textSecondary" />
+                      <ThemedText themeColor="textSecondary" style={styles.role} testID={`locked-${group.name}`}>
+                        Locked
+                      </ThemedText>
+                    </>
+                  ) : (
+                    <>
+                      <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
+                      <ThemedText themeColor="textSecondary" style={styles.role}>
+                        {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
+                      </ThemedText>
+                    </>
+                  )}
                 </View>
               </View>
               <Icon name="forward" size={22} color="textTertiary" />
@@ -98,6 +110,7 @@ function GroupsTab({ run }: { run: Run }) {
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
+  const usage = useQuery(api.subscriptions.mine, isGuest ? "skip" : {});
   const seen = useQuery(api.presence.myGroupsSeen, {});
   const connected = useConnected();
   const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
@@ -129,7 +142,8 @@ function GroupsTab({ run }: { run: Run }) {
 
       <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.
+          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following. Free holds 10 Songs; Plus and Pro
+          hold 1000.
         </ThemedText>
         <ActionButton
           variant="outline"
@@ -204,6 +218,15 @@ function GroupsTab({ run }: { run: Run }) {
             </ThemedText>
             <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
           </>
+        ) : usage === undefined ? null : usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups) ? (
+          <>
+            <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
+              {usage.plan === "free"
+                ? "Creating a Group needs Plus or Pro. Joining Groups is always free."
+                : `You are using all ${usage.limits.groups} Groups ${PLAN_NAMES[usage.plan]} includes. Pro has no limit.`}
+            </ThemedText>
+            <ActionButton accent icon="star" label={usage.plan === "free" ? "See plans" : "Upgrade to Pro"} testID="see-plans" onPress={() => router.push("/subscribe")} />
+          </>
         ) : (
           <View style={styles.inline}>
             <Field
@@ -277,6 +300,7 @@ function SettingsTab({ run }: { run: Run }) {
         {viewer && isGuest ? (
           <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="settings-google-sign-in" onPress={() => run(signInWithGoogle)} />
         ) : null}
+        {viewer && !isGuest ? <ActionButton variant="outline" icon="star" label="Plans and subscription" testID="settings-plans" onPress={() => router.push("/subscribe")} /> : null}
       </Card>
       <AccentPicker />
       <ActionButton

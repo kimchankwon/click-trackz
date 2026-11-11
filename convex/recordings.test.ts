@@ -10,7 +10,11 @@ const modules = import.meta.glob("./**/*.ts");
 describe("Queries older installed apps still call", () => {
   it("answers with no recordings and the Group's vocabulary, for Members only", async () => {
     const t = convexTest(schema, modules);
-    const adminId = await t.run((ctx) => ctx.db.insert("users", { email: "admin@example.com" }));
+    const adminId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", { email: "admin@example.com" });
+      if (true) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
     const strangerId = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
     const admin = t.withIdentity({ subject: `${adminId}|session` });
     const stranger = t.withIdentity({ subject: `${strangerId}|session` });

@@ -10,7 +10,11 @@ const modules = import.meta.glob("./**/*.ts");
 
 async function setupGroup() {
   const t = convexTest(schema, modules);
-  const adminId = await t.run((ctx) => ctx.db.insert("users", { email: "admin@example.com" }));
+  const adminId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", { email: "admin@example.com" });
+      if (true) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
   const admin = t.withIdentity({ subject: `${adminId}|session` });
   const { groupId } = await admin.mutation(api.groups.createGroup, { name: "Band", displayName: "Admin" });
   return { t, admin, groupId };

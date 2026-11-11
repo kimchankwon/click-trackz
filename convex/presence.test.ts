@@ -11,7 +11,11 @@ const NOW = 1_000_000;
 async function setupGroup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
-    const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+    const userId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", profile);
+      if (profile.email !== undefined) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
     return { userId, client: t.withIdentity({ subject: `${userId}|session` }) };
   };
   const admin = await as({ email: "admin@example.com" });
@@ -113,7 +117,11 @@ describe("Presence", () => {
     const { t, admin, groupId } = await setupGroup();
     const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
     const join = async (profile: { email?: string; isAnonymous?: boolean }, displayName: string) => {
-      const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+      const userId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", profile);
+      if (profile.email !== undefined) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
       await t.withIdentity({ subject: `${userId}|session` }).mutation(api.groups.joinGroup, { joinCode, displayName });
     };
     for (const name of ["Ana", "Ben", "Cho"]) await join({ email: `${name}@example.com` }, name);
