@@ -4,11 +4,12 @@ import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
 import { clockSlept, estimateClockOffset, SAMPLE_WINDOW, type ClockEstimate, type ClockSample } from "./clock";
-import { pingDelayMs } from "./ping-schedule";
+import { pingDelayMs, type PingPace } from "./ping-schedule";
 
 const INITIAL_BURST = 8;
 const WAKE_BURST = 4;
 const SAMPLES_BEFORE_READY = 4;
+const START_SAMPLES = 1;
 
 const clientNow = () => performance.now();
 const epochNow = () => Date.now() - clientNow();
@@ -21,11 +22,25 @@ export type ServerClock = {
   serverNow: () => number | null;
 };
 
-export function useServerClock({ onDevice = false }: { onDevice?: boolean } = {}): ServerClock {
+type PingControls = { schedule: () => void; burst: (count: number) => Promise<void> };
+
+export function useServerClock({ onDevice = false, pace = "playback" }: { onDevice?: boolean; pace?: PingPace } = {}): ServerClock {
   const ping = useMutation(api.clock.now);
   const { isAuthenticated } = useConvexAuth();
   const [estimate, setEstimate] = useState<ClockEstimate | null>(null);
   const offsetMs = useRef<number | null>(null);
+  const paceRef = useRef(pace);
+  const controls = useRef<PingControls | null>(null);
+
+  useEffect(() => {
+    const previous = paceRef.current;
+    paceRef.current = pace;
+    const current = controls.current;
+    if (current === null || previous === pace) return;
+    if (previous === "paused") void current.burst(WAKE_BURST);
+    else if (pace === "playback") void current.burst(START_SAMPLES);
+    else current.schedule();
+  }, [pace]);
 
   useEffect(() => {
     if (onDevice || !isAuthenticated) return;
@@ -57,7 +72,7 @@ export function useServerClock({ onDevice = false }: { onDevice?: boolean } = {}
       if (timer !== null) clearTimeout(timer);
       timer = null;
       if (cancelled) return;
-      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, hidden: isHidden(), hasEstimate });
+      const delay = pingDelayMs({ sinceOpenMs: clientNow() - openedAt, hidden: isHidden(), hasEstimate, pace: paceRef.current });
       if (delay === null) return;
       timer = setTimeout(() => {
         void sampleOnce()
@@ -69,7 +84,9 @@ export function useServerClock({ onDevice = false }: { onDevice?: boolean } = {}
       for (let i = 0; i < count && !cancelled; i++) await sampleOnce().catch(() => undefined);
       schedule();
     };
-    void burst(INITIAL_BURST);
+    controls.current = { schedule, burst };
+    if (paceRef.current === "paused") schedule();
+    else void burst(INITIAL_BURST);
     const forgetStaleSamples = () => {
       if (!clockSlept(epochAtLastSample, epochNow())) return;
       samples.length = 0;
@@ -80,11 +97,13 @@ export function useServerClock({ onDevice = false }: { onDevice?: boolean } = {}
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         forgetStaleSamples();
-        void burst(WAKE_BURST);
+        if (paceRef.current === "paused") schedule();
+        else void burst(WAKE_BURST);
       } else schedule();
     });
     return () => {
       cancelled = true;
+      controls.current = null;
       if (timer !== null) clearTimeout(timer);
       subscription.remove();
     };

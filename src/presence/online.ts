@@ -1,5 +1,5 @@
-export const HEARTBEAT_MS = 30_000;
-export const ONLINE_WITHIN_MS = 75_000;
+export const HEARTBEAT_MS = 60_000;
+export const ONLINE_WITHIN_MS = 150_000;
 
 export type PresenceRow = { userId: string; onPlay: boolean; seenAt: number; roundTripMs?: number | null };
 

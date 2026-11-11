@@ -48,7 +48,7 @@ describe("Member presence", () => {
 
 describe("onlineCount", () => {
   it("counts Members seen within the online window", () => {
-    expect(onlineCount([NOW, NOW - 60_000, NOW - 80_000], NOW)).toBe(2);
+    expect(onlineCount([NOW, NOW - ONLINE_WITHIN_MS, NOW - ONLINE_WITHIN_MS - 1], NOW)).toBe(2);
     expect(onlineCount([], NOW)).toBe(0);
   });
 });

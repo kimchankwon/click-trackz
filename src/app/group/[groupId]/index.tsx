@@ -50,6 +50,7 @@ import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
 import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES } from "@/lib/roles";
 import { useAppActive } from "@/lib/use-app-active";
+import { useIdleWithoutPlayback } from "@/lib/use-idle-without-playback";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
@@ -239,7 +240,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const steers = steersGroup || onDevice;
   const [playing, setPlaying] = useState(false);
   const [finishedStart, setFinishedStart] = useState<number | null>(null);
-  const { estimate, serverNow } = useServerClock({ onDevice: offline });
+  const idleWithoutPlayback = useIdleWithoutPlayback(playing);
+  const { estimate, serverNow } = useServerClock({ onDevice: offline, pace: playing ? "playback" : idleWithoutPlayback ? "paused" : "standby" });
   const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
@@ -342,7 +344,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
-  useHeartbeat(groupId, tab === "play", playing, !offline);
+  useHeartbeat(groupId, tab === "play", playing, !offline && !idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
   const members = useQuery(api.groups.members, offline ? "skip" : { groupId });
   const viewer = useQuery(api.users.viewer, {});
