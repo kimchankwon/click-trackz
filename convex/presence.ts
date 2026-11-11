@@ -58,6 +58,14 @@ export const leave = mutation({
   },
 });
 
+export const stillHere = mutation({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const { membership } = await requireMember(ctx, groupId);
+    await ctx.db.patch(membership._id, { lastSeenAt: Date.now() });
+  },
+});
+
 export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {

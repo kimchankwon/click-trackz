@@ -8,17 +8,19 @@ export const IDLE_AFTER_MS = 10 * 60_000;
 export function useIdleWithoutPlayback(playing: boolean, idleAfterMs = IDLE_AFTER_MS): boolean {
   const appActive = useAppActive();
   const focused = useIsFocused();
-  const [idle, setIdle] = useState(false);
-  const waiting = !playing && appActive && focused;
+  const [quiet, setQuiet] = useState(false);
+  const watching = appActive && focused;
 
   useEffect(() => {
-    if (!waiting) return;
-    const timer = setTimeout(() => setIdle(true), idleAfterMs);
+    if (!playing && !watching) return;
+    const wake = setTimeout(() => setQuiet(false), 0);
+    if (playing) return () => clearTimeout(wake);
+    const sleep = setTimeout(() => setQuiet(true), idleAfterMs);
     return () => {
-      clearTimeout(timer);
-      setIdle(false);
+      clearTimeout(wake);
+      clearTimeout(sleep);
     };
-  }, [waiting, idleAfterMs]);
+  }, [playing, watching, idleAfterMs]);
 
-  return idle;
+  return quiet && !playing;
 }

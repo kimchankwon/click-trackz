@@ -6,7 +6,7 @@ So a Play screen spends only what the next Start needs:
 
 - During Playback, clock pings stay every 10 seconds (ADR 0001).
 - With nothing playing, clock pings run every 30 seconds, which still leaves four or more inside the two minutes of samples an estimate uses. A Start takes one fresh ping straight away.
-- After 10 minutes with no Playback, the screen stops clock pings and presence heartbeats, and tells the server it left. It keeps its last clock estimate and its Playback subscription, so a Start still reaches it; it then sends a burst of four pings within the one-second Lead-in, and its beats slew or snap onto the fresh estimate. Coming back to the app or to the screen restarts the 10 minutes.
+- After 10 minutes with no Playback, the screen stops clock pings and presence heartbeats, and tells the server it left. It keeps its last clock estimate and its Playback subscription, so a Start still reaches it; it then sends a burst of four pings within the one-second Lead-in, and its beats slew or snap onto the fresh estimate. Coming back to the app or to the screen restarts the 10 minutes; leaving them keeps the screen quiet, so opening the Song editor from an idle screen wakes nothing. A quiet guest sends `presence.stillHere` every 20 minutes, which keeps their membership from the hourly guest sweep without showing them online.
 - Heartbeats run every 60 seconds and a Member counts as online for 150 seconds after the last one, halving heartbeat writes and the `presence:list` re-runs they cause.
 
 ## Considered Options

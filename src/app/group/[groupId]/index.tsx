@@ -61,7 +61,7 @@ import { useLockScreen } from "@/audio/use-lock-screen";
 import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
 import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
-import { useHeartbeat, usePresence } from "@/presence/use-presence";
+import { useHeartbeat, usePresence, useStillHere } from "@/presence/use-presence";
 import { isLatencySetting } from "@/settings/latency";
 import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
@@ -345,6 +345,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     if (leaving) router.dismissTo("/");
   }, [leaving]);
   useHeartbeat(groupId, tab === "play", playing, !offline && !idleWithoutPlayback);
+  useStillHere(groupId, group.guest && !offline && idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
   const members = useQuery(api.groups.members, offline ? "skip" : { groupId });
   const viewer = useQuery(api.users.viewer, {});
