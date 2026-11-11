@@ -11,6 +11,7 @@ const snapshot: LibrarySnapshot = {
   name: "My Library",
   currentSetlistId: "l1" as Id<"setlists">,
   savedAt: 5,
+  format: 1,
   songs: [
     { songId: "s1" as Id<"songs">, title: "Etude", key: "G", tempoHint: null, bpm: null, countIn: true, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [verse] },
     { songId: "s2" as Id<"songs">, title: "Sketch", key: null, tempoHint: null, bpm: null, countIn: false, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [] },
@@ -57,6 +58,9 @@ describe("My Library snapshot", () => {
     expect(parseSnapshot("{oops")).toBeNull();
     expect(parseSnapshot(JSON.stringify({ groupId: "g1" }))).toBeNull();
     expect(parseSnapshot(JSON.stringify({ ...snapshot, revision: undefined }))).toBeNull();
+    expect(parseSnapshot(JSON.stringify({ ...snapshot, format: 2 }))).toBeNull();
+    expect(parseSnapshot(JSON.stringify({ ...snapshot, songs: [{ songId: "s1", title: "Etude" }] }))).toBeNull();
+    expect(parseSnapshot(JSON.stringify({ ...snapshot, setlists: [{ setlistId: "l1", name: "Practice", entries: [{}] }] }))).toBeNull();
     expect(parseSnapshot(null)).toBeNull();
   });
 });

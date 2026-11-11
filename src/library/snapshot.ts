@@ -4,18 +4,56 @@ import type { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { summaryOfView, type SongSummary, type SongView } from "./song-views";
 
-export type LibrarySnapshot = FunctionReturnType<typeof api.library.snapshot> & { savedAt: number };
+export const SNAPSHOT_FORMAT = 1;
+
+export type LibrarySnapshot = FunctionReturnType<typeof api.library.snapshot> & { savedAt: number; format: typeof SNAPSHOT_FORMAT };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const isSong = (value: unknown) => isRecord(value) && typeof value.songId === "string" && typeof value.title === "string" && Array.isArray(value.sections);
+
+const isSetlist = (value: unknown) =>
+  isRecord(value) &&
+  typeof value.setlistId === "string" &&
+  typeof value.name === "string" &&
+  Array.isArray(value.entries) &&
+  value.entries.every((entry) => isRecord(entry) && typeof entry.songId === "string");
 
 export function parseSnapshot(json: string | null): LibrarySnapshot | null {
   if (json === null) return null;
   try {
-    const value = JSON.parse(json) as Partial<LibrarySnapshot>;
-    if (typeof value.groupId !== "string" || typeof value.revision !== "number" || !Array.isArray(value.songs) || !Array.isArray(value.setlists) || typeof value.savedAt !== "number") return null;
+    const value: unknown = JSON.parse(json);
+    if (
+      !isRecord(value) ||
+      value.format !== SNAPSHOT_FORMAT ||
+      typeof value.groupId !== "string" ||
+      typeof value.name !== "string" ||
+      typeof value.revision !== "number" ||
+      typeof value.savedAt !== "number" ||
+      !Array.isArray(value.songs) ||
+      !value.songs.every(isSong) ||
+      !Array.isArray(value.setlists) ||
+      !value.setlists.every(isSetlist)
+    ) {
+      return null;
+    }
     return value as LibrarySnapshot;
   } catch {
     return null;
   }
 }
+
+export const storedLibraryGroup = (snapshot: LibrarySnapshot) => ({
+  groupId: snapshot.groupId,
+  name: snapshot.name,
+  role: "admin" as const,
+  offline: true,
+  copyBase: null,
+  locked: false,
+  guest: false,
+  owned: true,
+  joinCode: null,
+});
 
 export const librarySongs = (snapshot: LibrarySnapshot): SongSummary[] => snapshot.songs.map(summaryOfView);
 

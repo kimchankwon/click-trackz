@@ -12,7 +12,7 @@ export const oneAdminPerGroup = internalMutation({
     for (const group of await ctx.db.query("groups").collect()) {
       if (group.offline === true) {
         if (group.name === OLD_LIBRARY_NAME) {
-          await ctx.db.patch(group._id, { name: LIBRARY_NAME });
+          await ctx.db.patch(group._id, { name: LIBRARY_NAME, libraryRevision: (group.libraryRevision ?? 0) + 1 });
           renamedLibraries++;
         }
         continue;
