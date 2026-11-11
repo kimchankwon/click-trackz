@@ -23,6 +23,8 @@ import { MembersCard } from "@/components/group/members-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
+import { StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
+import type { LibrarySnapshot } from "@/library/snapshot";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -45,6 +47,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
+import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES } from "@/lib/roles";
 import { useAppActive } from "@/lib/use-app-active";
 import { useConnected } from "@/lib/use-connected";
 import { neighbourSong } from "@/lib/song-order";
@@ -172,8 +175,10 @@ type DevicePlayback = StartedPlayback & {
 export default function GroupRoute() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const myGroups = useQuery(api.groups.myGroups, {});
+  const storedLibrary = useStoredLibrary();
   const theme = useTheme();
   if (myGroups === undefined) {
+    if (storedLibrary && storedLibrary.groupId === groupId) return <GroupScreen group={storedLibraryGroup(storedLibrary)} groupNames={[]} storedLibrary={storedLibrary} />;
     return (
       <ThemedView style={[styles.container, styles.loading]}>
         <Connecting />
@@ -181,13 +186,16 @@ export default function GroupRoute() {
     );
   }
   const group = myGroups.find((g) => g.groupId === groupId);
-  if (group) return <GroupScreen group={group} groupNames={myGroups.map((mine) => mine.name)} />;
+  if (group) {
+    const stored = group.offline && storedLibrary?.groupId === group.groupId ? storedLibrary : null;
+    return <GroupScreen group={group} groupNames={myGroups.map((mine) => mine.name)} storedLibrary={stored} />;
+  }
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.notInGroup}>
         <ThemedText type="subtitle">You are not in this Group</ThemedText>
         <ThemedText themeColor="textSecondary" testID="not-in-group">
-          Ask an Admin for its join code, or open one of your Groups.
+          Ask its Admin or a Group Manager for the join code, or open one of your Groups.
         </ThemedText>
         <Pressable
           role="button"
@@ -204,13 +212,38 @@ export default function GroupRoute() {
 
 const countOf = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
-function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readonly string[] }) {
+const storedLibraryGroup = (snapshot: LibrarySnapshot): MyGroup => ({
+  groupId: snapshot.groupId,
+  name: snapshot.name,
+  role: "admin",
+  offline: true,
+  copyBase: null,
+  guest: false,
+  owned: true,
+  joinCode: null,
+});
+
+function GroupScreen({ group, groupNames, storedLibrary }: { group: MyGroup; groupNames: readonly string[]; storedLibrary: LibrarySnapshot | null }) {
+  return (
+    <StoredLibraryContext.Provider value={storedLibrary}>
+      <GroupScreenContent group={group} groupNames={groupNames} />
+    </StoredLibraryContext.Provider>
+  );
+}
+
+function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames: readonly string[] }) {
   const groupId = group.groupId;
   const offline = group.offline;
   const isAdmin = group.role === "admin";
+  const steersGroup = canSteerPlayback(group.role);
+  const editsSongs = canEditSongs(group.role);
+  const managesGroup = canManageGroup(group.role);
+  const seesLibrary = offline || !group.guest;
+  useKeepLibraryOnDevice(groupId, offline);
+  const storedSongs = useStoredLibraryFor(groupId);
   const [offlinePlay, setOfflinePlay] = useState(false);
   const onDevice = offline || offlinePlay;
-  const steers = isAdmin || onDevice;
+  const steers = steersGroup || onDevice;
   const [playing, setPlaying] = useState(false);
   const [finishedStart, setFinishedStart] = useState<number | null>(null);
   const { estimate, serverNow } = useServerClock({ onDevice: offline });
@@ -221,8 +254,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
   const [pickedFromSetlist, setPickedFromSetlist] = useState(false);
-  const playingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
-  const selectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
+  const livePlayingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
+  const liveSelectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
+  const playingSong = livePlayingSong ?? (playback && storedSongs ? storedSongs.song(playback.songId) : undefined);
+  const selectedSong = liveSelectedSong ?? (selectedSongId && storedSongs ? storedSongs.song(selectedSongId) : undefined);
   const song: Song = playback?.song ?? emptySong;
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
@@ -240,9 +275,12 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [mutedStart, setMutedStart] = useState<number | null>(null);
   const mutedHere = playback !== null && mutedStart === playback.startsAt;
   const muted = playing && mutedHere;
-  const currentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
-  const currentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
-  const library = useQuery(api.songs.list, { groupId });
+  const liveCurrentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
+  const currentSetlistId = liveCurrentSetlistId ?? storedSongs?.currentSetlistId;
+  const liveCurrentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
+  const currentSetlist = liveCurrentSetlist ?? (currentSetlistId && storedSongs ? storedSongs.setlist(currentSetlistId) : undefined);
+  const liveLibrary = useQuery(api.songs.list, seesLibrary ? { groupId } : "skip");
+  const library = liveLibrary ?? storedSongs?.songs;
   const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
   const playingPosition = playback ? setlistPosition(setlistOrder, playback.songId, playback.setlistIndex) : null;
@@ -264,7 +302,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const lockScreenOn = lockScreenAvailable && lockScreenLoaded && lockScreenSetting === "on";
   const leave = useMutation(api.groups.leaveGroup);
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
-  const setlists = useQuery(api.setlists.list, offline ? "skip" : { groupId });
+  const setlists = useQuery(api.setlists.list, offline || !seesLibrary ? "skip" : { groupId });
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
@@ -305,7 +343,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
   usePreventRemove((playing || tab !== "play") && !leaving && !leavingGroup, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
-  const tabs = useMemo(() => (offline ? groupTabs.filter((item) => item.id !== "group") : groupTabs), [offline]);
+  const tabs = useMemo(
+    () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
+    [offline, seesLibrary],
+  );
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
@@ -736,7 +777,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     if (toOffline === offlinePlay || (playing && offlinePlay)) return;
     setDevicePlayback(null);
     setOfflinePlay(toOffline);
-    if (!toOffline && !isAdmin) {
+    if (!toOffline && !steersGroup) {
       setSelectedSongId(null);
       setStartPick(null);
     }
@@ -766,7 +807,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       pingMs:
         member.userId === viewer?.id
           ? (estimate?.roundTripMs ?? null)
-          : isAdmin
+          : canSteerPlayback(group.role)
             ? otherMemberPing(presence.rows, member.userId, viewer?.id, presence.nowMs)
             : null,
       isYou: member.userId === viewer?.id,
@@ -775,7 +816,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
   const startLabel = startHint ?? "Start";
   const songTempo = startSong ? (startSong.bpm ?? commonBpm(startSong.sections)) : null;
-  const canChangeTempo = isAdmin && !playing && !unclocked && startBlocker === null && songTempo !== null;
+  const canChangeTempo = editsSongs && !playing && !unclocked && startBlocker === null && songTempo !== null;
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
   const songSpan = useMemo(() => (playing && playback && song.sections.length > 0 ? playbackSpan(song, playback) : null), [playing, playback, song]);
   const startLength = startSong ? songLengthMs({ countIn: pickedSection !== null || startSong.countIn, cueLeadBars: startSong.cueLeadBars, sections: startSong.sections }, startSection, startBar) : 0;
@@ -791,7 +832,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     const shownSongId = showsPlayback ? playback.songId : selectedSongId;
     const loadedTitle = showsPlayback ? playingSong?.title : selectedSong?.title;
     const libraryTitle = library?.find((entry) => entry.songId === shownSongId)?.title;
-    const songTitle = loadedTitle ?? libraryTitle ?? (steers ? "Pick a Song" : "Waiting for an Admin");
+    const songTitle = loadedTitle ?? libraryTitle ?? (steers ? "Pick a Song" : "Waiting for Playback");
     const state: LockScreenState = {
       steers,
       playing: live.playing,
@@ -837,10 +878,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
           "Just you, on this device"
         ) : group.joinCode ? (
           <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} />
-        ) : isAdmin ? (
-          "Admin"
+        ) : group.guest ? (
+          "Guest"
         ) : (
-          "Member"
+          ROLE_NAMES[group.role]
         )
       }
       onBack={() => (tab !== "play" ? setTab("play") : playing && !leaving ? setAskLeave(true) : router.dismissTo("/"))}
@@ -955,7 +996,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       ) : (
         <View style={[styles.stageHead, styles.titleBlock]}>
           <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
-            {shownTitle ?? (steers ? "Pick a Song" : "Waiting for an Admin")}
+            {shownTitle ?? (steers ? "Pick a Song" : "Waiting for Playback")}
           </ThemedText>
           {shownTitle && songFacts ? (
             <ThemedText type="small" themeColor="textSecondary" testID="song-facts" style={styles.centered}>
@@ -995,10 +1036,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         <View style={styles.nextBlock}>
           {!steers ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              An Admin starts and steers Playback.
+              A Playback Manager starts and steers Playback.
             </ThemedText>
           ) : null}
-          {isAdmin && startBlocker === "needsSections" && startSongId ? (
+          {editsSongs && startBlocker === "needsSections" && startSongId ? (
             <Pressable
               role="link"
               testID="start-needs-sections"
@@ -1028,7 +1069,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       ) : null}
       {playing && vampTitle !== null && !steers ? (
         <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
-          {`Vamping ${vampTitle} until an Admin ends it`}
+          {`Vamping ${vampTitle} until a Playback Manager ends it`}
         </ThemedText>
       ) : null}
       {shownSections.length > 0 ? (
@@ -1124,7 +1165,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
   const setlistTab = (
     <SetlistCard
       groupId={groupId}
-      isAdmin={isAdmin}
+      canEdit={editsSongs}
       canPick={steers}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
       onSelect={playSetlistSong}
@@ -1136,7 +1177,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
     <>
       <SongsCard
         groupId={groupId}
-        isAdmin={isAdmin}
+        canEdit={editsSongs}
         canPlay={steers}
         selectedSongId={selectedSongId ?? playback?.songId ?? null}
         onPlay={playSong}
@@ -1214,10 +1255,10 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
 
   const groupTab = (
     <>
-      <MembersCard groupId={groupId} groupName={group.name} isAdmin={isAdmin} presence={presence} />
+      <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
       <View style={styles.leave}>
-        {isAdmin ? <RenameGroup groupId={groupId} name={group.name} /> : null}
-        {isAdmin ? (
+        {managesGroup ? <RenameGroup groupId={groupId} name={group.name} /> : null}
+        {managesGroup ? (
           <ActionButton
             icon="copy"
             label="Duplicate Group"
@@ -1228,16 +1269,18 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
             }}
           />
         ) : null}
-        <ActionButton
-          variant="danger"
-          icon="logout"
-          label="Leave Group"
-          testID="leave-group"
-          onPress={() => {
-            setLeaveError(null);
-            setConfirmingLeave(true);
-          }}
-        />
+        {isAdmin ? null : (
+          <ActionButton
+            variant="danger"
+            icon="logout"
+            label="Leave Group"
+            testID="leave-group"
+            onPress={() => {
+              setLeaveError(null);
+              setConfirmingLeave(true);
+            }}
+          />
+        )}
         {isAdmin ? (
           <ActionButton
             variant="danger"
@@ -1442,7 +1485,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
       <ConfirmDialog
         visible={confirmingLeave}
         title={`Leave ${group.name}?`}
-        message={isAdmin ? "You will need the join code to come back, and the Group needs another Admin if you are the last one." : "You will need the join code to come back."}
+        message="You will need the join code to come back."
         confirmLabel="Leave"
         pending={leavingGroup}
         error={leaveError}
@@ -1459,7 +1502,7 @@ function GroupScreen({ group, groupNames }: { group: MyGroup; groupNames: readon
         message={
           onDevice
             ? "The Click and Voice cues stop."
-            : isAdmin
+            : steersGroup
               ? "The Click and Voice cues stop on this device. Playback keeps going for everyone else until you come back and stop it."
               : "The Click and Voice cues stop on this device. Playback keeps going for everyone else."
         }

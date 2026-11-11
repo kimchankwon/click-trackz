@@ -2,13 +2,13 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { requireAdmin, requireMember } from "./access";
+import { requireMember, requireRole, requireRoleInGroup, requireSignedInMember } from "./access";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
-import { BEAT_UNITS, CUE_LEAD_BARS, cueLeadBarsOf, MAX_PLAYS, SUBDIVISIONS, subdivisionOf } from "../src/sync/timeline";
+import { BEAT_UNITS, CUE_LEAD_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
+import { songSummary, songView } from "../src/library/song-views";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
-import { mainBpm, mainTimeSignature } from "../src/sync/song-summary";
 import { byBar, timeChangesProblem } from "../src/sync/time-changes";
 import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
@@ -28,7 +28,7 @@ const cleanKey = (key: string | undefined) => {
 export const createSong = mutation({
   args: { groupId: v.id("groups"), title: v.string(), key: v.optional(v.string()) },
   handler: async (ctx, { groupId, title, key }) => {
-    await requireAdmin(ctx, groupId);
+    await requireRoleInGroup(ctx, groupId, "songManager");
     return ctx.db.insert("songs", { groupId, title: cleanTitle(title), key: cleanKey(key), countIn: true, sections: [] });
   },
 });
@@ -36,20 +36,12 @@ export const createSong = mutation({
 export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireMember(ctx, groupId);
+    await requireSignedInMember(ctx, groupId);
     const songs = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
-    return songs.map((song) => ({
-      songId: song._id,
-      title: song.title,
-      key: song.key ?? null,
-      countIn: song.countIn,
-      sectionCount: song.sections.length,
-      timeSignature: mainTimeSignature(song.sections),
-      bpm: mainBpm(song),
-    }));
+    return songs.map(songSummary);
   },
 });
 
@@ -116,7 +108,7 @@ export const updateSong = mutation({
   handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    await requireAdmin(ctx, song.groupId);
+    await requireRoleInGroup(ctx, song.groupId, "songManager");
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
     if (cueLeadBars !== undefined && !CUE_LEAD_BARS.some((n) => n === cueLeadBars)) throw new ConvexError("Cues can start one or two bars before a Section");
@@ -147,18 +139,7 @@ export const get = query({
     const song = await ctx.db.get(songId);
     if (song === null) return null;
     await requireMember(ctx, song.groupId);
-    return {
-      songId: song._id,
-      title: song.title,
-      key: song.key ?? null,
-      tempoHint: song.tempoHint ?? null,
-      bpm: song.bpm ?? null,
-      countIn: song.countIn,
-      subdivision: subdivisionOf(song),
-      cueLeadBars: cueLeadBarsOf(song),
-      copyBase: song.copyBase ?? null,
-      sections: song.sections,
-    };
+    return songView(song);
   },
 });
 
@@ -167,7 +148,7 @@ export const duplicateSong = mutation({
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    await requireAdmin(ctx, song.groupId);
+    await requireRoleInGroup(ctx, song.groupId, "songManager");
     const library = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
@@ -179,12 +160,31 @@ export const duplicateSong = mutation({
   },
 });
 
+export const copyToGroup = mutation({
+  args: { songId: v.id("songs"), toGroupId: v.id("groups") },
+  handler: async (ctx, { songId, toGroupId }) => {
+    const song = await ctx.db.get(songId);
+    if (song === null) throw new ConvexError("That Song no longer exists");
+    if (song.groupId === toGroupId) throw new ConvexError("That Song is already in this Group; duplicate it instead");
+    await requireRole(ctx, song.groupId, "songManager");
+    const { group } = await requireRoleInGroup(ctx, toGroupId, "songManager");
+    const library = await ctx.db
+      .query("songs")
+      .withIndex("by_group", (q) => q.eq("groupId", toGroupId))
+      .collect();
+    const titles = library.map((other) => other.title);
+    const title = titles.includes(song.title) ? copyTitle(copyBaseOf(song), titles) : song.title;
+    const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: toGroupId, title });
+    return { songId: copyId, title, groupName: group.name };
+  },
+});
+
 export const deleteSong = mutation({
   args: { songId: v.id("songs") },
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) return;
-    await requireAdmin(ctx, song.groupId);
+    await requireRoleInGroup(ctx, song.groupId, "songManager");
     const setlists = await ctx.db
       .query("setlists")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))

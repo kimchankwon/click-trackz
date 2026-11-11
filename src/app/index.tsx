@@ -28,6 +28,7 @@ import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
+import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import { api } from "../../convex/_generated/api";
@@ -44,43 +45,13 @@ const homeTabs: readonly TabItem<HomeTab>[] = [
 
 type Run = (action: () => Promise<unknown>) => void;
 
-function GroupsTab({ run }: { run: Run }) {
-  const viewer = useQuery(api.users.viewer, {});
-  const allGroups = useQuery(api.groups.myGroups, {});
-  const groups = allGroups?.filter((group) => !group.offline);
-  const openOffline = useMutation(api.groups.openOffline);
-  const createGroup = useMutation(api.groups.createGroup);
-  const joinGroup = useMutation(api.groups.joinGroup);
-  const signInWithGoogle = useGoogleSignIn();
+type ListedGroup = { groupId: string; name: string };
+
+function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[]; onlineIn: (groupId: string) => number; testID: string }) {
   const theme = useTheme();
-  const [displayName, setDisplayName] = useState("");
-  const [invited, setInvited] = useState(readPendingJoin);
-  const [joinCode, setJoinCode] = useState(invited ?? "");
-  const [groupName, setGroupName] = useState("");
-  const isGuest = viewer?.isAnonymous ?? true;
-  const seen = useQuery(api.presence.myGroupsSeen, {});
-  const connected = useConnected();
-  const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
-  const onlineIn = (groupId: string) => onlineCount(seen?.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
-
   return (
-    <>
-      <View style={styles.pageHead}>
-        <ThemedText type="title" role="heading">
-          Your Groups
-        </ThemedText>
-        {connected ? null : (
-          <ThemedText type="smallBold" themeColor="warningText" testID="connecting">
-            Connecting…
-          </ThemedText>
-        )}
-      </View>
-
-      {(groups ?? []).length === 0 ? (
-        <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText>
-      ) : (
-        <View style={[styles.list, { backgroundColor: theme.backgroundElement }]}>
-          {(groups ?? []).map((group, index) => (
+    <View style={[styles.list, { backgroundColor: theme.backgroundElement }]} testID={testID}>
+      {groups.map((group, index) => (
             <Pressable
               key={group.groupId}
               role="link"
@@ -106,21 +77,71 @@ function GroupsTab({ run }: { run: Run }) {
               </View>
               <Icon name="forward" size={22} color="textTertiary" />
             </Pressable>
-          ))}
-        </View>
-      )}
+      ))}
+    </View>
+  );
+}
 
-      <Card title="Offline">
+function GroupsTab({ run }: { run: Run }) {
+  const viewer = useQuery(api.users.viewer, {});
+  const allGroups = useQuery(api.groups.myGroups, {});
+  const groups = allGroups?.filter((group) => !group.offline);
+  const ownedGroups = (groups ?? []).filter((group) => group.owned);
+  const joinedGroups = (groups ?? []).filter((group) => !group.owned);
+  const openOffline = useMutation(api.groups.openOffline);
+  const storedLibrary = useStoredLibrary();
+  const createGroup = useMutation(api.groups.createGroup);
+  const joinGroup = useMutation(api.groups.joinGroup);
+  const signInWithGoogle = useGoogleSignIn();
+  const [displayName, setDisplayName] = useState("");
+  const [invited, setInvited] = useState(readPendingJoin);
+  const [joinCode, setJoinCode] = useState(invited ?? "");
+  const [groupName, setGroupName] = useState("");
+  const isGuest = viewer?.isAnonymous ?? true;
+  const seen = useQuery(api.presence.myGroupsSeen, {});
+  const connected = useConnected();
+  const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
+  const onlineIn = (groupId: string) => onlineCount(seen?.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
+
+  return (
+    <>
+      <View style={styles.pageHead}>
+        <ThemedText type="title" role="heading">
+          Groups
+        </ThemedText>
+        {connected ? null : (
+          <ThemedText type="smallBold" themeColor="warningText" testID="connecting">
+            Connecting…
+          </ThemedText>
+        )}
+      </View>
+
+      {(groups ?? []).length === 0 ? <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText> : null}
+      {joinedGroups.length > 0 ? <GroupList groups={joinedGroups} onlineIn={onlineIn} testID="joined-groups" /> : null}
+      {ownedGroups.length > 0 ? (
+        <View style={styles.subsection}>
+          <ThemedText type="subtitle" role="heading" testID="your-groups-heading">
+            Your Groups
+          </ThemedText>
+          <GroupList groups={ownedGroups} onlineIn={onlineIn} testID="your-groups" />
+        </View>
+      ) : null}
+
+      <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          Practise by yourself. Make Songs and Setlists and play them on this device, with no one else following.
+          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.
         </ThemedText>
         <ActionButton
           variant="outline"
-          icon="person"
-          label="Open Offline"
+          icon="library"
+          label="Open My Library"
           testID="open-offline"
           onPress={() => {
             primeAudio();
+            if (!connected && storedLibrary) {
+              router.push({ pathname: "/group/[groupId]", params: { groupId: storedLibrary.groupId } });
+              return;
+            }
             run(async () => {
               const groupId = await openOffline({});
               router.push({ pathname: "/group/[groupId]", params: { groupId } });
@@ -258,7 +279,18 @@ function SettingsTab({ run }: { run: Run }) {
         ) : null}
       </Card>
       <AccentPicker />
-      <ActionButton variant="danger" icon="logout" label="Sign out" testID="sign-out" onPress={() => run(signOut)} />
+      <ActionButton
+        variant="danger"
+        icon="logout"
+        label="Sign out"
+        testID="sign-out"
+        onPress={() =>
+          run(async () => {
+            await forgetStoredLibrary();
+            await signOut();
+          })
+        }
+      />
     </>
   );
 }
@@ -408,6 +440,7 @@ const styles = StyleSheet.create({
   pageHead: { gap: Spacing.one },
   account: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   list: { borderRadius: Radius.lg, overflow: "hidden" },
+  subsection: { gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
   groupRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three },

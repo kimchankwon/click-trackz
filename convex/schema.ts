@@ -18,6 +18,14 @@ export const sectionFields = v.object({
   timeChanges: v.optional(v.array(v.object({ bar: v.number(), bars: v.number(), beatsPerBar: v.number(), beatUnit: v.number() }))),
 });
 
+export const roleValidator = v.union(
+  v.literal("admin"),
+  v.literal("groupManager"),
+  v.literal("songManager"),
+  v.literal("playbackManager"),
+  v.literal("member"),
+);
+
 export default defineSchema({
   ...authTables,
   users: defineTable({
@@ -44,7 +52,7 @@ export default defineSchema({
   memberships: defineTable({
     groupId: v.id("groups"),
     userId: v.id("users"),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: roleValidator,
     displayName: v.string(),
     lastSeenAt: v.optional(v.number()),
   })

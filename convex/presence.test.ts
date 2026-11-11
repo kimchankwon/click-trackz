@@ -76,7 +76,7 @@ describe("Presence", () => {
     expect(await admin.client.query(api.presence.list, { groupId })).toEqual([expect.objectContaining({ userId: member.userId, onPlay: false })]);
   });
 
-  it("shows each screen's ping to Admins only", async () => {
+  it("shows each screen's ping only to people who can steer Playback", async () => {
     const { admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, screenId: "phone", onPlay: true, roundTripMs: 42.6 });
     await admin.client.mutation(api.presence.heartbeat, { groupId, screenId: "laptop", onPlay: true, roundTripMs: 18 });
@@ -146,7 +146,7 @@ describe("Presence", () => {
     expect(await t.run((ctx) => ctx.db.query("authSessions").collect())).toEqual([]);
     expect(await t.run((ctx) => ctx.db.get(keeper))).not.toBeNull();
     expect(await t.run((ctx) => ctx.db.get(keeperOffline))).not.toBeNull();
-    expect((await keeperClient.query(api.groups.myGroups, {})).map((g) => g.name)).toEqual(["Offline"]);
+    expect((await keeperClient.query(api.groups.myGroups, {})).map((g) => g.name)).toEqual(["My Library"]);
   });
 
   it("forgets guests who never joined a Group after an hour, unless their Offline has Songs", async () => {
@@ -171,10 +171,10 @@ describe("Presence", () => {
     expect(await t.run((ctx) => ctx.db.get(offlineId))).not.toBeNull();
   });
 
-  it("takes no heartbeats for Offline, which plays on the device clock", async () => {
+  it("takes no heartbeats for My Library, which plays on the device clock", async () => {
     const { member } = await setupGroup();
     const offlineId = await member.client.mutation(api.groups.openOffline, {});
-    await expect(member.client.mutation(api.presence.heartbeat, { groupId: offlineId, screenId: "s1", onPlay: true })).rejects.toThrow(/Offline plays on this device only/);
+    await expect(member.client.mutation(api.presence.heartbeat, { groupId: offlineId, screenId: "s1", onPlay: true })).rejects.toThrow(/My Library plays on this device only/);
   });
 
   it("is only visible to and written by people in the Group", async () => {

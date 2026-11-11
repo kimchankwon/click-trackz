@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 import { forgetGuestIfGone } from "./cleanup";
+import { canSteerPlayback } from "../src/lib/roles";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
@@ -31,7 +32,7 @@ export const heartbeat = mutation({
     const ping = roundTripMs !== undefined && Number.isFinite(roundTripMs) ? Math.min(MAX_ROUND_TRIP_MS, Math.max(0, Math.round(roundTripMs))) : undefined;
     const { user, membership } = await requireMember(ctx, groupId);
     const group = await ctx.db.get(groupId);
-    if (group?.offline === true) throw new ConvexError("Offline plays on this device only");
+    if (group?.offline === true) throw new ConvexError("My Library plays on this device only");
     const seenAt = Date.now();
     if ((membership.lastSeenAt ?? 0) < seenAt - LAST_SEEN_EVERY_MS) await ctx.db.patch(membership._id, { lastSeenAt: seenAt });
     const mine = await ctx.db
@@ -61,12 +62,12 @@ export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
     const { membership } = await requireMember(ctx, groupId);
-    const isAdmin = membership.role === "admin";
+    const seesRoundTrips = canSteerPlayback(membership.role);
     const rows = await ctx.db
       .query("presence")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
-    return rows.map(({ userId, onPlay, seenAt, roundTripMs }) => ({ userId, onPlay, seenAt, roundTripMs: isAdmin ? (roundTripMs ?? null) : null }));
+    return rows.map(({ userId, onPlay, seenAt, roundTripMs }) => ({ userId, onPlay, seenAt, roundTripMs: seesRoundTrips ? (roundTripMs ?? null) : null }));
   },
 });
 

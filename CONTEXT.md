@@ -1,6 +1,6 @@
 # Click Trackz
 
-A shared cue track for musicians playing in the same room. Every musician follows the same click, count and voice guide on their own device, started by an Admin and aligned to one shared clock.
+A shared cue track for musicians playing in the same room. Every musician follows the same click, count and voice guide on their own device, started by a Playback Manager and aligned to one shared clock.
 
 ## People
 
@@ -9,16 +9,36 @@ A set of musicians who play together and share Songs and Playback.
 _Avoid_: Band, room, session, team
 
 **Member**:
-A person in a Group who follows Playback on their own device.
+A person in a Group who follows Playback on their own device. Every Member has one Role; the lowest Role is also called Member.
 _Avoid_: User, musician, player, participant
 
+**Role**:
+What a Member may do in one Group. From highest to lowest: Admin, Group Manager, Song Manager, Playback Manager, Member. Each Role can do everything the Roles below it can.
+_Avoid_: Permission, rank, label
+
 **Admin**:
-A Member who can edit Songs, control Playback and make other Members Admins.
+The Member who created the Group, and its only Admin. Only they can delete it, and only they can make Group Managers.
 _Avoid_: Owner, leader, host, MD
 
-**Offline**:
-A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account, but no other Members, and its Playback runs only on their device, on the device's own clock.
-_Avoid_: Solo, practice mode, personal Group
+**Group Manager**:
+A Member who can rename the Group and its Members, make other Members Song Managers or Playback Managers, and remove anyone below them.
+_Avoid_: Moderator, co-admin
+
+**Song Manager**:
+A Member who can edit the Group's Songs and Setlists, as well as steer Playback.
+_Avoid_: Editor, arranger
+
+**Playback Manager**:
+A Member who can Start, Jump, Repeat, Vamp and Stop, and pick which Song is ready to Start, but not change Songs or Setlists.
+_Avoid_: Operator, controller
+
+**Guest**:
+A Member who joined without signing in. A Guest only ever has the Member Role and sees Play, Sound and the Group's Members, never the Song library or Setlists.
+_Avoid_: Anonymous, visitor
+
+**My Library**:
+A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account and kept on their device so it plays with no connection, but no other Members, and its Playback runs only on their device, on the device's own clock.
+_Avoid_: Offline, solo, practice mode, personal Group
 
 ## Songs
 
@@ -43,7 +63,7 @@ A Section's choice to play at its own BPM instead of the Song tempo.
 _Avoid_: Override, custom BPM
 
 **Plays**:
-How many times in a row a Section plays before the Song moves on, once unless an Admin sets more. Each time through is a pass: the Voice cue speaks the Section before the first pass only, the later passes play without one, and Play shows which pass is playing.
+How many times in a row a Section plays before the Song moves on, once unless a Song Manager sets more. Each time through is a pass: the Voice cue speaks the Section before the first pass only, the later passes play without one, and Play shows which pass is playing.
 _Avoid_: Repeats, times, loop count
 
 **Section type**:
@@ -59,11 +79,11 @@ Optional on-screen text for a Section that replaces the Section type's wording b
 _Avoid_: Title, caption
 
 **Setlist**:
-A reusable, named, ordered list of Songs a Group plays together, each started by an Admin, optionally noting the Key and Leader for each Song.
+A reusable, named, ordered list of Songs a Group plays together, each started by a Playback Manager, optionally noting the Key and Leader for each Song.
 _Avoid_: Set, service, playlist, plan
 
 **Current setlist**:
-The one Setlist an Admin has marked as what the Group is playing now, which Members see first.
+The one Setlist a Song Manager has marked as what the Group is playing now, which Members see first.
 _Avoid_: Active set, tonight's set
 
 **Count-in**:
@@ -127,27 +147,27 @@ One run of a Song for a Group, from Start until Stop or the end of the Song.
 _Avoid_: Session, performance, run
 
 **Start**:
-The Admin command that begins Playback at an agreed future instant on the shared clock.
+The Playback Manager command that begins Playback at an agreed future instant on the shared clock.
 _Avoid_: Play, go
 
 **Lead-in**:
-The wall-clock gap between an Admin pressing Start and the first beat, so every device is ready before it: one second on the shared clock, or half a second in Offline play.
+The wall-clock gap between a Playback Manager pressing Start and the first beat, so every device is ready before it: one second on the shared clock, or half a second in Offline play.
 _Avoid_: Count-in, pre-roll, delay
 
 **Jump**:
-The Admin command that moves Playback to another Section at the next bar line.
+The Playback Manager command that moves Playback to another Section at the next bar line.
 _Avoid_: Skip, seek, goto
 
 **Repeat**:
-The Admin command that plays the current pass of a Section once more from its end, then carries on with the Song, including any passes the Section's Plays still has to go. Being unplanned, the extra pass gets the Section's Voice cue.
+The Playback Manager command that plays the current pass of a Section once more from its end, then carries on with the Song, including any passes the Section's Plays still has to go. Being unplanned, the extra pass gets the Section's Voice cue.
 _Avoid_: Again, replay
 
 **Vamp**:
-The Admin command that keeps repeating the current Section from the end of its pass until an Admin ends the vamp. The Voice cue speaks the Section before each repeat, and ending the vamp goes on to the next Section at the end of the current pass, or ends the Song on the last Section. While a Group vamps, its Playback has no end time.
+The Playback Manager command that keeps repeating the current Section from the end of its pass until a Playback Manager ends the vamp. The Voice cue speaks the Section before each repeat, and ending the vamp goes on to the next Section at the end of the current pass, or ends the Song on the last Section. While a Group vamps, its Playback has no end time.
 _Avoid_: Loop, hold
 
 **Next up**:
-What happens when a Song picked from the Current setlist plays to its end: Play selects the next Song in that Setlist with Sections, ready for an Admin to Start, and shows the Setlist's name in place of the Group's while a Setlist Song is picked or playing. Nothing starts on its own. A Song picked from the Song library stays selected when it ends, and a Stop leaves the stopped Song selected.
+What happens when a Song picked from the Current setlist plays to its end: Play selects the next Song in that Setlist with Sections, ready for a Playback Manager to Start, and shows the Setlist's name in place of the Group's while a Setlist Song is picked or playing. Nothing starts on its own. A Song picked from the Song library stays selected when it ends, and a Stop leaves the stopped Song selected.
 _Avoid_: Play through, autoplay, auto-advance
 
 **Mute**:
@@ -155,7 +175,7 @@ A Member silencing the Click and Voice cues on their own device while Play keeps
 _Avoid_: Pause, sit out
 
 **Lock screen controls**:
-A per-device choice, on iPhone and iPad and on by default, to show the Song and its current Section on the lock screen and in Control Center, and steer Play from there or with a headphone press while Play is open. For an Admin, play is Start and pause is Stop, and a headphone press does whichever fits; next and previous Jump one Section either way while playing, or pick the next or previous Song while idle. For a Member, pause is Mute and play is Unmute. While it is on, sound keeps playing when the app goes to the background and other apps' audio stops while Play is open. With it off, other apps' audio mixes in and this device's sound stops as soon as the app goes to the background, while Playback carries on for everyone else.
+A per-device choice, on iPhone and iPad and on by default, to show the Song and its current Section on the lock screen and in Control Center, and steer Play from there or with a headphone press while Play is open. For a Playback Manager, play is Start and pause is Stop, and a headphone press does whichever fits; next and previous Jump one Section either way while playing, or pick the next or previous Song while idle. For a Member, pause is Mute and play is Unmute. While it is on, sound keeps playing when the app goes to the background and other apps' audio stops while Play is open. With it off, other apps' audio mixes in and this device's sound stops as soon as the app goes to the background, while Playback carries on for everyone else.
 _Avoid_: Now playing, media controls, remote controls
 
 **Started by**:
@@ -167,9 +187,9 @@ A Member's choice, on a Group's Play screen, to play the Group's Songs only on t
 _Avoid_: Solo, practice mode, personal Playback
 
 **Stop**:
-The Admin command that ends Playback one second after it is pressed, on the shared clock and without waiting for the bar line, so every device stops together.
+The Playback Manager command that ends Playback one second after it is pressed, on the shared clock and without waiting for the bar line, so every device stops together.
 _Avoid_: Pause, halt
 
 **Stopped by**:
-The Admin who pressed Stop, shown to everyone on Play once Playback has stopped, until the next Start or another Song is picked.
+The Playback Manager who pressed Stop, shown to everyone on Play once Playback has stopped, until the next Start or another Song is picked.
 _Avoid_: Ended by

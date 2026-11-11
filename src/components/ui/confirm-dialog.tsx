@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
@@ -15,6 +16,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   testID,
+  children,
 }: {
   visible: boolean;
   title: string;
@@ -25,6 +27,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
+  children?: ReactNode;
 }) {
   const theme = useTheme();
   const cancel = () => onCancel();
@@ -39,6 +42,7 @@ export function ConfirmDialog({
           <ThemedText type="small" themeColor="textSecondary">
             {message}
           </ThemedText>
+          {children}
           {error ? (
             <ThemedText type="small" themeColor="danger" role="alert" testID={testID ? `${testID}-error` : undefined}>
               {error}

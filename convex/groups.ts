@@ -2,10 +2,12 @@ import { ConvexError, v } from "convex/values";
 
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { isGuest, membershipOf, requireAdmin, requireMember, requireUser } from "./access";
+import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
 import { deleteGroupRows } from "./cleanup";
+import { roleValidator } from "./schema";
 import { songCopyFields } from "./songs";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
+import { canAssignRole, canManageGroup, outranks } from "../src/lib/roles";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
@@ -52,11 +54,15 @@ export const createGroup = mutation({
 export const duplicateGroup = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    const { user, membership } = await requireAdmin(ctx, groupId);
+    const { user, membership } = await requireRole(ctx, groupId, "groupManager");
     if (isGuest(user)) throw new ConvexError("Sign in with Google to create a Group");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
-    if (group.offline === true) throw new ConvexError("Offline cannot be duplicated");
+    if (group.offline === true) throw new ConvexError("My Library cannot be duplicated");
+    const songs = await ctx.db
+      .query("songs")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .collect();
     const mine = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -66,10 +72,6 @@ export const duplicateGroup = mutation({
     const name = copyTitle(copyBase, myGroupNames, MAX_GROUP_NAME);
     const copyId = await ctx.db.insert("groups", { name, joinCode: await uniqueJoinCode(ctx), createdBy: user._id, copyBase });
     await ctx.db.insert("memberships", { groupId: copyId, userId: user._id, role: "admin", displayName: membership.displayName });
-    const songs = await ctx.db
-      .query("songs")
-      .withIndex("by_group", (q) => q.eq("groupId", groupId))
-      .collect();
     const copiedSongs = new Map<Id<"songs">, Id<"songs">>();
     for (const song of songs) copiedSongs.set(song._id, await ctx.db.insert("songs", { ...songCopyFields(song), groupId: copyId, title: song.title }));
     const setlists = await ctx.db
@@ -91,10 +93,10 @@ export const duplicateGroup = mutation({
 export const rename = mutation({
   args: { groupId: v.id("groups"), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
-    await requireAdmin(ctx, groupId);
+    await requireRole(ctx, groupId, "groupManager");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
-    if (group.offline === true) throw new ConvexError("Offline cannot be renamed");
+    if (group.offline === true) throw new ConvexError("My Library cannot be renamed");
     await ctx.db.patch(groupId, { name: cleanName(name, "Group name"), copyBase: undefined });
   },
 });
@@ -102,15 +104,15 @@ export const rename = mutation({
 export const deleteGroup = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireAdmin(ctx, groupId);
+    await requireRole(ctx, groupId, "admin");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
-    if (group.offline === true) throw new ConvexError("Offline cannot be deleted");
+    if (group.offline === true) throw new ConvexError("My Library cannot be deleted");
     await deleteGroupRows(ctx, groupId);
   },
 });
 
-const OFFLINE_NAME = "Offline";
+const LIBRARY_NAME = "My Library";
 
 export const openOffline = mutation({
   args: {},
@@ -125,7 +127,7 @@ export const openOffline = mutation({
       if (group?.offline === true && group.createdBy === user._id) return group._id;
     }
     const groupId = await ctx.db.insert("groups", {
-      name: OFFLINE_NAME,
+      name: LIBRARY_NAME,
       joinCode: await uniqueJoinCode(ctx),
       createdBy: user._id,
       offline: true,
@@ -183,29 +185,19 @@ export const joinGroup = mutation({
   },
 });
 
-async function adminCount(ctx: MutationCtx, groupId: Id<"groups">) {
-  const memberships = await ctx.db
-    .query("memberships")
-    .withIndex("by_group", (q) => q.eq("groupId", groupId))
-    .collect();
-  return memberships.filter((m) => m.role === "admin").length;
-}
-
 export const setRole = mutation({
-  args: {
-    groupId: v.id("groups"),
-    userId: v.id("users"),
-    role: v.union(v.literal("admin"), v.literal("member")),
-  },
+  args: { groupId: v.id("groups"), userId: v.id("users"), role: roleValidator },
   handler: async (ctx, { groupId, userId, role }) => {
-    const { user: caller } = await requireAdmin(ctx, groupId);
-    if (userId === caller._id) throw new ConvexError("You cannot change your own role; ask another Admin");
+    const { user: caller, membership: mine } = await requireRole(ctx, groupId, "groupManager");
+    if (userId === caller._id) throw new ConvexError("You cannot change your own Role");
+    if (role === "admin") throw new ConvexError("Only the person who created the Group can be its Admin");
     const target = await membershipOf(ctx, groupId, userId);
     if (target === null) throw new ConvexError("That person is not in this Group");
     if (target.role === role) return;
-    if (role === "admin") {
+    if (!canAssignRole(mine.role, target.role, role)) throw new ConvexError("You can only give Roles below your own, to people below you");
+    if (role !== "member") {
       const user = await ctx.db.get(userId);
-      if (user === null || isGuest(user)) throw new ConvexError("Admins must sign in with Google first");
+      if (user === null || isGuest(user)) throw new ConvexError("Guests must sign in with Google before they can have a Role");
     }
     await ctx.db.patch(target._id, { role });
   },
@@ -214,16 +206,28 @@ export const setRole = mutation({
 export const removeMember = mutation({
   args: { groupId: v.id("groups"), userId: v.id("users") },
   handler: async (ctx, { groupId, userId }) => {
-    const { user } = await requireAdmin(ctx, groupId);
+    const { user, membership: mine } = await requireRole(ctx, groupId, "groupManager");
     if (userId === user._id) throw new ConvexError("Use Leave Group to leave yourself");
     const target = await membershipOf(ctx, groupId, userId);
     if (target === null) throw new ConvexError("That person is not in this Group");
+    if (!outranks(mine.role, target.role)) throw new ConvexError("You can only remove people below you");
     await ctx.db.delete(target._id);
     const presence = await ctx.db
       .query("presence")
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
       .collect();
     await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
+  },
+});
+
+export const setMemberName = mutation({
+  args: { groupId: v.id("groups"), userId: v.id("users"), displayName: v.string() },
+  handler: async (ctx, { groupId, userId, displayName }) => {
+    const { user, membership: mine } = await requireRole(ctx, groupId, "groupManager");
+    const target = userId === user._id ? mine : await membershipOf(ctx, groupId, userId);
+    if (target === null) throw new ConvexError("That person is not in this Group");
+    if (target !== mine && !outranks(mine.role, target.role)) throw new ConvexError("You can only rename people below you");
+    await ctx.db.patch(target._id, { displayName: cleanName(displayName, "Name") });
   },
 });
 
@@ -239,9 +243,7 @@ export const leaveGroup = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
     const { membership } = await requireMember(ctx, groupId);
-    if (membership.role === "admin" && (await adminCount(ctx, groupId)) <= 1) {
-      throw new ConvexError("A Group needs at least one Admin; promote someone else before leaving as the last Admin");
-    }
+    if (membership.role === "admin") throw new ConvexError("The Admin cannot leave their own Group; delete it instead");
     await ctx.db.delete(membership._id);
     const presence = await ctx.db
       .query("presence")
@@ -269,7 +271,9 @@ export const myGroups = query({
           role: membership.role,
           offline: group.offline === true,
           copyBase: group.copyBase ?? null,
-          joinCode: membership.role === "admin" && group.offline !== true ? group.joinCode : null,
+          guest: isGuest(user),
+          owned: group.createdBy === user._id,
+          joinCode: canManageGroup(membership.role) && group.offline !== true ? group.joinCode : null,
         };
       }),
     );

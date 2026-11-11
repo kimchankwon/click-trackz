@@ -3,6 +3,7 @@ import { ConvexError } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
+import { atLeast, ROLE_NAMES, type Role } from "../src/lib/roles";
 
 export async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
   const userId = await getAuthUserId(ctx);
@@ -27,8 +28,25 @@ export async function requireMember(ctx: QueryCtx, groupId: Id<"groups">) {
   return { user, membership };
 }
 
-export async function requireAdmin(ctx: QueryCtx, groupId: Id<"groups">) {
+export async function requireSignedInMember(ctx: QueryCtx, groupId: Id<"groups">) {
   const access = await requireMember(ctx, groupId);
-  if (access.membership.role !== "admin") throw new ConvexError("Only Admins can do that");
+  if (!isGuest(access.user)) return access;
+  const group = await ctx.db.get(groupId);
+  if (group?.offline === true && group.createdBy === access.user._id) return access;
+  throw new ConvexError("Sign in with Google to see the Group's Songs and Setlists");
+}
+
+const roleNeededMessage = (needed: Role) => (needed === "admin" ? "Only the Admin can do that" : `Only ${ROLE_NAMES[needed]}s and above can do that`);
+
+export async function requireRole(ctx: QueryCtx, groupId: Id<"groups">, needed: Role) {
+  const access = await requireMember(ctx, groupId);
+  if (!atLeast(access.membership.role, needed)) throw new ConvexError(roleNeededMessage(needed));
   return access;
+}
+
+export async function requireRoleInGroup(ctx: QueryCtx, groupId: Id<"groups">, needed: Role) {
+  const access = await requireRole(ctx, groupId, needed);
+  const group = await ctx.db.get(groupId);
+  if (group === null) throw new ConvexError("That Group no longer exists");
+  return { ...access, group };
 }
