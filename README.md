@@ -60,7 +60,8 @@ npx convex env set REVENUECAT_WEBHOOK_AUTH "<the exact Authorization header>"
 npx convex env set COMP_PLUS_EMAILS <comma-separated emails that get Plus free>
 ```
 
-4. Give builds the public SDK keys as `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` and `EXPO_PUBLIC_REVENUECAT_WEB_KEY`. Purchases need a development build; Expo Go only previews them.
+4. Once purchases work in every store, turn the limits on with `npx convex env set PLANS_ENFORCED true`. Until then nobody is limited and no Group locks.
+5. Give builds the public SDK keys as `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` and `EXPO_PUBLIC_REVENUECAT_WEB_KEY`. Purchases need a development build; Expo Go only previews them.
 
 ## Roles migration
 

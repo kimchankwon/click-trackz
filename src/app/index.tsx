@@ -170,7 +170,7 @@ function GroupsTab({ run }: { run: Run }) {
             </ThemedText>
             <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
           </>
-        ) : usage === undefined ? null : usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups) ? (
+        ) : usage === undefined ? null : usage.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
           <>
             <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
               {usage.plan === "free"

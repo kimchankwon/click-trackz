@@ -15,6 +15,7 @@ Convex never trusts the client or the webhook body about what someone bought. Re
 - Entitlement ids in RevenueCat must be `plus` and `pro`, and the app looks for offerings with the same ids, each with monthly and annual packages.
 - Deployments need `REVENUECAT_SECRET_API_KEY` and `REVENUECAT_WEBHOOK_AUTH` (the exact Authorization header RevenueCat sends); builds need `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` and `EXPO_PUBLIC_REVENUECAT_WEB_KEY`. Without them the Plans screen says subscriptions are unavailable, and purchases need a development build, not Expo Go.
 - `COMP_PLUS_EMAILS` and `COMP_PRO_EMAILS` give listed accounts a Plan without paying, so no address lives in the repo.
+- Limits and Locked Groups only apply when the deployment sets `PLANS_ENFORCED=true`. Until purchases work in every store, it stays unset: anyone signed in can create Groups and Songs, nothing locks, and each person still sees their real Plan, so a comped account shows as Plus.
 - Limits count what an Admin owns: Groups they created, and Songs across those Groups, wherever a Song Manager added them. My Library counts separately.
 - A Group past its Admin's Plan is Locked rather than deleted, oldest Groups staying open first. It still opens and reads, and a Playback running when it locked can still be stopped.
 - Moving from several Admins to one ran as `migrations:oneAdminPerGroup`: the creator stays Admin, other Admins become Group Managers, and a Group whose creator left goes to its longest-standing Admin.

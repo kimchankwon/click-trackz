@@ -20,6 +20,8 @@ export function compedPlan(email: string | undefined, env: Record<string, string
   return "free";
 }
 
+export const plansEnforced = (env: Record<string, string | undefined> = process.env) => env.PLANS_ENFORCED === "true";
+
 export const subscriptionActive = (row: Pick<Doc<"subscriptions">, "expiresAt">, nowMs: number) => row.expiresAt === null || row.expiresAt > nowMs;
 
 export async function planOf(ctx: QueryCtx, userId: Id<"users">): Promise<Plan> {
@@ -42,7 +44,7 @@ export async function ownedGroups(ctx: QueryCtx, userId: Id<"users">) {
 }
 
 export async function groupLocked(ctx: QueryCtx, group: Doc<"groups">) {
-  if (group.offline === true) return false;
+  if (group.offline === true || !plansEnforced()) return false;
   const plan = await planOf(ctx, group.createdBy);
   if (planLimits(plan).groups === null) return false;
   const owned = await ownedGroups(ctx, group.createdBy);
@@ -55,6 +57,7 @@ async function ownedSongCount(ctx: QueryCtx, groups: readonly Doc<"groups">[]) {
 }
 
 export async function requireRoomForGroup(ctx: QueryCtx, userId: Id<"users">) {
+  if (!plansEnforced()) return;
   const plan = await planOf(ctx, userId);
   if (plan === "free") throw new ConvexError("Subscribe to Plus or Pro to create a Group");
   const owned = await ownedGroups(ctx, userId);
@@ -62,6 +65,7 @@ export async function requireRoomForGroup(ctx: QueryCtx, userId: Id<"users">) {
 }
 
 export async function requireOwnerRoomForSongs(ctx: QueryCtx, ownerId: Id<"users">, adding: number, whose: "mine" | "admin") {
+  if (!plansEnforced()) return;
   const plan = await planOf(ctx, ownerId);
   const limit = planLimits(plan).songs;
   if (limit === null) return;
@@ -76,6 +80,7 @@ async function songCountIn(ctx: QueryCtx, groupId: Id<"groups">) {
 }
 
 async function requireRoomInLibrary(ctx: QueryCtx, library: Doc<"groups">, adding: number) {
+  if (!plansEnforced()) return;
   const plan = await planOf(ctx, library.createdBy);
   if (canAddLibrarySongs(plan, await songCountIn(ctx, library._id), adding)) return;
   const limit = planLimits(plan).librarySongs;
@@ -97,6 +102,7 @@ export async function usageOf(ctx: QueryCtx, userId: Id<"users">) {
   const library = created.find((group) => group.offline === true);
   return {
     plan,
+    enforced: plansEnforced(),
     limits: planLimits(plan),
     groups: owned.length,
     songs: await ownedSongCount(ctx, owned),

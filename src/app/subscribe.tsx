@@ -114,6 +114,11 @@ export default function SubscribeScreen() {
               Sign in with Google to subscribe.
             </ThemedText>
           ) : null}
+          {usage && !usage.enforced ? (
+            <ThemedText type="smallBold" themeColor="accent" testID="plans-not-enforced">
+              Plans are not being charged yet, so every limit below is switched off for now.
+            </ThemedText>
+          ) : null}
           {usage ? (
             <ThemedText type="small" themeColor="textSecondary" testID="plan-usage">
               {usageLine(usage)}

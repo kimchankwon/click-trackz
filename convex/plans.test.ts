@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -34,9 +34,42 @@ async function setup() {
   return { t, as, setPlan };
 }
 
+beforeEach(() => {
+  vi.stubEnv("PLANS_ENFORCED", "true");
+});
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.useRealTimers();
+});
+
+describe("Before Plans are enforced", () => {
+  it("lets anyone signed in create Groups and Songs and fill My Library, and never locks a Group", async () => {
+    vi.stubEnv("PLANS_ENFORCED", "");
+    const { t, as } = await setup();
+    const free = await as({ email: "free@example.com" });
+    for (const name of ["One", "Two", "Three", "Four"]) await free.client.mutation(api.groups.createGroup, { name, displayName: "F" });
+    const groupId = (await free.client.query(api.groups.myGroups, {}))[0].groupId;
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 100; i++) await ctx.db.insert("songs", { groupId, title: `S${i}`, countIn: true, sections: [] });
+    });
+    await free.client.mutation(api.songs.createSong, { groupId, title: "One more" });
+    const libraryId = await free.client.mutation(api.groups.openOffline, {});
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 10; i++) await ctx.db.insert("songs", { groupId: libraryId, title: `L${i}`, countIn: true, sections: [] });
+    });
+    await free.client.mutation(api.songs.createSong, { groupId: libraryId, title: "Eleventh" });
+    expect((await free.client.query(api.groups.myGroups, {})).every((group) => !group.locked)).toBe(true);
+    expect(await free.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "free", enforced: false, groups: 4 });
+  });
+
+  it("still shows a comped account as Plus", async () => {
+    vi.stubEnv("PLANS_ENFORCED", "");
+    vi.stubEnv("COMP_PLUS_EMAILS", "xtectra@example.com");
+    const { as } = await setup();
+    const daniel = await as({ email: "xtectra@example.com" });
+    expect(await daniel.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "plus", enforced: false });
+  });
 });
 
 describe("Creating Groups", () => {
@@ -49,6 +82,7 @@ describe("Creating Groups", () => {
     await free.client.mutation(api.groups.joinGroup, { joinCode, displayName: "Free" });
     expect(await free.client.query(api.subscriptions.mine, {})).toEqual({
       plan: "free",
+      enforced: true,
       limits: { groups: 0, songs: 0, librarySongs: 10 },
       groups: 0,
       songs: 0,
