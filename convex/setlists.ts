@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
 import { requireMember, requireRoleInUnlocked, requireSignedInMember } from "./access";
+import { touchLibrary } from "./library";
 
 const cleanName = (name: string) => {
   const trimmed = name.trim();
@@ -13,7 +14,9 @@ export const createSetlist = mutation({
   args: { groupId: v.id("groups"), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
     await requireRoleInUnlocked(ctx, groupId, "songManager");
-    return ctx.db.insert("setlists", { groupId, name: cleanName(name), entries: [] });
+    const setlistId = await ctx.db.insert("setlists", { groupId, name: cleanName(name), entries: [] });
+    await touchLibrary(ctx, groupId);
+    return setlistId;
   },
 });
 
@@ -44,6 +47,7 @@ export const setCurrent = mutation({
       if (setlist === null || setlist.groupId !== groupId) throw new ConvexError("That Setlist is not in this Group");
     }
     await ctx.db.patch(groupId, { currentSetlistId: setlistId ?? undefined });
+    await touchLibrary(ctx, groupId);
   },
 });
 
@@ -78,6 +82,7 @@ export const save = mutation({
       }),
     );
     await ctx.db.patch(setlistId, { name: cleanName(name), entries: cleaned, revision: current + 1 });
+    await touchLibrary(ctx, setlist.groupId);
   },
 });
 
@@ -113,6 +118,7 @@ export const deleteSetlist = mutation({
     const group = await ctx.db.get(setlist.groupId);
     if (group?.currentSetlistId === setlistId) await ctx.db.patch(group._id, { currentSetlistId: undefined });
     await ctx.db.delete(setlistId);
+    await touchLibrary(ctx, setlist.groupId);
   },
 });
 

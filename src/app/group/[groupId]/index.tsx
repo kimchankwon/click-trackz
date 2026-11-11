@@ -24,7 +24,7 @@ import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
 import { LockedNotice } from "@/components/group/locked-notice";
-import { StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
+import { liveOr, StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
 import type { LibrarySnapshot } from "@/library/snapshot";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
 import { ThemedText } from "@/components/themed-text";
@@ -238,8 +238,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const offline = group.offline;
   const isAdmin = group.role === "admin";
   const locked = group.locked;
+  const connected = useConnected();
   const steersGroup = canSteerPlayback(group.role) && !locked;
-  const editsSongs = canEditSongs(group.role) && !locked;
+  const editsSongs = canEditSongs(group.role) && !locked && (connected || !offline);
   const managesGroup = canManageGroup(group.role);
   const seesLibrary = offline || !group.guest;
   useKeepLibraryOnDevice(groupId, offline);
@@ -259,8 +260,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [pickedFromSetlist, setPickedFromSetlist] = useState(false);
   const livePlayingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const liveSelectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
-  const playingSong = livePlayingSong ?? (playback && storedSongs ? storedSongs.song(playback.songId) : undefined);
-  const selectedSong = liveSelectedSong ?? (selectedSongId && storedSongs ? storedSongs.song(selectedSongId) : undefined);
+  const playingSong = liveOr(livePlayingSong, () => (playback && storedSongs ? storedSongs.song(playback.songId) : undefined));
+  const selectedSong = liveOr(liveSelectedSong, () => (selectedSongId && storedSongs ? storedSongs.song(selectedSongId) : undefined));
   const song: Song = playback?.song ?? emptySong;
   const showPlayback = playback !== null && (playing || selectedSongId === null);
   const shownTitle = showPlayback ? playingSong?.title : selectedSong?.title;
@@ -279,11 +280,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const mutedHere = playback !== null && mutedStart === playback.startsAt;
   const muted = playing && mutedHere;
   const liveCurrentSetlistId = useQuery(api.setlists.currentSetlistId, { groupId });
-  const currentSetlistId = liveCurrentSetlistId ?? storedSongs?.currentSetlistId;
+  const currentSetlistId = liveOr(liveCurrentSetlistId, () => storedSongs?.currentSetlistId);
   const liveCurrentSetlist = useQuery(api.setlists.get, currentSetlistId ? { setlistId: currentSetlistId } : "skip");
-  const currentSetlist = liveCurrentSetlist ?? (currentSetlistId && storedSongs ? storedSongs.setlist(currentSetlistId) : undefined);
+  const currentSetlist = liveOr(liveCurrentSetlist, () => (currentSetlistId && storedSongs ? storedSongs.setlist(currentSetlistId) : undefined));
   const liveLibrary = useQuery(api.songs.list, seesLibrary ? { groupId } : "skip");
-  const library = liveLibrary ?? storedSongs?.songs;
+  const library = liveOr(liveLibrary, () => storedSongs?.songs);
   const setlistOrder = currentSetlist?.entries.map((entry) => entry.songId) ?? [];
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
   const playingPosition = playback ? setlistPosition(setlistOrder, playback.songId, playback.setlistIndex) : null;
@@ -341,7 +342,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
   const showToast = toast.show;
-  const connected = useConnected();
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
@@ -939,6 +939,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
       {locked ? <LockedNotice isAdmin={isAdmin} /> : null}
+      {offline && !connected ? (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.centered} testID="library-offline-note">
+          No connection. My Library plays from this device; editing comes back when you reconnect.
+        </ThemedText>
+      ) : null}
       {offlinePlay ? (
         <View style={[styles.offlineBadge, { backgroundColor: theme.backgroundSelected }]} testID="offline-play-badge">
           <Icon name="person" size={14} color="textSecondary" />

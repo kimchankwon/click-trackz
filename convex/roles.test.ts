@@ -154,6 +154,25 @@ describe("My Library", () => {
     const other = await as({ email: "other@example.com" });
     await expect(other.client.query(api.library.snapshot, { groupId: libraryId })).rejects.toThrow(/not in this Group/);
   });
+
+  it("counts every My Library edit so devices know when their copy is out of date", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    const libraryId = await daniel.client.mutation(api.groups.openOffline, {});
+    const revision = () => daniel.client.query(api.library.revision, { groupId: libraryId });
+    expect(await revision()).toBe(0);
+    const songId = await daniel.client.mutation(api.songs.createSong, { groupId: libraryId, title: "Etude" });
+    await daniel.client.mutation(api.songs.updateSong, { songId, bpm: 90 });
+    const setlistId = await daniel.client.mutation(api.setlists.createSetlist, { groupId: libraryId, name: "Practice" });
+    await daniel.client.mutation(api.setlists.setCurrent, { groupId: libraryId, setlistId });
+    await daniel.client.mutation(api.setlists.deleteSetlist, { setlistId });
+    await daniel.client.mutation(api.songs.deleteSong, { songId });
+    expect(await revision()).toBe(6);
+    expect((await daniel.client.query(api.library.snapshot, { groupId: libraryId })).revision).toBe(6);
+    const band = await daniel.client.mutation(api.groups.createGroup, { name: "Band", displayName: "D" });
+    await daniel.client.mutation(api.songs.createSong, { groupId: band.groupId, title: "Pure" });
+    expect(await daniel.client.query(api.library.revision, { groupId: band.groupId })).toBeNull();
+  });
 });
 
 describe("Migrating to one Admin per Group", () => {

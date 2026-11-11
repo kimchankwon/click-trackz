@@ -10,7 +10,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
-import { useStoredLibraryFor } from "@/library/use-my-library";
+import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -31,7 +31,7 @@ export function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const songs = useQuery(api.songs.list, { groupId }) ?? stored?.songs;
+  const songs = liveOr(useQuery(api.songs.list, { groupId }), () => stored?.songs);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const list = songs ?? [];

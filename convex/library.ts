@@ -1,8 +1,23 @@
 import { ConvexError, v } from "convex/values";
 
-import { query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { query, type MutationCtx } from "./_generated/server";
 import { requireMember } from "./access";
 import { songView } from "../src/library/song-views";
+
+export async function touchLibrary(ctx: MutationCtx, groupId: Id<"groups">) {
+  const group = await ctx.db.get(groupId);
+  if (group?.offline === true) await ctx.db.patch(groupId, { libraryRevision: (group.libraryRevision ?? 0) + 1 });
+}
+
+export const revision = query({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    await requireMember(ctx, groupId);
+    const group = await ctx.db.get(groupId);
+    return group?.offline === true ? (group.libraryRevision ?? 0) : null;
+  },
+});
 
 export const snapshot = query({
   args: { groupId: v.id("groups") },
@@ -20,6 +35,7 @@ export const snapshot = query({
       .collect();
     return {
       groupId,
+      revision: group.libraryRevision ?? 0,
       name: group.name,
       currentSetlistId: group.currentSetlistId ?? null,
       songs: songs.map(songView),

@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireMember, requireRole, requireRoleInUnlocked, requireSignedInMember } from "./access";
+import { touchLibrary } from "./library";
 import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
@@ -31,7 +32,9 @@ export const createSong = mutation({
   handler: async (ctx, { groupId, title, key }) => {
     const { group } = await requireRoleInUnlocked(ctx, groupId, "songManager");
     await requireRoomForSongs(ctx, group, 1);
-    return ctx.db.insert("songs", { groupId, title: cleanTitle(title), key: cleanKey(key), countIn: true, sections: [] });
+    const songId = await ctx.db.insert("songs", { groupId, title: cleanTitle(title), key: cleanKey(key), countIn: true, sections: [] });
+    await touchLibrary(ctx, groupId);
+    return songId;
   },
 });
 
@@ -132,6 +135,7 @@ export const updateSong = mutation({
       ...(bpm !== undefined ? { bpm } : {}),
       ...(shaped !== undefined ? { sections: shaped } : {}),
     });
+    await touchLibrary(ctx, song.groupId);
   },
 });
 
@@ -159,6 +163,7 @@ export const duplicateSong = mutation({
     const copyBase = copyBaseOf(song);
     const title = copyTitle(copyBase, library.map((other) => other.title));
     const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: song.groupId, title, copyBase });
+    await touchLibrary(ctx, song.groupId);
     return { songId: copyId, title };
   },
 });
@@ -179,6 +184,7 @@ export const copyToGroup = mutation({
     const titles = library.map((other) => other.title);
     const title = titles.includes(song.title) ? copyTitle(copyBaseOf(song), titles) : song.title;
     const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: toGroupId, title });
+    await touchLibrary(ctx, toGroupId);
     return { songId: copyId, title, groupName: group.name };
   },
 });
@@ -207,5 +213,6 @@ export const deleteSong = mutation({
       .unique();
     if (playback?.songId === songId) await ctx.db.delete(playback._id);
     await ctx.db.delete(songId);
+    await touchLibrary(ctx, song.groupId);
   },
 });

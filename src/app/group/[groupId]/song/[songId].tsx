@@ -760,7 +760,7 @@ function SongForm({
           }}
           testID="copy-song-dialog"
         >
-          <View style={styles.copyTargets} role="radiogroup" aria-label="Group to copy to">
+          <ScrollView style={styles.copyScroll} contentContainerStyle={styles.copyTargets} role="radiogroup" aria-label="Group to copy to">
             {copyTargets.map((target) => (
               <ActionButton
                 key={target.groupId}
@@ -773,7 +773,7 @@ function SongForm({
                 onPress={() => setCopyTarget(target.groupId)}
               />
             ))}
-          </View>
+          </ScrollView>
         </ConfirmDialog>
         <ConfirmDialog
           visible={askDiscard && departure === null}
@@ -805,6 +805,7 @@ function SongForm({
 }
 
 const styles = StyleSheet.create({
+  copyScroll: { maxHeight: 220, flexGrow: 0, flexShrink: 1 },
   copyTargets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   container: { flex: 1 },
   subdivision: { gap: Spacing.two },
