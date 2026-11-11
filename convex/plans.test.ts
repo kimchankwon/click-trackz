@@ -287,6 +287,24 @@ describe("RevenueCat sync", () => {
     vi.unstubAllGlobals();
   });
 
+  it("re-checks every Plan about to expire in one run, however many there are", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000_000);
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "sk_test");
+    const { t } = await setup();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 230; i++) {
+        const userId = await ctx.db.insert("users", { email: `member${i}@example.com` });
+        await ctx.db.insert("subscriptions", { userId, plan: "plus", expiresAt: 1_000_000_000 + 60_000, syncedAt: 0 });
+      }
+    });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ subscriber: { entitlements: {} } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await t.action(internal.subscriptions.recheckExpiring, {})).toBe(230);
+    expect(fetchMock).toHaveBeenCalledTimes(230);
+    vi.unstubAllGlobals();
+  });
+
   it("re-checks Plans about to expire, so a missed renewal does not lock anyone", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000_000);
@@ -297,7 +315,7 @@ describe("RevenueCat sync", () => {
     const renewed = new Date(1_000_000_000 + 31 * 24 * 60 * 60_000).toISOString();
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ subscriber: { entitlements: { plus: { expires_date: renewed } } } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    await t.action(internal.subscriptions.recheckExpiring, {});
+    expect(await t.action(internal.subscriptions.recheckExpiring, {})).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(`https://api.revenuecat.com/v1/subscribers/${renewing.userId}`, expect.anything());
     const rows = await t.run((ctx) => ctx.db.query("subscriptions").collect());

@@ -68,21 +68,29 @@ const RECHECK_AFTER_MS = 3 * 24 * 60 * 60_000;
 const RECHECK_BATCH = 100;
 
 export const expiringSoon = internalQuery({
-  args: { nowMs: v.number() },
-  handler: async (ctx, { nowMs }) => {
-    const rows = await ctx.db
+  args: { nowMs: v.number(), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { nowMs, cursor }) => {
+    const page = await ctx.db
       .query("subscriptions")
       .withIndex("by_expires", (q) => q.gte("expiresAt", nowMs - RECHECK_AFTER_MS).lte("expiresAt", nowMs + RECHECK_BEFORE_MS))
-      .take(RECHECK_BATCH);
-    return rows.filter((row) => row.plan !== null).map((row) => row.userId);
+      .paginate({ cursor, numItems: RECHECK_BATCH });
+    return { userIds: page.page.filter((row) => row.plan !== null).map((row) => row.userId), cursor: page.continueCursor, isDone: page.isDone };
   },
 });
 
 export const recheckExpiring = internalAction({
   args: {},
   handler: async (ctx) => {
-    const userIds = await ctx.runQuery(internal.subscriptions.expiringSoon, { nowMs: Date.now() });
-    for (const userId of userIds) await syncUser(ctx, userId).catch(() => undefined);
+    const nowMs = Date.now();
+    let cursor: string | null = null;
+    let checked = 0;
+    for (;;) {
+      const page: { userIds: Id<"users">[]; cursor: string; isDone: boolean } = await ctx.runQuery(internal.subscriptions.expiringSoon, { nowMs, cursor });
+      for (const userId of page.userIds) await syncUser(ctx, userId).catch(() => undefined);
+      checked += page.userIds.length;
+      if (page.isDone) return checked;
+      cursor = page.cursor;
+    }
   },
 });
 
