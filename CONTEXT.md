@@ -40,6 +40,25 @@ _Avoid_: Anonymous, visitor
 A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account and kept on their device so it plays with no connection, but no other Members, and its Playback runs only on their device, on the device's own clock.
 _Avoid_: Offline, solo, practice mode, personal Group
 
+## Plans
+
+**Plan**:
+What a person's subscription lets them create: Free, Plus or Pro. Joining Groups, Offline play and My Library come with every Plan.
+_Avoid_: Tier, licence, membership
+
+**Free**:
+The Plan without a subscription: no Groups of one's own, and up to 10 Songs in My Library.
+
+**Plus**:
+The Plan for up to 3 Groups of one's own with up to 100 Songs across them, and up to 1000 Songs in My Library.
+
+**Pro**:
+The Plan for any number of Groups of one's own with any number of Songs, and up to 1000 Songs in My Library.
+
+**Locked**:
+A Group its Admin's Plan no longer covers, because the subscription lapsed or a smaller Plan leaves it past the Group limit. A Locked Group can be opened and read but cannot play or change until its Admin's Plan covers it again; the Admin's earliest Groups stay open first.
+_Avoid_: Frozen, suspended, disabled
+
 ## Songs
 
 **Song**:

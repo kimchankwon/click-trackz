@@ -456,7 +456,7 @@ function SongForm({
   const library = useQuery(api.songs.list, { groupId });
   const myGroups = useQuery(api.groups.myGroups, {});
   const copyToGroup = useMutation(api.songs.copyToGroup);
-  const copyTargets = (myGroups ?? []).filter((other) => other.groupId !== groupId && canEditSongs(other.role));
+  const copyTargets = (myGroups ?? []).filter((other) => other.groupId !== groupId && canEditSongs(other.role) && !other.locked);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState<Id<"groups"> | null>(null);
   const [copyPending, setCopyPending] = useState(false);

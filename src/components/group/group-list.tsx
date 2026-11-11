@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-type ListedGroup = { groupId: string; name: string };
+type ListedGroup = { groupId: string; name: string; locked: boolean };
 
 export function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[]; onlineIn: (groupId: string) => number; testID: string }) {
   const theme = useTheme();
@@ -32,10 +32,21 @@ export function GroupList({ groups, onlineIn, testID }: { groups: readonly Liste
               {group.name}
             </ThemedText>
             <View style={styles.roleRow} testID={`online-${group.name}`}>
-              <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
-              <ThemedText themeColor="textSecondary" style={styles.role}>
-                {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
-              </ThemedText>
+              {group.locked ? (
+                <>
+                  <Icon name="warning" size={14} color="textSecondary" />
+                  <ThemedText themeColor="textSecondary" style={styles.role} testID={`locked-${group.name}`}>
+                    Locked
+                  </ThemedText>
+                </>
+              ) : (
+                <>
+                  <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
+                  <ThemedText themeColor="textSecondary" style={styles.role}>
+                    {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
+                  </ThemedText>
+                </>
+              )}
             </View>
           </View>
           <Icon name="forward" size={22} color="textTertiary" />

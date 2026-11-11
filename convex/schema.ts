@@ -26,6 +26,8 @@ export const roleValidator = v.union(
   v.literal("member"),
 );
 
+export const paidPlanValidator = v.union(v.literal("plus"), v.literal("pro"));
+
 export default defineSchema({
   ...authTables,
   users: defineTable({
@@ -49,7 +51,9 @@ export default defineSchema({
     offline: v.optional(v.boolean()),
     copyBase: v.optional(v.string()),
     libraryRevision: v.optional(v.number()),
-  }).index("by_join_code", ["joinCode"]),
+  })
+    .index("by_join_code", ["joinCode"])
+    .index("by_created_by", ["createdBy"]),
   memberships: defineTable({
     groupId: v.id("groups"),
     userId: v.id("users"),
@@ -102,6 +106,15 @@ export default defineSchema({
     setlistIndex: v.optional(v.number()),
     advanceJob: v.optional(v.id("_scheduled_functions")),
   }).index("by_group", ["groupId"]),
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    plan: v.union(paidPlanValidator, v.null()),
+    expiresAt: v.union(v.number(), v.null()),
+    store: v.optional(v.string()),
+    syncedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_expires", ["expiresAt"]),
   presence: defineTable({
     groupId: v.id("groups"),
     userId: v.id("users"),

@@ -10,7 +10,11 @@ const modules = import.meta.glob("./**/*.ts");
 async function setup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
-    const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+    const userId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", profile);
+      if (profile.email !== undefined) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
     return { userId, client: t.withIdentity({ subject: `${userId}|session` }) };
   };
   return { t, as };
@@ -95,7 +99,7 @@ describe("Groups", () => {
     const offlineId = await guest.client.mutation(api.groups.openOffline, {});
     expect(await guest.client.mutation(api.groups.openOffline, {})).toBe(offlineId);
     expect(await guest.client.query(api.groups.myGroups, {})).toEqual([
-      { groupId: offlineId, name: "My Library", role: "admin", offline: true, copyBase: null, guest: true, owned: true, joinCode: null },
+      { groupId: offlineId, name: "My Library", role: "admin", offline: true, copyBase: null, locked: false, guest: true, owned: true, joinCode: null },
     ]);
     expect(await guest.client.query(api.groups.members, { groupId: offlineId })).toEqual([
       expect.objectContaining({ displayName: "You", role: "admin" }),

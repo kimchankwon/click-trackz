@@ -11,7 +11,11 @@ const modules = import.meta.glob("./**/*.ts");
 async function setup() {
   const t = convexTest(schema, modules);
   const as = async (profile: { email?: string; isAnonymous?: boolean }) => {
-    const userId = await t.run((ctx) => ctx.db.insert("users", profile));
+    const userId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("users", profile);
+      if (profile.email !== undefined) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      return id;
+    });
     return { userId, client: t.withIdentity({ subject: `${userId}|session` }) };
   };
   return { t, as };

@@ -28,6 +28,7 @@ import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
+import { canCreateGroup, PLAN_NAMES } from "@/lib/plans";
 import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
@@ -61,6 +62,7 @@ function GroupsTab({ run }: { run: Run }) {
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? true;
+  const usage = useQuery(api.subscriptions.mine, isGuest ? "skip" : {});
   const seen = useQuery(api.presence.myGroupsSeen, {});
   const connected = useConnected();
   const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
@@ -92,7 +94,8 @@ function GroupsTab({ run }: { run: Run }) {
 
       <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.
+          Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following. Free holds 10 Songs; Plus and Pro
+          hold 1000.
         </ThemedText>
         <ActionButton
           variant="outline"
@@ -167,6 +170,15 @@ function GroupsTab({ run }: { run: Run }) {
             </ThemedText>
             <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
           </>
+        ) : usage === undefined ? null : usage.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
+          <>
+            <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
+              {usage.plan === "free"
+                ? "Creating a Group needs Plus or Pro. Joining Groups is always free."
+                : `You are using all ${usage.limits.groups} Groups ${PLAN_NAMES[usage.plan]} includes. Pro has no limit.`}
+            </ThemedText>
+            <ActionButton accent icon="star" label={usage.plan === "free" ? "See plans" : "Upgrade to Pro"} testID="see-plans" onPress={() => router.push("/subscribe")} />
+          </>
         ) : (
           <View style={styles.inline}>
             <Field
@@ -240,6 +252,7 @@ function SettingsTab({ run }: { run: Run }) {
         {viewer && isGuest ? (
           <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="settings-google-sign-in" onPress={() => run(signInWithGoogle)} />
         ) : null}
+        {viewer && !isGuest ? <ActionButton variant="outline" icon="star" label="Plans and subscription" testID="settings-plans" onPress={() => router.push("/subscribe")} /> : null}
       </Card>
       <AccentPicker />
       <ActionButton

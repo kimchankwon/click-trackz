@@ -49,6 +49,7 @@ export const storedLibraryGroup = (snapshot: LibrarySnapshot) => ({
   role: "admin" as const,
   offline: true,
   copyBase: null,
+  locked: false,
   guest: false,
   owned: true,
   joinCode: null,

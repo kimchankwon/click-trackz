@@ -4,6 +4,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
 import { deleteGroupRows } from "./cleanup";
+import { groupLocked, requireOwnerRoomForSongs, requireRoomForGroup } from "./plans";
 import { roleValidator } from "./schema";
 import { songCopyFields } from "./songs";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
@@ -35,6 +36,7 @@ export const createGroup = mutation({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     if (isGuest(user)) throw new ConvexError("Sign in with Google to create a Group");
+    await requireRoomForGroup(ctx, user._id);
     const joinCode = await uniqueJoinCode(ctx);
     const groupId = await ctx.db.insert("groups", {
       name: cleanName(args.name, "Group name"),
@@ -59,10 +61,12 @@ export const duplicateGroup = mutation({
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
     if (group.offline === true) throw new ConvexError("My Library cannot be duplicated");
+    await requireRoomForGroup(ctx, user._id);
     const songs = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
+    await requireOwnerRoomForSongs(ctx, user._id, songs.length, "mine");
     const mine = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -271,6 +275,7 @@ export const myGroups = query({
           role: membership.role,
           offline: group.offline === true,
           copyBase: group.copyBase ?? null,
+          locked: await groupLocked(ctx, group),
           guest: isGuest(user),
           owned: group.createdBy === user._id,
           joinCode: canManageGroup(membership.role) && group.offline !== true ? group.joinCode : null,

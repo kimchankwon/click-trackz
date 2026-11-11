@@ -23,6 +23,7 @@ import { MembersCard } from "@/components/group/members-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
+import { LockedNotice } from "@/components/group/locked-notice";
 import { liveOr, StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
 import { storedLibraryGroup, type LibrarySnapshot } from "@/library/snapshot";
 import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
@@ -224,9 +225,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const groupId = group.groupId;
   const offline = group.offline;
   const isAdmin = group.role === "admin";
+  const locked = group.locked;
   const connected = useConnected();
-  const steersGroup = canSteerPlayback(group.role);
-  const editsSongs = canEditSongs(group.role) && (connected || !offline);
+  const steersGroup = canSteerPlayback(group.role) && !locked;
+  const stopsLockedPlayback = locked && canSteerPlayback(group.role);
+  const editsSongs = canEditSongs(group.role) && !locked && (connected || !offline);
   const managesGroup = canManageGroup(group.role);
   const seesLibrary = offline || !group.guest;
   useKeepLibraryOnDevice(groupId, offline);
@@ -924,6 +927,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
+      {locked ? <LockedNotice isAdmin={isAdmin} /> : null}
       {offline && !connected ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered} testID="library-offline-note">
           No connection. My Library plays from this device; editing comes back when you reconnect.
@@ -1030,7 +1034,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         <View style={styles.nextBlock}>
           {!steers ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              A Playback Manager starts and steers Playback.
+              {locked ? "This Group is locked, so Playback cannot start." : "A Playback Manager starts and steers Playback."}
             </ThemedText>
           ) : null}
           {editsSongs && startBlocker === "needsSections" && startSongId ? (
@@ -1358,7 +1362,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           </View>
         ) : null}
         {playing && !steers ? (
-          <View style={styles.personal}>
+          <View style={stopsLockedPlayback ? styles.transport : styles.personal}>
             <IconButton
               icon="muted"
               label={muted ? "Unmute" : "Mute"}
@@ -1369,6 +1373,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               active={muted}
               onPress={muted ? unmute : mute}
             />
+            {stopsLockedPlayback && !onDevice ? (
+              <ActionButton
+                large
+                full
+                variant={stopping ? "secondary" : "stop"}
+                icon="stop"
+                label={stopping ? "Stopping…" : "Stop"}
+                accessibleName="Stop"
+                testID="stop-locked"
+                pending={stopping}
+                onPress={stopPlayback}
+              />
+            ) : null}
           </View>
         ) : null}
         <SongProgress span={songSpan} lengthMs={startLength} serverNow={playNow} />

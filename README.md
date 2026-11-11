@@ -46,6 +46,23 @@ npx convex env set AUTH_GOOGLE_SECRET <client secret>
 
 For local testing without Google, set `DEV_LOGIN_SECRET` on a **dev** deployment and `DEV_LOGIN_DEPLOYMENT` to that deployment's own `CONVEX_CLOUD_URL` (for example `https://<deployment>.ap-southeast-2.convex.cloud`), then start the app with `EXPO_PUBLIC_DEV_LOGIN=1`; `/dev-login` then signs in `@example.com` accounts with that secret. The provider only exists when both variables are set and the deployment URL matches, so a secret copied to production does nothing on its own. Never set either on production.
 
+## Plans and subscriptions
+
+Creating a Group needs Plus or Pro, sold through RevenueCat (see `docs/adr/0006-plans-through-revenuecat.md`).
+
+1. In RevenueCat, create entitlements `plus` and `pro`, and offerings with the same ids, each with a monthly and an annual package.
+2. Point a RevenueCat webhook at `https://<deployment>.convex.site/revenuecat` with an Authorization header of your choosing.
+3. Set the server keys on each deployment:
+
+```bash
+npx convex env set REVENUECAT_SECRET_API_KEY <secret key>
+npx convex env set REVENUECAT_WEBHOOK_AUTH "<the exact Authorization header>"
+npx convex env set COMP_PLUS_EMAILS <comma-separated emails that get Plus free>
+```
+
+4. Once purchases work in every store, turn the limits on with `npx convex env set PLANS_ENFORCED true`. Until then nobody is limited and no Group locks.
+5. Give builds the public SDK keys as `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` and `EXPO_PUBLIC_REVENUECAT_WEB_KEY`. Purchases need a development build; Expo Go only previews them.
+
 ## Roles migration
 
 After deploying the one-Admin Roles, run `npx convex run migrations:oneAdminPerGroup` once on each deployment. Each Group's creator stays Admin, other Admins become Group Managers, and a Group whose creator left goes to its longest-standing Admin.

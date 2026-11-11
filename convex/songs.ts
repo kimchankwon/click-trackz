@@ -2,8 +2,9 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { requireMember, requireRole, requireRoleInGroup, requireSignedInMember } from "./access";
+import { requireMember, requireRole, requireRoleInUnlocked, requireSignedInMember } from "./access";
 import { touchLibrary } from "./library";
+import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
 import { BEAT_UNITS, CUE_LEAD_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
@@ -29,7 +30,8 @@ const cleanKey = (key: string | undefined) => {
 export const createSong = mutation({
   args: { groupId: v.id("groups"), title: v.string(), key: v.optional(v.string()) },
   handler: async (ctx, { groupId, title, key }) => {
-    await requireRoleInGroup(ctx, groupId, "songManager");
+    const { group } = await requireRoleInUnlocked(ctx, groupId, "songManager");
+    await requireRoomForSongs(ctx, group, 1);
     const songId = await ctx.db.insert("songs", { groupId, title: cleanTitle(title), key: cleanKey(key), countIn: true, sections: [] });
     await touchLibrary(ctx, groupId);
     return songId;
@@ -111,7 +113,7 @@ export const updateSong = mutation({
   handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    await requireRoleInGroup(ctx, song.groupId, "songManager");
+    await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
     if (cueLeadBars !== undefined && !CUE_LEAD_BARS.some((n) => n === cueLeadBars)) throw new ConvexError("Cues can start one or two bars before a Section");
@@ -152,7 +154,8 @@ export const duplicateSong = mutation({
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    await requireRoleInGroup(ctx, song.groupId, "songManager");
+    const { group } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
+    await requireRoomForSongs(ctx, group, 1);
     const library = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
@@ -172,7 +175,8 @@ export const copyToGroup = mutation({
     if (song === null) throw new ConvexError("That Song no longer exists");
     if (song.groupId === toGroupId) throw new ConvexError("That Song is already in this Group; duplicate it instead");
     await requireRole(ctx, song.groupId, "songManager");
-    const { group } = await requireRoleInGroup(ctx, toGroupId, "songManager");
+    const { group } = await requireRoleInUnlocked(ctx, toGroupId, "songManager");
+    await requireRoomForSongs(ctx, group, 1);
     const library = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", toGroupId))
@@ -190,7 +194,7 @@ export const deleteSong = mutation({
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) return;
-    await requireRoleInGroup(ctx, song.groupId, "songManager");
+    await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     const setlists = await ctx.db
       .query("setlists")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))

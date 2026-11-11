@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { endVampJumps, jumpProblem, jumpsAfter, LEAD_IN_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireMember, requireRole, requireRoleInGroup } from "./access";
+import { requireMember, requireRole, requireRoleInUnlocked } from "./access";
 
 async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users"> | undefined) {
   if (userId === undefined) return null;
@@ -55,7 +55,7 @@ export const start = mutation({
     setlistIndex: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, songId, fromSection, fromBar, setlistIndex }) => {
-    const { user, group } = await requireRoleInGroup(ctx, groupId, "playbackManager");
+    const { user, group } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
     if (group.offline === true) throw new ConvexError("My Library plays on this device only");
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
@@ -87,7 +87,7 @@ export const jump = mutation({
     startsAt: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, toSection, mode, startsAt }) => {
-    await requireRoleInGroup(ctx, groupId, "playbackManager");
+    await requireRoleInUnlocked(ctx, groupId, "playbackManager");
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
@@ -100,7 +100,7 @@ export const jump = mutation({
 });
 
 async function applyCommand(ctx: MutationCtx, groupId: Id<"groups">, startsAt: number | undefined, command: (playback: Doc<"playbacks">) => CommandResult) {
-  await requireRoleInGroup(ctx, groupId, "playbackManager");
+  await requireRoleInUnlocked(ctx, groupId, "playbackManager");
   const playback = await groupPlayback(ctx, groupId);
   if (playback === null) throw new ConvexError("Nothing is playing");
   if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
