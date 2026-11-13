@@ -80,6 +80,7 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   const sectionType = vocabulary.get(wordKey(section.sectionType));
   if (sectionType === undefined) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
+  if (section.letter !== undefined && section.number === undefined) throw new ConvexError(`${where}: A letter goes after a number, so give the Section a number first`);
   if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
   if (section.beatUnit !== undefined && !BEAT_UNITS.some((unit) => unit === section.beatUnit)) {

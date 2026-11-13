@@ -31,7 +31,8 @@ import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
-import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type TimeChange } from "@/sync/timeline";
+import { LETTER_OPTIONS } from "@/lib/section-letter-options";
+import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -291,14 +292,14 @@ function SectionRow({
         <Pressable
           role="button"
           aria-expanded={choosing}
-          aria-label={`Section type, ${section.sectionType}`}
+          aria-label={`Section type, ${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`}
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
           style={[styles.typeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
         >
           <ThemedText type="default" style={styles.typeText} numberOfLines={1}>
             {section.sectionType}
-            {section.number ? ` ${section.number}` : ""}
+            {section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}
           </ThemedText>
           <Icon name="expand" size={20} color="textSecondary" />
         </Pressable>
@@ -357,7 +358,9 @@ function SectionRow({
           lowerLabel={`Lower the number of Section ${index + 1}`}
           raiseLabel={`Raise the number of Section ${index + 1}`}
           testID={`section-${index}-number`}
-          onLower={() => onChange({ ...section, number: section.number && section.number > 1 ? section.number - 1 : undefined })}
+          onLower={() =>
+            onChange(section.number && section.number > 1 ? { ...section, number: section.number - 1 } : { ...section, number: undefined, letter: undefined })
+          }
           onRaise={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
         />
         <StepperField
@@ -397,6 +400,21 @@ function SectionRow({
           <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
         </View>
       </View>
+      {section.number ? (
+        <View style={styles.letterRow}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Letter
+          </ThemedText>
+          <Segmented
+            compact
+            label={`Letter after the number of Section ${index + 1}`}
+            testID={`section-${index}-letter`}
+            value={section.letter ?? "none"}
+            onChange={(next: SectionLetter | "none") => onChange({ ...section, letter: next === "none" ? undefined : next })}
+            options={LETTER_OPTIONS}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -827,6 +845,7 @@ const styles = StyleSheet.create({
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
   rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: "auto", minHeight: 44 },
+  letterRow: { gap: Spacing.one },
   bottomRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", columnGap: Spacing.four, rowGap: Spacing.two },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },

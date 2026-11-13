@@ -11,6 +11,10 @@ describe("chooseClip", () => {
     expect(chooseClip({ sectionType: "Pre-Chorus" }, builtin)).toBe("pre-chorus");
   });
 
+  it("speaks the number without the letter", () => {
+    expect(chooseClip({ sectionType: "Chorus", number: 2, letter: "A" }, builtin)).toBe("chorus-2");
+  });
+
   it("has nothing for a word without a clip", () => {
     expect(chooseClip({ sectionType: "Spontaneous" }, builtin)).toBeNull();
   });

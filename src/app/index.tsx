@@ -31,6 +31,7 @@ import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
+import { useRoundTrip } from "@/sync/use-round-trip";
 import { canCreateGroup, PLAN_NAMES } from "@/lib/plans";
 import { forgetStoredHome, useKeepHomeOnDevice, useStoredHome } from "@/home/use-stored-home";
 import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
@@ -50,7 +51,7 @@ const homeTabs: readonly TabItem<HomeTab>[] = [
 
 type Run = (action: () => Promise<unknown>) => void;
 
-function GroupsTab({ run }: { run: Run }) {
+function GroupsTab({ run, active }: { run: Run; active: boolean }) {
   const viewer = useQuery(api.users.viewer, {});
   const liveGroups = useQuery(api.groups.myGroups, {});
   const storedHome = useStoredHome();
@@ -73,6 +74,8 @@ function GroupsTab({ run }: { run: Run }) {
   const seen = useQuery(api.presence.myGroupsSeen, {});
   const connected = useConnected();
   const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
+  const focused = useIsFocused();
+  const roundTripMs = useRoundTrip(active && focused && connected);
   const onlineIn = (groupId: string) =>
     connected && seen !== undefined ? onlineCount(seen.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs) : null;
 
@@ -82,7 +85,7 @@ function GroupsTab({ run }: { run: Run }) {
         <ThemedText type="title" role="heading">
           Groups
         </ThemedText>
-        <ConnectionBadge />
+        <ConnectionBadge roundTripMs={roundTripMs} />
       </View>
 
       {groups !== undefined && groups.length === 0 ? <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText> : null}
@@ -283,7 +286,7 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
   const [tab, setTab] = useState<HomeTab>("groups");
   const showTab = useCallback((next: HomeTab) => setTab(next), []);
   const panes: readonly [HomeTab, ReactNode][] = [
-    ["groups", <GroupsTab key="groups" run={run} />],
+    ["groups", <GroupsTab key="groups" run={run} active={tab === "groups"} />],
     ["sound", <SoundTab key="sound" active={tab === "sound"} />],
     ["settings", <SettingsTab key="settings" run={run} />],
   ];

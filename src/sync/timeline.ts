@@ -1,6 +1,11 @@
+export const SECTION_LETTERS = ["A", "B"] as const;
+
+export type SectionLetter = (typeof SECTION_LETTERS)[number];
+
 export type Section = {
   sectionType: string;
   number?: number;
+  letter?: SectionLetter;
   bars: number;
   beatsPerBar: number;
   beatUnit?: number;
@@ -72,7 +77,10 @@ export type Playback = {
 export type VoiceCue = {
   sectionType: string;
   number?: number;
+  letter?: SectionLetter;
 };
+
+export const letterAfterNumber = (section: Pick<Section, "number" | "letter">) => (section.number === undefined ? "" : (section.letter ?? ""));
 
 export type Lead = {
   cue: VoiceCue | null;
@@ -109,7 +117,7 @@ export type AccentLevel = "bar" | "group" | "beat";
 export const accentLevelOf = (beat: Pick<Beat, "accent" | "groupStart">): AccentLevel =>
   beat.accent ? "bar" : beat.groupStart ? "group" : "beat";
 
-const labelOf = (section: Section) => `${section.sectionType.toUpperCase()}${section.number ?? ""}`;
+const labelOf = (section: Section) => `${section.sectionType.toUpperCase()}${section.number ?? ""}${letterAfterNumber(section)}`;
 
 type Bar = {
   startsAt: number;
@@ -290,7 +298,7 @@ function countOf(bar: Bar, beat: number): string {
 const voiceCueOf = (section: Section): VoiceCue =>
   section.number === undefined
     ? { sectionType: section.sectionType }
-    : { sectionType: section.sectionType, number: section.number };
+    : { sectionType: section.sectionType, number: section.number, ...(section.letter ? { letter: section.letter } : {}) };
 
 const entersSection = (bars: readonly Bar[], index: number) => {
   const bar = bars[index];

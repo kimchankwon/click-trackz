@@ -94,8 +94,12 @@ How many times in a row a Section plays before the Song moves on, once unless a 
 _Avoid_: Repeats, times, loop count
 
 **Section type**:
-A word from the Group's Cue vocabulary plus an optional number, naming a Section and deciding which Voice cue it gets.
+A word from the Group's Cue vocabulary plus an optional number, naming a Section and deciding which Voice cue it gets. A numbered Section can also have a Section letter.
 _Avoid_: Label, tag, name
+
+**Section letter**:
+An optional A or B after a Section type's number, such as Chorus 1A and Chorus 1B for two versions of the same chorus. It is shown everywhere the Section is named, but the Voice cue speaks only the type and number.
+_Avoid_: Variant, suffix, part
 
 **Cue vocabulary**:
 The words a Group can use as Section types: the built-in ones (Intro, Verse, Chorus, Bridge, …), plus any other word a Song in the Group already uses.

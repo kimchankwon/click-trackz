@@ -112,7 +112,7 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
           {live ? (
             <Animated.Text
               testID="playback-count"
-              aria-label={lead ? `${label}, ${lead.cue ? `${lead.cue.sectionType}${lead.cue.number ? ` ${lead.cue.number}` : ""}` : "End of Song"} in ${lead.barsLeft === 2 ? "two bars" : "one bar"}` : label}
+              aria-label={lead ? `${label}, ${lead.cue ? `${lead.cue.sectionType}${lead.cue.number ? ` ${lead.cue.number}${lead.cue.letter ?? ""}` : ""}` : "End of Song"} in ${lead.barsLeft === 2 ? "two bars" : "one bar"}` : label}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={MIN_FONT_SCALE}

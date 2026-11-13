@@ -80,7 +80,7 @@ import {
   type CommandResult,
   type StartedPlayback,
 } from "@/sync/commands";
-import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { aheadWindowMs, beatsBetween, letterAfterNumber, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { drawLeadMs, FRAMES_PER_MEASURE, shownTimeMs } from "@/sync/frame-lead";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { shortTitleOf } from "@/sync/section-short";
@@ -94,7 +94,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 type JumpMode = "endOfSection" | "nextBar";
 
 const sameCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
-  a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number);
+  a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number && a.letter === b.letter);
 
 const sameBeat = (a: Beat | null, b: Beat | null) =>
   a === b ||
@@ -123,8 +123,8 @@ function KeepAwake() {
   return <ScreenWakeLock key={returns} />;
 }
 
-const titleOf = (section: Pick<Section, "sectionType" | "number">) =>
-  `${section.sectionType}${section.number ? ` ${section.number}` : ""}`;
+const titleOf = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
+  `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
 const passText = (start: Pick<SectionStart, "pass" | "passes"> | null | undefined) => (start && start.passes > 1 ? ` (${start.pass} of ${start.passes})` : "");
 

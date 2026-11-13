@@ -56,6 +56,13 @@ describe("beatsBetween", () => {
     ]);
   });
 
+  it("shows a Section letter in the Count and cue but speaks only the number", () => {
+    const song: Song = { countIn: true, sections: [{ sectionType: "Chorus", number: 1, letter: "A", bars: 1, beatsPerBar: 4, bpm: 120 }] };
+    const beats = beatsBetween(song, { startsAt: 0, startSection: 0 }, 0, 4_500);
+    expect(beats.find((b) => b.at === 4000)?.count).toBe("CHORUS1A");
+    expect(beats.find((b) => b.voiceCue !== null)?.voiceCue).toEqual({ sectionType: "Chorus", number: 1, letter: "A" });
+  });
+
   it("speaks each Section type over the two bars before it at half time, Count-in included", () => {
     const song: Song = {
       countIn: true,

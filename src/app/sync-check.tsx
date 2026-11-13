@@ -14,7 +14,7 @@ import { useServerClock } from "@/sync/use-server-clock";
 
 const voiceText = (beat: Beat) =>
   beat.voiceCue
-    ? `${beat.voiceCue.sectionType}${beat.voiceCue.number ?? ""}`
+    ? `${beat.voiceCue.sectionType}${beat.voiceCue.number ?? ""}${beat.voiceCue.letter ?? ""}`
     : beat.spokenCount !== null
       ? String(beat.spokenCount)
       : "";

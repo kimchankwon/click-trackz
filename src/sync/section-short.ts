@@ -1,4 +1,4 @@
-import type { Section } from "./timeline";
+import { letterAfterNumber, type Section } from "./timeline";
 
 const builtinShort = new Map<string, string>(Object.entries({
   Intro: "Intr",
@@ -27,8 +27,9 @@ function shortType(sectionType: string): string {
   return letters[0].toUpperCase() + (letters[1] ?? "").toLowerCase();
 }
 
-export function shortTitleOf(section: Pick<Section, "sectionType" | "number">): string {
+export function shortTitleOf(section: Pick<Section, "sectionType" | "number" | "letter">): string {
   const short = shortType(section.sectionType);
   if (section.number === undefined) return short;
-  return short.endsWith(".") ? `${short} ${section.number}` : `${short}${section.number}`;
+  const numbered = `${section.number}${letterAfterNumber(section)}`;
+  return short.endsWith(".") ? `${short} ${numbered}` : `${short}${numbered}`;
 }

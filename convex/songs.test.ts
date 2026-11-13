@@ -85,6 +85,16 @@ describe("Songs", () => {
     await expect(bad(2.5)).rejects.toThrow(/Plays/);
   });
 
+  it("saves a letter after a Section's number, and refuses one without a number", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Lettered" });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, letter: "A" }, { ...verse, letter: "B" }] });
+    expect((await member.query(api.songs.get, { songId }))?.sections.map((section) => section.letter)).toEqual(["A", "B"]);
+    const { number, ...unnumbered } = verse;
+    expect(number).toBe(1);
+    await expect(admin.mutation(api.songs.updateSong, { songId, sections: [{ ...unnumbered, letter: "A" }] })).rejects.toThrow(/letter goes after a number/);
+  });
+
   it("saves a Section's time changes in bar order, and refuses ones that do not fit", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Odd" });
