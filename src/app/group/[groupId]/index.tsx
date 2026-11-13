@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { router, useIsFocused, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
@@ -343,7 +343,12 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
   const screenFocused = useIsFocused();
-  usePreventRemove((playing || (tab !== "play" && screenFocused)) && !leaving && !leavingGroup, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
+  const holdsBack = (playing || (tab !== "play" && screenFocused)) && !leaving && !leavingGroup;
+  usePreventRemove(holdsBack, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
+  const navigation = useNavigation();
+  useEffect(() => {
+    navigation.getParent()?.setOptions({ gestureEnabled: !holdsBack });
+  }, [navigation, holdsBack]);
   const tabs = useMemo(
     () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
     [offline, seesLibrary],
