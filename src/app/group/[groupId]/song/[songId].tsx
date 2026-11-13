@@ -724,7 +724,7 @@ function SongForm({
             accessibleName="Save"
             testID="save-song"
             pending={saving}
-            disabled={problem !== null}
+            disabled={problem !== null || !changed}
             onPress={save}
           />
         </View>
