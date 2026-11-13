@@ -2,7 +2,19 @@ import { ConvexError } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { betterPlan, canAddLibrarySongs, canAddSongs, canCreateGroup, isGroupLocked, planLimits, PLAN_NAMES, type Plan } from "../src/lib/plans";
+import {
+  betterPlan,
+  canAddLibrarySongs,
+  canAddSongs,
+  canAddSongsBeforeLaunch,
+  canCreateGroup,
+  canCreateGroupBeforeLaunch,
+  isGroupLocked,
+  LAUNCH_LIMITS,
+  planLimits,
+  PLAN_NAMES,
+  type Plan,
+} from "../src/lib/plans";
 
 const emailsIn = (value: string | undefined) =>
   new Set(
@@ -57,7 +69,11 @@ async function ownedSongCount(ctx: QueryCtx, groups: readonly Doc<"groups">[]) {
 }
 
 export async function requireRoomForGroup(ctx: QueryCtx, userId: Id<"users">) {
-  if (!plansEnforced()) return;
+  if (!plansEnforced()) {
+    const owned = await ownedGroups(ctx, userId);
+    if (!canCreateGroupBeforeLaunch(owned.length)) throw new ConvexError(`You can create up to ${LAUNCH_LIMITS.groups} Groups for now`);
+    return;
+  }
   const plan = await planOf(ctx, userId);
   if (plan === "free") throw new ConvexError("Subscribe to Plus or Pro to create a Group");
   const owned = await ownedGroups(ctx, userId);
@@ -89,6 +105,10 @@ async function requireRoomInLibrary(ctx: QueryCtx, library: Doc<"groups">, addin
 
 export async function requireRoomForSongs(ctx: QueryCtx, group: Doc<"groups">, adding: number) {
   if (group.offline === true) return requireRoomInLibrary(ctx, group, adding);
+  if (!plansEnforced()) {
+    if (!canAddSongsBeforeLaunch(await songCountIn(ctx, group._id), adding)) throw new ConvexError(`A Group can hold up to ${LAUNCH_LIMITS.songsPerGroup} Songs for now`);
+    return;
+  }
   await requireOwnerRoomForSongs(ctx, group.createdBy, adding, "admin");
 }
 

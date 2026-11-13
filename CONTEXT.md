@@ -51,7 +51,7 @@ _Avoid_: Audit log, history, log
 ## Plans
 
 **Plan**:
-What a person's subscription lets them create: Free, Plus or Pro. Joining Groups, Offline play and My Library come with every Plan.
+What a person's subscription lets them create: Free, Plus or Pro. Joining Groups, Offline play and My Library come with every Plan. Until Plans are charged, every account can create up to 5 Groups with up to 100 Songs each, whatever its Plan.
 _Avoid_: Tier, licence, membership
 
 **Free**:

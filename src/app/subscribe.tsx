@@ -15,7 +15,7 @@ import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { errorText } from "@/lib/error-text";
-import { PLAN_NAMES, usageSummary, type PaidPlan } from "@/lib/plans";
+import { LAUNCH_LIMITS, PLAN_NAMES, usageSummary, type PaidPlan } from "@/lib/plans";
 import { api } from "../../convex/_generated/api";
 
 const PLAN_PERKS: Record<PaidPlan, readonly string[]> = {
@@ -111,7 +111,7 @@ export default function SubscribeScreen() {
           ) : null}
           {usage && !usage.enforced ? (
             <ThemedText type="smallBold" themeColor="accent" testID="plans-not-enforced">
-              Plans are not being charged yet, so every limit below is switched off for now.
+              {`Plans are not being charged yet. Until they are, everyone can create up to ${LAUNCH_LIMITS.groups} Groups with up to ${LAUNCH_LIMITS.songsPerGroup} Songs each.`}
             </ThemedText>
           ) : null}
           {usage ? (

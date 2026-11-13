@@ -26,16 +26,24 @@ export const canAddSongs = (plan: Plan, ownedSongs: number, adding: number) => w
 
 export const canAddLibrarySongs = (plan: Plan, librarySongs: number, adding: number) => librarySongs + adding <= planLimits(plan).librarySongs;
 
+export const LAUNCH_LIMITS = { groups: 5, songsPerGroup: 100 } as const;
+
+export const canCreateGroupBeforeLaunch = (ownedGroups: number) => ownedGroups + 1 <= LAUNCH_LIMITS.groups;
+
+export const canAddSongsBeforeLaunch = (songsInGroup: number, adding: number) => songsInGroup + adding <= LAUNCH_LIMITS.songsPerGroup;
+
 export const isGroupLocked = (plan: Plan, oldestFirstIndex: number) => !within(planLimits(plan).groups, oldestFirstIndex + 1);
 
 type Usage = { groups: number; songs: number; librarySongs: number; limits: PlanLimits; enforced: boolean };
+
+const groupLimitShown = ({ limits, enforced }: Pick<Usage, "limits" | "enforced">) => (enforced ? limits.groups : LAUNCH_LIMITS.groups);
 
 const counted = (count: number, singular: string, plural: string, limit: number | null, enforced: boolean) =>
   enforced && limit !== null ? `${count} of ${limit} ${plural}` : `${count} ${count === 1 ? singular : plural}`;
 
 export const usageSummary = ({ groups, songs, librarySongs, limits, enforced }: Usage) =>
   [
-    counted(groups, "Group", "Groups", limits.groups, enforced),
+    counted(groups, "Group", "Groups", groupLimitShown({ limits, enforced }), true),
     counted(songs, "Group Song", "Group Songs", limits.songs, enforced),
     counted(librarySongs, "My Library Song", "My Library Songs", limits.librarySongs, enforced),
   ].join(" · ");

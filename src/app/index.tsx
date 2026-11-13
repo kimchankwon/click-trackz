@@ -34,7 +34,7 @@ import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
 import { useRoundTrip } from "@/sync/use-round-trip";
-import { canCreateGroup, PLAN_NAMES } from "@/lib/plans";
+import { canCreateGroup, canCreateGroupBeforeLaunch, LAUNCH_LIMITS, PLAN_NAMES } from "@/lib/plans";
 import { forgetStoredHome, useKeepHomeOnDevice, useStoredHome } from "@/home/use-stored-home";
 import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
@@ -183,6 +183,10 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
       <Card title="Create a Group">
         {isGuest ? (
           <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
+        ) : usage && !usage.enforced && !canCreateGroupBeforeLaunch(usage.groups) ? (
+          <ThemedText type="caption" themeColor="textSecondary" testID="create-at-launch-limit">
+            {`You can create up to ${LAUNCH_LIMITS.groups} Groups for now.`}
+          </ThemedText>
         ) : usage?.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
           <>
             <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
