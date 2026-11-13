@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { SAMPLE_RATE, synthesize, transcribe, trimSilence, wav } from "./voice-pack-audio.mts";
+import { SAMPLE_RATE, synthesize, transcribe, wav } from "./voice-pack-audio.mts";
+import { cleanedTake, finishedFor } from "./voice-pack-measure.mts";
 import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
 
 const [dirArg, takesArg, ...targets] = process.argv.slice(2);
@@ -29,7 +30,7 @@ for (const target of targets) {
   let best: Int16Array | null = currentRight ? new Int16Array(current.buffer.slice(current.byteOffset + 44, current.byteOffset + current.byteLength)) : null;
   const startedWith = best;
   for (let take = 1; take <= takes; take++) {
-    const pcm = trimSilence(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, deliveryOf(voiceSpeed)));
+    const pcm = finishedFor(speaker, cleanedTake(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, deliveryOf(voiceSpeed))));
     await writeFile(trial, wav(pcm));
     const heard = await transcribe(trial);
     if (comparable(heard) === comparable(clip.heard) && (best === null || pcm.length < best.length)) best = pcm;

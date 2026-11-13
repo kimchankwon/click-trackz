@@ -2,9 +2,9 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import os from "node:os";
 import path from "node:path";
 
-import { inParallel, MAX_CONCURRENT_REQUESTS, SAMPLE_RATE, synthesize, transcribe, trimSilence, wav } from "./voice-pack-audio.mts";
+import { inParallel, MAX_CONCURRENT_REQUESTS, SAMPLE_RATE, synthesize, transcribe, wav } from "./voice-pack-audio.mts";
 import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
-import { endingSemitones, levelled, takeScore, withoutTrailingBreath, withShortHiss } from "./voice-pack-measure.mts";
+import { cleanedTake, endingSemitones, finishedFor, takeScore } from "./voice-pack-measure.mts";
 
 const args = process.argv.slice(2);
 const replace = args.includes("--replace");
@@ -46,25 +46,28 @@ await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, cl
   }
   const trial = path.join(scratch, `${voiceSpeed}-${speaker.id}-${clip.key}.wav`);
   let best: { pcm: Int16Array; score: number; speed: number } | null = null;
-  let fallback: Int16Array | null = null;
   const delivery = deliveryOf(voiceSpeed);
   for (let speed = delivery.speed; best === null && speed >= SLOWEST_RETRY_SPEED - 0.001; speed -= RETRY_SPEED_STEP) {
     const tries = speed === delivery.speed ? takes + EXTRA_TAKES : takes;
     for (let take = 1; take <= tries; take++) {
       if (best && take > takes) break;
-      const pcm = withShortHiss(withoutTrailingBreath(trimSilence(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, { ...delivery, speed }))));
-      fallback ??= pcm;
+      const pcm = cleanedTake(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, { ...delivery, speed }));
       await writeFile(trial, wav(pcm));
       if (comparable(await transcribe(trial)) !== comparable(clip.heard)) continue;
       const score = takeScore(pcm);
       if (best === null || score < best.score) best = { pcm, score, speed };
     }
   }
-  if (kept !== null && (best === null || best.score >= kept.score)) return;
-  const final = speaker.cloned ? levelled(best?.pcm ?? fallback!) : (best?.pcm ?? fallback!);
+  if (best === null) {
+    console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.wav NO TAKE READ BACK RIGHT, left as it was`);
+    process.exitCode = 1;
+    return;
+  }
+  if (kept !== null && best.score >= kept.score) return;
+  const final = finishedFor(speaker, best.pcm);
   await writeFile(file, wav(final));
   const ending = endingSemitones(final);
-  console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.wav ${((final.length / SAMPLE_RATE) * 1000).toFixed(0)} ms, ends ${ending === null ? "unvoiced" : `${ending.toFixed(1)} st`}${best === null ? ", NO TAKE READ BACK RIGHT" : best.speed < delivery.speed - 0.001 ? `, at ${best.speed.toFixed(1)}x` : ""}`);
+  console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.wav ${((final.length / SAMPLE_RATE) * 1000).toFixed(0)} ms, ends ${ending === null ? "unvoiced" : `${ending.toFixed(1)} st`}${best.speed < delivery.speed - 0.001 ? `, at ${best.speed.toFixed(1)}x` : ""}`);
 });
 await rm(scratch, { recursive: true, force: true });
 

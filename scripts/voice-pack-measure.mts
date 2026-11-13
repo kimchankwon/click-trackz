@@ -1,4 +1,4 @@
-import { SAMPLE_RATE } from "./voice-pack-audio.mts";
+import { SAMPLE_RATE, trimSilence } from "./voice-pack-audio.mts";
 
 const FRAME = Math.round(SAMPLE_RATE * 0.03);
 const HOP = Math.round(SAMPLE_RATE * 0.01);
@@ -166,3 +166,7 @@ export function withShortHiss(pcm: Int16Array): Int16Array {
   }
   return kept;
 }
+
+export const cleanedTake = (raw: Int16Array) => withShortHiss(withoutTrailingBreath(trimSilence(raw)));
+
+export const finishedFor = (speaker: { cloned?: boolean }, take: Int16Array) => (speaker.cloned ? levelled(take) : take);

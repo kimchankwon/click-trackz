@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { synthesize, transcribe, trimSilence, wav } from "./voice-pack-audio.mts";
+import { synthesize, transcribe, wav } from "./voice-pack-audio.mts";
+import { cleanedTake, finishedFor } from "./voice-pack-measure.mts";
 import { clips, deliveryOf, voiceIdFor, numberWords, speakers, type VoiceSpeedId } from "./voice-pack-clips.mts";
 
 const [dirArg, reportArg, triesArg] = process.argv.slice(2);
@@ -26,7 +27,7 @@ for (const miss of report.filter((row) => !row.match)) {
   let attempt = 0;
   while (attempt < tries) {
     attempt += 1;
-    await writeFile(file, wav(trimSilence(await synthesize(voiceIdFor(speaker, miss.voiceSpeed), clip.text, deliveryOf(miss.voiceSpeed)))));
+    await writeFile(file, wav(finishedFor(speaker, cleanedTake(await synthesize(voiceIdFor(speaker, miss.voiceSpeed), clip.text, deliveryOf(miss.voiceSpeed))))));
     heard = await transcribe(file);
     if (comparable(heard) === comparable(clip.heard)) break;
   }
