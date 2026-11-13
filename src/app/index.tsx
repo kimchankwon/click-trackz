@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { router, useIsFocused } from "expo-router";
+import { Link, router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
 import { forgetGuestHandoff, useClaimGuestHandoff } from "@/auth/guest-handoff";
 import { useSignedInHere } from "@/auth/use-signed-in-here";
+import { AboutPage } from "@/components/about/about-page";
 import { ActionButton } from "@/components/action-button";
 import { primeAudio } from "@/audio/primed-context";
 import { useSpeakerPreview } from "@/audio/use-speaker-preview";
@@ -51,6 +52,16 @@ const homeTabs: readonly TabItem<HomeTab>[] = [
 ];
 
 type Run = (action: () => Promise<unknown>) => void;
+
+function AboutLink() {
+  return (
+    <Link href="/about" testID="about-link" style={styles.aboutLink}>
+      <ThemedText type="smallBold" themeColor="accent">
+        About Click Trackz
+      </ThemedText>
+    </Link>
+  );
+}
 
 function GroupsTab({ run, active }: { run: Run; active: boolean }) {
   const viewer = useQuery(api.users.viewer, {});
@@ -171,12 +182,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
 
       <Card title="Create a Group">
         {isGuest ? (
-          <>
-            <ThemedText type="caption" themeColor="textSecondary">
-              Guests can join Groups. Sign in to start your own.
-            </ThemedText>
-            <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-          </>
+          <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
         ) : usage?.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
           <>
             <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
@@ -217,6 +223,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
         )}
       </Card>
 
+      <AboutLink />
     </>
   );
 }
@@ -331,6 +338,8 @@ export default function HomeScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invite] = useState(readPendingJoin);
+  const { start } = useLocalSearchParams<{ start?: string }>();
+  const [signingIn, setSigningIn] = useState(start === "1");
 
   const run = useCallback((action: () => Promise<unknown>) => {
     setBusy(true);
@@ -353,6 +362,8 @@ export default function HomeScreen() {
     onGiveUp: explainGoogle,
   });
 
+  const showAbout = !signedIn && !settling && !signingIn && invite === null && error === null && !busy;
+
   const feedback = (
     <>
       {busy ? <ActivityIndicator /> : null}
@@ -366,9 +377,11 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={signedIn ? ["top", "left", "right"] : undefined}>
+      <SafeAreaView style={styles.safeArea} edges={signedIn ? ["top", "left", "right"] : showAbout ? [] : undefined}>
         {signedIn ? (
           <SignedInHome run={run} footer={feedback} />
+        ) : showAbout ? (
+          <AboutPage signedIn={false} onGetStarted={() => setSigningIn(true)} />
         ) : (
           <ScrollView contentContainerStyle={[styles.content, styles.welcome]} keyboardShouldPersistTaps="handled">
             {settling ? (
@@ -387,14 +400,12 @@ export default function HomeScreen() {
                 <View style={styles.signInButtons}>
                   <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
                   <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-                  <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
-                    Guests can join a Group. Sign in with Google to create one.
-                  </ThemedText>
                   {invite !== null ? (
                     <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
                       You have an invite to join a Group. Continue as a guest or sign in, then add your name.
                     </ThemedText>
                   ) : null}
+                  <AboutLink />
                 </View>
               </>
             )}
@@ -420,7 +431,6 @@ const styles = StyleSheet.create({
   pane: { gap: Spacing.four },
   dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
   welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
-  helper: { maxWidth: 300, alignSelf: "center" },
   brand: { alignItems: "center", gap: Spacing.three },
   logo: { marginBottom: Spacing.two },
   signInButtons: { gap: Spacing.three },
@@ -431,4 +441,5 @@ const styles = StyleSheet.create({
   subsection: { gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
+  aboutLink: { alignSelf: "center", paddingVertical: Spacing.two },
 });
