@@ -21,6 +21,7 @@ import { AccentPicker } from "@/components/ui/accent-picker";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
+import { LogoMark } from "@/components/ui/logo-mark";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { Connecting } from "@/components/ui/connecting";
 import { TabPager } from "@/components/ui/tab-pager";
@@ -377,7 +378,7 @@ export default function HomeScreen() {
               <>
                 <View style={styles.brand}>
                   <View style={[styles.logo, { backgroundColor: theme.accent }]}>
-                    <Icon name="pulse" size={40} color="onAccent" />
+                    <LogoMark size={46} />
                   </View>
                   <ThemedText type="title" role="heading" style={styles.centered}>
                     Click Trackz
