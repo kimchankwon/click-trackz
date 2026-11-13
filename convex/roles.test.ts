@@ -79,6 +79,74 @@ describe("Role permissions", () => {
     expect(await guest.client.query(api.songs.get, { songId })).toMatchObject({ title: "Pure" });
     expect(await guest.client.query(api.setlists.currentSetlistId, { groupId })).toBe(setlistId);
   });
+
+  it("lets a Guest be a Playback Manager or Song Manager, with the Songs and Setlists that come with it", async () => {
+    const { admin, guest, groupId, songId } = await bandWithRoles();
+    await admin.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "playbackManager" });
+    expect((await guest.client.query(api.songs.list, { groupId })).map((song) => song.title)).toEqual(["Pure"]);
+    expect((await guest.client.query(api.setlists.list, { groupId })).map((setlist) => setlist.name)).toEqual(["Sunday"]);
+    await guest.client.mutation(api.playback.start, { groupId, songId });
+    await expect(guest.client.mutation(api.songs.updateSong, { songId, title: "x" })).rejects.toThrow(/Only Song Managers and above/);
+    await admin.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "songManager" });
+    await guest.client.mutation(api.songs.updateSong, { songId, title: "Pure (live)" });
+    await expect(admin.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "groupManager" })).rejects.toThrow(
+      /Guests must sign in with Google before they can be Group Managers/,
+    );
+    const members = await admin.client.query(api.groups.members, { groupId });
+    expect(members.find((m) => m.userId === guest.userId)).toMatchObject({ role: "songManager", isGuest: true });
+  });
+});
+
+describe("Join Role", () => {
+  async function band() {
+    const { t, as } = await setup();
+    const admin = await as({ email: "admin@example.com" });
+    const { groupId, joinCode } = await admin.client.mutation(api.groups.createGroup, { name: "Band", displayName: "A" });
+    const join = async (profile: { email?: string; isAnonymous?: boolean }, name: string) => {
+      const person = await as(profile);
+      await person.client.mutation(api.groups.joinGroup, { joinCode, displayName: name });
+      return person;
+    };
+    const roleOf = async (userId: string) => (await admin.client.query(api.groups.members, { groupId })).find((m) => m.userId === userId)?.role;
+    return { t, admin, groupId, join, roleOf };
+  }
+
+  it("starts everyone who joins as a Member until a Group Manager picks another Role", async () => {
+    const { admin, groupId, join, roleOf } = await band();
+    expect((await admin.client.query(api.groups.myGroups, {}))[0]).toMatchObject({ joinRole: "member" });
+    const early = await join({ email: "early@example.com" }, "Early");
+    expect(await roleOf(early.userId)).toBe("member");
+
+    await admin.client.mutation(api.groups.setJoinRole, { groupId, joinRole: "songManager" });
+    const signedIn = await join({ email: "late@example.com" }, "Late");
+    const guest = await join({ isAnonymous: true }, "Guest");
+    expect(await roleOf(signedIn.userId)).toBe("songManager");
+    expect(await roleOf(guest.userId)).toBe("songManager");
+    expect(await roleOf(early.userId)).toBe("member");
+    expect((await admin.client.query(api.groups.myGroups, {}))[0]).toMatchObject({ joinRole: "songManager" });
+    expect((await guest.client.query(api.groups.myGroups, {}))[0]).toMatchObject({ joinRole: null });
+  });
+
+  it("keeps a Member's Role when they join again with the code", async () => {
+    const { admin, groupId, join, roleOf } = await band();
+    const person = await join({ email: "p@example.com" }, "P");
+    await admin.client.mutation(api.groups.setJoinRole, { groupId, joinRole: "playbackManager" });
+    const { joinCode } = (await admin.client.query(api.groups.myGroups, {}))[0];
+    await person.client.mutation(api.groups.joinGroup, { joinCode: joinCode!, displayName: "P" });
+    expect(await roleOf(person.userId)).toBe("member");
+  });
+
+  it("can be set by Group Managers and the Admin only, and not for My Library", async () => {
+    const { admin, groupId, join } = await band();
+    const manager = await join({ email: "gm@example.com" }, "GM");
+    const songs = await join({ email: "sm@example.com" }, "SM");
+    await admin.client.mutation(api.groups.setRole, { groupId, userId: manager.userId, role: "groupManager" });
+    await admin.client.mutation(api.groups.setRole, { groupId, userId: songs.userId, role: "songManager" });
+    await manager.client.mutation(api.groups.setJoinRole, { groupId, joinRole: "playbackManager" });
+    await expect(songs.client.mutation(api.groups.setJoinRole, { groupId, joinRole: "member" })).rejects.toThrow(/Only Group Managers and above/);
+    const libraryId = await admin.client.mutation(api.groups.openOffline, {});
+    await expect(admin.client.mutation(api.groups.setJoinRole, { groupId: libraryId, joinRole: "songManager" })).rejects.toThrow(/No one can join My Library/);
+  });
 });
 
 describe("Copying a Song to another Group", () => {

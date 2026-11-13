@@ -26,6 +26,8 @@ export const roleValidator = v.union(
   v.literal("member"),
 );
 
+export const joinRoleValidator = v.union(v.literal("member"), v.literal("playbackManager"), v.literal("songManager"));
+
 export const paidPlanValidator = v.union(v.literal("plus"), v.literal("pro"));
 
 export default defineSchema({
@@ -51,6 +53,7 @@ export default defineSchema({
     offline: v.optional(v.boolean()),
     copyBase: v.optional(v.string()),
     libraryRevision: v.optional(v.number()),
+    joinRole: v.optional(joinRoleValidator),
   })
     .index("by_join_code", ["joinCode"])
     .index("by_created_by", ["createdBy"]),
@@ -106,6 +109,13 @@ export default defineSchema({
     setlistIndex: v.optional(v.number()),
     advanceJob: v.optional(v.id("_scheduled_functions")),
   }).index("by_group", ["groupId"]),
+  guestHandoffs: defineTable({
+    guestId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_guest", ["guestId"]),
   subscriptions: defineTable({
     userId: v.id("users"),
     plan: v.union(paidPlanValidator, v.null()),

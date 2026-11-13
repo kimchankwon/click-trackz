@@ -9,11 +9,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field } from "@/components/ui/field";
 import { SignalBars } from "@/components/ui/signal-bars";
+import { Dropdown } from "@/components/ui/dropdown";
 import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { assignableRoles, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES, type Role } from "@/lib/roles";
+import { assignableRoles, canManageGroup, canSteerPlayback, guestCanHold, outranks, ROLE_NAMES, type Role } from "@/lib/roles";
 import { timeAgo } from "@/lib/time-ago";
 import { lastSeenOf, memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
@@ -119,7 +120,7 @@ export function MembersCard({
   return (
     <Card title={`Members (${list.length}, ${onlineCount} online)`}>
       {list.map((member, index) => {
-        const roleName = member.isGuest ? "Guest" : ROLE_NAMES[member.role];
+        const roleName = !member.isGuest ? ROLE_NAMES[member.role] : member.role === "member" ? "Guest" : `Guest · ${ROLE_NAMES[member.role]}`;
         const isYou = member.userId === viewer?.id;
         const canChange = managing && !isYou && outranks(myRole, member.role);
         const editingName = nameEdit !== null && nameEdit.userId === member.userId;
@@ -214,20 +215,17 @@ export function MembersCard({
             ) : null}
             {canChange && !editingName ? (
               <View style={styles.actions}>
-                {member.isGuest
-                  ? null
-                  : roleChoices
-                      .filter((choice) => choice !== member.role)
-                      .map((choice) => (
-                        <ActionButton
-                          key={choice}
-                          tiny
-                          variant="pill"
-                          label={`Make ${ROLE_NAMES[choice]}`}
-                          testID={`make-${choice}-${member.displayName}`}
-                          onPress={() => ask({ kind: "role", userId: member.userId, name: member.displayName, role: choice })}
-                        />
-                      ))}
+                <View style={styles.roleDropdown}>
+                  <Dropdown
+                    label={`${member.displayName}'s Role`}
+                    testID={`role-${member.displayName}`}
+                    value={member.role}
+                    options={roleChoices
+                      .filter((choice) => choice === member.role || !member.isGuest || guestCanHold(choice))
+                      .map((choice) => ({ value: choice, label: ROLE_NAMES[choice] }))}
+                    onChange={(choice) => ask({ kind: "role", userId: member.userId, name: member.displayName, role: choice })}
+                  />
+                </View>
                 <ActionButton
                   tiny
                   variant="pill"
@@ -274,6 +272,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 60 },
   nameEditor: { gap: Spacing.two, paddingLeft: 40 + Spacing.three },
   nameButtons: { flexDirection: "row", justifyContent: "flex-end", gap: Spacing.two },
+  roleDropdown: { flexBasis: "100%" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, paddingLeft: 40 + Spacing.three },
   separator: { position: "absolute", top: -Spacing.two, left: 56, right: 0, height: StyleSheet.hairlineWidth },
   name: { flex: 1, minWidth: 0 },

@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { requireMember, requireRole, requireRoleInUnlocked, requireSignedInMember } from "./access";
+import { requireMember, requireRole, requireRoleInUnlocked, requireLibraryReader } from "./access";
 import { touchLibrary } from "./library";
 import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
@@ -41,7 +41,7 @@ export const createSong = mutation({
 export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireSignedInMember(ctx, groupId);
+    await requireLibraryReader(ctx, groupId);
     const songs = await ctx.db
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))

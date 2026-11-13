@@ -4,7 +4,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { groupLocked } from "./plans";
-import { atLeast, ROLE_NAMES, type Role } from "../src/lib/roles";
+import { atLeast, ROLE_NAMES, seesSongLibrary, type Role } from "../src/lib/roles";
 
 export async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
   const userId = await getAuthUserId(ctx);
@@ -29,9 +29,9 @@ export async function requireMember(ctx: QueryCtx, groupId: Id<"groups">) {
   return { user, membership };
 }
 
-export async function requireSignedInMember(ctx: QueryCtx, groupId: Id<"groups">) {
+export async function requireLibraryReader(ctx: QueryCtx, groupId: Id<"groups">) {
   const access = await requireMember(ctx, groupId);
-  if (!isGuest(access.user)) return access;
+  if (seesSongLibrary(access.membership.role, isGuest(access.user))) return access;
   const group = await ctx.db.get(groupId);
   if (group?.offline === true && group.createdBy === access.user._id) return access;
   throw new ConvexError("Sign in with Google to see the Group's Songs and Setlists");

@@ -19,6 +19,7 @@ import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -44,6 +45,7 @@ export default function SetlistScreen() {
   const setlistId = params.setlistId as Id<"setlists">;
   const setlist = useQuery(api.setlists.get, { setlistId });
   const songs = useQuery(api.songs.list, { groupId });
+  useGuestStaysWhileEditing(groupId);
   if (!setlist || !songs) return <ThemedView style={styles.container} />;
   return (
     <SetlistForm

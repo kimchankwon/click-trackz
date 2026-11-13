@@ -17,6 +17,7 @@ const home: StoredHome = {
       guest: false,
       owned: true,
       joinCode: "ABCDEF",
+      joinRole: "member",
     },
   ],
 };

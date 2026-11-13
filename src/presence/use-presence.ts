@@ -3,6 +3,7 @@ import { useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
+import { useAppActive } from "@/lib/use-app-active";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
@@ -75,6 +76,22 @@ export function useStillHere(groupId: Id<"groups">, enabled: boolean) {
     const timer = setInterval(() => void stillHere({ groupId }).catch(() => undefined), STILL_HERE_MS);
     return () => clearInterval(timer);
   }, [groupId, enabled, stillHere]);
+}
+
+export function useGuestStaysWhileEditing(groupId: Id<"groups">) {
+  const viewer = useQuery(api.users.viewer, {});
+  const stillHere = useMutation(api.presence.stillHere);
+  const focused = useIsFocused();
+  const active = useAppActive();
+  const marking = viewer?.isAnonymous === true && focused && active;
+
+  useEffect(() => {
+    if (!marking) return;
+    const mark = () => void stillHere({ groupId }).catch(() => undefined);
+    mark();
+    const timer = setInterval(mark, STILL_HERE_MS);
+    return () => clearInterval(timer);
+  }, [groupId, marking, stillHere]);
 }
 
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null, shared = true) {

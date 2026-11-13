@@ -112,7 +112,7 @@ describe("Groups", () => {
     const offlineId = await guest.client.mutation(api.groups.openOffline, {});
     expect(await guest.client.mutation(api.groups.openOffline, {})).toBe(offlineId);
     expect(await guest.client.query(api.groups.myGroups, {})).toEqual([
-      { groupId: offlineId, name: "My Library", role: "admin", offline: true, copyBase: null, locked: false, guest: true, owned: true, joinCode: null },
+      { groupId: offlineId, name: "My Library", role: "admin", offline: true, copyBase: null, locked: false, guest: true, owned: true, joinCode: null, joinRole: null },
     ]);
     expect(await guest.client.query(api.groups.members, { groupId: offlineId })).toEqual([
       expect.objectContaining({ displayName: "You", role: "admin" }),
@@ -142,7 +142,8 @@ describe("Groups", () => {
 
     await expect(joanne.client.mutation(api.groups.setRole, { groupId, userId: mia.userId, role: "songManager" })).rejects.toThrow(/Only Group Managers and above/);
     await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: joanne.userId, role: "admin" })).rejects.toThrow(/created the Group can be its Admin/);
-    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "playbackManager" })).rejects.toThrow(/Guests must sign in with Google/);
+    await daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "playbackManager" });
+    await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: guest.userId, role: "groupManager" })).rejects.toThrow(/Guests must sign in with Google/);
     await expect(daniel.client.mutation(api.groups.setRole, { groupId, userId: daniel.userId, role: "member" })).rejects.toThrow(/your own Role/);
 
     await daniel.client.mutation(api.groups.setRole, { groupId, userId: joanne.userId, role: "groupManager" });
@@ -156,7 +157,7 @@ describe("Groups", () => {
       ["Daniel", "admin"],
       ["Joanne", "groupManager"],
       ["Mia", "playbackManager"],
-      ["Minwoo", "member"],
+      ["Minwoo", "playbackManager"],
     ]);
     await guest.client.mutation(api.groups.leaveGroup, { groupId });
     await expect(guest.client.query(api.groups.members, { groupId })).rejects.toThrow(/not in this Group/);
