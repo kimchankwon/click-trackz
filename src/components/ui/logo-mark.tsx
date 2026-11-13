@@ -1,15 +1,22 @@
 import { Image } from "expo-image";
+import type { ImageStyle, StyleProp } from "react-native";
 
-import type { ThemeColor } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+export const LOGO_CORAL = "#FF6A4D";
 
-const svgFor = (color: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round">` +
-  '<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>' +
-  "</svg>";
+const BAR_HEIGHTS = [62, 38, 38, 38] as const;
+const BAR_WIDTH = 10;
+const BAR_STEP = 17.5;
+const FIRST_BAR_X = 18.75;
 
-export function LogoMark({ size = 40, color = "onAccent" }: { size?: number; color?: ThemeColor }) {
-  const theme = useTheme();
-  const source = { uri: `data:image/svg+xml;utf8,${encodeURIComponent(svgFor(theme[color]))}` };
-  return <Image source={source} style={{ width: size, height: size }} contentFit="contain" accessible={false} />;
+const bars = BAR_HEIGHTS.map(
+  (height, index) =>
+    `<rect x="${FIRST_BAR_X + index * BAR_STEP}" y="${50 - height / 2}" width="${BAR_WIDTH}" height="${height}" rx="${BAR_WIDTH / 2}" fill="${index === 0 ? "#FFFFFF" : "#000000"}"/>`,
+).join("");
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22.5" fill="${LOGO_CORAL}"/>${bars}</svg>`;
+
+const source = { uri: `data:image/svg+xml;base64,${btoa(svg)}` };
+
+export function LogoMark({ size = 80, style }: { size?: number; style?: StyleProp<ImageStyle> }) {
+  return <Image source={source} style={[{ width: size, height: size }, style]} contentFit="contain" accessible={false} />;
 }
