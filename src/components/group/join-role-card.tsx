@@ -3,13 +3,11 @@ import { useState } from "react";
 
 import { ThemedText } from "@/components/themed-text";
 import { Card } from "@/components/group/card";
-import { Segmented } from "@/components/ui/segmented";
+import { Dropdown } from "@/components/ui/dropdown";
 import { errorText } from "@/lib/error-text";
-import { JOIN_ROLES, type JoinRole } from "@/lib/roles";
+import { JOIN_ROLES, ROLE_NAMES, type JoinRole } from "@/lib/roles";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-
-const SHORT_NAMES: Record<JoinRole, string> = { member: "Member", playbackManager: "Playback", songManager: "Song" };
 
 const EXPLAINED: Record<JoinRole, string> = {
   member: "People who join with the code start as Members. Give them a Role from the list above.",
@@ -32,10 +30,10 @@ export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joi
   };
   return (
     <Card title="New Members join as">
-      <Segmented
+      <Dropdown
         label="New Members join as"
         testID="join-role"
-        options={JOIN_ROLES.map((role) => ({ value: role, label: SHORT_NAMES[role] }))}
+        options={JOIN_ROLES.map((role) => ({ value: role, label: ROLE_NAMES[role] }))}
         value={shown}
         onChange={choose}
         disabled={pending !== null}
