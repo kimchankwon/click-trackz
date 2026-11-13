@@ -182,12 +182,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
 
       <Card title="Create a Group">
         {isGuest ? (
-          <>
-            <ThemedText type="caption" themeColor="textSecondary">
-              Guests can join Groups. Sign in to start your own.
-            </ThemedText>
-            <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-          </>
+          <ActionButton variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
         ) : usage?.enforced && (usage.plan === "free" || !canCreateGroup(usage.plan, usage.groups)) ? (
           <>
             <ThemedText type="caption" themeColor="textSecondary" testID="create-needs-plan">
@@ -405,9 +400,6 @@ export default function HomeScreen() {
                 <View style={styles.signInButtons}>
                   <ActionButton large accent label="Continue as guest" testID="guest-sign-in" onPress={() => run(() => signIn("anonymous"))} />
                   <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
-                  <ThemedText type="small" themeColor="textSecondary" style={[styles.centered, styles.helper]}>
-                    Guests can join a Group. Sign in with Google to create one.
-                  </ThemedText>
                   {invite !== null ? (
                     <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
                       You have an invite to join a Group. Continue as a guest or sign in, then add your name.
@@ -439,7 +431,6 @@ const styles = StyleSheet.create({
   pane: { gap: Spacing.four },
   dock: { paddingHorizontal: Spacing.four, borderTopWidth: StyleSheet.hairlineWidth },
   welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
-  helper: { maxWidth: 300, alignSelf: "center" },
   brand: { alignItems: "center", gap: Spacing.three },
   logo: { marginBottom: Spacing.two },
   signInButtons: { gap: Spacing.three },

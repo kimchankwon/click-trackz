@@ -153,7 +153,6 @@ export function PlayScreenMock({ width = 280 }: { width?: number }) {
             );
           })}
         </View>
-        <Text style={[styles.hint, { fontSize: 11 * s }]}>{live ? "Tap a Section to jump to it" : "Tap a Section to start from it"}</Text>
         <View style={[styles.transport, { gap: 10 * s, marginTop: "auto" }]}>
           <SongStep step={-1} frame={frame} size={44 * s} />
           <Pressable
@@ -211,7 +210,6 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center" },
   chip: { alignItems: "center", justifyContent: "center", borderWidth: 1 },
   chipText: { fontFamily: Fonts.body, fontWeight: "700" },
-  hint: { fontFamily: Fonts.body, fontWeight: "500", color: screen.textTertiary, textAlign: "center" },
   transport: { flexDirection: "row", alignItems: "center" },
   round: { alignItems: "center", justifyContent: "center", backgroundColor: screen.backgroundElement },
   stop: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
