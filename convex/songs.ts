@@ -3,6 +3,8 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireMember, requireRole, requireRoleInUnlocked, requireLibraryReader } from "./access";
+import { logActivity } from "./activity";
+import { songChanges } from "../src/activity/changes";
 import { touchLibrary } from "./library";
 import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
@@ -30,10 +32,12 @@ const cleanKey = (key: string | undefined) => {
 export const createSong = mutation({
   args: { groupId: v.id("groups"), title: v.string(), key: v.optional(v.string()) },
   handler: async (ctx, { groupId, title, key }) => {
-    const { group } = await requireRoleInUnlocked(ctx, groupId, "songManager");
+    const { group, membership } = await requireRoleInUnlocked(ctx, groupId, "songManager");
     await requireRoomForSongs(ctx, group, 1);
-    const songId = await ctx.db.insert("songs", { groupId, title: cleanTitle(title), key: cleanKey(key), countIn: true, sections: [] });
+    const cleaned = cleanTitle(title);
+    const songId = await ctx.db.insert("songs", { groupId, title: cleaned, key: cleanKey(key), countIn: true, sections: [] });
     await touchLibrary(ctx, groupId);
+    await logActivity(ctx, membership, "song", `Added the Song ${cleaned}`);
     return songId;
   },
 });
@@ -113,7 +117,7 @@ export const updateSong = mutation({
   handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    await requireRoleInUnlocked(ctx, song.groupId, "songManager");
+    const { membership } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
     if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
     if (cueLeadBars !== undefined && !CUE_LEAD_BARS.some((n) => n === cueLeadBars)) throw new ConvexError("Cues can start one or two bars before a Section");
@@ -126,7 +130,7 @@ export const updateSong = mutation({
       const vocabulary = new Map((await groupVocabulary(ctx, song.groupId)).map((word) => [wordKey(word), word]));
       shaped = shaped.map((section, index) => checkSection(section, index, vocabulary));
     }
-    await ctx.db.patch(songId, {
+    const changes = {
       ...(title !== undefined ? { title: cleanTitle(title) } : {}),
       ...(key !== undefined ? { key: cleanKey(key) } : {}),
       ...(countIn !== undefined ? { countIn } : {}),
@@ -134,8 +138,12 @@ export const updateSong = mutation({
       ...(cueLeadBars !== undefined ? { cueLeadBars } : {}),
       ...(bpm !== undefined ? { bpm } : {}),
       ...(shaped !== undefined ? { sections: shaped } : {}),
-    });
+    };
+    await ctx.db.patch(songId, changes);
     await touchLibrary(ctx, song.groupId);
+    const edited = { ...song, ...changes };
+    const details = songChanges(song, edited);
+    if (details.length > 0) await logActivity(ctx, membership, "song", `Edited ${edited.title}`, details);
   },
 });
 
@@ -154,7 +162,7 @@ export const duplicateSong = mutation({
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
-    const { group } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
+    const { group, membership } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     await requireRoomForSongs(ctx, group, 1);
     const library = await ctx.db
       .query("songs")
@@ -164,6 +172,7 @@ export const duplicateSong = mutation({
     const title = copyTitle(copyBase, library.map((other) => other.title));
     const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: song.groupId, title, copyBase });
     await touchLibrary(ctx, song.groupId);
+    await logActivity(ctx, membership, "song", `Duplicated ${song.title} as ${title}`);
     return { songId: copyId, title };
   },
 });
@@ -174,8 +183,8 @@ export const copyToGroup = mutation({
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
     if (song.groupId === toGroupId) throw new ConvexError("That Song is already in this Group; duplicate it instead");
-    await requireRole(ctx, song.groupId, "songManager");
-    const { group } = await requireRoleInUnlocked(ctx, toGroupId, "songManager");
+    const { membership: fromMembership } = await requireRole(ctx, song.groupId, "songManager");
+    const { group, membership } = await requireRoleInUnlocked(ctx, toGroupId, "songManager");
     await requireRoomForSongs(ctx, group, 1);
     const library = await ctx.db
       .query("songs")
@@ -185,6 +194,9 @@ export const copyToGroup = mutation({
     const title = titles.includes(song.title) ? copyTitle(copyBaseOf(song), titles) : song.title;
     const copyId = await ctx.db.insert("songs", { ...songCopyFields(song), groupId: toGroupId, title });
     await touchLibrary(ctx, toGroupId);
+    const fromGroup = await ctx.db.get(song.groupId);
+    await logActivity(ctx, fromMembership, "song", `Copied ${song.title} to ${group.name}`);
+    await logActivity(ctx, membership, "song", fromGroup?.offline === true ? `Copied ${title} from My Library` : `Copied ${title} from ${fromGroup?.name ?? "another Group"}`);
     return { songId: copyId, title, groupName: group.name };
   },
 });
@@ -194,7 +206,7 @@ export const deleteSong = mutation({
   handler: async (ctx, { songId }) => {
     const song = await ctx.db.get(songId);
     if (song === null) return;
-    await requireRoleInUnlocked(ctx, song.groupId, "songManager");
+    const { membership } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     const setlists = await ctx.db
       .query("setlists")
       .withIndex("by_group", (q) => q.eq("groupId", song.groupId))
@@ -214,5 +226,6 @@ export const deleteSong = mutation({
     if (playback?.songId === songId) await ctx.db.delete(playback._id);
     await ctx.db.delete(songId);
     await touchLibrary(ctx, song.groupId);
+    await logActivity(ctx, membership, "song", `Deleted the Song ${song.title}`);
   },
 });

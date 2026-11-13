@@ -20,6 +20,7 @@ import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
+import { ActivityCard } from "@/components/group/activity-card";
 import { JoinRoleCard } from "@/components/group/join-role-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
@@ -332,6 +333,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [nextStart, setNextStart] = useState<SectionStart | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
   const [tab, setTab] = useState<GroupTab>("play");
+  const [groupTabOpened, setGroupTabOpened] = useState(false);
+  if (tab === "group" && !groupTabOpened) setGroupTabOpened(true);
   const [dockHeight, setDockHeight] = useState(0);
   const [floatHeight, setFloatHeight] = useState(0);
   const pinnedScroll = usePagedPinnedHeader(tab);
@@ -1265,6 +1268,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     <>
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
       {managesGroup && group.joinRole ? <JoinRoleCard groupId={groupId} joinRole={group.joinRole} /> : null}
+      {canSteerPlayback(group.role) ? <ActivityCard groupId={groupId} opened={groupTabOpened} /> : null}
       <View style={styles.leave}>
         {managesGroup ? <RenameGroup groupId={groupId} name={group.name} /> : null}
         {managesGroup ? (

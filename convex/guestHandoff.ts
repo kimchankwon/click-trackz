@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireUser } from "./access";
+import { logActivity } from "./activity";
 import { forgetGuestIfGone } from "./cleanup";
 import { outranks } from "../src/lib/roles";
 
@@ -49,6 +50,7 @@ async function moveMembership(ctx: MutationCtx, guestMembership: Doc<"membership
     .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", guestMembership.userId))
     .collect();
   await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
+  await logActivity(ctx, { groupId, userId, displayName: guestMembership.displayName }, "group", "Signed in with Google, so is no longer a Guest");
   const playbacks = await ctx.db
     .query("playbacks")
     .withIndex("by_group", (q) => q.eq("groupId", groupId))

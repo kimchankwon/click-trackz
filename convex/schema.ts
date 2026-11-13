@@ -28,6 +28,8 @@ export const roleValidator = v.union(
 
 export const joinRoleValidator = v.union(v.literal("member"), v.literal("playbackManager"), v.literal("songManager"));
 
+export const activityKindValidator = v.union(v.literal("playback"), v.literal("song"), v.literal("setlist"), v.literal("group"));
+
 export const paidPlanValidator = v.union(v.literal("plus"), v.literal("pro"));
 
 export default defineSchema({
@@ -109,6 +111,16 @@ export default defineSchema({
     setlistIndex: v.optional(v.number()),
     advanceJob: v.optional(v.id("_scheduled_functions")),
   }).index("by_group", ["groupId"]),
+  activity: defineTable({
+    groupId: v.id("groups"),
+    actorId: v.id("users"),
+    actorName: v.string(),
+    kind: activityKindValidator,
+    summary: v.string(),
+    details: v.optional(v.array(v.string())),
+  })
+    .index("by_group", ["groupId"])
+    .index("by_group_kind", ["groupId", "kind"]),
   guestHandoffs: defineTable({
     guestId: v.id("users"),
     token: v.string(),

@@ -44,6 +44,10 @@ _Avoid_: Default role, starting role
 A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account and kept on their device so it plays with no connection, but no other Members, and its Playback runs only on their device, on the device's own clock.
 _Avoid_: Offline, solo, practice mode, personal Group
 
+**Activity**:
+A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp and Stop, every change to a Song or Setlist and what it changed, and Members joining, leaving, being renamed or given a Role. Playback Managers and above can read it on the Group tab. My Library keeps none.
+_Avoid_: Audit log, history, log
+
 ## Plans
 
 **Plan**:

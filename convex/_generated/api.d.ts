@@ -10,6 +10,7 @@
 
 import type * as accents from "../accents.js";
 import type * as access from "../access.js";
+import type * as activity from "../activity.js";
 import type * as auth from "../auth.js";
 import type * as cleanup from "../cleanup.js";
 import type * as clock from "../clock.js";
@@ -42,6 +43,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   accents: typeof accents;
   access: typeof access;
+  activity: typeof activity;
   auth: typeof auth;
   cleanup: typeof cleanup;
   clock: typeof clock;
