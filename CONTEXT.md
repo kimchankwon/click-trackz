@@ -143,6 +143,10 @@ _Avoid_: Pre-roll, cue offset, warning bars
 One of the built-in voices that reads Voice cues and spoken counts; each Member chooses their own Speaker on their device.
 _Avoid_: Voice, narrator, announcer
 
+**Voice speed**:
+How quickly the chosen Speaker reads Voice cues and spoken counts: Normal, or Faster (the default) for quick tempos. Each Member chooses it with their Speaker.
+_Avoid_: Talk speed, rate
+
 **Voice pack**:
 The built-in recordings of the chosen Speaker that play the Voice cues and spoken counts.
 _Avoid_: Samples, voice, sound bank

@@ -5,14 +5,14 @@ import { accentLevelOf, beatsBetween, longestBeatMs, offbeatsOf, subdivisionOf, 
 
 import { describeAudioError, describeAudioFailure } from "./audio-failure";
 import { preferPlaybackSession, probeAudioSession } from "./audio-session";
-import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId } from "./builtin-voice-clips";
+import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId, type VoiceSpeed } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
-import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker } from "./voice-clips";
+import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker, defaultVoiceSpeed } from "./voice-clips";
 import { MAX_VOICE_LEAD_MS, voiceLeadMs } from "./voice-onset";
 import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
 import { takePrimedContext } from "./primed-context";
@@ -63,8 +63,9 @@ export class CueAudioEngine {
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
   private speaker: SpeakerId = defaultSpeaker;
-  private clipsSpeaker: SpeakerId | null = null;
-  private loadingSpeaker: { speaker: SpeakerId; done: Promise<void> } | null = null;
+  private voiceSpeed: VoiceSpeed = defaultVoiceSpeed;
+  private clipsVoice: { speaker: SpeakerId; voiceSpeed: VoiceSpeed } | null = null;
+  private loadingSpeaker: { speaker: SpeakerId; voiceSpeed: VoiceSpeed; done: Promise<void> } | null = null;
   private clipGeneration = 0;
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
@@ -98,7 +99,8 @@ export class CueAudioEngine {
     return this.context?.state === "running";
   }
 
-  async enable(serverNow: () => number | null, speaker: SpeakerId | null): Promise<boolean> {
+  async enable(serverNow: () => number | null, speaker: SpeakerId | null, voiceSpeed: VoiceSpeed = this.voiceSpeed): Promise<boolean> {
+    this.voiceSpeed = voiceSpeed;
     this.serverNow = serverNow;
     if (this.enabling) return this.enabling;
     const enabling = this.startAudio(speaker).finally(() => {
@@ -216,7 +218,7 @@ export class CueAudioEngine {
   private reloadClips() {
     this.clipGeneration += 1;
     this.clips = new Map();
-    this.clipsSpeaker = null;
+    this.clipsVoice = null;
     this.loadingSpeaker = null;
     this.onsets = new WeakMap();
     this.setSpeaker(this.speaker).catch(() => undefined);
@@ -236,27 +238,28 @@ export class CueAudioEngine {
     };
   }
 
-  async setSpeaker(speaker: SpeakerId) {
+  async setSpeaker(speaker: SpeakerId, voiceSpeed: VoiceSpeed = this.voiceSpeed) {
     this.speaker = speaker;
+    this.voiceSpeed = voiceSpeed;
     const context = this.context;
-    if (context === null || this.clipsSpeaker === speaker) return;
-    if (this.loadingSpeaker?.speaker === speaker) return this.loadingSpeaker.done;
+    if (context === null || (this.clipsVoice?.speaker === speaker && this.clipsVoice.voiceSpeed === voiceSpeed)) return;
+    if (this.loadingSpeaker?.speaker === speaker && this.loadingSpeaker.voiceSpeed === voiceSpeed) return this.loadingSpeaker.done;
     this.clips = new Map();
-    this.clipsSpeaker = null;
+    this.clipsVoice = null;
     const generation = this.clipGeneration;
     const done = (async () => {
       const loaded = new Map<BuiltinClipKey, AudioBuffer>();
       await Promise.all(
         allClipKeys.map(async (key) => {
-          loaded.set(key, await loadClip(context, builtinVoiceClips[speaker][key]));
+          loaded.set(key, await loadClip(context, builtinVoiceClips[voiceSpeed][speaker][key]));
         }),
       );
-      if (this.speaker !== speaker || this.clipGeneration !== generation) return;
+      if (this.speaker !== speaker || this.voiceSpeed !== voiceSpeed || this.clipGeneration !== generation) return;
       this.clips = loaded;
-      this.clipsSpeaker = speaker;
+      this.clipsVoice = { speaker, voiceSpeed };
       this.rescheduleWithClips();
     })();
-    const loading = { speaker, done };
+    const loading = { speaker, voiceSpeed, done };
     this.loadingSpeaker = loading;
     try {
       await done;

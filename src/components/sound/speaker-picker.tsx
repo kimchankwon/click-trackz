@@ -18,5 +18,5 @@ export function SpeakerPicker({ value, onChange }: { value: SpeakerId; onChange:
 
 const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  cell: { flexBasis: "30%", flexGrow: 1 },
+  cell: { flexBasis: "45%", flexGrow: 1 },
 });

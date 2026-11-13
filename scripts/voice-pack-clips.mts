@@ -1,10 +1,16 @@
-export const speakers = [
-  { id: "adam", name: "Adam", voiceId: "pNInz6obpgDQGcFmaJgB" },
-  { id: "alice", name: "Alice", voiceId: "Xb7hH8MSUJpSbSDYk0k2" },
-  { id: "charlie", name: "Charlie", voiceId: "IKne3meq5aSn9XLyUdCD" },
-  { id: "sarah", name: "Sarah", voiceId: "EXAVITQu4vr4xnSDxMaL" },
-  { id: "george", name: "George", voiceId: "JBFqnCBsd6RMkjVDRZzb" },
-  { id: "river", name: "River", voiceId: "SAz9YHcvj6GT2YYXdXww" },
+export type Speaker = { id: string; name: string; voiceId: string; voice: "female" | "male"; cloned?: boolean; normalVoiceId?: string };
+
+export const speakers: Speaker[] = [
+  { id: "alice", name: "Alice", voiceId: "Xb7hH8MSUJpSbSDYk0k2", voice: "female" },
+  { id: "sarah", name: "Sarah", voiceId: "EXAVITQu4vr4xnSDxMaL", voice: "female" },
+  { id: "river", name: "River", voiceId: "SAz9YHcvj6GT2YYXdXww", voice: "female" },
+  { id: "brooke", name: "Brooke Ligertwood", voiceId: "S1q9ObobvxvWQptpVTCY", voice: "female", cloned: true },
+  { id: "josh", name: "Josh Kim", voiceId: "HTcuMsOw3RSsyFQX4e10", voice: "male", cloned: true, normalVoiceId: "kDdd9ze5WSTpbw4OBBqo" },
+  { id: "charlie", name: "Charlie", voiceId: "IKne3meq5aSn9XLyUdCD", voice: "male" },
+  { id: "adam", name: "Adam", voiceId: "pNInz6obpgDQGcFmaJgB", voice: "male" },
+  { id: "george", name: "George", voiceId: "JBFqnCBsd6RMkjVDRZzb", voice: "male" },
+  { id: "aodhan", name: "Aodhan King", voiceId: "PnUSoJmZiZ8lEKcre7RV", voice: "male", cloned: true },
+  { id: "sijin", name: "Sijin Yang", voiceId: "Ml6hRC8LLk4hmcUNRkgk", voice: "male", cloned: true },
 ];
 
 export const sectionTypes = [
@@ -36,3 +42,16 @@ export const apiKey = () => {
   if (!key) throw new Error("ELEVENLABS_API_KEY is not set");
   return key;
 };
+
+export const voiceSpeeds = [
+  { id: "faster", speed: 1.2 },
+  { id: "normal", speed: 1 },
+] as const;
+
+export type VoiceSpeedId = (typeof voiceSpeeds)[number]["id"];
+
+const speedOf = (id: VoiceSpeedId) => voiceSpeeds.find((option) => option.id === id)!.speed;
+
+export const voiceIdFor = (speaker: Speaker, voiceSpeed: VoiceSpeedId) => (voiceSpeed === "normal" ? (speaker.normalVoiceId ?? speaker.voiceId) : speaker.voiceId);
+
+export const deliveryOf = (voiceSpeed: VoiceSpeedId = "faster") => ({ speed: speedOf(voiceSpeed) });

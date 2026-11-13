@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
-import type { SpeakerId } from "./builtin-voice-clips";
+import type { SpeakerId, VoiceSpeed } from "./builtin-voice-clips";
 import { CueAudioEngine } from "./engine";
 
 const noClock = () => null;
@@ -24,16 +24,16 @@ export function useSpeakerPreview(active: boolean, volume: number) {
   );
 
   return useCallback(
-    (speaker: SpeakerId) => {
+    (speaker: SpeakerId, voiceSpeed: VoiceSpeed) => {
       if (!engine.current) engine.current = new CueAudioEngine();
       const current = engine.current;
       const tap = ++latestTap.current;
       const stale = () => engine.current !== current || latestTap.current !== tap;
       current.setVolumes({ click: 0, voice: volume });
-      void (current.enabled ? current.wake() : current.enable(noClock, speaker))
+      void (current.enabled ? current.wake() : current.enable(noClock, speaker, voiceSpeed))
         .then(async (running) => {
           if (!running || stale()) return;
-          await current.setSpeaker(speaker);
+          await current.setSpeaker(speaker, voiceSpeed);
           if (!stale()) current.preview("chorus");
         })
         .catch(() => undefined);

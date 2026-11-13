@@ -7,7 +7,7 @@ import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
-import type { SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
@@ -324,7 +324,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [soundProblem, setSoundProblem] = useState<string | null>(null);
   const { sound, update: updateSound, saveError: soundSaveError } = useSoundSettings();
-  const { speaker, clickVolume, voiceVolume } = sound;
+  const { speaker, voiceSpeed, clickVolume, voiceVolume } = sound;
   const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
@@ -416,8 +416,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   useEffect(() => {
     if (!soundOn) return;
-    engine.current?.setSpeaker(speaker).catch((e: unknown) => showToast(errorText(e), "error"));
-  }, [speaker, soundOn, showToast]);
+    engine.current?.setSpeaker(speaker, voiceSpeed).catch((e: unknown) => showToast(errorText(e), "error"));
+  }, [speaker, voiceSpeed, soundOn, showToast]);
 
 
   useEffect(
@@ -435,7 +435,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     let cancelled = false;
     if (!engine.current) engine.current = new CueAudioEngine();
     engine.current
-      .enable(playNow, speaker)
+      .enable(playNow, speaker, voiceSpeed)
       .then((running) => {
         if (cancelled) return;
         setSoundOn(running);
@@ -629,22 +629,22 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     run(async () => {
       if (!engine.current) engine.current = new CueAudioEngine();
       const current = engine.current;
-      const running = await (current.enabled ? current.wake() : current.enable(playNow, speaker)).catch((error: unknown) => {
+      const running = await (current.enabled ? current.wake() : current.enable(playNow, speaker, voiceSpeed)).catch((error: unknown) => {
         setSoundProblem(describeAudioError(error));
         throw error;
       });
       if (engine.current !== current) return;
       setSoundOn(running);
       setSoundProblem(running ? null : current.failure);
-      if (running) await current.setSpeaker(speaker);
+      if (running) await current.setSpeaker(speaker, voiceSpeed);
       if (!running) throw new Error("This device blocked sound. Check it is not on silent, then tap Enable again.");
     });
 
-  const previewSpeaker = (next: SpeakerId) => {
+  const previewSpeaker = (next: SpeakerId, nextSpeed: VoiceSpeed) => {
     const current = engine.current;
     if (!current?.enabled) return;
     run(async () => {
-      await current.setSpeaker(next);
+      await current.setSpeaker(next, nextSpeed);
       current.preview("chorus");
     });
   };

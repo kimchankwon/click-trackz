@@ -77,4 +77,13 @@ describe("Sound settings on the account", () => {
     await daniel.client.mutation(api.users.setSound, { sound: { ...sound, clickVolume: 3, voiceVolume: -1 } });
     expect((await daniel.client.query(api.users.viewer, {}))?.sound).toEqual(expect.objectContaining({ clickVolume: 1, voiceVolume: 0 }));
   });
+
+  it("keeps the Voice speed with the Speaker, and accepts sound saved before it existed", async () => {
+    const { as } = await setup();
+    const daniel = await as({ email: "daniel@example.com" });
+    await daniel.client.mutation(api.users.setSound, { sound: { ...sound, voiceSpeed: "normal" } });
+    expect((await daniel.client.query(api.users.viewer, {}))?.sound).toEqual(expect.objectContaining({ speaker: "alice", voiceSpeed: "normal" }));
+    await daniel.client.mutation(api.users.setSound, { sound });
+    expect((await daniel.client.query(api.users.viewer, {}))?.sound?.voiceSpeed).toBeUndefined();
+  });
 });

@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { SpeakerId } from "@/audio/builtin-voice-clips";
-import { defaultSpeaker, isSpeakerId } from "@/audio/voice-clips";
+import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
+import { defaultSpeaker, defaultVoiceSpeed, isSpeakerId, isVoiceSpeed } from "@/audio/voice-clips";
 import { errorText } from "@/lib/error-text";
 import { api } from "../../convex/_generated/api";
 import { defaultSound, type SoundSettings } from "../../convex/sound";
@@ -12,7 +12,7 @@ const SAVE_AFTER_MS = 300;
 
 const isVolume = (value: string): value is string => /^(0(\.\d+)?|1(\.0+)?)$/.test(value);
 
-export type Sound = Omit<SoundSettings, "speaker"> & { speaker: SpeakerId };
+export type Sound = Omit<SoundSettings, "speaker" | "voiceSpeed"> & { speaker: SpeakerId; voiceSpeed: VoiceSpeed };
 
 export function useSoundSettings() {
   const viewer = useQuery(api.users.viewer, {});
@@ -35,7 +35,11 @@ export function useSoundSettings() {
   const profileSound = viewer?.sound ?? null;
   const sound = useMemo<Sound>(() => {
     const shown = draft ?? profileSound ?? { ...defaultSound, clickVolume: Number(deviceClick), voiceVolume: Number(deviceVoice), speaker: deviceSpeaker };
-    return { ...shown, speaker: isSpeakerId(shown.speaker) ? shown.speaker : defaultSpeaker };
+    return {
+      ...shown,
+      speaker: isSpeakerId(shown.speaker) ? shown.speaker : defaultSpeaker,
+      voiceSpeed: shown.voiceSpeed !== undefined && isVoiceSpeed(shown.voiceSpeed) ? shown.voiceSpeed : defaultVoiceSpeed,
+    };
   }, [draft, profileSound, deviceClick, deviceVoice, deviceSpeaker]);
   const canSave = viewer !== undefined && viewer !== null;
 
