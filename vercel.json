@@ -5,5 +5,6 @@
   "buildCommand": "npx convex deploy --cmd 'npx expo export --platform web' --cmd-url-env-var-name EXPO_PUBLIC_CONVEX_URL",
   "outputDirectory": "dist",
   "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ]",
-  "rewrites": [{ "source": "/((?!_expo/|assets/).*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/((?!_expo/|assets/).*)", "destination": "/index.html" }],
+  "headers": [{ "source": "/.well-known/apple-app-site-association", "headers": [{ "key": "Content-Type", "value": "application/json" }] }]
 }

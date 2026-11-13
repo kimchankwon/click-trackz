@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.kimchankwon.cuetracker",
+      "sha256_cert_fingerprints": [
+        "36:F7:D2:4E:82:E3:44:34:A5:D4:E7:88:68:80:55:A4:E3:8C:28:E7:C3:6B:EC:EF:45:44:3A:45:6B:8A:C6:8B",
+        "1B:51:D2:F7:E0:B5:48:11:BC:D3:B0:C7:7A:B8:2D:F4:C0:F8:EF:12:F0:AA:A2:FF:79:AC:AE:9A:D2:1A:5A:60"
+      ]
+    },
+    "relation_extensions": {
+      "delegate_permission/common.handle_all_urls": {
+        "dynamic_app_link_components": [
+          { "/": "/join/*" },
+          { "/": "/group/*" },
+          { "/": "/subscribe*" }
+        ]
+      }
+    }
+  }
+]
