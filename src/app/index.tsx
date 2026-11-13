@@ -21,11 +21,12 @@ import { AccentPicker } from "@/components/ui/accent-picker";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
+import { LogoMark } from "@/components/ui/logo-mark";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { Connecting } from "@/components/ui/connecting";
 import { TabPager } from "@/components/ui/tab-pager";
 import { useDockInset } from "@/components/ui/use-dock-inset";
-import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
@@ -329,7 +330,6 @@ export default function HomeScreen() {
   }, [accountGone, signOut]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const theme = useTheme();
   const [invite] = useState(readPendingJoin);
 
   const run = useCallback((action: () => Promise<unknown>) => {
@@ -376,9 +376,7 @@ export default function HomeScreen() {
             ) : (
               <>
                 <View style={styles.brand}>
-                  <View style={[styles.logo, { backgroundColor: theme.accent }]}>
-                    <Icon name="pulse" size={40} color="onAccent" />
-                  </View>
+                  <LogoMark size={80} style={styles.logo} />
                   <ThemedText type="title" role="heading" style={styles.centered}>
                     Click Trackz
                   </ThemedText>
@@ -424,7 +422,7 @@ const styles = StyleSheet.create({
   welcome: { flexGrow: 1, justifyContent: "center", paddingBottom: "18%", gap: Spacing.five },
   helper: { maxWidth: 300, alignSelf: "center" },
   brand: { alignItems: "center", gap: Spacing.three },
-  logo: { width: 80, height: 80, borderRadius: Radius.lg + 4, alignItems: "center", justifyContent: "center", marginBottom: Spacing.two },
+  logo: { marginBottom: Spacing.two },
   signInButtons: { gap: Spacing.three },
   centered: { textAlign: "center" },
   pageHead: { gap: Spacing.one },
