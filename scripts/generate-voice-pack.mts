@@ -18,7 +18,7 @@ const speedArg = option("speed");
 const chosenSpeeds = voiceSpeeds.filter((option) => speedArg === undefined || option.id === speedArg).map((option) => option.id as VoiceSpeedId);
 const EXTRA_TAKES = 5;
 const RETRY_SPEED_STEP = 0.1;
-const SLOWEST_RETRY_SPEED = 1;
+const MOST_SLOWED_BY = 0.1;
 const RISING_RETAKE_SEMITONES = 3;
 
 const exists = (file: string) => access(file).then(() => true, () => false);
@@ -47,7 +47,8 @@ await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, cl
   const trial = path.join(scratch, `${voiceSpeed}-${speaker.id}-${clip.key}.wav`);
   let best: { pcm: Int16Array; score: number; speed: number } | null = null;
   const delivery = deliveryOf(voiceSpeed);
-  for (let speed = delivery.speed; best === null && speed >= SLOWEST_RETRY_SPEED - 0.001; speed -= RETRY_SPEED_STEP) {
+  const slowest = Math.max(1, delivery.speed - MOST_SLOWED_BY);
+  for (let speed = delivery.speed; best === null && speed >= slowest - 0.001; speed -= RETRY_SPEED_STEP) {
     const tries = speed === delivery.speed ? takes + EXTRA_TAKES : takes;
     for (let take = 1; take <= tries; take++) {
       if (best && take > takes) break;
@@ -71,7 +72,20 @@ await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, cl
 });
 await rm(scratch, { recursive: true, force: true });
 
-if (writesAppClips) {
+const missing = writesAppClips
+  ? (
+      await Promise.all(
+        voiceSpeeds.flatMap(({ id: voiceSpeed }) =>
+          speakers.flatMap((speaker) => clips.map(async (clip) => ((await exists(path.join(outRoot, voiceSpeed, speaker.id, `${clip.key}.wav`))) ? null : `${voiceSpeed}/${speaker.id}/${clip.key}.wav`))),
+        ),
+      )
+    ).filter((file) => file !== null)
+  : [];
+if (missing.length > 0) {
+  console.log(`Left src/audio/builtin-voice-clips.ts as it was: ${missing.length === 1 ? "1 clip is" : `${missing.length} clips are`} missing, such as ${missing.slice(0, 5).join(", ")}`);
+  process.exitCode = 1;
+}
+if (writesAppClips && missing.length === 0) {
   const manifest = [
     "export const speakers = [",
     ...speakers.map((speaker) => `  { id: "${speaker.id}", name: "${speaker.name}", voice: "${speaker.voice}" },`),

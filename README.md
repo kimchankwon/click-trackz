@@ -113,14 +113,20 @@ It adds the 15 Songs with their keys, leaders and a suggested tempo (Sections st
 
 ## Voice cue recordings
 
-The built-in Voice cue clips in `assets/voice/<speaker>/` (six Speakers: Adam, Alice, Charlie, Sarah, George, River) come from [ElevenLabs](https://elevenlabs.io) text-to-speech at speed 1.2. Every script needs `ELEVENLABS_API_KEY` in `.env.tts.local` and stays within the plan's three concurrent requests.
+The built-in Voice cue clips are in `assets/voice/<speed>/<speaker>/`, one set per Voice speed: `faster` at 1.2x and `normal` at 1.0x. They come from [ElevenLabs](https://elevenlabs.io) text-to-speech, one word or phrase per request. There are ten Speakers. Josh Kim, Sijin Yang, Aodhan King and Brooke Ligertwood are instant voice clones made with their permission, and Josh's Normal set uses a second clone (`normalVoiceId`). Every script needs `ELEVENLABS_API_KEY` in `.env.tts.local` and stays within the plan's three concurrent requests.
 
-- `npm run voice-pack` generates only the clips that are missing. Pass a folder to write a full set elsewhere, and `--replace` to regenerate clips that exist.
+- `npm run voice-pack` generates only the clips that are missing, then rewrites `src/audio/builtin-voice-clips.ts`.
+  - Pass a folder to write elsewhere, and `--replace` to regenerate clips that exist.
+  - `--speed=faster|normal`, `--only=<speaker>,...` and `--takes=<n>` narrow a run.
+  - `--retake-rising` re-records existing clips whose ending rises.
+- For each clip it keeps the best of several takes that read back right. A take loses points for rising like a question, dropping off sharply, stopping abruptly, or hissing for long on a final "s".
+- If no take reads back right, it tries again up to 0.1x slower, so a Faster clip is never slower than 1.1x and Normal never slows. If that still fails, the clip is left as it was, the run says which clip, and it exits with an error. It leaves the manifest unchanged while any clip is missing.
 - `node --env-file=.env.tts.local scripts/check-voice-pack.mts [folder] [report.json]` transcribes every clip with speech-to-text, padded with half a second of silence so short words are not dropped, and lists any that do not read back as written.
-- `scripts/reroll-voice-clips.mts <folder> <report.json>` regenerates the clips a report lists until they read back right, and `scripts/shorten-voice-clips.mts <folder> <takes> <speaker/key>...` keeps the shortest correct take.
+- `scripts/reroll-voice-clips.mts <folder> <report.json>` regenerates the clips a report lists until they read back right.
+- `scripts/shorten-voice-clips.mts <folder> <takes> <speed/speaker/key>...` keeps the shortest correct take.
 - `scripts/try-voice-spellings.mts <folder> <word> <spelling>...` compares spellings across all Speakers. Outro is spoken from "Outtro", the shortest spelling every Speaker read back correctly.
 
-Clips start 4 ms before the first audible sample and end 20 ms after the last sound above 3% of their peak, with a 15 ms fade. The app lines up each clip's measured onset 20 ms after its beat, and each device can move that sooner or later with its Voice cue offset.
+Clips start 4 ms before the first audible sample and end 20 ms after the last sound above 3% of their peak, with a 15 ms fade. New takes also lose any breath after the word, keeping 0.1 s after the speech, and a final "s" is kept to 0.18 s. Cloned Speakers are levelled to the others' loudness. The measurements are in `scripts/voice-pack-measure.mts`. The app lines up each clip's measured onset 20 ms after its beat, and each device can move that sooner or later with its Voice cue offset.
 
 ## Docs
 
