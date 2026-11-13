@@ -347,7 +347,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   usePreventRemove(holdsBack, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
   const navigation = useNavigation();
   useEffect(() => {
-    navigation.getParent()?.setOptions({ gestureEnabled: !holdsBack });
+    const parent = navigation.getParent();
+    parent?.setOptions({ gestureEnabled: !holdsBack });
+    return () => parent?.setOptions({ gestureEnabled: true });
   }, [navigation, holdsBack]);
   const tabs = useMemo(
     () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
