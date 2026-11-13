@@ -105,6 +105,19 @@ describe("Activity", () => {
     expect(songRows).toHaveLength(3);
   });
 
+  it("reads a Song saved before Song tempo the way the editor does", async () => {
+    const { t, admin, songId, latest } = await setupGroup();
+    const sections = [
+      { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 72 },
+      { sectionType: "Chorus", bars: 8, beatsPerBar: 4, bpm: 72 },
+      { sectionType: "Bridge", bars: 4, beatsPerBar: 4, bpm: 80 },
+    ];
+    await t.run((ctx) => ctx.db.patch(songId, { bpm: undefined, sections }));
+    const editorSections = sections.map((section) => ({ ...section, ownTempo: section.bpm !== 72 }));
+    await admin.client.mutation(api.songs.updateSong, { songId, title: "Demo B", bpm: 72, sections: editorSections });
+    expect((await latest(admin.client, "song"))[0]).toMatchObject({ summary: "Edited Demo B", details: ["Title: Demo → Demo B"] });
+  });
+
   it("records Songs duplicated, copied and deleted", async () => {
     const { admin, groupId, songId, summaries } = await setupGroup();
     const { groupId: otherId } = await admin.client.mutation(api.groups.createGroup, { name: "Choir", displayName: "Avery" });
@@ -134,6 +147,19 @@ describe("Activity", () => {
       "Added the Setlist Sunday",
     ]);
     expect((await latest(admin.client, "setlist"))[3].details).toEqual(["Added Demo as number 1"]);
+  });
+
+  it("records the Setlists a deleted Song leaves", async () => {
+    const { admin, groupId, songId, latest } = await setupGroup();
+    const setlistId = await admin.client.mutation(api.setlists.createSetlist, { groupId, name: "Sunday" });
+    await admin.client.mutation(api.setlists.save, { setlistId, revision: 0, name: "Sunday", entries: [{ songId }] });
+    await admin.client.mutation(api.setlists.createSetlist, { groupId, name: "Friday" });
+    await admin.client.mutation(api.songs.deleteSong, { songId });
+    expect((await latest(admin.client, "setlist"))[0]).toMatchObject({
+      summary: "Edited the Setlist Sunday",
+      details: ["Removed Demo, because the Song was deleted"],
+    });
+    expect((await latest(admin.client, "setlist")).map((row) => row.summary)).not.toContain("Edited the Setlist Friday");
   });
 
   it("records Member and Group changes", async () => {

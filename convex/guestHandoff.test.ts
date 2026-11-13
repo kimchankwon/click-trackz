@@ -79,6 +79,14 @@ describe("Guest handoff", () => {
       { userId: admin.userId, name: "Admin", role: "admin" },
       { userId: google.userId, name: "Sammy", role: "playbackManager" },
     ]);
+    const handoffOf = async (groupId: typeof band.groupId) =>
+      (await admin.client.query(api.activity.list, { groupId, kind: "group", paginationOpts: { numItems: 1, cursor: null } })).page[0];
+    expect(await handoffOf(band.groupId)).toMatchObject({
+      actorName: "Sam",
+      summary: "Signed in with Google, so is no longer a Guest",
+      details: ["Name: Samuel → Sam", "Role: Member → Song Manager"],
+    });
+    expect((await handoffOf(choir.groupId)).details).toEqual(["Name: Samuel → Sammy"]);
   });
 
   it("uses each handoff once, only within half an hour, and only from a guest to a Google account", async () => {

@@ -217,6 +217,7 @@ export const deleteSong = mutation({
           entries: setlist.entries.filter((entry) => entry.songId !== songId),
           revision: (setlist.revision ?? 0) + 1,
         });
+        await logActivity(ctx, membership, "setlist", `Edited the Setlist ${setlist.name}`, [`Removed ${song.title}, because the Song was deleted`]);
       }
     }
     const playback = await ctx.db

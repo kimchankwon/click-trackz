@@ -1,3 +1,4 @@
+import { commonBpm, markOwnTempos } from "../sync/song-tempo";
 import { cueLeadBarsOf, playsOf, subdivisionOf, type Section } from "../sync/timeline";
 
 export type ChangedSection = Section & { customLabel?: string; ownTempo?: boolean };
@@ -50,40 +51,50 @@ function sectionEdits(before: ChangedSection, after: ChangedSection): string[] {
   ];
 }
 
-function matchInOrder<T>(before: readonly T[], after: readonly T[], same: (a: T, b: T) => boolean): [number, number][] {
-  const lengths = Array.from({ length: before.length + 1 }, () => new Array<number>(after.length + 1).fill(0));
+type Pairing = { kept: [number, number][]; moved: [number, number][]; removed: number[]; added: number[] };
+
+function pairUp<T>(before: readonly T[], after: readonly T[], same: (a: T, b: T) => boolean, unchanged: (a: T, b: T) => boolean): Pairing {
+  const perMatch = before.length + after.length + 1;
+  const weight = (a: T, b: T) => (same(a, b) ? perMatch + (unchanged(a, b) ? 1 : 0) : 0);
+  const scores = Array.from({ length: before.length + 1 }, () => new Array<number>(after.length + 1).fill(0));
   for (let i = before.length - 1; i >= 0; i--) {
     for (let j = after.length - 1; j >= 0; j--) {
-      lengths[i][j] = same(before[i], after[j]) ? lengths[i + 1][j + 1] + 1 : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+      const w = weight(before[i], after[j]);
+      scores[i][j] = Math.max(scores[i + 1][j], scores[i][j + 1], w > 0 ? w + scores[i + 1][j + 1] : 0);
     }
   }
-  const pairs: [number, number][] = [];
+  const kept: [number, number][] = [];
   let i = 0;
   let j = 0;
   while (i < before.length && j < after.length) {
-    if (same(before[i], after[j])) pairs.push([i++, j++]);
-    else if (lengths[i + 1][j] >= lengths[i][j + 1]) i++;
+    const w = weight(before[i], after[j]);
+    if (w > 0 && scores[i][j] === w + scores[i + 1][j + 1]) kept.push([i++, j++]);
+    else if (scores[i + 1][j] >= scores[i][j + 1]) i++;
     else j++;
   }
-  return pairs;
+  const keptBefore = new Set(kept.map(([b]) => b));
+  const keptAfter = new Set(kept.map(([, a]) => a));
+  const removed = before.flatMap((item, b) => (keptBefore.has(b) ? [] : [b]));
+  const added = after.flatMap((item, a) => (keptAfter.has(a) ? [] : [a]));
+  const moved: [number, number][] = [];
+  for (const fits of [unchanged, same]) {
+    for (const a of [...added]) {
+      const from = removed.find((b) => fits(before[b], after[a]));
+      if (from === undefined) continue;
+      moved.push([from, a]);
+      removed.splice(removed.indexOf(from), 1);
+      added.splice(added.indexOf(a), 1);
+    }
+  }
+  moved.sort((x, y) => x[1] - y[1]);
+  return { kept, moved, removed, added };
 }
 
 const sameSectionType = (a: ChangedSection, b: ChangedSection) => a.sectionType === b.sectionType && a.number === b.number;
+const sameSection = (a: ChangedSection, b: ChangedSection) => sectionEdits(a, b).length === 0;
 
 function sectionChanges(before: readonly ChangedSection[], after: readonly ChangedSection[]): string[] {
-  const kept = matchInOrder(before, after, sameSectionType);
-  const keptBefore = new Set(kept.map(([i]) => i));
-  const keptAfter = new Set(kept.map(([, j]) => j));
-  const removed = before.flatMap((section, i) => (keptBefore.has(i) ? [] : [i]));
-  const added = after.flatMap((section, j) => (keptAfter.has(j) ? [] : [j]));
-  const moved: [number, number][] = [];
-  for (const j of [...added]) {
-    const from = removed.find((i) => sameSectionType(before[i], after[j]));
-    if (from === undefined) continue;
-    moved.push([from, j]);
-    removed.splice(removed.indexOf(from), 1);
-    added.splice(added.indexOf(j), 1);
-  }
+  const { kept, moved, removed, added } = pairUp(before, after, sameSectionType, sameSection);
   const lines: string[] = [];
   for (const i of removed) lines.push(`Removed Section ${i + 1}: ${sectionName(before[i])}`);
   for (const j of added) lines.push(`Added Section ${j + 1}: ${sectionName(after[j])}`);
@@ -94,7 +105,15 @@ function sectionChanges(before: readonly ChangedSection[], after: readonly Chang
   return lines;
 }
 
-export function songChanges(before: ChangedSong, after: ChangedSong): string[] {
+function inferredTempos(song: ChangedSong): ChangedSong {
+  if (song.bpm !== undefined) return song;
+  const bpm = commonBpm(song.sections);
+  return bpm === null ? song : { ...song, bpm, sections: markOwnTempos(song.sections, bpm) };
+}
+
+export function songChanges(stored: ChangedSong, edited: ChangedSong): string[] {
+  const before = inferredTempos(stored);
+  const after = inferredTempos(edited);
   const songTempo = (song: ChangedSong) => (song.bpm === undefined ? "none" : `${song.bpm} BPM`);
   return [
     ...change("Title", before.title, after.title),
@@ -110,19 +129,8 @@ export function songChanges(before: ChangedSong, after: ChangedSong): string[] {
 export function setlistChanges(before: ChangedSetlist, after: ChangedSetlist, titleOf: (songId: string) => string): string[] {
   const lines = change("Name", before.name, after.name);
   const sameSong = (a: SetlistEntry, b: SetlistEntry) => a.songId === b.songId;
-  const kept = matchInOrder(before.entries, after.entries, sameSong);
-  const keptBefore = new Set(kept.map(([i]) => i));
-  const keptAfter = new Set(kept.map(([, j]) => j));
-  const removed = before.entries.flatMap((entry, i) => (keptBefore.has(i) ? [] : [i]));
-  const added = after.entries.flatMap((entry, j) => (keptAfter.has(j) ? [] : [j]));
-  const moved: [number, number][] = [];
-  for (const j of [...added]) {
-    const from = removed.find((i) => sameSong(before.entries[i], after.entries[j]));
-    if (from === undefined) continue;
-    moved.push([from, j]);
-    removed.splice(removed.indexOf(from), 1);
-    added.splice(added.indexOf(j), 1);
-  }
+  const sameEntry = (a: SetlistEntry, b: SetlistEntry) => sameSong(a, b) && orNone(a.key) === orNone(b.key) && orNone(a.leader) === orNone(b.leader);
+  const { kept, moved, removed, added } = pairUp(before.entries, after.entries, sameSong, sameEntry);
   for (const i of removed) lines.push(`Removed ${titleOf(before.entries[i].songId)}`);
   for (const j of added) lines.push(`Added ${titleOf(after.entries[j].songId)} as number ${j + 1}`);
   for (const [, j] of moved) lines.push(`Moved ${titleOf(after.entries[j].songId)} to number ${j + 1}`);

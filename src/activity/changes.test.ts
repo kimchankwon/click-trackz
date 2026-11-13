@@ -62,6 +62,39 @@ describe("songChanges", () => {
     ]);
   });
 
+  it("reads a Song with no Song tempo by its most common Section tempo", () => {
+    const legacy: ChangedSong = {
+      ...song,
+      bpm: undefined,
+      sections: [
+        { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 72 },
+        { sectionType: "Chorus", bars: 8, beatsPerBar: 4, bpm: 72 },
+        { sectionType: "Bridge", bars: 4, beatsPerBar: 4, bpm: 80 },
+      ],
+    };
+    const saved = { ...legacy, title: "Pure Heart", bpm: 72, sections: legacy.sections.map((section) => ({ ...section, ownTempo: section.bpm !== 72 })) };
+    expect(songChanges(legacy, saved)).toEqual(["Title: Pure → Pure Heart"]);
+    const [verse, chorus, bridge] = saved.sections;
+    expect(songChanges(legacy, { ...saved, title: "Pure", sections: [verse, chorus, { ...bridge, bpm: 84 }] })).toEqual([
+      "Section 3 Bridge: Tempo: 80 BPM → 84 BPM",
+    ]);
+  });
+
+  it("notices a Section tempo change in a Song that still has no Song tempo", () => {
+    const solo: ChangedSong = { title: "Pure", countIn: true, sections: [{ sectionType: "Verse", bars: 8, beatsPerBar: 4, bpm: 80 }] };
+    expect(songChanges(solo, { ...solo, sections: [{ ...solo.sections[0], bpm: 90 }] })).toEqual(["Song tempo: 80 BPM → 90 BPM"]);
+  });
+
+  it("pairs repeated Sections with the copy that did not change", () => {
+    const short = { sectionType: "Verse", bars: 4, beatsPerBar: 4, bpm: 72 };
+    const long = { ...short, bars: 8 };
+    const chorus = song.sections[2];
+    const repeats = { ...song, sections: [short, chorus, long] };
+    expect(songChanges(repeats, { ...repeats, sections: [chorus, long] })).toEqual(["Removed Section 1: Verse"]);
+    expect(songChanges(repeats, { ...repeats, sections: [long, short, chorus] })).toEqual(["Moved Verse from Section 3 to Section 1"]);
+    expect(songChanges(repeats, { ...repeats, sections: [short, chorus, { ...long, bars: 12 }] })).toEqual(["Section 3 Verse: Bars: 8 → 12"]);
+  });
+
   it("reads a renumbered Section as a new one", () => {
     const [intro, verse, chorus] = song.sections;
     expect(songChanges(song, { ...song, sections: [intro, { ...verse, number: 2 }, chorus] })).toEqual([
@@ -97,6 +130,14 @@ describe("setlistChanges", () => {
   it("finds nothing when nothing changed", () => {
     const setlist = { name: "Sunday", entries: [{ songId: "a" }] };
     expect(setlistChanges(setlist, { ...setlist, entries: [{ songId: "a", key: " " }] }, titleOf)).toEqual([]);
+  });
+
+  it("pairs a repeated Song with the copy that did not change", () => {
+    const before = { name: "x", entries: [{ songId: "a", key: "G" }, { songId: "b" }, { songId: "a", key: "A", leader: "Sam" }] };
+    expect(setlistChanges(before, { ...before, entries: [before.entries[1], before.entries[2]] }, titleOf)).toEqual(["Removed Pure"]);
+    expect(setlistChanges(before, { ...before, entries: [before.entries[2], before.entries[0], before.entries[1]] }, titleOf)).toEqual([
+      "Moved Pure to number 1",
+    ]);
   });
 
   it("numbers an added Song", () => {
