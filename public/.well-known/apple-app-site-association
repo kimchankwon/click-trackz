@@ -4,7 +4,6 @@
       {
         "appIDs": ["4FH642K7X2.com.kimchankwon.cuetracker"],
         "components": [
-          { "#": "noapp", "exclude": true },
           { "?": { "code": "?*" }, "exclude": true },
           { "/": "/*" }
         ]
