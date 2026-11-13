@@ -16,6 +16,7 @@ import type * as clock from "../clock.js";
 import type * as crons from "../crons.js";
 import type * as devLogin from "../devLogin.js";
 import type * as groups from "../groups.js";
+import type * as guestHandoff from "../guestHandoff.js";
 import type * as http from "../http.js";
 import type * as library from "../library.js";
 import type * as migrations from "../migrations.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   devLogin: typeof devLogin;
   groups: typeof groups;
+  guestHandoff: typeof guestHandoff;
   http: typeof http;
   library: typeof library;
   migrations: typeof migrations;

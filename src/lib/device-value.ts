@@ -28,7 +28,7 @@ export function deviceValue<T>(name: string, parse: (json: string | null) => T |
     useValue: (): T | null | undefined => useSyncExternalStore(subscribe, current, current),
     save: (value: T) => {
       publish(value);
-      void writeDeviceValue(name, JSON.stringify(value)).catch(() => undefined);
+      return writeDeviceValue(name, JSON.stringify(value)).catch(() => undefined);
     },
     forget: async () => {
       publish(null);

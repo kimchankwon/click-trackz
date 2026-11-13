@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
+import { useClaimGuestHandoff } from "@/auth/guest-handoff";
 import { useSignedInHere } from "@/auth/use-signed-in-here";
 import { ActionButton } from "@/components/action-button";
 import { primeAudio } from "@/audio/primed-context";
@@ -341,6 +342,7 @@ export default function HomeScreen() {
     () => setError("Google sign-in did not finish. Tap Sign in with Google to try again."),
     [],
   );
+  useClaimGuestHandoff(isAuthenticated && viewer != null && !viewer.isAnonymous);
   useGoogleReturn({
     settled: !isLoading && (!isAuthenticated || viewer !== undefined),
     signedInWithGoogle: isAuthenticated && viewer != null && !viewer.isAnonymous,

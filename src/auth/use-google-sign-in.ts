@@ -6,6 +6,7 @@ import { maybeCompleteAuthSession, openAuthSessionAsync } from "expo-web-browser
 import { useEffect } from "react";
 import { Platform } from "react-native";
 
+import { useStartGuestHandoff } from "./guest-handoff";
 import { googleReturnAction } from "./google-return";
 import { readPendingGoogleSignIn, writePendingGoogleSignIn } from "./pending-google";
 
@@ -15,7 +16,9 @@ let returnChecked = false;
 
 export function useGoogleSignIn() {
   const { signIn } = useAuthActions();
+  const startHandoff = useStartGuestHandoff();
   return async (options?: { retry?: boolean }) => {
+    await startHandoff();
     const redirectTo = Platform.OS === "web" ? window.location.origin : Linking.createURL("/");
     if (Platform.OS === "web") writePendingGoogleSignIn({ startedAt: Date.now(), retried: options?.retry === true });
     const { redirect } = await signIn("google", { redirectTo });

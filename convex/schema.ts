@@ -109,6 +109,13 @@ export default defineSchema({
     setlistIndex: v.optional(v.number()),
     advanceJob: v.optional(v.id("_scheduled_functions")),
   }).index("by_group", ["groupId"]),
+  guestHandoffs: defineTable({
+    guestId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_guest", ["guestId"]),
   subscriptions: defineTable({
     userId: v.id("users"),
     plan: v.union(paidPlanValidator, v.null()),
