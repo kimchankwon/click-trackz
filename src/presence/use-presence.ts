@@ -77,6 +77,20 @@ export function useStillHere(groupId: Id<"groups">, enabled: boolean) {
   }, [groupId, enabled, stillHere]);
 }
 
+export function useGuestStaysWhileEditing(groupId: Id<"groups">) {
+  const viewer = useQuery(api.users.viewer, {});
+  const stillHere = useMutation(api.presence.stillHere);
+  const guest = viewer?.isAnonymous === true;
+
+  useEffect(() => {
+    if (!guest) return;
+    const mark = () => void stillHere({ groupId }).catch(() => undefined);
+    mark();
+    const timer = setInterval(mark, STILL_HERE_MS);
+    return () => clearInterval(timer);
+  }, [groupId, guest, stillHere]);
+}
+
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null, shared = true) {
   const rows = useQuery(api.presence.list, shared ? { groupId } : "skip");
   const [nowMs, setNowMs] = useState(() => serverNow() ?? Date.now());

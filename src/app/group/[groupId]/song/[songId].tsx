@@ -32,6 +32,7 @@ import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
 import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type TimeChange } from "@/sync/timeline";
+import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -435,6 +436,7 @@ export default function SongEditorScreen() {
   const groupId = params.groupId as Id<"groups">;
   const song = useQuery(api.songs.get, { songId });
   const vocabulary = useQuery(api.vocabulary.list, { groupId });
+  useGuestStaysWhileEditing(groupId);
   if (!song || !vocabulary) return <ThemedView style={styles.container} />;
   return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} />;
 }

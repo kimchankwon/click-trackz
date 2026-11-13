@@ -23,7 +23,7 @@ export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joi
   const [error, setError] = useState<string | null>(null);
   const shown = pending ?? joinRole;
   const choose = (next: JoinRole) => {
-    if (next === shown) return;
+    if (next === shown || pending !== null) return;
     setError(null);
     setPending(next);
     setJoinRole({ groupId, joinRole: next })
@@ -38,6 +38,7 @@ export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joi
         options={JOIN_ROLES.map((role) => ({ value: role, label: SHORT_NAMES[role] }))}
         value={shown}
         onChange={choose}
+        disabled={pending !== null}
       />
       <ThemedText type="caption" themeColor="textSecondary" testID="join-role-explained">
         {EXPLAINED[shown]}
