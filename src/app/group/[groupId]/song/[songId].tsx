@@ -31,14 +31,13 @@ import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
-import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SECTION_LETTERS, SUBDIVISIONS, timeSignatureOf, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
+import { LETTER_OPTIONS } from "@/lib/section-letter-options";
+import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MIN_SAVING_MS = 400;
-
-const LETTER_OPTIONS: readonly { value: SectionLetter | "none"; label: string }[] = [{ value: "none", label: "None" }, ...SECTION_LETTERS.map((letter) => ({ value: letter, label: letter }))];
 
 type EditableSection = Section & { customLabel?: string; ownTempo?: boolean };
 
@@ -293,7 +292,7 @@ function SectionRow({
         <Pressable
           role="button"
           aria-expanded={choosing}
-          aria-label={`Section type, ${section.sectionType}`}
+          aria-label={`Section type, ${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`}
           testID={`section-${index}-type`}
           onPress={() => setChoosing(!choosing)}
           style={[styles.typeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
