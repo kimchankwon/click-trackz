@@ -14,6 +14,10 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.kimchankwon.cuetracker",
       "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:click-trackz.vercel.app",
+        "applinks:click-trackz-dev.vercel.app"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -26,7 +30,24 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.kimchankwon.cuetracker"
+      "package": "com.kimchankwon.cuetracker",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "click-trackz.vercel.app"
+            },
+            {
+              "scheme": "https",
+              "host": "click-trackz-dev.vercel.app"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "output": "single",

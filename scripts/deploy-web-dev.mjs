@@ -25,6 +25,6 @@ if (deployKey) {
 writeFileSync("dist/.vercelignore", "!/assets/node_modules\n!/assets/node_modules/**\n");
 writeFileSync(
   "dist/vercel.json",
-  `${JSON.stringify({ framework: null, rewrites: [{ source: "/((?!_expo/|assets/).*)", destination: "/index.html" }] }, null, 2)}\n`,
+  `${JSON.stringify({ framework: null, rewrites: [{ source: "/((?!_expo/|assets/).*)", destination: "/index.html" }], headers: [{ source: "/.well-known/apple-app-site-association", headers: [{ key: "Content-Type", value: "application/json" }] }] }, null, 2)}\n`,
 );
 run("npx vercel@65.11.0 deploy dist --prod --yes", { VERCEL_ORG_ID, VERCEL_PROJECT_ID });
