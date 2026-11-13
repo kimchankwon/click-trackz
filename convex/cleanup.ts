@@ -1,3 +1,4 @@
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isGuest } from "./access";
@@ -12,6 +13,7 @@ export async function deleteGroupRows(ctx: MutationCtx, groupId: Id<"groups">) {
   ]);
   await Promise.all(rows.flat().map((row) => ctx.db.delete(row._id)));
   await ctx.db.delete(groupId);
+  await ctx.scheduler.runAfter(0, internal.activity.forgetGroup, { groupId });
 }
 
 async function deleteUserRows(ctx: MutationCtx, userId: Id<"users">) {

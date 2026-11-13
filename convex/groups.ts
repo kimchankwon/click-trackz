@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
+import { logActivity } from "./activity";
 import { deleteGroupRows } from "./cleanup";
 import { groupLocked, requireOwnerRoomForSongs, requireRoomForGroup } from "./plans";
 import { joinRoleValidator, roleValidator } from "./schema";
@@ -54,12 +55,9 @@ export const createGroup = mutation({
       joinCode,
       createdBy: user._id,
     });
-    await ctx.db.insert("memberships", {
-      groupId,
-      userId: user._id,
-      role: "admin",
-      displayName: cleanName(args.displayName.trim() || accountNameOf(user), "Your name"),
-    });
+    const displayName = cleanName(args.displayName.trim() || accountNameOf(user), "Your name");
+    await ctx.db.insert("memberships", { groupId, userId: user._id, role: "admin", displayName });
+    await logActivity(ctx, { groupId, userId: user._id, displayName }, "group", "Created the Group");
     return { groupId, joinCode };
   },
 });
@@ -101,6 +99,8 @@ export const duplicateGroup = mutation({
       const setlistId = await ctx.db.insert("setlists", { groupId: copyId, name: setlist.name, entries });
       if (group.currentSetlistId === setlist._id) await ctx.db.patch(copyId, { currentSetlistId: setlistId });
     }
+    await logActivity(ctx, membership, "group", `Duplicated the Group as ${name}`);
+    await logActivity(ctx, { ...membership, groupId: copyId }, "group", `Created the Group as a copy of ${group.name}`);
     return { groupId: copyId, name };
   },
 });
@@ -108,11 +108,13 @@ export const duplicateGroup = mutation({
 export const rename = mutation({
   args: { groupId: v.id("groups"), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
-    await requireRole(ctx, groupId, "groupManager");
+    const { membership } = await requireRole(ctx, groupId, "groupManager");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
     if (group.offline === true) throw new ConvexError("My Library cannot be renamed");
-    await ctx.db.patch(groupId, { name: cleanName(name, "Group name"), copyBase: undefined });
+    const renamed = cleanName(name, "Group name");
+    await ctx.db.patch(groupId, { name: renamed, copyBase: undefined });
+    if (renamed !== group.name) await logActivity(ctx, membership, "group", `Renamed the Group from ${group.name} to ${renamed}`);
   },
 });
 
@@ -189,12 +191,10 @@ export const joinGroup = mutation({
       .withIndex("by_group_user", (q) => q.eq("groupId", group._id).eq("userId", user._id))
       .unique();
     if (existing === null) {
-      await ctx.db.insert("memberships", {
-        groupId: group._id,
-        userId: user._id,
-        role: group.joinRole ?? "member",
-        displayName: cleanName(args.displayName, "Your name"),
-      });
+      const role = group.joinRole ?? "member";
+      const displayName = cleanName(args.displayName, "Your name");
+      await ctx.db.insert("memberships", { groupId: group._id, userId: user._id, role, displayName });
+      await logActivity(ctx, { groupId: group._id, userId: user._id, displayName }, "group", isGuest(user) ? `Joined as a Guest with the ${ROLE_NAMES[role]} Role` : `Joined as a ${ROLE_NAMES[role]}`);
     }
     return group._id;
   },
@@ -215,17 +215,19 @@ export const setRole = mutation({
       if (user === null || isGuest(user)) throw new ConvexError(`Guests must sign in with Google before they can be ${ROLE_NAMES[role]}s`);
     }
     await ctx.db.patch(target._id, { role });
+    await logActivity(ctx, mine, "group", `Made ${target.displayName} a ${ROLE_NAMES[role]}`, [`Was a ${ROLE_NAMES[target.role]}`]);
   },
 });
 
 export const setJoinRole = mutation({
   args: { groupId: v.id("groups"), joinRole: joinRoleValidator },
   handler: async (ctx, { groupId, joinRole }) => {
-    await requireRole(ctx, groupId, "groupManager");
+    const { membership } = await requireRole(ctx, groupId, "groupManager");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
     if (group.offline === true) throw new ConvexError("No one can join My Library");
     await ctx.db.patch(groupId, { joinRole });
+    if (joinRole !== (group.joinRole ?? "member")) await logActivity(ctx, membership, "group", `New Members now join as ${ROLE_NAMES[joinRole]}s`);
   },
 });
 
@@ -238,6 +240,7 @@ export const removeMember = mutation({
     if (target === null) throw new ConvexError("That person is not in this Group");
     if (!outranks(mine.role, target.role)) throw new ConvexError("You can only remove people below you");
     await ctx.db.delete(target._id);
+    await logActivity(ctx, mine, "group", `Removed ${target.displayName}`);
     const presence = await ctx.db
       .query("presence")
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
@@ -253,7 +256,11 @@ export const setMemberName = mutation({
     const target = userId === user._id ? mine : await membershipOf(ctx, groupId, userId);
     if (target === null) throw new ConvexError("That person is not in this Group");
     if (target !== mine && !outranks(mine.role, target.role)) throw new ConvexError("You can only rename people below you");
-    await ctx.db.patch(target._id, { displayName: cleanName(displayName, "Name") });
+    const renamed = cleanName(displayName, "Name");
+    await ctx.db.patch(target._id, { displayName: renamed });
+    if (renamed === target.displayName) return;
+    if (target === mine) await logActivity(ctx, { ...mine, displayName: renamed }, "group", `Changed their name from ${mine.displayName}`);
+    else await logActivity(ctx, mine, "group", `Renamed ${target.displayName} to ${renamed}`);
   },
 });
 
@@ -261,7 +268,9 @@ export const setDisplayName = mutation({
   args: { groupId: v.id("groups"), displayName: v.string() },
   handler: async (ctx, { groupId, displayName }) => {
     const { membership } = await requireMember(ctx, groupId);
-    await ctx.db.patch(membership._id, { displayName: cleanName(displayName, "Your name") });
+    const renamed = cleanName(displayName, "Your name");
+    await ctx.db.patch(membership._id, { displayName: renamed });
+    if (renamed !== membership.displayName) await logActivity(ctx, { ...membership, displayName: renamed }, "group", `Changed their name from ${membership.displayName}`);
   },
 });
 
@@ -271,6 +280,7 @@ export const leaveGroup = mutation({
     const { membership } = await requireMember(ctx, groupId);
     if (membership.role === "admin") throw new ConvexError("The Admin cannot leave their own Group; delete it instead");
     await ctx.db.delete(membership._id);
+    await logActivity(ctx, membership, "group", "Left the Group");
     const presence = await ctx.db
       .query("presence")
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", membership.userId))

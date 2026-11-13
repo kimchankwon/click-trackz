@@ -4,6 +4,9 @@ import { endVampJumps, jumpProblem, jumpsAfter, LEAD_IN_MS, repeatJumps, started
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireMember, requireRole, requireRoleInUnlocked } from "./access";
+import { logActivity } from "./activity";
+import { sectionName } from "../src/activity/changes";
+import type { Jump } from "../src/sync/timeline";
 
 async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users"> | undefined) {
   if (userId === undefined) return null;
@@ -13,6 +16,15 @@ async function displayNameIn(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"u
     .unique();
   return membership?.displayName ?? null;
 }
+
+async function songTitleOf(ctx: QueryCtx, playback: Doc<"playbacks">) {
+  return (await ctx.db.get(playback.songId))?.title ?? "a Song";
+}
+
+const sectionOf = (playback: Doc<"playbacks">, index: number) => {
+  const section = playback.song.sections[index];
+  return section === undefined ? "the end" : sectionName(section);
+};
 
 async function groupPlayback(ctx: QueryCtx, groupId: Id<"groups">) {
   return ctx.db
@@ -55,7 +67,7 @@ export const start = mutation({
     setlistIndex: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, songId, fromSection, fromBar, setlistIndex }) => {
-    const { user, group } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
+    const { user, membership, group } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
     if (group.offline === true) throw new ConvexError("My Library plays on this device only");
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");
@@ -74,6 +86,10 @@ export const start = mutation({
     };
     if (existing) await ctx.db.replace(existing._id, fields);
     else await ctx.db.insert("playbacks", fields);
+    const from = fromSection !== undefined && fromSection > 0 ? song.sections[fromSection] : undefined;
+    const fromWhere = from === undefined ? "" : ` from ${sectionName(from)}`;
+    const atBar = fromBar !== undefined && fromBar > 1 ? `${fromWhere === "" ? " from" : ","} bar ${fromBar}` : "";
+    await logActivity(ctx, membership, "playback", `Started ${song.title}${fromWhere}${atBar}`);
   },
 });
 
@@ -87,7 +103,7 @@ export const jump = mutation({
     startsAt: v.optional(v.number()),
   },
   handler: async (ctx, { groupId, toSection, mode, startsAt }) => {
-    await requireRoleInUnlocked(ctx, groupId, "playbackManager");
+    const { membership } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
@@ -96,39 +112,62 @@ export const jump = mutation({
     const jumps = jumpsAfter(playback.song, playback, toSection, mode, Date.now());
     if (jumps === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { jumps });
+    const when = mode === "endOfSection" ? "At the end of the Section" : "At the next bar";
+    await logActivity(ctx, membership, "playback", `Jumped to ${sectionOf(playback, toSection)} in ${await songTitleOf(ctx, playback)}`, [when]);
   },
 });
 
-async function applyCommand(ctx: MutationCtx, groupId: Id<"groups">, startsAt: number | undefined, command: (playback: Doc<"playbacks">) => CommandResult) {
-  await requireRoleInUnlocked(ctx, groupId, "playbackManager");
+async function applyCommand(
+  ctx: MutationCtx,
+  groupId: Id<"groups">,
+  startsAt: number | undefined,
+  command: (playback: Doc<"playbacks">) => CommandResult,
+  describe: (playback: Doc<"playbacks">, jumps: readonly Jump[]) => string,
+) {
+  const { membership } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
   const playback = await groupPlayback(ctx, groupId);
   if (playback === null) throw new ConvexError("Nothing is playing");
   if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
   const result = command(playback);
   if ("problem" in result) throw new ConvexError(result.problem);
   await ctx.db.patch(playback._id, { jumps: result.jumps });
+  await logActivity(ctx, membership, "playback", `${describe(playback, result.jumps)} in ${await songTitleOf(ctx, playback)}`);
 }
 
 export const repeatSection = mutation({
   args: { groupId: v.id("groups"), startsAt: v.optional(v.number()), vamp: v.optional(v.boolean()) },
   handler: async (ctx, { groupId, startsAt, vamp }) =>
-    applyCommand(ctx, groupId, startsAt, (playback) => repeatJumps(playback.song, playback, Date.now(), vamp === true)),
+    applyCommand(
+      ctx,
+      groupId,
+      startsAt,
+      (playback) => repeatJumps(playback.song, playback, Date.now(), vamp === true),
+      (playback, jumps) => `${vamp === true ? "Vamped on" : "Repeated"} ${sectionOf(playback, jumps.at(-1)?.toSection ?? 0)}`,
+    ),
 });
 
 export const endVamp = mutation({
   args: { groupId: v.id("groups"), startsAt: v.optional(v.number()) },
-  handler: async (ctx, { groupId, startsAt }) => applyCommand(ctx, groupId, startsAt, (playback) => endVampJumps(playback.song, playback, Date.now())),
+  handler: async (ctx, { groupId, startsAt }) =>
+    applyCommand(
+      ctx,
+      groupId,
+      startsAt,
+      (playback) => endVampJumps(playback.song, playback, Date.now()),
+      (playback, jumps) => `Ended the vamp on ${sectionOf(playback, (jumps.at(-1)?.toSection ?? 1) - 1)}`,
+    ),
 });
 
 export const stop = mutation({
   args: { groupId: v.id("groups"), startsAt: v.optional(v.number()) },
   handler: async (ctx, { groupId, startsAt }) => {
-    const { user } = await requireRole(ctx, groupId, "playbackManager");
+    const { user, membership } = await requireRole(ctx, groupId, "playbackManager");
     const playback = await groupPlayback(ctx, groupId);
     if (playback === null) throw new ConvexError("Nothing is playing");
     if (!samePlayback(playback, startsAt)) throw new ConvexError("That Playback has already ended");
     const stopsAt = stopTime(playback.song, playback, Date.now());
     if (stopsAt === null) throw new ConvexError("Playback has already ended");
     await ctx.db.patch(playback._id, { stopsAt, stoppedBy: user._id });
+    await logActivity(ctx, membership, "playback", `Stopped ${await songTitleOf(ctx, playback)}`);
   },
 });

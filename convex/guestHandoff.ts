@@ -3,8 +3,9 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireUser } from "./access";
+import { logActivity } from "./activity";
 import { forgetGuestIfGone } from "./cleanup";
-import { outranks } from "../src/lib/roles";
+import { outranks, ROLE_NAMES } from "../src/lib/roles";
 
 export const HANDOFF_MS = 30 * 60_000;
 
@@ -36,6 +37,7 @@ export const start = mutation({
 async function moveMembership(ctx: MutationCtx, guestMembership: Doc<"memberships">, userId: Id<"users">) {
   const { groupId } = guestMembership;
   const existing = await membershipOf(ctx, groupId, userId);
+  const merged: string[] = [];
   if (existing === null) {
     await ctx.db.patch(guestMembership._id, { userId });
   } else {
@@ -43,12 +45,15 @@ async function moveMembership(ctx: MutationCtx, guestMembership: Doc<"membership
     const lastSeenAt = Math.max(existing.lastSeenAt ?? 0, guestMembership.lastSeenAt ?? 0) || undefined;
     await ctx.db.patch(existing._id, { role, displayName: guestMembership.displayName, lastSeenAt });
     await ctx.db.delete(guestMembership._id);
+    if (existing.displayName !== guestMembership.displayName) merged.push(`Name: ${existing.displayName} → ${guestMembership.displayName}`);
+    if (role !== existing.role) merged.push(`Role: ${ROLE_NAMES[existing.role]} → ${ROLE_NAMES[role]}`);
   }
   const screens = await ctx.db
     .query("presence")
     .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", guestMembership.userId))
     .collect();
   await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
+  await logActivity(ctx, { groupId, userId, displayName: guestMembership.displayName }, "group", "Signed in with Google, so is no longer a Guest", merged);
   const playbacks = await ctx.db
     .query("playbacks")
     .withIndex("by_group", (q) => q.eq("groupId", groupId))
