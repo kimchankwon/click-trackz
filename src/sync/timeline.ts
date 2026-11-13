@@ -1,4 +1,4 @@
-export const SECTION_LETTERS = ["A", "B"] as const;
+export const SECTION_LETTERS = ["A", "B", "C", "D", "E"] as const;
 
 export type SectionLetter = (typeof SECTION_LETTERS)[number];
 
