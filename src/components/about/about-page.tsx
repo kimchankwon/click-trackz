@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -11,6 +11,7 @@ import { Fonts, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
 import { ControlCenterMock } from "./control-center-mock";
+import { PageScroll } from "./page-scroll";
 import { MiniDevice, PlayScreenMock } from "./device-mocks";
 import { TimingDiagram } from "./timing-diagram";
 import { useDemoBeat } from "./use-demo-beat";
@@ -105,7 +106,7 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
   const phoneWidth = wide ? 300 : Math.min(280, width - Spacing.four * 2);
   const miniWidth = wide ? 150 : Math.max(84, Math.floor((width - Spacing.four * 2 - Spacing.three * 2) / 3.4));
   return (
-    <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.page} testID="about-page">
+    <PageScroll style={[styles.page, { backgroundColor: theme.background }]} testID="about-page">
       <SafeAreaView edges={["top", "left", "right"]}>
         <View style={[styles.inner, styles.header]}>
           <View style={styles.brandRow}>
@@ -226,7 +227,7 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
           iPhone, Android and web
         </ThemedText>
       </View>
-    </ScrollView>
+    </PageScroll>
   );
 }
 
