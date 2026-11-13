@@ -18,6 +18,7 @@ export type SongDraft = {
 const sectionShape = (section: DraftSection) => [
   section.sectionType,
   section.number ?? null,
+  section.number === undefined ? null : (section.letter ?? null),
   section.bars,
   section.beatsPerBar,
   section.beatUnit ?? 4,

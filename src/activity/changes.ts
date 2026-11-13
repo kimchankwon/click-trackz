@@ -23,8 +23,8 @@ const onOff = (on: boolean) => (on ? "on" : "off");
 const orNone = (value: string | undefined) => value?.trim() || "none";
 const barsText = (bars: number) => (bars === 1 ? "1 bar" : `${bars} bars`);
 
-export const sectionTypeName = (section: Pick<Section, "sectionType" | "number">) =>
-  section.number === undefined ? section.sectionType : `${section.sectionType} ${section.number}`;
+export const sectionTypeName = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
+  section.number === undefined ? section.sectionType : `${section.sectionType} ${section.number}${section.letter ?? ""}`;
 
 export const sectionName = (section: Pick<ChangedSection, "sectionType" | "number" | "customLabel">) =>
   section.customLabel?.trim() || sectionTypeName(section);
@@ -90,7 +90,7 @@ function pairUp<T>(before: readonly T[], after: readonly T[], same: (a: T, b: T)
   return { kept, moved, removed, added };
 }
 
-const sameSectionType = (a: ChangedSection, b: ChangedSection) => a.sectionType === b.sectionType && a.number === b.number;
+const sameSectionType = (a: ChangedSection, b: ChangedSection) => a.sectionType === b.sectionType && a.number === b.number && a.letter === b.letter;
 const sameSection = (a: ChangedSection, b: ChangedSection) => sectionEdits(a, b).length === 0;
 
 function sectionChanges(before: readonly ChangedSection[], after: readonly ChangedSection[]): string[] {

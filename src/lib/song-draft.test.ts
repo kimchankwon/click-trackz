@@ -15,6 +15,7 @@ describe("sameDraft", () => {
     expect(sameDraft(saved, { ...saved, cueLeadBars: 1 })).toBe(false);
     expect(sameDraft(saved, { ...saved, sections: [{ ...verse, bars: 4 }] })).toBe(false);
     expect(sameDraft(saved, { ...saved, sections: [verse, verse] })).toBe(false);
+    expect(sameDraft(saved, { ...saved, sections: [{ ...verse, letter: "A" }] })).toBe(false);
   });
 });
 

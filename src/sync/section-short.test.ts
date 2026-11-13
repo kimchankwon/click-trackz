@@ -4,6 +4,12 @@ import { builtinSectionTypes } from "./cue-vocabulary";
 import { shortTitleOf } from "./section-short";
 
 describe("shortTitleOf", () => {
+  it("puts a Section letter straight after the number", () => {
+    expect(shortTitleOf({ sectionType: "Chorus", number: 1, letter: "A" })).toBe("Ch. 1A");
+    expect(shortTitleOf({ sectionType: "Verse", number: 2, letter: "B" })).toBe("Vs2B");
+    expect(shortTitleOf({ sectionType: "Verse", letter: "B" })).toBe("Vs");
+  });
+
   it("shortens built-in Section types and keeps the number", () => {
     expect(shortTitleOf({ sectionType: "Intro", number: 1 })).toBe("Intr1");
     expect(shortTitleOf({ sectionType: "Verse", number: 1 })).toBe("Vs1");
