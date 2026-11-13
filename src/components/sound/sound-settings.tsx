@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import type { SpeakerId } from "@/audio/builtin-voice-clips";
+import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
@@ -37,6 +37,11 @@ import type { Sound } from "@/settings/use-sound-settings";
 
 const MIX_TEXT_INSET = 38;
 
+const VOICE_SPEED_OPTIONS: readonly { value: VoiceSpeed; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "faster", label: "Faster" },
+];
+
 export function SoundSettings({
   sound,
   update,
@@ -50,7 +55,7 @@ export function SoundSettings({
   saveError: string | null;
   prompt?: ReactNode;
   speakerHint?: string | null;
-  onSpeaker?: (speaker: SpeakerId) => void;
+  onSpeaker?: (speaker: SpeakerId, voiceSpeed: VoiceSpeed) => void;
 }) {
   const theme = useTheme();
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
@@ -102,9 +107,22 @@ export function SoundSettings({
           value={sound.speaker}
           onChange={(speaker) => {
             update({ speaker });
-            onSpeaker?.(speaker);
+            onSpeaker?.(speaker, sound.voiceSpeed);
           }}
         />
+        <View style={styles.deviceRow}>
+          <ThemedText type="smallBold">Voice speed</ThemedText>
+          <Segmented
+            label="Voice speed"
+            testID="voice-speed"
+            value={sound.voiceSpeed}
+            onChange={(voiceSpeed) => {
+              update({ voiceSpeed });
+              onSpeaker?.(sound.speaker, voiceSpeed);
+            }}
+            options={VOICE_SPEED_OPTIONS}
+          />
+        </View>
         {speakerHint ? (
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>
             {speakerHint}

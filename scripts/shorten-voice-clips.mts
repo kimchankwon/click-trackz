@@ -2,10 +2,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { SAMPLE_RATE, synthesize, transcribe, trimSilence, wav } from "./voice-pack-audio.mts";
-import { clips, numberWords, speakers } from "./voice-pack-clips.mts";
+import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
 
 const [dirArg, takesArg, ...targets] = process.argv.slice(2);
-if (!dirArg || targets.length === 0) throw new Error("Usage: shorten-voice-clips.mts <dir> <takes> <speaker/key>...");
+if (!dirArg || targets.length === 0) throw new Error("Usage: shorten-voice-clips.mts <dir> <takes> <speed/speaker/key>...");
 const dir = path.resolve(dirArg);
 const takes = Number(takesArg);
 
@@ -17,18 +17,19 @@ const comparable = (text: string) =>
     .replace(/[^a-z]/g, "");
 
 for (const target of targets) {
-  const [speakerId, key] = target.split("/");
+  const [speedId, speakerId, key] = target.split("/");
+  const voiceSpeed = voiceSpeeds.find((option) => option.id === speedId)?.id as VoiceSpeedId | undefined;
   const speaker = speakers.find((candidate) => candidate.id === speakerId);
   const clip = clips.find((candidate) => candidate.key === key);
-  if (!speaker || !clip) throw new Error(`Unknown clip ${target}`);
-  const file = path.join(dir, speaker.id, `${clip.key}.wav`);
-  const trial = path.join(dir, speaker.id, `${clip.key}.trial.wav`);
+  if (!voiceSpeed || !speaker || !clip) throw new Error(`Unknown clip ${target}`);
+  const file = path.join(dir, voiceSpeed, speaker.id, `${clip.key}.wav`);
+  const trial = path.join(dir, voiceSpeed, speaker.id, `${clip.key}.trial.wav`);
   const current = await readFile(file);
   const currentRight = comparable(await transcribe(file)) === comparable(clip.heard);
   let best: Int16Array | null = currentRight ? new Int16Array(current.buffer.slice(current.byteOffset + 44, current.byteOffset + current.byteLength)) : null;
   const startedWith = best;
   for (let take = 1; take <= takes; take++) {
-    const pcm = trimSilence(await synthesize(speaker.voiceId, clip.text));
+    const pcm = trimSilence(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, deliveryOf(voiceSpeed)));
     await writeFile(trial, wav(pcm));
     const heard = await transcribe(trial);
     if (comparable(heard) === comparable(clip.heard) && (best === null || pcm.length < best.length)) best = pcm;

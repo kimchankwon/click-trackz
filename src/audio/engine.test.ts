@@ -126,7 +126,11 @@ const fake = vi.hoisted(() => {
 
 vi.mock("react-native-audio-api", () => ({ AudioContext: fake.FakeAudioContext }));
 vi.mock("./audio-session", () => ({ preferPlaybackSession: () => undefined, probeAudioSession: async () => null }));
-vi.mock("./builtin-voice-clips", () => ({ speakers: [{ id: "adam", name: "Adam" }], builtinVoiceClips: { adam: { verse: "verse.wav" } } }));
+vi.mock("./builtin-voice-clips", () => ({
+  speakers: [{ id: "adam", name: "Adam", voice: "male" }],
+  voiceSpeeds: ["faster", "normal"],
+  builtinVoiceClips: { faster: { adam: { verse: "verse.wav" } }, normal: { adam: { verse: "verse-normal.wav" } } },
+}));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
 vi.mock("./hidden-lookahead", () => ({ HIDDEN_LOOKAHEAD_MS: 15 * 60_000 }));
 vi.mock("./output-latency", () => ({ outputLatencyMs: () => 0 }));
@@ -555,5 +559,30 @@ describe("sound recovery", () => {
     expect(await waking).toBe(false);
     expect(contexts().every((context) => context.state === "closed")).toBe(true);
     expect(engine.enabled).toBe(false);
+  });
+});
+
+describe("Voice speed", () => {
+  it("loads the chosen speed's recordings, and keeps them when the same Speaker and speed come again", async () => {
+    const engine = new CueAudioEngine();
+    await engine.enable(serverNow, "adam");
+    expect(loadsOf(VERSE)).toBe(1);
+    await engine.setSpeaker("adam", "normal");
+    expect(loadsOf("verse-normal.wav")).toBe(1);
+    await engine.setSpeaker("adam", "normal");
+    await engine.setSpeaker("adam");
+    expect(loadsOf("verse-normal.wav")).toBe(1);
+    expect(loadsOf(VERSE)).toBe(1);
+    await engine.setSpeaker("adam", "faster");
+    expect(loadsOf(VERSE)).toBe(2);
+    engine.dispose();
+  });
+
+  it("starts with the speed it is enabled with", async () => {
+    const engine = new CueAudioEngine();
+    await engine.enable(serverNow, "adam", "normal");
+    expect(loadsOf("verse-normal.wav")).toBe(1);
+    expect(loadsOf(VERSE)).toBe(0);
+    engine.dispose();
   });
 });
