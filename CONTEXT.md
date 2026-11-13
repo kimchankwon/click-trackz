@@ -98,7 +98,7 @@ A word from the Group's Cue vocabulary plus an optional number, naming a Section
 _Avoid_: Label, tag, name
 
 **Section letter**:
-An optional A or B after a Section type's number, such as Chorus 1A and Chorus 1B for two versions of the same chorus. It is shown everywhere the Section is named, but the Voice cue speaks only the type and number.
+An optional letter, A to E, after a Section type's number, such as Chorus 1A and Chorus 1B for two versions of the same chorus. It is shown everywhere the Section is named, but the Voice cue speaks only the type and number.
 _Avoid_: Variant, suffix, part
 
 **Cue vocabulary**:

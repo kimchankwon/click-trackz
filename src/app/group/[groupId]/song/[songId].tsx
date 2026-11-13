@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,6 +10,7 @@ import { Chip } from "@/components/group/chip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dropdown } from "@/components/ui/dropdown";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -31,8 +32,8 @@ import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
-import { LETTER_OPTIONS } from "@/lib/section-letter-options";
-import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
+import { bpmOptions, LETTER_OPTIONS, NO_CHOICE, NUMBER_OPTIONS, PLAYS_OPTIONS, SONG_TEMPO, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
+import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -41,22 +42,6 @@ const MIN_SAVING_MS = 400;
 
 type EditableSection = Section & { customLabel?: string; ownTempo?: boolean };
 
-const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
-  [2, 4],
-  [3, 4],
-  [4, 4],
-  [5, 4],
-  [6, 4],
-  [7, 4],
-  [2, 2],
-  [3, 8],
-  [5, 8],
-  [6, 8],
-  [7, 8],
-  [9, 8],
-  [12, 8],
-];
-
 function withPlays(section: EditableSection, plays: number): EditableSection {
   const next = Math.min(MAX_PLAYS, Math.max(1, plays));
   return { ...section, plays: next > 1 ? next : undefined };
@@ -64,150 +49,41 @@ function withPlays(section: EditableSection, plays: number): EditableSection {
 
 type TimeSignature = Pick<Section, "beatsPerBar" | "beatUnit">;
 
-function TimeSignatureChips({ current, testID, onPick }: { current: TimeSignature; testID: string; onPick: (beatsPerBar: number, beatUnit: number) => void }) {
-  const picked = [current.beatsPerBar, current.beatUnit ?? 4] as const;
-  const options = COMMON_TIME_SIGNATURES.some(([beats, unit]) => beats === picked[0] && unit === picked[1]) ? COMMON_TIME_SIGNATURES : [picked, ...COMMON_TIME_SIGNATURES];
+function LabeledField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={styles.wrap} role="radiogroup" aria-label="Time signature">
-      {options.map(([beatsPerBar, beatUnit]) => (
-        <Chip
-          key={`${beatsPerBar}/${beatUnit}`}
-          role="radio"
-          label={`${beatsPerBar}/${beatUnit}`}
-          selected={beatsPerBar === picked[0] && beatUnit === picked[1]}
-          testID={`${testID}-${beatsPerBar}-${beatUnit}`}
-          onPress={() => onPick(beatsPerBar, beatUnit)}
-        />
-      ))}
+    <View style={styles.field}>
+      <ThemedText themeColor="textSecondary" style={styles.fieldLabel} numberOfLines={1}>
+        {label}
+      </ThemedText>
+      {children}
     </View>
+  );
+}
+
+function TimeSignatureField({ section, testID, onChange }: { section: TimeSignature; testID: string; onChange: (next: TimeSignature) => void }) {
+  return (
+    <LabeledField label="Time">
+      <Dropdown
+        look="field"
+        label="Time signature"
+        testID={testID}
+        menuMinWidth={MENU_MIN_WIDTH}
+        options={timeOptions(section)}
+        value={timeKeyOf(section)}
+        onChange={(key) => onChange(timeOfKey(key))}
+      />
+    </LabeledField>
   );
 }
 
 function TimeChangeRow({ change, testID, onChange, onRemove }: { change: TimeChange; testID: string; onChange: (next: TimeChange) => void; onRemove: () => void }) {
   const theme = useTheme();
-  const [choosingTime, setChoosingTime] = useState(false);
   return (
     <View style={[styles.changeRow, { backgroundColor: theme.background }]} testID={testID}>
-      <View style={styles.fields}>
-        <NumberField label="From bar" integer value={change.bar} testID={`${testID}-bar`} onChange={(bar) => onChange({ ...change, bar })} />
-        <NumberField label="Bars" integer value={change.bars} testID={`${testID}-bars`} onChange={(bars) => onChange({ ...change, bars })} />
-        <TimeSignatureField section={change} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`${testID}-time`} />
-        <View style={styles.changeRemove}>
-          <IconButton icon="trash" color="textTertiary" size={40} label={`Remove the time change at bar ${change.bar}`} onPress={onRemove} testID={`${testID}-remove`} />
-        </View>
-      </View>
-      {choosingTime ? (
-        <TimeSignatureChips
-          current={change}
-          testID={`${testID}-time`}
-          onPick={(beatsPerBar, beatUnit) => {
-            onChange({ ...change, beatsPerBar, beatUnit });
-            setChoosingTime(false);
-          }}
-        />
-      ) : null}
-    </View>
-  );
-}
-
-function TimeChangesField({ section, index, onChange }: { section: EditableSection; index: number; onChange: (next: EditableSection) => void }) {
-  const changes = section.timeChanges ?? [];
-  const added = newTimeChange(section);
-  const update = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
-  return (
-    <View style={styles.changes}>
-      {changes.map((change, changeIndex) => (
-        <TimeChangeRow
-          key={changeIndex}
-          change={change}
-          testID={`section-${index}-change-${changeIndex}`}
-          onChange={(edited) => update(changes.map((other, otherIndex) => (otherIndex === changeIndex ? edited : other)))}
-          onRemove={() => update(changes.filter((_, otherIndex) => otherIndex !== changeIndex))}
-        />
-      ))}
-      {added ? (
-        <Pressable
-          role="button"
-          aria-label={`Add a time change to Section ${index + 1}`}
-          testID={`section-${index}-add-change`}
-          onPress={() => update([...changes, added])}
-          style={({ pressed }) => [styles.addChange, pressed ? styles.addChangePressed : null]}
-        >
-          <Icon name="add" size={18} color="accent" />
-          <ThemedText themeColor="accent" style={styles.addChangeText}>
-            Add time change
-          </ThemedText>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-function TimeSignatureField({ section, open, onToggle, testID }: { section: TimeSignature; open: boolean; onToggle: () => void; testID: string }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.numberField, styles.timeField]}>
-      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-        Time
-      </ThemedText>
-      <Pressable
-        role="button"
-        aria-expanded={open}
-        aria-label={`Time signature, ${timeSignatureOf(section)}`}
-        testID={testID}
-        onPress={onToggle}
-        style={[styles.timeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
-      >
-        <ThemedText style={styles.timeText}>{timeSignatureOf(section)}</ThemedText>
-        <Icon name="expand" size={18} color="textSecondary" />
-      </Pressable>
-    </View>
-  );
-}
-function StepperField({
-  label,
-  value,
-  muted,
-  lowerLabel,
-  raiseLabel,
-  testID,
-  onLower,
-  onRaise,
-}: {
-  label: string;
-  value: string;
-  muted: boolean;
-  lowerLabel: string;
-  raiseLabel: string;
-  testID: string;
-  onLower: () => void;
-  onRaise: () => void;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={styles.numberGroup}>
-      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-        {label}
-      </ThemedText>
-      <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label={label}>
-        <IconButton icon="minus" size={36} label={lowerLabel} testID={`${testID}-down`} onPress={onLower} />
-        <ThemedText themeColor={muted ? "textSecondary" : "text"} style={styles.stepperValue} testID={`${testID}-value`}>
-          {value}
-        </ThemedText>
-        <IconButton icon="add" size={36} label={raiseLabel} testID={`${testID}-up`} onPress={onRaise} />
-      </View>
-    </View>
-  );
-}
-
-function PlaysBadge({ plays, testID }: { plays: number; testID: string }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.playsBadge, { backgroundColor: theme.accentTint }]} testID={testID} aria-label={`Plays ${plays} times`}>
-      <Icon name="plays" size={15} color="accent" />
-      <ThemedText themeColor="accent" style={styles.playsBadgeText}>
-        {`×${plays}`}
-      </ThemedText>
+      <NumberField label="From bar" integer value={change.bar} testID={`${testID}-bar`} onChange={(bar) => onChange({ ...change, bar })} />
+      <NumberField label="Bars" integer value={change.bars} testID={`${testID}-bars`} onChange={(bars) => onChange({ ...change, bars })} />
+      <TimeSignatureField section={change} testID={`${testID}-time`} onChange={(time) => onChange({ ...change, ...time })} />
+      <IconButton icon="trash" color="textTertiary" size={40} label={`Remove the time change at bar ${change.bar}`} onPress={onRemove} testID={`${testID}-remove`} />
     </View>
   );
 }
@@ -237,24 +113,9 @@ function NumberField({ label, value, onChange, testID, integer = false }: { labe
   );
 }
 
-function SongTempoValue({ bpm, testID }: { bpm: number; testID: string }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.numberField, styles.timeField]}>
-      <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-        BPM
-      </ThemedText>
-      <View aria-label={`BPM, ${bpm}, the Song tempo`} testID={testID} style={[styles.timeButton, { borderColor: theme.inputBorder, borderStyle: "dashed" }]}>
-        <ThemedText themeColor="textSecondary" style={styles.timeText}>
-          {bpm}
-        </ThemedText>
-        <ThemedText type="caption" themeColor="textTertiary">
-          Song
-        </ThemedText>
-      </View>
-    </View>
-  );
-}
+const MENU_MIN_WIDTH = 120;
+
+const titleOf = (section: EditableSection) => `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
 function SectionRow({
   section,
@@ -278,9 +139,11 @@ function SectionRow({
   onRemove: () => void;
 }) {
   const theme = useTheme();
-  const [choosing, setChoosing] = useState(false);
-  const [choosingTime, setChoosingTime] = useState(false);
   const plays = playsOf(section);
+  const changes = section.timeChanges ?? [];
+  const addedChange = newTimeChange(section);
+  const updateChanges = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
+  const ownTempo = section.ownTempo === true;
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
       <View style={styles.sectionTop}>
@@ -289,21 +152,38 @@ function SectionRow({
             {index + 1}
           </ThemedText>
         </View>
-        <Pressable
-          role="button"
-          aria-expanded={choosing}
-          aria-label={`Section type, ${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`}
+        <Dropdown
+          look="field"
+          label={`Section type of Section ${index + 1}`}
           testID={`section-${index}-type`}
-          onPress={() => setChoosing(!choosing)}
-          style={[styles.typeButton, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]}
-        >
-          <ThemedText type="default" style={styles.typeText} numberOfLines={1}>
-            {section.sectionType}
-            {section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}
-          </ThemedText>
-          <Icon name="expand" size={20} color="textSecondary" />
-        </Pressable>
-        {plays > 1 ? <PlaysBadge plays={plays} testID={`section-${index}-plays-badge`} /> : null}
+          style={styles.grow}
+          options={vocabulary.map((type) => ({ value: type, label: type }))}
+          value={section.sectionType}
+          onChange={(sectionType) => onChange({ ...section, sectionType })}
+          shown={
+            <ThemedText style={styles.typeText} numberOfLines={1}>
+              {titleOf(section)}
+            </ThemedText>
+          }
+        />
+        {section.number ? (
+          <Dropdown
+            look="field"
+            label={`Letter after the number of Section ${index + 1}`}
+            testID={`section-${index}-letter`}
+            style={styles.letter}
+            menuMinWidth={MENU_MIN_WIDTH}
+            muted={section.letter === undefined}
+            options={LETTER_OPTIONS}
+            value={section.letter ?? NO_CHOICE}
+            shown={
+              <ThemedText themeColor={section.letter ? "text" : "textTertiary"} style={styles.typeText} numberOfLines={1}>
+                {section.letter ?? "–"}
+              </ThemedText>
+            }
+            onChange={(next) => onChange({ ...section, letter: next === NO_CHOICE ? undefined : next })}
+          />
+        ) : null}
         <ReorderControl
           name={`Section ${index + 1}`}
           canMoveUp={index > 0}
@@ -313,108 +193,104 @@ function SectionRow({
           downTestID={`section-${index}-down`}
         />
       </View>
-      {choosing ? (
-        <View style={styles.wrap}>
-          {vocabulary.map((type) => (
-            <Chip
-              key={type}
-              role="radio"
-              label={type}
-              selected={type === section.sectionType}
-              testID={`section-${index}-type-${type}`}
-              onPress={() => {
-                onChange({ ...section, sectionType: type });
-                setChoosing(false);
-              }}
-            />
-          ))}
+      <View style={styles.sectionFields}>
+        <View style={styles.barsField}>
+          <NumberField label="Bars" integer value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
         </View>
-      ) : null}
-      <View style={styles.fields}>
-        <NumberField label="Bars" integer value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
-        <TimeSignatureField section={section} open={choosingTime} onToggle={() => setChoosingTime(!choosingTime)} testID={`section-${index}-time`} />
-        {section.ownTempo ? (
-          <NumberField label="BPM" value={section.bpm} testID={`section-${index}-bpm`} onChange={(bpm) => onChange({ ...section, bpm })} />
-        ) : (
-          <SongTempoValue bpm={songBpm} testID={`section-${index}-song-bpm`} />
-        )}
+        <TimeSignatureField section={section} testID={`section-${index}-time`} onChange={(time) => onChange({ ...section, ...time })} />
+        <LabeledField label="BPM">
+          <Dropdown
+            look="field"
+            label={`BPM of Section ${index + 1}`}
+            testID={`section-${index}-bpm`}
+            menuMinWidth={170}
+            muted={!ownTempo}
+            options={bpmOptions(songBpm, ownTempo ? section.bpm : null)}
+            value={ownTempo ? String(section.bpm) : SONG_TEMPO}
+            shown={
+              <ThemedText themeColor={ownTempo ? "text" : "textSecondary"} style={styles.valueText} numberOfLines={1}>
+                {ownTempo ? section.bpm : songBpm}
+              </ThemedText>
+            }
+            onChange={(next) => onChange(next === SONG_TEMPO ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm: Number(next) })}
+          />
+        </LabeledField>
+        <LabeledField label="Number">
+          <Dropdown
+            look="field"
+            label={`Number of Section ${index + 1}`}
+            testID={`section-${index}-number`}
+            menuMinWidth={MENU_MIN_WIDTH}
+            muted={!section.number}
+            options={NUMBER_OPTIONS}
+            value={section.number ? String(section.number) : NO_CHOICE}
+            shown={
+              <ThemedText themeColor={section.number ? "text" : "textTertiary"} style={styles.valueText} numberOfLines={1}>
+                {section.number ?? "–"}
+              </ThemedText>
+            }
+            onChange={(next) => onChange(next === NO_CHOICE ? { ...section, number: undefined, letter: undefined } : { ...section, number: Number(next) })}
+          />
+        </LabeledField>
+        <LabeledField label="Plays">
+          <Dropdown
+            look="field"
+            label={`Plays of Section ${index + 1}`}
+            testID={`section-${index}-plays`}
+            menuMinWidth={MENU_MIN_WIDTH}
+            muted={plays === 1}
+            options={PLAYS_OPTIONS}
+            value={String(plays)}
+            shown={
+              <ThemedText themeColor={plays > 1 ? "accent" : "textSecondary"} style={styles.valueText} numberOfLines={1}>
+                {`×${plays}`}
+              </ThemedText>
+            }
+            onChange={(next) => onChange(withPlays(section, Number(next)))}
+          />
+        </LabeledField>
       </View>
-      {choosingTime ? (
-        <TimeSignatureChips
-          current={section}
-          testID={`section-${index}-time`}
-          onPick={(beatsPerBar, beatUnit) => {
-            onChange({ ...section, beatsPerBar, beatUnit });
-            setChoosingTime(false);
-          }}
+      {changes.map((change, changeIndex) => (
+        <TimeChangeRow
+          key={changeIndex}
+          change={change}
+          testID={`section-${index}-change-${changeIndex}`}
+          onChange={(edited) => updateChanges(changes.map((other, otherIndex) => (otherIndex === changeIndex ? edited : other)))}
+          onRemove={() => updateChanges(changes.filter((_, otherIndex) => otherIndex !== changeIndex))}
         />
-      ) : null}
-      <TimeChangesField section={section} index={index} onChange={onChange} />
-      <View style={styles.bottomRow}>
-        <StepperField
-          label="Number"
-          value={section.number ? String(section.number) : "None"}
-          muted={!section.number}
-          lowerLabel={`Lower the number of Section ${index + 1}`}
-          raiseLabel={`Raise the number of Section ${index + 1}`}
-          testID={`section-${index}-number`}
-          onLower={() =>
-            onChange(section.number && section.number > 1 ? { ...section, number: section.number - 1 } : { ...section, number: undefined, letter: undefined })
-          }
-          onRaise={() => onChange({ ...section, number: Math.min(9, (section.number ?? 0) + 1) })}
-        />
-        <StepperField
-          label="Plays"
-          value={`×${plays}`}
-          muted={plays === 1}
-          lowerLabel={`Play Section ${index + 1} one time fewer`}
-          raiseLabel={`Play Section ${index + 1} one more time`}
-          testID={`section-${index}-plays`}
-          onLower={() => onChange(withPlays(section, plays - 1))}
-          onRaise={() => onChange(withPlays(section, plays + 1))}
-        />
-        <View style={styles.numberGroup}>
-          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-            Own tempo
-          </ThemedText>
-          <View style={styles.switchSlot}>
+      ))}
+      <View style={styles.footer}>
+        {addedChange ? (
+          <Pressable
+            role="button"
+            aria-label={`Add a time change to Section ${index + 1}`}
+            testID={`section-${index}-add-change`}
+            onPress={() => updateChanges([...changes, addedChange])}
+            style={({ pressed }) => [styles.addChange, pressed ? styles.addChangePressed : null]}
+          >
+            <Icon name="add" size={16} color="accent" />
+            <ThemedText themeColor="accent" style={styles.addChangeText}>
+              Time change
+            </ThemedText>
+          </Pressable>
+        ) : null}
+        <View style={styles.rowActions}>
+          <View style={styles.voiceCue}>
+            <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+              Voice cue
+            </ThemedText>
             <Switch
               bare
-              label={`Own tempo for Section ${index + 1}`}
-              testID={`section-${index}-own-tempo`}
-              value={section.ownTempo === true}
-              onChange={(on) => onChange({ ...section, ownTempo: on, bpm: songBpm })}
+              label={`Voice cue for Section ${index + 1}`}
+              testID={`section-${index}-voice-cue`}
+              value={section.voiceCueEnabled !== false}
+              onChange={(on) => onChange({ ...section, voiceCueEnabled: on })}
             />
           </View>
-        </View>
-        <View style={styles.numberGroup}>
-          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-            Voice cue
-          </ThemedText>
-          <View style={styles.switchSlot}>
-            <Switch bare label="Voice cue" value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
-          </View>
-        </View>
-        <View style={styles.rowActions}>
-          <IconButton icon="copy" color="textTertiary" size={40} label={`Duplicate Section ${index + 1}`} onPress={onDuplicate} testID={`section-${index}-duplicate`} />
-          <IconButton icon="trash" color="textTertiary" size={40} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+          <IconButton icon="copy" color="textTertiary" size={36} label={`Duplicate Section ${index + 1}`} onPress={onDuplicate} testID={`section-${index}-duplicate`} />
+          <IconButton icon="trash" color="textTertiary" size={36} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
         </View>
       </View>
-      {section.number ? (
-        <View style={styles.letterRow}>
-          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-            Letter
-          </ThemedText>
-          <Segmented
-            compact
-            label={`Letter after the number of Section ${index + 1}`}
-            testID={`section-${index}-letter`}
-            value={section.letter ?? "none"}
-            onChange={(next: SectionLetter | "none") => onChange({ ...section, letter: next === "none" ? undefined : next })}
-            options={LETTER_OPTIONS}
-          />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -844,46 +720,30 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
-  rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.one, marginLeft: "auto", minHeight: 44 },
-  letterRow: { gap: Spacing.one },
-  bottomRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", columnGap: Spacing.four, rowGap: Spacing.two },
+  rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.half, marginLeft: "auto" },
+  footer: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 36 },
+  voiceCue: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginRight: Spacing.one },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
   indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
-  sectionCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
+  sectionCard: { gap: Spacing.two + 2, paddingHorizontal: 12, paddingTop: 12, paddingBottom: Spacing.one + 2, borderRadius: Radius.lg },
   sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
-  typeButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
-  stepper: { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
-  stepperValue: { minWidth: 44, textAlign: "center", fontSize: 16, fontWeight: 600, fontVariant: ["tabular-nums"] },
-  changes: { gap: Spacing.two },
-  changeRow: { gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
-  changeRemove: { alignSelf: "flex-end" },
-  addChange: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 44, alignSelf: "flex-start" },
+  valueText: { fontWeight: 600, fontSize: 16, flexShrink: 1, fontVariant: ["tabular-nums"] },
+  letter: { width: 64 },
+  field: { flexGrow: 1, flexShrink: 1, flexBasis: "auto", minWidth: 0, gap: Spacing.one },
+  sectionFields: { flexDirection: "row", gap: 6 },
+  barsField: { width: 46, flexDirection: "row" },
+  changeRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
+  addChange: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 36 },
   addChangePressed: { opacity: 0.7 },
-  addChangeText: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
-  playsBadge: { flexDirection: "row", alignItems: "center", gap: 3, minHeight: 28, paddingHorizontal: Spacing.two, borderRadius: Radius.pill, marginLeft: Spacing.one },
-  playsBadgeText: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
-  numberGroup: { gap: Spacing.one + 2, alignItems: "flex-start" },
-  switchSlot: { minHeight: 44, justifyContent: "center" },
+  addChangeText: { fontSize: 14, lineHeight: 20, fontWeight: 600 },
   fields: { flexDirection: "row", gap: Spacing.two },
   numberField: { flex: 1, minWidth: 0 },
-  numberInput: { fontVariant: ["tabular-nums"] },
-  timeField: { gap: Spacing.one + 2 },
-  timeButton: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
-  timeText: { fontSize: 17, fontVariant: ["tabular-nums"] },
+  numberInput: { fontVariant: ["tabular-nums"], paddingHorizontal: 10 },
   centeredText: { textAlign: "center" },
   dock: { gap: Spacing.two, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

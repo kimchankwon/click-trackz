@@ -88,8 +88,8 @@ describe("Songs", () => {
   it("saves a letter after a Section's number, and refuses one without a number", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Lettered" });
-    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, letter: "A" }, { ...verse, letter: "B" }] });
-    expect((await member.query(api.songs.get, { songId }))?.sections.map((section) => section.letter)).toEqual(["A", "B"]);
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, letter: "A" }, { ...verse, letter: "B" }, { ...verse, letter: "E" }] });
+    expect((await member.query(api.songs.get, { songId }))?.sections.map((section) => section.letter)).toEqual(["A", "B", "E"]);
     const { number, ...unnumbered } = verse;
     expect(number).toBe(1);
     await expect(admin.mutation(api.songs.updateSong, { songId, sections: [{ ...unnumbered, letter: "A" }] })).rejects.toThrow(/letter goes after a number/);

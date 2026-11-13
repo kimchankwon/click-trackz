@@ -7,7 +7,7 @@ import { soundFields } from "./sound";
 export const sectionFields = v.object({
   sectionType: v.string(),
   number: v.optional(v.number()),
-  letter: v.optional(v.union(v.literal("A"), v.literal("B"))),
+  letter: v.optional(v.union(v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"), v.literal("E"))),
   bars: v.number(),
   beatsPerBar: v.number(),
   beatUnit: v.optional(v.number()),
