@@ -10,48 +10,51 @@ import { useTheme } from "@/hooks/use-theme";
 
 type ListedGroup = { groupId: string; name: string; locked: boolean };
 
-export function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[]; onlineIn: (groupId: string) => number; testID: string }) {
+export function GroupList({ groups, onlineIn, testID }: { groups: readonly ListedGroup[]; onlineIn: (groupId: string) => number | null; testID: string }) {
   const theme = useTheme();
   return (
     <View style={[styles.list, { backgroundColor: theme.backgroundElement }]} testID={testID}>
-      {groups.map((group, index) => (
-        <Pressable
-          key={group.groupId}
-          role="link"
-          testID={`open-group-${group.name}`}
-          onPress={() => {
-            primeAudio();
-            router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } });
-          }}
-          style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
-        >
-          {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
-          <Avatar name={group.name} position={index} />
-          <View style={styles.grow}>
-            <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
-              {group.name}
-            </ThemedText>
-            <View style={styles.roleRow} testID={`online-${group.name}`}>
-              {group.locked ? (
-                <>
-                  <Icon name="warning" size={14} color="textSecondary" />
-                  <ThemedText themeColor="textSecondary" style={styles.role} testID={`locked-${group.name}`}>
-                    Locked
-                  </ThemedText>
-                </>
-              ) : (
-                <>
-                  <View style={[styles.onlineDot, { backgroundColor: onlineIn(group.groupId) > 0 ? theme.switchOn : theme.dotInactive }]} />
-                  <ThemedText themeColor="textSecondary" style={styles.role}>
-                    {onlineIn(group.groupId) > 0 ? `${onlineIn(group.groupId)} online` : "No one online"}
-                  </ThemedText>
-                </>
-              )}
+      {groups.map((group, index) => {
+        const online = onlineIn(group.groupId);
+        return (
+          <Pressable
+            key={group.groupId}
+            role="link"
+            testID={`open-group-${group.name}`}
+            onPress={() => {
+              primeAudio();
+              router.push({ pathname: "/group/[groupId]", params: { groupId: group.groupId } });
+            }}
+            style={({ pressed }) => [styles.groupRow, pressed ? { backgroundColor: theme.backgroundSelected } : null]}
+          >
+            {index > 0 ? <View style={[styles.separator, { backgroundColor: theme.border }]} /> : null}
+            <Avatar name={group.name} position={index} />
+            <View style={styles.grow}>
+              <ThemedText type="default" style={styles.groupName} numberOfLines={1}>
+                {group.name}
+              </ThemedText>
+              <View style={styles.roleRow} testID={`online-${group.name}`}>
+                {group.locked ? (
+                  <>
+                    <Icon name="warning" size={14} color="textSecondary" />
+                    <ThemedText themeColor="textSecondary" style={styles.role} testID={`locked-${group.name}`}>
+                      Locked
+                    </ThemedText>
+                  </>
+                ) : (
+                  <>
+                    <View style={[styles.onlineDot, { backgroundColor: online !== null && online > 0 ? theme.switchOn : theme.dotInactive }]} />
+                    <ThemedText themeColor="textSecondary" style={styles.role}>
+                      {online === null ? "Not connected" : online > 0 ? `${online} online` : "No one online"}
+                    </ThemedText>
+                  </>
+                )}
+              </View>
             </View>
-          </View>
-          <Icon name="forward" size={22} color="textTertiary" />
-        </Pressable>
-      ))}
+            <Icon name="forward" size={22} color="textTertiary" />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

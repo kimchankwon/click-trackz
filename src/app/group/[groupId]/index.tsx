@@ -184,6 +184,11 @@ export default function GroupRoute() {
     return (
       <ThemedView style={[styles.container, styles.loading]}>
         <Connecting />
+        <Pressable role="button" testID="back-to-groups" onPress={() => router.dismissTo("/")} style={styles.loadingBack}>
+          <ThemedText type="small" themeColor="accent">
+            Back to your Groups
+          </ThemedText>
+        </Pressable>
       </ThemedView>
     );
   }
@@ -1533,6 +1538,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { justifyContent: "center", alignItems: "center" },
+  loadingBack: { marginTop: Spacing.four, padding: Spacing.two },
   notInGroup: { flex: 1, justifyContent: "center", alignItems: "center", gap: Spacing.three, padding: Spacing.four },
   safeArea: { flex: 1 },
   content: {
