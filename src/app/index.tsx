@@ -6,7 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
-import { useClaimGuestHandoff } from "@/auth/guest-handoff";
+import { forgetGuestHandoff, useClaimGuestHandoff } from "@/auth/guest-handoff";
 import { useSignedInHere } from "@/auth/use-signed-in-here";
 import { ActionButton } from "@/components/action-button";
 import { primeAudio } from "@/audio/primed-context";
@@ -267,7 +267,7 @@ function SettingsTab({ run }: { run: Run }) {
         testID="sign-out"
         onPress={() =>
           run(async () => {
-            await Promise.all([forgetStoredLibrary(), forgetStoredHome()]);
+            await Promise.all([forgetStoredLibrary(), forgetStoredHome(), forgetGuestHandoff()]);
             await signOut();
             await forgetStoredHome();
           })
@@ -320,7 +320,7 @@ export default function HomeScreen() {
   const accountGone = isAuthenticated && viewer === null;
   useEffect(() => {
     if (!accountGone) return;
-    void Promise.all([forgetStoredLibrary(), forgetStoredHome()])
+    void Promise.all([forgetStoredLibrary(), forgetStoredHome(), forgetGuestHandoff()])
       .then(() => signOut().catch(() => undefined))
       .then(forgetStoredHome);
   }, [accountGone, signOut]);

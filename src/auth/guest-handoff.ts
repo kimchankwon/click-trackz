@@ -9,6 +9,8 @@ const handoff = deviceValue("guest-handoff", parseHandoff);
 
 export const saveGuestHandoff = (token: string) => handoff.save({ token });
 
+export const forgetGuestHandoff = handoff.forget;
+
 export function useClaimGuestHandoff(signedInWithGoogle: boolean) {
   const stored = handoff.useValue();
   const claim = useMutation(api.guestHandoff.claim);
@@ -28,7 +30,10 @@ export function useStartGuestHandoff() {
   const viewer = useQuery(api.users.viewer, {});
   const start = useMutation(api.guestHandoff.start);
   return async () => {
-    if (viewer?.isAnonymous !== true) return;
+    if (viewer?.isAnonymous !== true) {
+      await handoff.forget();
+      return;
+    }
     const token = await start({}).catch(() => null);
     if (token !== null) await saveGuestHandoff(token);
   };
