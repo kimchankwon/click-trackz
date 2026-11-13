@@ -5,10 +5,10 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
 import { deleteGroupRows } from "./cleanup";
 import { groupLocked, requireOwnerRoomForSongs, requireRoomForGroup } from "./plans";
-import { roleValidator } from "./schema";
+import { joinRoleValidator, roleValidator } from "./schema";
 import { songCopyFields } from "./songs";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
-import { canAssignRole, canManageGroup, outranks } from "../src/lib/roles";
+import { canAssignRole, canManageGroup, guestCanHold, outranks, ROLE_NAMES } from "../src/lib/roles";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
@@ -192,7 +192,7 @@ export const joinGroup = mutation({
       await ctx.db.insert("memberships", {
         groupId: group._id,
         userId: user._id,
-        role: "member",
+        role: group.joinRole ?? "member",
         displayName: cleanName(args.displayName, "Your name"),
       });
     }
@@ -210,11 +210,22 @@ export const setRole = mutation({
     if (target === null) throw new ConvexError("That person is not in this Group");
     if (target.role === role) return;
     if (!canAssignRole(mine.role, target.role, role)) throw new ConvexError("You can only give Roles below your own, to people below you");
-    if (role !== "member") {
+    if (!guestCanHold(role)) {
       const user = await ctx.db.get(userId);
-      if (user === null || isGuest(user)) throw new ConvexError("Guests must sign in with Google before they can have a Role");
+      if (user === null || isGuest(user)) throw new ConvexError(`Guests must sign in with Google before they can be ${ROLE_NAMES[role]}s`);
     }
     await ctx.db.patch(target._id, { role });
+  },
+});
+
+export const setJoinRole = mutation({
+  args: { groupId: v.id("groups"), joinRole: joinRoleValidator },
+  handler: async (ctx, { groupId, joinRole }) => {
+    await requireRole(ctx, groupId, "groupManager");
+    const group = await ctx.db.get(groupId);
+    if (group === null) throw new ConvexError("That Group no longer exists");
+    if (group.offline === true) throw new ConvexError("No one can join My Library");
+    await ctx.db.patch(groupId, { joinRole });
   },
 });
 
@@ -290,6 +301,7 @@ export const myGroups = query({
           guest: isGuest(user),
           owned: group.createdBy === user._id,
           joinCode: canManageGroup(membership.role) && group.offline !== true ? group.joinCode : null,
+          joinRole: canManageGroup(membership.role) && group.offline !== true ? (group.joinRole ?? "member") : null,
         };
       }),
     );

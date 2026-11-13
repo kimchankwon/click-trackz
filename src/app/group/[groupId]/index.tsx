@@ -20,6 +20,7 @@ import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
+import { JoinRoleCard } from "@/components/group/join-role-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
 import { SongsCard } from "@/components/group/songs-card";
@@ -48,7 +49,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { setPlayingHere } from "@/lib/playing-here";
-import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES } from "@/lib/roles";
+import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES, seesSongLibrary } from "@/lib/roles";
 import { useAppActive } from "@/lib/use-app-active";
 import { useIdleWithoutPlayback } from "@/lib/use-idle-without-playback";
 import { useConnected } from "@/lib/use-connected";
@@ -237,7 +238,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const stopsLockedPlayback = locked && canSteerPlayback(group.role);
   const editsSongs = canEditSongs(group.role) && !locked && (connected || !offline);
   const managesGroup = canManageGroup(group.role);
-  const seesLibrary = offline || !group.guest;
+  const seesLibrary = offline || seesSongLibrary(group.role, group.guest);
   useKeepLibraryOnDevice(groupId, offline);
   const storedSongs = useStoredLibraryFor(groupId);
   const [offlinePlay, setOfflinePlay] = useState(false);
@@ -880,7 +881,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         ) : group.joinCode ? (
           <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} />
         ) : group.guest ? (
-          "Guest"
+          group.role === "member" ? "Guest" : `Guest · ${ROLE_NAMES[group.role]}`
         ) : (
           ROLE_NAMES[group.role]
         )
@@ -1263,6 +1264,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const groupTab = (
     <>
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
+      {managesGroup && group.joinRole ? <JoinRoleCard groupId={groupId} joinRole={group.joinRole} /> : null}
       <View style={styles.leave}>
         {managesGroup ? <RenameGroup groupId={groupId} name={group.name} /> : null}
         {managesGroup ? (

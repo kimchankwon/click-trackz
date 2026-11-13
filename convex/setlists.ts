@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireMember, requireRoleInUnlocked, requireSignedInMember } from "./access";
+import { requireMember, requireRoleInUnlocked, requireLibraryReader } from "./access";
 import { touchLibrary } from "./library";
 
 const cleanName = (name: string) => {
@@ -23,7 +23,7 @@ export const createSetlist = mutation({
 export const list = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireSignedInMember(ctx, groupId);
+    await requireLibraryReader(ctx, groupId);
     const group = await ctx.db.get(groupId);
     const setlists = await ctx.db
       .query("setlists")

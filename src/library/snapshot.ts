@@ -53,6 +53,7 @@ export const storedLibraryGroup = (snapshot: LibrarySnapshot) => ({
   guest: false,
   owned: true,
   joinCode: null,
+  joinRole: null,
 });
 
 export const librarySongs = (snapshot: LibrarySnapshot): SongSummary[] => snapshot.songs.map(summaryOfView);

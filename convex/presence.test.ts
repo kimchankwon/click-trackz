@@ -154,6 +154,21 @@ describe("Presence", () => {
     expect(names.sort()).toEqual(["Admin", "Ana", "Ben", "Cho"]);
   });
 
+  it("removes absent guests who were Playback or Song Managers too", async () => {
+    const { t, admin, member, groupId } = await setupGroup();
+    await admin.client.mutation(api.groups.setRole, { groupId, userId: member.userId, role: "songManager" });
+    const { joinCode } = (await t.run((ctx) => ctx.db.get(groupId)))!;
+    await admin.client.mutation(api.groups.setJoinRole, { groupId, joinRole: "playbackManager" });
+    const guest = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));
+    await t.withIdentity({ subject: `${guest}|session` }).mutation(api.groups.joinGroup, { joinCode, displayName: "Dee" });
+
+    vi.setSystemTime(NOW + 61 * 60_000);
+    await t.mutation(internal.presence.removeAbsentGuests, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    expect((await admin.client.query(api.groups.members, { groupId })).map((m) => m.displayName)).toEqual(["Admin"]);
+  });
+
   it("forgets a guest's account and empty Offline space with their last membership, but keeps a guest who has Songs in Offline", async () => {
     const { t, member, groupId } = await setupGroup();
     const offlineId = await member.client.mutation(api.groups.openOffline, {});

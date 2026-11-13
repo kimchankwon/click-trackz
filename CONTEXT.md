@@ -33,8 +33,12 @@ A Member who can Start, Jump, Repeat, Vamp and Stop, and pick which Song is read
 _Avoid_: Operator, controller
 
 **Guest**:
-A Member who joined without signing in. A Guest only ever has the Member Role and sees Play, Sound and the Group's Members, never the Song library or Setlists.
+A Member who joined without signing in. A Guest can be a Member, Playback Manager or Song Manager, but must sign in with Google to become a Group Manager. A Guest who is a Member sees Play, Sound and the Group's Members, never the Song library or Setlists; a Guest Playback Manager or Song Manager sees them too.
 _Avoid_: Anonymous, visitor
+
+**Join Role**:
+The Role a Group gives everyone who joins with its code from then on, Guests included: Member, Playback Manager or Song Manager. Member unless a Group Manager or the Admin picks another; Members who already joined keep their Role.
+_Avoid_: Default role, starting role
 
 **My Library**:
 A person's own space for practising alone: it has Songs and Setlists like a Group, saved to their account and kept on their device so it plays with no connection, but no other Members, and its Playback runs only on their device, on the device's own clock.

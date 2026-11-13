@@ -6,7 +6,8 @@ import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireMember, requireUser } from "./access";
 import { forgetGuestIfGone } from "./cleanup";
-import { canSteerPlayback } from "../src/lib/roles";
+import { joinRoleValidator } from "./schema";
+import { canSteerPlayback, JOIN_ROLES } from "../src/lib/roles";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
@@ -82,12 +83,13 @@ export const list = query({
 const SWEEP_PAGE = 100;
 
 export const removeAbsentGuests = internalMutation({
-  args: { cursor: v.optional(v.string()), cutoff: v.optional(v.number()), pageSize: v.optional(v.number()) },
-  handler: async (ctx, { cursor, cutoff: sweepCutoff, pageSize }) => {
+  args: { cursor: v.optional(v.string()), cutoff: v.optional(v.number()), pageSize: v.optional(v.number()), role: v.optional(joinRoleValidator) },
+  handler: async (ctx, { cursor, cutoff: sweepCutoff, pageSize, role: sweptRole }) => {
     const cutoff = sweepCutoff ?? Date.now() - GUEST_ABSENCE_MS;
+    const role = sweptRole ?? JOIN_ROLES[0];
     const { page, isDone, continueCursor } = await ctx.db
       .query("memberships")
-      .withIndex("by_role_seen", (q) => q.eq("role", "member").lt("lastSeenAt", cutoff))
+      .withIndex("by_role_seen", (q) => q.eq("role", role).lt("lastSeenAt", cutoff))
       .paginate({ cursor: cursor ?? null, numItems: pageSize ?? SWEEP_PAGE });
     for (const membership of page) {
       if (membership.lastSeenAt === undefined && membership._creationTime >= cutoff) continue;
@@ -102,7 +104,9 @@ export const removeAbsentGuests = internalMutation({
       await ctx.db.delete(membership._id);
       await forgetGuestIfGone(ctx, membership.userId);
     }
-    if (!isDone) await ctx.scheduler.runAfter(0, internal.presence.removeAbsentGuests, { cursor: continueCursor, cutoff, pageSize });
+    const nextRole = JOIN_ROLES[JOIN_ROLES.indexOf(role) + 1];
+    if (!isDone) await ctx.scheduler.runAfter(0, internal.presence.removeAbsentGuests, { cursor: continueCursor, cutoff, pageSize, role });
+    else if (nextRole !== undefined) await ctx.scheduler.runAfter(0, internal.presence.removeAbsentGuests, { cutoff, pageSize, role: nextRole });
   },
 });
 

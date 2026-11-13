@@ -26,6 +26,8 @@ export const roleValidator = v.union(
   v.literal("member"),
 );
 
+export const joinRoleValidator = v.union(v.literal("member"), v.literal("playbackManager"), v.literal("songManager"));
+
 export const paidPlanValidator = v.union(v.literal("plus"), v.literal("pro"));
 
 export default defineSchema({
@@ -51,6 +53,7 @@ export default defineSchema({
     offline: v.optional(v.boolean()),
     copyBase: v.optional(v.string()),
     libraryRevision: v.optional(v.number()),
+    joinRole: v.optional(joinRoleValidator),
   })
     .index("by_join_code", ["joinCode"])
     .index("by_created_by", ["createdBy"]),

@@ -24,6 +24,14 @@ export const canManageGroup = (role: Role) => atLeast(role, "groupManager");
 
 export const canDeleteGroup = (role: Role) => role === "admin";
 
+export const JOIN_ROLES = ["member", "playbackManager", "songManager"] as const satisfies readonly Role[];
+
+export type JoinRole = (typeof JOIN_ROLES)[number];
+
+export const guestCanHold = (role: Role) => atLeast("songManager", role);
+
+export const seesSongLibrary = (role: Role, guest: boolean) => !guest || canSteerPlayback(role);
+
 const HIGHEST_ASSIGNABLE: Partial<Record<Role, Role>> = { admin: "groupManager", groupManager: "songManager" };
 
 export function assignableRoles(caller: Role): Role[] {
