@@ -109,9 +109,7 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
       <SafeAreaView edges={["top", "left", "right"]}>
         <View style={[styles.inner, styles.header]}>
           <View style={styles.brandRow}>
-            <View style={[styles.logo, { backgroundColor: theme.accent }]}>
-              <LogoMark size={24} />
-            </View>
+            <LogoMark size={36} />
             <ThemedText style={styles.brand}>Click Trackz</ThemedText>
           </View>
           <ActionButton small variant={signedIn ? "outline" : "inverse"} label={signedIn ? "Back to Groups" : "Log in"} testID="about-log-in" onPress={onGetStarted} />
@@ -246,7 +244,6 @@ const styles = StyleSheet.create({
   inner: { width: "100%", maxWidth: PAGE_WIDTH, alignSelf: "center", gap: Spacing.five },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: Spacing.four, paddingTop: Spacing.three, gap: Spacing.three },
   brandRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  logo: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   brand: { fontFamily: Fonts.display, fontSize: 19, lineHeight: 24, fontWeight: "800" },
   hero: { alignItems: "center", gap: Spacing.five },
   heroWide: { flexDirection: "row", justifyContent: "space-between" },

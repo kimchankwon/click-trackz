@@ -69,10 +69,13 @@ export function demoFrameAt(state: DemoState, nowMs: number): DemoFrame {
 
 const isLive = (state: DemoState, nowMs: number) => demoFrameAt(state, nowMs).status !== "idle";
 
-export function demoStart(state: DemoState, nowMs: number, fromSection?: number): DemoState {
+export function demoStart(state: DemoState, nowMs: number, fromSection?: number, startsAt?: number): DemoState {
   if (isLive(state, nowMs)) return state;
-  return { ...state, playback: startedPlayback(songOf(state), fromSection === undefined ? {} : { fromSection }, nowMs) };
+  return { ...state, playback: startedPlayback(songOf(state), fromSection === undefined ? {} : { fromSection }, nowMs, startsAt) };
 }
+
+export const barLineAfter = (nowMs: number, leadMs: number, gridStartMs: number, barMs: number) =>
+  gridStartMs + Math.ceil((nowMs + leadMs - gridStartMs) / barMs) * barMs;
 
 export function demoStop(state: DemoState, nowMs: number): DemoState {
   if (state.playback === null) return state;

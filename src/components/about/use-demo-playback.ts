@@ -1,7 +1,10 @@
 import { useSyncExternalStore } from "react";
 
-import { DEMO_START, demoCommand, demoFrameAt, demoJump, demoStart, demoStepSong, demoStop, nextDemoChangeAt, type DemoFrame, type DemoState } from "@/lib/demo-playback";
+import { barLineAfter, DEMO_START, demoCommand, demoFrameAt, demoJump, demoStart, demoStepSong, demoStop, nextDemoChangeAt, type DemoFrame, type DemoState } from "@/lib/demo-playback";
 import type { LockScreenCommand } from "@/lib/lock-screen";
+import { LEAD_IN_MS } from "@/sync/commands";
+
+import { DEMO_BAR_MS, demoClockStartedAt } from "./use-demo-beat";
 
 const listeners = new Set<() => void>();
 const now = () => performance.now();
@@ -34,7 +37,7 @@ function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!autoStarted) {
     autoStarted = true;
-    update((current, nowMs) => demoStart(current, nowMs));
+    update((current, nowMs) => demoStart(current, nowMs, undefined, barLineAfter(nowMs, LEAD_IN_MS, demoClockStartedAt, DEMO_BAR_MS)));
   } else schedule();
   return () => {
     listeners.delete(listener);

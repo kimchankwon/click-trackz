@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming, type SharedValue } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { DEMO_BEAT_MS, DEMO_BEATS_PER_BAR } from "@/lib/demo-beat";
 
-const BAR_MS = DEMO_BEAT_MS * DEMO_BEATS_PER_BAR;
+import { DEMO_BAR_MS, demoBarPhase } from "./use-demo-beat";
+
 const ON_TIME = [0.02, 0.27, 0.52, 0.77];
 const OVER_NETWORK = [
   [0.05, 0.25, 0.58, 0.79],
@@ -22,7 +22,12 @@ function useBarProgress() {
   const progress = useSharedValue(0);
   useEffect(() => {
     if (still) return;
-    progress.value = withRepeat(withTiming(1, { duration: BAR_MS, easing: Easing.linear }), -1, false);
+    const phase = demoBarPhase();
+    progress.value = phase;
+    progress.value = withSequence(
+      withTiming(1, { duration: (1 - phase) * DEMO_BAR_MS, easing: Easing.linear }),
+      withRepeat(withSequence(withTiming(0, { duration: 0 }), withTiming(1, { duration: DEMO_BAR_MS, easing: Easing.linear })), -1, false),
+    );
     return () => cancelAnimation(progress);
   }, [still, progress]);
   return { progress, still };

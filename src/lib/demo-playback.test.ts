@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEMO_START, demoCommand, demoFrameAt, demoJump, demoStart, demoStepSong, demoStop, nextDemoChangeAt } from "./demo-playback";
+import { barLineAfter, DEMO_START, demoCommand, demoFrameAt, demoJump, demoStart, demoStepSong, demoStop, nextDemoChangeAt } from "./demo-playback";
 
 const BEAT = 500;
 
@@ -47,5 +47,11 @@ describe("the About page's demo Playback", () => {
     expect(nextDemoChangeAt(started, 200)).toBe(1_000);
     expect(nextDemoChangeAt(started, 1_100)).toBe(1_500);
     expect(nextDemoChangeAt(DEMO_START, 0)).toBeNull();
+  });
+
+  it("can start on a given bar line so it beats with the rest of the page", () => {
+    expect(barLineAfter(2_300, 1_000, 0, 2_000)).toBe(4_000);
+    expect(barLineAfter(1_000, 1_000, 0, 2_000)).toBe(2_000);
+    expect(demoStart(DEMO_START, 2_300, undefined, 4_000).playback?.startsAt).toBe(4_000);
   });
 });
