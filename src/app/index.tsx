@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
+import { useSignedInHere } from "@/auth/use-signed-in-here";
 import { ActionButton } from "@/components/action-button";
 import { primeAudio } from "@/audio/primed-context";
 import { useSpeakerPreview } from "@/audio/use-speaker-preview";
@@ -19,6 +20,7 @@ import { AccentPicker } from "@/components/ui/accent-picker";
 import { Field } from "@/components/ui/field";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { Icon } from "@/components/ui/icon";
+import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { Connecting } from "@/components/ui/connecting";
 import { TabPager } from "@/components/ui/tab-pager";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -29,6 +31,7 @@ import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
 import { canCreateGroup, PLAN_NAMES } from "@/lib/plans";
+import { forgetStoredHome, useKeepHomeOnDevice, useStoredHome } from "@/home/use-stored-home";
 import { forgetStoredLibrary, useStoredLibrary } from "@/library/use-my-library";
 import { onlineCount } from "@/presence/online";
 import { useSoundSettings } from "@/settings/use-sound-settings";
@@ -48,7 +51,10 @@ type Run = (action: () => Promise<unknown>) => void;
 
 function GroupsTab({ run }: { run: Run }) {
   const viewer = useQuery(api.users.viewer, {});
-  const allGroups = useQuery(api.groups.myGroups, {});
+  const liveGroups = useQuery(api.groups.myGroups, {});
+  const storedHome = useStoredHome();
+  useKeepHomeOnDevice(liveGroups, viewer?.isAnonymous);
+  const allGroups = liveGroups ?? storedHome?.groups;
   const groups = allGroups?.filter((group) => !group.offline);
   const ownedGroups = (groups ?? []).filter((group) => group.owned);
   const joinedGroups = (groups ?? []).filter((group) => !group.owned);
@@ -61,24 +67,21 @@ function GroupsTab({ run }: { run: Run }) {
   const [invited, setInvited] = useState(readPendingJoin);
   const [joinCode, setJoinCode] = useState(invited ?? "");
   const [groupName, setGroupName] = useState("");
-  const isGuest = viewer?.isAnonymous ?? true;
+  const isGuest = viewer?.isAnonymous ?? storedHome?.isAnonymous ?? true;
   const usage = useQuery(api.subscriptions.mine, viewer ? {} : "skip");
   const seen = useQuery(api.presence.myGroupsSeen, {});
   const connected = useConnected();
   const nowMs = useServerNow(seen?.serverNow, ONLINE_REFRESH_MS);
-  const onlineIn = (groupId: string) => onlineCount(seen?.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs);
+  const onlineIn = (groupId: string) =>
+    connected && seen !== undefined ? onlineCount(seen.groups.find((entry) => entry.groupId === groupId)?.seenAt ?? [], nowMs) : null;
 
   return (
     <>
-      <View style={styles.pageHead}>
+      <View style={styles.titleRow}>
         <ThemedText type="title" role="heading">
           Groups
         </ThemedText>
-        {connected ? null : (
-          <ThemedText type="smallBold" themeColor="warningText" testID="connecting">
-            Connecting…
-          </ThemedText>
-        )}
+        <ConnectionBadge />
       </View>
 
       {groups !== undefined && groups.length === 0 ? <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText> : null}
@@ -231,9 +234,11 @@ function SoundTab({ active }: { active: boolean }) {
 
 function SettingsTab({ run }: { run: Run }) {
   const viewer = useQuery(api.users.viewer, {});
+  const storedHome = useStoredHome();
   const { signOut } = useAuthActions();
   const signInWithGoogle = useGoogleSignIn();
-  const isGuest = viewer?.isAnonymous ?? true;
+  const isGuest = viewer?.isAnonymous ?? storedHome?.isAnonymous ?? true;
+  const knownAccount = viewer != null || storedHome != null;
   return (
     <>
       <View style={styles.pageHead}>
@@ -245,7 +250,7 @@ function SettingsTab({ run }: { run: Run }) {
         <View style={styles.account}>
           <Icon name="person" size={18} color="textSecondary" />
           <ThemedText testID="settings-account" style={styles.grow}>
-            {viewer ? (isGuest ? "Signed in as a guest" : "Signed in with Google") : "Loading…"}
+            {knownAccount ? (isGuest ? "Signed in as a guest" : "Signed in with Google") : "Loading…"}
           </ThemedText>
         </View>
         {viewer && isGuest ? (
@@ -261,7 +266,7 @@ function SettingsTab({ run }: { run: Run }) {
         testID="sign-out"
         onPress={() =>
           run(async () => {
-            await forgetStoredLibrary();
+            await Promise.all([forgetStoredLibrary(), forgetStoredHome()]);
             await signOut();
           })
         }
@@ -306,12 +311,13 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
 
 export default function HomeScreen() {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signedIn, settling } = useSignedInHere();
   const { signIn, signOut } = useAuthActions();
   const signInWithGoogle = useGoogleSignIn();
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const accountGone = isAuthenticated && viewer === null;
   useEffect(() => {
-    if (accountGone) void forgetStoredLibrary().then(() => signOut().catch(() => undefined));
+    if (accountGone) void Promise.all([forgetStoredLibrary(), forgetStoredHome()]).then(() => signOut().catch(() => undefined));
   }, [accountGone, signOut]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,12 +357,12 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={isAuthenticated ? ["top", "left", "right"] : undefined}>
-        {isAuthenticated && !isLoading ? (
+      <SafeAreaView style={styles.safeArea} edges={signedIn ? ["top", "left", "right"] : undefined}>
+        {signedIn ? (
           <SignedInHome run={run} footer={feedback} />
         ) : (
           <ScrollView contentContainerStyle={[styles.content, styles.welcome]} keyboardShouldPersistTaps="handled">
-            {isLoading ? (
+            {settling ? (
               <Connecting />
             ) : (
               <>
@@ -413,6 +419,7 @@ const styles = StyleSheet.create({
   signInButtons: { gap: Spacing.three },
   centered: { textAlign: "center" },
   pageHead: { gap: Spacing.one },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.two },
   account: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
   subsection: { gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },

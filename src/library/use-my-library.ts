@@ -1,40 +1,16 @@
 import { useConvex, useQuery } from "convex/react";
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { clearStoredLibrary, readStoredLibrary, writeStoredLibrary } from "./library-store";
+import { deviceValue } from "@/lib/device-value";
 import { librarySetlist, librarySetlists, librarySong, librarySongs, parseSnapshot, SNAPSHOT_FORMAT, type LibrarySnapshot } from "./snapshot";
 
-let stored: LibrarySnapshot | null | undefined;
-let loading: Promise<void> | null = null;
-const listeners = new Set<() => void>();
+const library = deviceValue("my-library", parseSnapshot);
 
-const publish = (next: LibrarySnapshot | null) => {
-  stored = next;
-  listeners.forEach((listener) => listener());
-};
+export const useStoredLibrary = library.useValue;
 
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  if (stored === undefined && loading === null) {
-    loading = readStoredLibrary()
-      .then((json) => publish(stored === undefined ? parseSnapshot(json) : (stored ?? null)))
-      .catch(() => publish(stored ?? null));
-  }
-  return () => listeners.delete(listener);
-};
-
-const current = () => stored;
-
-export function useStoredLibrary(): LibrarySnapshot | null | undefined {
-  return useSyncExternalStore(subscribe, current, current);
-}
-
-export async function forgetStoredLibrary() {
-  publish(null);
-  await clearStoredLibrary().catch(() => undefined);
-}
+export const forgetStoredLibrary = library.forget;
 
 export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) {
   const convex = useConvex();
@@ -50,8 +26,7 @@ export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) 
       (fresh) => {
         if (cancelled) return;
         const snapshot: LibrarySnapshot = { ...fresh, savedAt: Date.now(), format: SNAPSHOT_FORMAT };
-        publish(snapshot);
-        void writeStoredLibrary(JSON.stringify(snapshot)).catch(() => undefined);
+        library.save(snapshot);
       },
       () => undefined,
     );

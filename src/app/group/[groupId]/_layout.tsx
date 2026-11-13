@@ -1,8 +1,8 @@
-import { useConvexAuth } from "convex/react";
 import { Redirect, router, Stack, type ErrorBoundaryProps } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useSignedInHere } from "@/auth/use-signed-in-here";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Spacing } from "@/constants/theme";
@@ -11,9 +11,9 @@ import { errorText } from "@/lib/error-text";
 import { useStaleAppRecovery } from "@/lib/use-stale-app-recovery";
 
 export default function GroupLayout() {
-  const { isLoading, isAuthenticated } = useConvexAuth();
-  if (isLoading) return <ThemedView style={styles.container} />;
-  if (!isAuthenticated) return <Redirect href="/" />;
+  const { signedIn, settling } = useSignedInHere();
+  if (settling) return <ThemedView style={styles.container} />;
+  if (!signedIn) return <Redirect href="/" />;
   return <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: false }} />;
 }
 
