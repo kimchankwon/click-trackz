@@ -61,7 +61,10 @@ async function withRetry(label: string, request: () => Promise<Response>): Promi
   }
 }
 
-export async function synthesize(voiceId: string, text: string, speed = SPEED): Promise<Int16Array> {
+export type Delivery = { stability?: number; speed?: number };
+
+export async function synthesize(voiceId: string, text: string, delivery: Delivery = {}): Promise<Int16Array> {
+  const { stability = 0.8, speed = SPEED } = delivery;
   const response = await withRetry(text, () =>
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_${SAMPLE_RATE}`, {
       method: "POST",
@@ -69,7 +72,7 @@ export async function synthesize(voiceId: string, text: string, speed = SPEED): 
       body: JSON.stringify({
         text,
         model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.8, similarity_boost: 0.75, speed },
+        voice_settings: { stability, similarity_boost: 0.75, speed },
       }),
     }),
   );
