@@ -132,7 +132,12 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
               <ActionButton large accent label={startLabel} testID="about-get-started" onPress={onGetStarted} />
             </View>
           </View>
-          <PlayScreenMock width={phoneWidth} />
+          <View style={styles.tryIt}>
+            <PlayScreenMock width={phoneWidth} />
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+              Try it: Start, Stop, jump to a Section or skip Songs.
+            </ThemedText>
+          </View>
         </View>
       </Section>
 
@@ -196,6 +201,9 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
           </View>
           <View style={[styles.mockStage, { backgroundColor: theme.backgroundElement }]}>
             <ControlCenterMock />
+            <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+              Try the buttons. The iPhone above follows along.
+            </ThemedText>
           </View>
         </View>
       </Section>
@@ -269,7 +277,8 @@ const styles = StyleSheet.create({
   controlRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   iconTile: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1, minWidth: 0 },
-  mockStage: { flex: 1, minWidth: 0, borderRadius: Radius.lg + 8, paddingVertical: Spacing.six, paddingHorizontal: Spacing.four, alignItems: "center", justifyContent: "center" },
+  mockStage: { flex: 1, minWidth: 0, gap: Spacing.three, borderRadius: Radius.lg + 8, paddingVertical: Spacing.six, paddingHorizontal: Spacing.four, alignItems: "center", justifyContent: "center" },
+  tryIt: { alignItems: "center", gap: Spacing.three },
   features: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.three },
   feature: { flexGrow: 1, flexBasis: 260, minWidth: 0, gap: Spacing.two, padding: Spacing.four, borderRadius: Radius.lg, borderWidth: 1 },
   countInner: { alignItems: "center", gap: Spacing.four },
