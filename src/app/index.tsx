@@ -268,6 +268,7 @@ function SettingsTab({ run }: { run: Run }) {
           run(async () => {
             await Promise.all([forgetStoredLibrary(), forgetStoredHome()]);
             await signOut();
+            await forgetStoredHome();
           })
         }
       />
@@ -317,7 +318,10 @@ export default function HomeScreen() {
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
   const accountGone = isAuthenticated && viewer === null;
   useEffect(() => {
-    if (accountGone) void Promise.all([forgetStoredLibrary(), forgetStoredHome()]).then(() => signOut().catch(() => undefined));
+    if (!accountGone) return;
+    void Promise.all([forgetStoredLibrary(), forgetStoredHome()])
+      .then(() => signOut().catch(() => undefined))
+      .then(forgetStoredHome);
   }, [accountGone, signOut]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
