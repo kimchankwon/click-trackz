@@ -33,11 +33,6 @@ export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joi
         onChange={choose}
         disabled={pending !== null}
       />
-      {shown === "member" ? null : (
-        <ThemedText type="caption" themeColor="textSecondary" testID="join-role-explained">
-          Guests who join with the code get this Role too.
-        </ThemedText>
-      )}
       {error ? (
         <ThemedText type="caption" themeColor="danger" testID="join-role-error">
           {error}

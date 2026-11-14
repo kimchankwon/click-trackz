@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useIsFocused, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type AppStateStatus } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
@@ -153,6 +153,9 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 const emptySong: Song = { countIn: false, sections: [] };
 
 const STAGE_HEAD_HEIGHT = 144;
+const NEXT_LABEL_LINE = 16;
+const NEXT_TEXT_LINE = 26;
+const nextSlotHeight = (fontScale: number) => Math.ceil(NEXT_LABEL_LINE * fontScale + Spacing.one + NEXT_TEXT_LINE * Math.max(1, fontScale));
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -345,6 +348,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [floatHeight, setFloatHeight] = useState(0);
   const pinnedScroll = usePagedPinnedHeader(tab);
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const nextSlot = [styles.nextBlock, styles.nextSlot, { minHeight: nextSlotHeight(fontScale) }];
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
   const showToast = toast.show;
@@ -1060,7 +1065,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         />
       ) : null}
       {playing ? null : (
-        <View style={styles.nextBlock}>
+        <View style={nextSlot}>
           {!steers && locked ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               This Group is locked, so Playback cannot start.
@@ -1082,13 +1087,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </View>
       )}
       {nextLine ? (
-        <View style={styles.nextBlock} aria-live="polite" testID="playback-next-block">
+        <View style={nextSlot} aria-live="polite" testID="playback-next-block">
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
             {nextLabel}
           </ThemedText>
           <View style={styles.nextRow}>
             <Icon name="next" size={22} color="accent" />
-            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
+            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} numberOfLines={1} style={styles.nextText}>
               {nextLine}
             </ThemedText>
           </View>
@@ -1592,9 +1597,10 @@ const styles = StyleSheet.create({
   idleTitle: { fontSize: 28, lineHeight: 34 },
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
-  nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
-  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 700 },
+  nextLabel: { fontSize: 12, lineHeight: NEXT_LABEL_LINE, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
+  nextSlot: { justifyContent: "center", maxWidth: "100%" },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: NEXT_TEXT_LINE, maxWidth: "100%" },
+  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: NEXT_TEXT_LINE, fontWeight: 700, flexShrink: 1 },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   soundPrompt: {
     flexDirection: "row",

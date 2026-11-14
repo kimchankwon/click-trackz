@@ -4,10 +4,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
+import { ReactionFloats } from "@/components/playback/reaction-floats";
 import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
-import { Radius, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import type { GroupChat } from "@/chat/use-group-chat";
 import { activityWhen } from "@/lib/activity-when";
@@ -71,7 +72,7 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
         ref={list}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
-        style={[styles.list, { backgroundColor: theme.background, borderColor: theme.border }]}
+        style={styles.list}
         contentContainerStyle={styles.listContent}
         testID="comments-list"
         onContentSizeChange={keepPlace}
@@ -114,36 +115,41 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
           ))
         )}
       </ScrollView>
-      <View style={styles.reactions} role="group" aria-label="Reactions">
-        {REACTIONS.map((reaction) => (
-          <Pressable
-            key={reaction}
-            role="button"
-            aria-label={`Send ${reaction}`}
-            testID={`react-${reaction}`}
-            onPress={() => react(reaction)}
-            style={({ pressed }) => [styles.reaction, { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border }]}
-          >
-            <Text style={styles.reactionText}>{reaction}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.compose}>
-        <Field
-          containerStyle={styles.grow}
-          aria-label="Comment"
-          placeholder="Say something to the Group"
-          value={draft}
-          onChangeText={setDraft}
-          maxLength={MAX_COMMENT_LENGTH}
-          returnKeyType="send"
-          submitBehavior="submit"
-          onSubmitEditing={send}
-          testID="comment-input"
-          compact
-          inset
-        />
-        <IconButton icon="send" label="Send Comment" color="accent" filled disabled={sending || cleanComment(draft).length === 0} onPress={send} testID="comment-send" />
+      <View style={styles.sendArea}>
+        <View style={styles.reactionArea}>
+          <View style={styles.reactions} role="group" aria-label="Reactions">
+            {REACTIONS.map((reaction) => (
+              <Pressable
+                key={reaction}
+                role="button"
+                aria-label={`Send ${reaction}`}
+                testID={`react-${reaction}`}
+                onPress={() => react(reaction)}
+                style={({ pressed }) => [styles.reaction, { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border }]}
+              >
+                <Text style={styles.reactionText}>{reaction}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <ReactionFloats reactions={chat.reactions} now={chat.now} />
+        </View>
+        <View style={styles.compose}>
+          <Field
+            containerStyle={styles.grow}
+            aria-label="Comment"
+            placeholder="Say something to the Group"
+            value={draft}
+            onChangeText={setDraft}
+            maxLength={MAX_COMMENT_LENGTH}
+            returnKeyType="send"
+            submitBehavior="submit"
+            onSubmitEditing={send}
+            testID="comment-input"
+            compact
+            inset
+          />
+          <IconButton icon="send" label="Send Comment" color="accent" filled disabled={sending || cleanComment(draft).length === 0} onPress={send} testID="comment-send" />
+        </View>
       </View>
       {problem ? (
         <ThemedText type="small" themeColor="danger" role="alert" testID="comment-problem">
@@ -155,13 +161,15 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
 }
 
 const styles = StyleSheet.create({
-  list: { maxHeight: LIST_HEIGHT, borderRadius: Radius.md, borderWidth: 1 },
-  listContent: { gap: Spacing.three, padding: Spacing.three },
+  list: { maxHeight: LIST_HEIGHT },
+  listContent: { gap: Spacing.three, paddingVertical: Spacing.one },
   older: { alignItems: "center" },
   row: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-start" },
   grow: { flex: 1, minWidth: 0 },
   meta: { flexDirection: "row", alignItems: "baseline", gap: Spacing.two },
   name: { flexShrink: 1 },
+  sendArea: { gap: Spacing.two },
+  reactionArea: { zIndex: 1 },
   reactions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   reaction: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   reactionText: { fontSize: 22, lineHeight: 28 },

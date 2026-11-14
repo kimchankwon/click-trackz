@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.two },
   groupLabel: { paddingHorizontal: Spacing.one },
   entries: { borderRadius: Radius.lg, overflow: "hidden" },
-  entry: { gap: Spacing.two, paddingVertical: 10, paddingLeft: 12, paddingRight: Spacing.one },
+  entry: { gap: Spacing.two, paddingTop: Spacing.two, paddingBottom: 12, paddingLeft: 12, paddingRight: Spacing.one },
   trashGap: { width: Spacing.two },
   addedLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", minHeight: 32, paddingHorizontal: Spacing.one },
   libraryTitle: { fontSize: 16, fontWeight: 500 },
