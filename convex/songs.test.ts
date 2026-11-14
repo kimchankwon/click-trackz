@@ -208,6 +208,17 @@ describe("Songs", () => {
     await expect(admin.mutation(api.songs.updateSong, { songId, timeSignature: { beatsPerBar: 4, beatUnit: 3 } })).rejects.toThrow(/Song time signature/);
   });
 
+  it("keeps an older Song's odd time signatures when the Song tempo and time signature change together", async () => {
+    const { admin, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Old waltz" });
+    const waltz = { ...verse, beatsPerBar: 3, beatUnit: 4 };
+    await admin.mutation(api.songs.updateSong, { songId, sections: [verse, verse, waltz] });
+    await admin.mutation(api.songs.updateSong, { songId, bpm: 80, timeSignature: { beatsPerBar: 6, beatUnit: 8 } });
+    const sections = (await admin.query(api.songs.get, { songId }))?.sections ?? [];
+    expect(sections.map((section) => `${section.beatsPerBar}/${section.beatUnit ?? 4}`)).toEqual(["6/8", "6/8", "3/4"]);
+    expect(sections.map((section) => section.ownTime)).toEqual([false, false, true]);
+  });
+
   it("keeps each Section's time signature, such as 6/8", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });

@@ -130,10 +130,9 @@ export const updateSong = mutation({
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
     const songBpm = bpm ?? song.bpm;
     const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
-    const given = sections ?? (bpm !== undefined ? stored : undefined);
+    const given = sections ?? (bpm !== undefined || timeSignature !== undefined ? markOwnTimes(stored, startingSongTime(song)) : undefined);
     const songTime = timeSignature ?? song.timeSignature;
-    const timed = given ?? (timeSignature !== undefined ? markOwnTimes(stored, startingSongTime(song)) : undefined);
-    const tempoed = timed !== undefined && songBpm !== undefined ? withSongTempo(timed, songBpm) : timed;
+    const tempoed = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
     let shaped = tempoed !== undefined && songTime !== undefined ? withSongTime(tempoed, songTime) : tempoed;
     if (sections !== undefined && shaped !== undefined) {
       const vocabulary = new Map((await groupVocabulary(ctx, song.groupId)).map((word) => [wordKey(word), word]));
