@@ -5,6 +5,8 @@ import Animated, {
   LayoutAnimationConfig,
   LinearTransition,
   useAnimatedStyle,
+  FadeIn,
+  FadeOut,
   useSharedValue,
   withSequence,
   withTiming,
@@ -21,13 +23,29 @@ import { accentLevelOf, type AccentLevel, type Beat } from "@/sync/timeline";
 
 export type StageMember = { userId: string; name: string; position: number; pingMs: number | null; isYou?: boolean; started?: boolean };
 
+export type StageBubble = { text: string; at: number };
+
 type Picked = { member: StageMember; x: number; y: number; width: number; height: number };
 
 const BUBBLE_WIDTH = 168;
 const BUBBLE_GAP = 8;
 const SCREEN_MARGIN = 12;
 
-function MemberAvatar({ member, pulse, onPick }: { member: StageMember; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
+function SaidBubble({ bubble }: { bubble: StageBubble }) {
+  const theme = useTheme();
+  return (
+    <Animated.View key={bubble.at} entering={FadeIn.duration(180)} exiting={FadeOut.duration(400)} pointerEvents="none" style={styles.saidFrame} testID="stage-said">
+      <View style={[styles.said, { backgroundColor: theme.inverse }]}>
+        <ThemedText themeColor="onInverse" numberOfLines={2} style={styles.saidText}>
+          {bubble.text}
+        </ThemedText>
+        <View style={[styles.saidTail, { borderTopColor: theme.inverse }]} />
+      </View>
+    </Animated.View>
+  );
+}
+
+function MemberAvatar({ member, said, pulse, onPick }: { member: StageMember; said?: StageBubble; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
   const theme = useTheme();
   const anchor = useRef<ComponentRef<typeof View>>(null);
   return (
@@ -52,6 +70,7 @@ function MemberAvatar({ member, pulse, onPick }: { member: StageMember; pulse: R
             <SignalBars roundTripMs={member.pingMs} size={9} testID={`stage-ping-${member.name}`} />
           </View>
         ) : null}
+        {said ? <SaidBubble key={said.at} bubble={said} /> : null}
       </View>
     </Pressable>
   );
@@ -103,6 +122,7 @@ function MemberBubble({ picked, onClose }: { picked: Picked | null; onClose: () 
   );
 }
 
+const SAID_WIDTH = 112;
 const AVATAR = 32;
 const STARTER_AVATAR = 40;
 const RING = 2.5;
@@ -129,7 +149,17 @@ function usePulse(beat: Beat | null, playing: boolean) {
   return useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 }
 
-function Column({ members, pulse, onPick }: { members: readonly StageMember[]; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
+function Column({
+  members,
+  bubbles,
+  pulse,
+  onPick,
+}: {
+  members: readonly StageMember[];
+  bubbles: ReadonlyMap<string, StageBubble>;
+  pulse: ReturnType<typeof usePulse>;
+  onPick: (picked: Picked) => void;
+}) {
   const theme = useTheme();
   const shown = members.length > MAX_PER_SIDE ? members.slice(0, MAX_PER_SIDE - 1) : members;
   const extra = members.length - shown.length;
@@ -142,7 +172,7 @@ function Column({ members, pulse, onPick }: { members: readonly StageMember[]; p
           exiting={ZoomOut.duration(220)}
           layout={LinearTransition.duration(220)}
         >
-          <MemberAvatar member={member} pulse={pulse} onPick={onPick} />
+          <MemberAvatar member={member} said={bubbles.get(member.userId)} pulse={pulse} onPick={onPick} />
         </Animated.View>
       ))}
       {extra > 0 ? (
@@ -172,16 +202,20 @@ function useSides(members: readonly StageMember[]) {
   return (side: Side) => members.filter((member) => sides[member.userId] === side);
 }
 
+const NO_BUBBLES: ReadonlyMap<string, StageBubble> = new Map();
+
 export function StageMembers({
   members,
   beat,
   playing,
   visible = true,
+  bubbles = NO_BUBBLES,
 }: {
   members: readonly StageMember[];
   beat: Beat | null;
   playing: boolean;
   visible?: boolean;
+  bubbles?: ReadonlyMap<string, StageBubble>;
 }) {
   const pulse = usePulse(beat, playing);
   const onSide = useSides(members);
@@ -196,9 +230,9 @@ export function StageMembers({
   return (
     <LayoutAnimationConfig skipEntering skipExiting>
       <View pointerEvents="box-none" style={styles.overlay}>
-        <Column members={onSide("left")} pulse={pulse} onPick={setPicked} />
+        <Column members={onSide("left")} bubbles={bubbles} pulse={pulse} onPick={setPicked} />
         <View pointerEvents="none" style={styles.discSpace} />
-        <Column members={onSide("right")} pulse={pulse} onPick={setPicked} />
+        <Column members={onSide("right")} bubbles={bubbles} pulse={pulse} onPick={setPicked} />
         <MemberBubble picked={picked && current ? { ...picked, member: current } : null} onClose={() => setPicked(null)} />
       </View>
     </LayoutAnimationConfig>
@@ -214,6 +248,21 @@ const styles = StyleSheet.create({
   moreText: { fontSize: 12, fontWeight: 700 },
   ping: { position: "absolute", right: -6, bottom: -4, paddingHorizontal: 3, paddingVertical: 2, borderRadius: 6 },
   dismiss: { flex: 1 },
+  saidFrame: { position: "absolute", bottom: "100%", left: "50%", width: SAID_WIDTH, marginLeft: -SAID_WIDTH / 2, marginBottom: 6, alignItems: "center", zIndex: 2 },
+  said: { maxWidth: SAID_WIDTH, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8 },
+  saidText: { fontSize: 10, lineHeight: 13, fontWeight: 600, textAlign: "center" },
+  saidTail: {
+    position: "absolute",
+    bottom: -4,
+    alignSelf: "center",
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 4,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
   bubble: {
     position: "absolute",
     width: BUBBLE_WIDTH,

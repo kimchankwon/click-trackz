@@ -8,6 +8,8 @@ const symbols = {
   play: { ios: "play.fill", material: "play_arrow" },
   stop: { ios: "stop.fill", material: "stop" },
   pause: { ios: "pause.fill", material: "pause" },
+  send: { ios: "paperplane.fill", material: "send" },
+  collapse: { ios: "chevron.up", material: "expand_less" },
   muted: { ios: "speaker.slash.fill", material: "volume_off" },
   back: { ios: "chevron.left", material: "arrow_back" },
   forward: { ios: "chevron.right", material: "chevron_right" },

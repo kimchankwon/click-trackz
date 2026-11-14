@@ -45,8 +45,16 @@ A person's own space for practising alone: it has Songs and Setlists like a Grou
 _Avoid_: Offline, solo, practice mode, personal Group
 
 **Activity**:
-A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp and Stop, every change to a Song or Setlist and what it changed, and Members joining, leaving, being renamed or given a Role. Playback Managers and above can read it on the Group tab. My Library keeps none.
+A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp and Stop, every change to a Song or Setlist and what it changed, every Comment, and Members joining, leaving, being renamed or given a Role. Playback Managers and above can read it on the Group tab. My Library keeps none.
 _Avoid_: Audit log, history, log
+
+**Comment**:
+A short message any Member sends to their Group from Play. It shows above the sender's avatar on the stage for 10 seconds, stays in the Group's list of Comments below Play mode, and is recorded in Activity.
+_Avoid_: Message, chat, post
+
+**Reaction**:
+One of a few emoji a Member taps on Play. It floats up the stage with the sender's avatar on every Play screen in the Group for a few seconds, and is not kept or recorded in Activity.
+_Avoid_: Emoji, like, applause
 
 ## Plans
 

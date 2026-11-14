@@ -29,7 +29,9 @@ export const roleValidator = v.union(
 
 export const joinRoleValidator = v.union(v.literal("member"), v.literal("playbackManager"), v.literal("songManager"));
 
-export const activityKindValidator = v.union(v.literal("playback"), v.literal("song"), v.literal("setlist"), v.literal("group"));
+export const activityKindValidator = v.union(v.literal("playback"), v.literal("song"), v.literal("setlist"), v.literal("group"), v.literal("comment"));
+
+export const chatKindValidator = v.union(v.literal("comment"), v.literal("reaction"));
 
 export const paidPlanValidator = v.union(v.literal("plus"), v.literal("pro"));
 
@@ -122,6 +124,16 @@ export default defineSchema({
   })
     .index("by_group", ["groupId"])
     .index("by_group_kind", ["groupId", "kind"]),
+  chat: defineTable({
+    groupId: v.id("groups"),
+    userId: v.id("users"),
+    displayName: v.string(),
+    kind: chatKindValidator,
+    text: v.string(),
+  })
+    .index("by_group_kind", ["groupId", "kind"])
+    .index("by_group_user_kind", ["groupId", "userId", "kind"])
+    .index("by_kind", ["kind"]),
   guestHandoffs: defineTable({
     guestId: v.id("users"),
     token: v.string(),
