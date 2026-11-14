@@ -153,6 +153,7 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 const emptySong: Song = { countIn: false, sections: [] };
 
 const STAGE_HEAD_HEIGHT = 144;
+const NEXT_SLOT_HEIGHT = 46;
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -1060,7 +1061,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         />
       ) : null}
       {playing ? null : (
-        <View style={styles.nextBlock}>
+        <View style={[styles.nextBlock, styles.nextSlot]}>
           {!steers && locked ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               This Group is locked, so Playback cannot start.
@@ -1082,13 +1083,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </View>
       )}
       {nextLine ? (
-        <View style={styles.nextBlock} aria-live="polite" testID="playback-next-block">
+        <View style={[styles.nextBlock, styles.nextSlot]} aria-live="polite" testID="playback-next-block">
           <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
             {nextLabel}
           </ThemedText>
           <View style={styles.nextRow}>
             <Icon name="next" size={22} color="accent" />
-            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} style={styles.nextText}>
+            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} numberOfLines={1} style={styles.nextText}>
               {nextLine}
             </ThemedText>
           </View>
@@ -1593,8 +1594,9 @@ const styles = StyleSheet.create({
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   nextLabel: { fontSize: 12, lineHeight: 16, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26 },
-  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 700 },
+  nextSlot: { minHeight: NEXT_SLOT_HEIGHT, justifyContent: "center", maxWidth: "100%" },
+  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: 26, maxWidth: "100%" },
+  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: 26, fontWeight: 700, flexShrink: 1 },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   soundPrompt: {
     flexDirection: "row",

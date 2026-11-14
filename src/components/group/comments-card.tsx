@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
+import { ReactionFloats } from "@/components/playback/reaction-floats";
 import { Avatar } from "@/components/ui/avatar";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
@@ -114,19 +115,22 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
           ))
         )}
       </ScrollView>
-      <View style={styles.reactions} role="group" aria-label="Reactions">
-        {REACTIONS.map((reaction) => (
-          <Pressable
-            key={reaction}
-            role="button"
-            aria-label={`Send ${reaction}`}
-            testID={`react-${reaction}`}
-            onPress={() => react(reaction)}
-            style={({ pressed }) => [styles.reaction, { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border }]}
-          >
-            <Text style={styles.reactionText}>{reaction}</Text>
-          </Pressable>
-        ))}
+      <View style={styles.reactionArea}>
+        <View style={styles.reactions} role="group" aria-label="Reactions">
+          {REACTIONS.map((reaction) => (
+            <Pressable
+              key={reaction}
+              role="button"
+              aria-label={`Send ${reaction}`}
+              testID={`react-${reaction}`}
+              onPress={() => react(reaction)}
+              style={({ pressed }) => [styles.reaction, { backgroundColor: pressed ? theme.backgroundSelected : theme.background, borderColor: theme.border }]}
+            >
+              <Text style={styles.reactionText}>{reaction}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <ReactionFloats reactions={chat.reactions} now={chat.now} />
       </View>
       <View style={styles.compose}>
         <Field
@@ -162,6 +166,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1, minWidth: 0 },
   meta: { flexDirection: "row", alignItems: "baseline", gap: Spacing.two },
   name: { flexShrink: 1 },
+  reactionArea: { zIndex: 1 },
   reactions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   reaction: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   reactionText: { fontSize: 22, lineHeight: 28 },
