@@ -6,7 +6,7 @@ import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
-import { BeatLights, TimingStrip } from "@/components/sound/timing-strip";
+import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
 import { ActionButton } from "@/components/action-button";
 import { useTimingTest } from "@/audio/use-timing-test";
 import { clipKeyForSpokenCount } from "@/audio/voice-clips";
@@ -247,13 +247,24 @@ export function SoundSettings({
             ]}
             summary={`The Voice plays ${earlyLateText(offsetMs, "before", "after", "with")} the Click`}
           />
+          <BeatTrack
+            testID="voice-offset-track"
+            beats={TEST_BEATS}
+            intervalMs={TEST_INTERVAL_MS}
+            lit={test.lit}
+            firstBeatAt={test.firstBeatAt}
+            running={test.running}
+            lanes={[
+              { label: "Click", offsetMs: 0, tone: "text" },
+              { label: "Voice", offsetMs, tone: "accent" },
+            ]}
+          />
           <View style={styles.testRow}>
-            <BeatLights count={TEST_BEATS} lit={test.lit} testID="voice-offset-lights" />
+            <ThemedText type="caption" themeColor={testProblem ? "danger" : "textSecondary"} style={styles.grow}>
+              {testProblem ?? `Voice ${earlyLateText(offsetMs, "sooner than", "later than", "with")} the Click`}
+            </ThemedText>
             <ActionButton small icon="play" label={test.running ? "Playing…" : "Test"} testID="voice-offset-test" disabled={test.running} onPress={testVoice} />
           </View>
-          <ThemedText type="caption" themeColor="textSecondary">
-            {testProblem ?? `Voice ${earlyLateText(offsetMs, "sooner than", "later than", "with")} the Click. Each count should land on its light.`}
-          </ThemedText>
         </View>
       </Card>
       {saveError ? (

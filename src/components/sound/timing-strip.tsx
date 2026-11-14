@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
@@ -52,20 +54,6 @@ export function TimingStrip({ lanes, rangeMs, summary, testID }: { lanes: readon
   );
 }
 
-export function BeatLights({ count, lit, testID }: { count: number; lit: number | null; testID?: string }) {
-  const theme = useTheme();
-  return (
-    <View style={styles.lights} testID={testID} aria-hidden>
-      {Array.from({ length: count }, (_, index) => (
-        <View
-          key={index}
-          style={[styles.light, index === lit ? [styles.litLight, { backgroundColor: theme.accent }] : { backgroundColor: theme.backgroundSelected }]}
-        />
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   strip: { gap: Spacing.two },
   lane: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
@@ -76,7 +64,71 @@ const styles = StyleSheet.create({
   dot: { position: "absolute", top: 8, width: 8, height: 8, marginLeft: -4, borderRadius: 4 },
   axis: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
   tabular: { fontVariant: ["tabular-nums"] },
-  lights: { flexDirection: "row", justifyContent: "center", gap: Spacing.three },
-  light: { width: 18, height: 18, borderRadius: 9 },
-  litLight: { transform: [{ scale: 1.5 }] },
+  trackRow: { flexDirection: "row", gap: Spacing.two },
+  trackLabels: { width: LABEL_WIDTH, gap: Spacing.two },
+  trackLabel: { height: 24, lineHeight: 24 },
+  trackLanes: { flex: 1, gap: Spacing.two },
+  litMark: { transform: [{ scaleX: 2 }] },
+  playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
 });
+
+export type TrackLane = { label: string; offsetMs: number; tone: "accent" | "text" | "muted" };
+
+export function BeatTrack({
+  beats,
+  intervalMs,
+  lanes,
+  lit,
+  firstBeatAt,
+  running,
+  testID,
+}: {
+  beats: number;
+  intervalMs: number;
+  lanes: readonly TrackLane[];
+  lit: number | null;
+  firstBeatAt: number | null;
+  running: boolean;
+  testID?: string;
+}) {
+  const theme = useTheme();
+  const progress = useSharedValue(0);
+  const toneColor = { accent: theme.accent, text: theme.text, muted: theme.textSecondary };
+  const spanMs = beats * intervalMs;
+  const at = (index: number, offsetMs: number) => `${Math.min(100, Math.max(0, (((index + 0.5) * intervalMs + offsetMs) / spanMs) * 100))}%` as const;
+  useEffect(() => {
+    if (firstBeatAt === null) return;
+    const startIn = Math.max(0, firstBeatAt - intervalMs / 2 - performance.now());
+    progress.value = 0;
+    progress.value = withDelay(startIn, withTiming(1, { duration: spanMs, easing: Easing.linear }));
+  }, [firstBeatAt, intervalMs, spanMs, progress]);
+  const playhead = useAnimatedStyle(() => ({ left: `${progress.value * 100}%` }));
+  return (
+    <View style={styles.trackRow} testID={testID} aria-hidden>
+      <View style={styles.trackLabels}>
+        {lanes.map((lane) => (
+          <ThemedText key={lane.label} type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.trackLabel}>
+            {lane.label}
+          </ThemedText>
+        ))}
+      </View>
+      <View style={styles.trackLanes}>
+        {lanes.map((lane) => (
+          <View key={lane.label} style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+            {Array.from({ length: beats }, (_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.mark,
+                  { left: at(index, lane.offsetMs), backgroundColor: toneColor[lane.tone] },
+                  index === lit ? styles.litMark : null,
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+        {running ? <Animated.View style={[styles.playhead, { backgroundColor: theme.accent }, playhead]} /> : null}
+      </View>
+    </View>
+  );
+}

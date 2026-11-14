@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CueAudioEngine } from "@/audio/engine";
 import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
 import { VolumeBar } from "@/components/playback/volume-bar";
-import { BeatLights, TimingStrip } from "@/components/sound/timing-strip";
+import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
 import { useTimingTest } from "@/audio/use-timing-test";
 import { earlyLateText, middleOf, stripRangeMs } from "@/lib/timing-strip";
 import { ActionButton } from "@/components/action-button";
@@ -200,7 +200,18 @@ export default function LatencyScreen() {
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
                 {nudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-nudge, "early", "late", "on the beat")} so it reaches you on the beat`}
               </ThemedText>
-              <BeatLights count={TEST_BEATS} lit={test.lit} testID="nudge-lights" />
+              <BeatTrack
+                testID="nudge-track"
+                beats={TEST_BEATS}
+                intervalMs={TEST_INTERVAL_MS}
+                lit={test.lit}
+                firstBeatAt={test.firstBeatAt}
+                running={test.running}
+                lanes={[
+                  { label: "Phone plays", offsetMs: -nudge, tone: "accent" },
+                  { label: "You hear", offsetMs: 0, tone: "text" },
+                ]}
+              />
               <ActionButton
                 icon="play"
                 label={test.running ? "Playing…" : "Play test"}
@@ -211,7 +222,7 @@ export default function LatencyScreen() {
                 }
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                Each click should land as its light flashes
+                Each click should land as the line crosses its beat
               </ThemedText>
             </View>
           </View>

@@ -22,6 +22,7 @@ export function useTimingTest() {
   const busy = useRef(false);
   const [lit, setLit] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
+  const [firstBeatAt, setFirstBeatAt] = useState<number | null>(null);
 
   const clear = () => {
     timers.current.forEach(clearTimeout);
@@ -52,6 +53,7 @@ export function useTimingTest() {
       const { beatTimesMs, lastBeatInMs } = current.timingTest(options.beats, options.intervalMs, options.voice?.keyFor);
       clear();
       setRunning(true);
+      setFirstBeatAt(beatTimesMs[0] ?? null);
       beatTimesMs.forEach((at, index) => {
         const inMs = at - performance.now();
         timers.current.push(setTimeout(() => setLit(index), inMs));
@@ -71,5 +73,5 @@ export function useTimingTest() {
     }
   }, []);
 
-  return { run, lit, running };
+  return { run, lit, running, firstBeatAt };
 }
