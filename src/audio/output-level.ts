@@ -1,5 +1,6 @@
 export const OUTPUT_BOOST = 1.3;
-export const LIMITER_RANGE = 1.5;
+export const CLICK_BOOST = 1.5;
+export const LIMITER_RANGE = 2;
 const KNEE = 0.8;
 
 export const softLimit = (level: number) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LIMITER_RANGE, limiterCurve, OUTPUT_BOOST, softLimit } from "./output-level";
+import { CLICK_BOOST, LIMITER_RANGE, limiterCurve, OUTPUT_BOOST, softLimit } from "./output-level";
 
 const heard = (signal: number) => {
   const curve = limiterCurve();
@@ -18,6 +18,14 @@ describe("Output level", () => {
     expect(heard(1)).toBeLessThan(1);
     expect(heard(1)).toBeGreaterThan(heard(0.8));
     expect(Math.max(...limiterCurve().map(Math.abs))).toBeLessThan(1);
+  });
+
+  it("plays Clicks louder without clipping the loudest bar Click at full volume", () => {
+    const fullBarClick = 0.9 * CLICK_BOOST;
+    const fullBeatClick = 0.6 * CLICK_BOOST;
+    expect(heard(fullBeatClick)).toBeGreaterThan(heard(0.6));
+    expect(heard(fullBarClick)).toBeLessThan(1);
+    expect(heard(fullBarClick)).toBeGreaterThan(heard(fullBeatClick));
   });
 
   it("never turns a louder input into a quieter output", () => {
