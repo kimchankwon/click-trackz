@@ -2,7 +2,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { mainBpm, mainTimeSignature } from "../sync/song-summary";
 import { cueLeadBarsOf, subdivisionOf } from "../sync/timeline";
 
-export type StoredSong = Pick<Doc<"songs">, "_id" | "title" | "key" | "tempoHint" | "bpm" | "countIn" | "subdivision" | "cueLeadBars" | "copyBase" | "sections">;
+export type StoredSong = Pick<Doc<"songs">, "_id" | "title" | "key" | "tempoHint" | "bpm" | "timeSignature" | "countIn" | "subdivision" | "cueLeadBars" | "copyBase" | "sections">;
 
 export const songView = (song: StoredSong) => ({
   songId: song._id,
@@ -10,6 +10,7 @@ export const songView = (song: StoredSong) => ({
   key: song.key ?? null,
   tempoHint: song.tempoHint ?? null,
   bpm: song.bpm ?? null,
+  timeSignature: song.timeSignature ?? null,
   countIn: song.countIn,
   subdivision: subdivisionOf(song),
   cueLeadBars: cueLeadBarsOf(song),
@@ -32,4 +33,4 @@ export const songSummary = (song: StoredSong) => ({
 export type SongSummary = ReturnType<typeof songSummary>;
 
 export const summaryOfView = (view: SongView): SongSummary =>
-  songSummary({ ...view, _id: view.songId, key: view.key ?? undefined, tempoHint: view.tempoHint ?? undefined, bpm: view.bpm ?? undefined, copyBase: view.copyBase ?? undefined });
+  songSummary({ ...view, _id: view.songId, key: view.key ?? undefined, tempoHint: view.tempoHint ?? undefined, bpm: view.bpm ?? undefined, timeSignature: view.timeSignature ?? undefined, copyBase: view.copyBase ?? undefined });

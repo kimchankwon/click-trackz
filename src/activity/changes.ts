@@ -1,4 +1,5 @@
 import { commonBpm, markOwnTempos } from "../sync/song-tempo";
+import { commonTime } from "../sync/song-time";
 import { cueLeadBarsOf, playsOf, subdivisionOf, type Section } from "../sync/timeline";
 
 export type ChangedSection = Section & { customLabel?: string; ownTempo?: boolean };
@@ -10,6 +11,7 @@ export type ChangedSong = {
   subdivision?: number;
   cueLeadBars?: number;
   bpm?: number;
+  timeSignature?: { beatsPerBar: number; beatUnit: number };
   sections: readonly ChangedSection[];
 };
 
@@ -115,10 +117,15 @@ export function songChanges(stored: ChangedSong, edited: ChangedSong): string[] 
   const before = inferredTempos(stored);
   const after = inferredTempos(edited);
   const songTempo = (song: ChangedSong) => (song.bpm === undefined ? "none" : `${song.bpm} BPM`);
+  const songTime = (song: ChangedSong) => {
+    const time = song.timeSignature ?? commonTime(song.sections);
+    return time === null ? "none" : `${time.beatsPerBar}/${time.beatUnit}`;
+  };
   return [
     ...change("Title", before.title, after.title),
     ...change("Key", orNone(before.key), orNone(after.key)),
     ...change("Song tempo", songTempo(before), songTempo(after)),
+    ...change("Song time signature", songTime(before), songTime(after)),
     ...change("Count-in", onOff(before.countIn), onOff(after.countIn)),
     ...change("Clicks per beat", String(subdivisionOf(before)), String(subdivisionOf(after))),
     ...change("Cue lead", barsText(cueLeadBarsOf(before)), barsText(cueLeadBarsOf(after))),
