@@ -8,7 +8,7 @@ import { preferPlaybackSession, probeAudioSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId, type VoiceSpeed } from "./builtin-voice-clips";
 import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
-import { LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
+import { CLICK_BOOST, LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
 import { outputLatencyMs } from "./output-latency";
 import { chooseClip } from "./clip-choice";
@@ -295,7 +295,7 @@ export class CueAudioEngine {
 
   setVolumes(volumes: CueVolumes) {
     this.volumes = volumes;
-    if (this.clickBus) this.clickBus.gain.value = volumes.click;
+    if (this.clickBus) this.clickBus.gain.value = volumes.click * CLICK_BOOST;
     if (this.voiceBus) this.voiceBus.gain.value = volumes.voice;
   }
 

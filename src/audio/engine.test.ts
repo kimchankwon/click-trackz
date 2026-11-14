@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Song } from "@/sync/timeline";
 
+import { CLICK_BOOST } from "./output-level";
+
 const fake = vi.hoisted(() => {
   class FakeParam {
     value = 1;
@@ -382,7 +384,7 @@ describe("sound recovery", () => {
     await engine.wake();
 
     const [stuck, fresh] = contexts();
-    expect(fresh.gains.slice(0, 2).map((gain) => gain.gain.value)).toEqual([0.3, 0.5]);
+    expect(fresh.gains.slice(0, 2).map((gain) => gain.gain.value)).toEqual([0.3 * CLICK_BOOST, 0.5]);
     await vi.advanceTimersByTimeAsync(100);
     expect(fresh.oscillators).toBeGreaterThan(0);
     expect(stuck.oscillators).toBe(0);
