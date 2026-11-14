@@ -1,7 +1,7 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { SAMPLE_RATE, synthesize, transcribe, wav } from "./voice-pack-audio.mts";
+import { readClip, SAMPLE_RATE, synthesize, transcribe, wav, writeClip } from "./voice-pack-audio.mts";
 import { cleanedTake, finishedFor } from "./voice-pack-measure.mts";
 import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
 
@@ -23,11 +23,10 @@ for (const target of targets) {
   const speaker = speakers.find((candidate) => candidate.id === speakerId);
   const clip = clips.find((candidate) => candidate.key === key);
   if (!voiceSpeed || !speaker || !clip) throw new Error(`Unknown clip ${target}`);
-  const file = path.join(dir, voiceSpeed, speaker.id, `${clip.key}.wav`);
+  const file = path.join(dir, voiceSpeed, speaker.id, `${clip.key}.flac`);
   const trial = path.join(dir, voiceSpeed, speaker.id, `${clip.key}.trial.wav`);
-  const current = await readFile(file);
   const currentRight = comparable(await transcribe(file)) === comparable(clip.heard);
-  let best: Int16Array | null = currentRight ? new Int16Array(current.buffer.slice(current.byteOffset + 44, current.byteOffset + current.byteLength)) : null;
+  let best: Int16Array | null = currentRight ? await readClip(file) : null;
   const startedWith = best;
   for (let take = 1; take <= takes; take++) {
     const pcm = finishedFor(speaker, cleanedTake(await synthesize(voiceIdFor(speaker, voiceSpeed), clip.text, deliveryOf(voiceSpeed))));
@@ -35,7 +34,7 @@ for (const target of targets) {
     const heard = await transcribe(trial);
     if (comparable(heard) === comparable(clip.heard) && (best === null || pcm.length < best.length)) best = pcm;
   }
-  if (best && best !== startedWith) await writeFile(file, wav(best));
+  if (best && best !== startedWith) await writeClip(file, best);
   await writeFile(trial, Buffer.alloc(0));
   const outcome = !best ? "no take read back right, left as it was" : best === startedWith ? "the existing clip was already the shortest correct take" : `kept a ${Math.round((best.length / SAMPLE_RATE) * 1000)} ms take`;
   console.log(`${target}: ${outcome}`);
