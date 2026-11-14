@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -67,13 +67,16 @@ function withoutPadding(encoded: Buffer): Buffer {
 
 export async function writeClip(file: string, pcm: Int16Array) {
   const source = `${file}.source.wav`;
-  await writeFile(source, wav(pcm));
+  const encoded = `${file}.encoded.flac`;
+  const partial = `${file}.partial`;
   try {
-    await run("ffmpeg", ["-i", source, ...FFMPEG_EXACT, "-c:a", "flac", "-compression_level", "12", file]);
+    await writeFile(source, wav(pcm));
+    await run("ffmpeg", ["-i", source, ...FFMPEG_EXACT, "-c:a", "flac", "-compression_level", "12", encoded]);
+    await writeFile(partial, withoutPadding(await readFile(encoded)));
+    await rename(partial, file);
   } finally {
-    await rm(source, { force: true });
+    await Promise.all([source, encoded, partial].map((temporary) => rm(temporary, { force: true })));
   }
-  await writeFile(file, withoutPadding(await readFile(file)));
 }
 
 export async function readClip(file: string): Promise<Int16Array> {
