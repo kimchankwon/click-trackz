@@ -14,7 +14,6 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
-import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { LetterStepper, NumberStepper } from "@/components/ui/stepper-input";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
@@ -42,6 +41,8 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MIN_SAVING_MS = 400;
 const STEPPER_WIDTH = 56;
+const TAG_WIDTH = 44;
+const BARS_WIDTH = 50;
 const BARS_RANGE = { min: 1, max: MAX_BARS };
 const PLAYS_RANGE = { min: 1, max: MAX_PLAYS };
 const SECTION_BPM_RANGE = { min: MIN_BPM, max: MAX_BPM, optional: true };
@@ -127,6 +128,24 @@ function NumberField({ label, value, onChange, testID, integer = false }: { labe
 
 const MENU_MIN_WIDTH = 120;
 
+function MoveHandle({ by, name, enabled, onMove, testID }: { by: -1 | 1; name: string; enabled: boolean; onMove: (by: -1 | 1) => void; testID: string }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      role="button"
+      aria-label={`Move ${name} ${by < 0 ? "up" : "down"}`}
+      aria-disabled={!enabled}
+      disabled={!enabled}
+      testID={enabled ? testID : undefined}
+      onPress={() => onMove(by)}
+      hitSlop={{ top: 6, bottom: 6, left: 24, right: 24 }}
+      style={({ pressed }) => [styles.moveHandle, { backgroundColor: theme.backgroundSelected }, !enabled ? styles.moveDisabled : null, pressed ? styles.addChangePressed : null]}
+    >
+      <Icon name={by < 0 ? "up" : "down"} size={16} color={enabled ? "text" : "textTertiary"} />
+    </Pressable>
+  );
+}
+
 function SectionRow({
   section,
   songBpm,
@@ -157,17 +176,27 @@ function SectionRow({
   const updateChanges = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
   const ownTempo = section.ownTempo === true;
   const ownTime = section.ownTime === true;
+  const [bpmOpen, setBpmOpen] = useState(false);
+  const showBpm = ownTempo || bpmOpen;
+  const name = `Section ${index + 1}`;
   const followTime = (key: string) =>
     key === FOLLOW_SONG || sameTime(timeOfKey(key), songTime)
       ? onChange({ ...section, ...songTime, ownTime: false })
       : onChange({ ...section, ...timeOfKey(key), ownTime: true });
+  const toggleBpm = () => {
+    if (showBpm) {
+      setBpmOpen(false);
+      if (ownTempo) onChange({ ...section, ownTempo: false, bpm: songBpm });
+    } else setBpmOpen(true);
+  };
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
+      <MoveHandle by={-1} name={name} enabled={index > 0} onMove={onMove} testID={`section-${index}-up`} />
       <View style={styles.sectionTop}>
         <View style={styles.headMain}>
           <Dropdown
             look="field"
-            label={`Section type of Section ${index + 1}`}
+            label={`Section type of ${name}`}
             testID={`section-${index}-type`}
             options={vocabulary.map((type) => ({ value: type, label: type }))}
             value={section.sectionType}
@@ -180,7 +209,7 @@ function SectionRow({
           />
           <Dropdown
             look="field"
-            label={`Time signature of Section ${index + 1}`}
+            label={`Time signature of ${name}`}
             testID={`section-${index}-time`}
             muted={!ownTime}
             menuMinWidth={MENU_MIN_WIDTH}
@@ -188,60 +217,58 @@ function SectionRow({
             value={ownTime ? timeKeyOf(section) : FOLLOW_SONG}
             onChange={followTime}
             shown={
-              <ThemedText themeColor={ownTime ? "text" : "textSecondary"} style={styles.timeText} numberOfLines={1}>
+              <ThemedText themeColor={ownTime ? "text" : "textSecondary"} style={styles.typeText} numberOfLines={1}>
                 {timeKeyOf(ownTime ? section : songTime)}
               </ThemedText>
             }
           />
         </View>
-        <NumberStepper
-          label={`Number of Section ${index + 1}`}
-          testID={`section-${index}-number`}
-          style={styles.tag}
-          value={section.number}
-          range={SECTION_NUMBER_RANGE}
-          placeholder="#"
-          onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
-        />
-        {section.number ? (
-          <LetterStepper
-            label={`Letter after the number of Section ${index + 1}`}
-            testID={`section-${index}-letter`}
-            style={styles.tag}
-            value={section.letter}
-            onChange={(letter) => onChange({ ...section, letter: letter as SectionLetter | undefined })}
-          />
-        ) : null}
-        <ReorderControl
-          vertical
-          name={`Section ${index + 1}`}
-          canMoveUp={index > 0}
-          canMoveDown={index < count - 1}
-          onMove={onMove}
-          upTestID={`section-${index}-up`}
-          downTestID={`section-${index}-down`}
-        />
-      </View>
-      <View style={styles.sectionFields}>
-        <LabeledField label="Bars">
-          <NumberStepper label={`Bars of Section ${index + 1}`} testID={`section-${index}-bars`} value={section.bars} range={BARS_RANGE} onChange={(bars) => onChange({ ...section, bars: bars ?? section.bars })} />
-        </LabeledField>
-        <LabeledField label="BPM">
+        <LabeledField label="No." width={TAG_WIDTH}>
           <NumberStepper
-            label={`BPM of Section ${index + 1}`}
-            testID={`section-${index}-bpm`}
-            value={ownTempo ? section.bpm : undefined}
-            range={SECTION_BPM_RANGE}
-            placeholder={String(songBpm)}
-            stepFrom={songBpm}
-            muted
-            onChange={(bpm) => onChange(bpm === undefined || bpm === songBpm ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm })}
+            label={`Number of ${name}`}
+            testID={`section-${index}-number`}
+            value={section.number}
+            range={SECTION_NUMBER_RANGE}
+            placeholder="–"
+            onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
           />
         </LabeledField>
-        <LabeledField label="Plays">
-          <NumberStepper label={`Plays of Section ${index + 1}`} testID={`section-${index}-plays`} value={plays} range={PLAYS_RANGE} onChange={(next) => onChange(withPlays(section, next ?? plays))} />
+        {section.number ? (
+          <LabeledField label="Ver." width={TAG_WIDTH}>
+            <LetterStepper
+              label={`Letter after the number of ${name}`}
+              testID={`section-${index}-letter`}
+              value={section.letter}
+              onChange={(letter) => onChange({ ...section, letter: letter as SectionLetter | undefined })}
+            />
+          </LabeledField>
+        ) : null}
+        <LabeledField label="Bars" width={BARS_WIDTH}>
+          <NumberStepper label={`Bars of ${name}`} testID={`section-${index}-bars`} value={section.bars} range={BARS_RANGE} onChange={(bars) => onChange({ ...section, bars: bars ?? section.bars })} />
+        </LabeledField>
+        <LabeledField label="Plays" width={TAG_WIDTH}>
+          <NumberStepper label={`Plays of ${name}`} testID={`section-${index}-plays`} value={plays} range={PLAYS_RANGE} onChange={(next) => onChange(withPlays(section, next ?? plays))} />
         </LabeledField>
       </View>
+      {showBpm ? (
+        <View style={[styles.changeRow, styles.bpmRow, { backgroundColor: theme.background }]} testID={`section-${index}-bpm-row`}>
+          <LabeledField label="BPM" width={BARS_WIDTH}>
+            <NumberStepper
+              label={`BPM of ${name}`}
+              testID={`section-${index}-bpm`}
+              value={ownTempo ? section.bpm : undefined}
+              range={SECTION_BPM_RANGE}
+              placeholder={String(songBpm)}
+              stepFrom={songBpm}
+              muted
+              onChange={(bpm) => onChange(bpm === undefined || bpm === songBpm ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm })}
+            />
+          </LabeledField>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.grow}>
+            {ownTempo ? `Song is ${songBpm} BPM` : `Follows the Song, ${songBpm} BPM`}
+          </ThemedText>
+        </View>
+      ) : null}
       {changes.map((change, changeIndex) => (
         <TimeChangeRow
           key={changeIndex}
@@ -256,33 +283,44 @@ function SectionRow({
         {addedChange ? (
           <Pressable
             role="button"
-            aria-label={`Add a time change to Section ${index + 1}`}
+            aria-label={`Add a subsection to ${name}`}
             testID={`section-${index}-add-change`}
             onPress={() => updateChanges([...changes, addedChange])}
             style={({ pressed }) => [styles.addChange, pressed ? styles.addChangePressed : null]}
           >
             <Icon name="add" size={16} color="accent" />
             <ThemedText themeColor="accent" style={styles.addChangeText}>
-              Time change
+              Subsection
             </ThemedText>
           </Pressable>
         ) : null}
-        <View style={styles.rowActions}>
-          <View style={styles.voiceCue}>
-            <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
-              Voice cue
-            </ThemedText>
-            <Switch
-              bare
-              label={`Voice cue for Section ${index + 1}`}
-              testID={`section-${index}-voice-cue`}
-              value={section.voiceCueEnabled !== false}
-              onChange={(on) => onChange({ ...section, voiceCueEnabled: on })}
-            />
-          </View>
-          <IconButton icon="copy" color="textTertiary" size={36} label={`Duplicate Section ${index + 1}`} onPress={onDuplicate} testID={`section-${index}-duplicate`} />
-          <IconButton icon="trash" color="textTertiary" size={36} label={`Remove Section ${index + 1}`} onPress={onRemove} testID={`section-${index}-remove`} />
+        <Pressable
+          role="switch"
+          aria-checked={showBpm}
+          aria-label={`Own BPM for ${name}`}
+          testID={`section-${index}-bpm-toggle`}
+          onPress={toggleBpm}
+          style={({ pressed }) => [
+            styles.footerChip,
+            { backgroundColor: showBpm ? theme.accentTint : theme.backgroundSelected, borderColor: showBpm ? theme.accent : "transparent" },
+            pressed ? styles.addChangePressed : null,
+          ]}
+        >
+          <ThemedText themeColor={showBpm ? "accent" : "textSecondary"} style={styles.addChangeText}>
+            BPM
+          </ThemedText>
+        </Pressable>
+        <View style={styles.voiceCue}>
+          <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
+            Voice cue
+          </ThemedText>
+          <Switch bare label={`Voice cue for ${name}`} testID={`section-${index}-voice-cue`} value={section.voiceCueEnabled !== false} onChange={(on) => onChange({ ...section, voiceCueEnabled: on })} />
         </View>
+      </View>
+      <View style={styles.cardEdge}>
+        <IconButton icon="copy" color="textTertiary" size={32} label={`Duplicate ${name}`} onPress={onDuplicate} testID={`section-${index}-duplicate`} />
+        <MoveHandle by={1} name={name} enabled={index < count - 1} onMove={onMove} testID={`section-${index}-down`} />
+        <IconButton icon="trash" color="textTertiary" size={32} label={`Remove ${name}`} onPress={onRemove} testID={`section-${index}-remove`} />
       </View>
     </View>
   );
@@ -722,23 +760,24 @@ const styles = StyleSheet.create({
   group: { gap: Spacing.three },
   groupLabel: { paddingHorizontal: Spacing.one },
   hint: { flexDirection: "row", alignItems: "center", gap: Spacing.two, padding: Spacing.three, borderRadius: Radius.md },
-  rowActions: { flexDirection: "row", alignItems: "center", gap: Spacing.half, marginLeft: "auto" },
-  footer: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 36 },
-  voiceCue: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginRight: Spacing.one },
+  footer: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.two, minHeight: 36 },
+  voiceCue: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginLeft: "auto" },
+  bpmRow: { alignItems: "center" },
+  cardEdge: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
-  sectionCard: { gap: Spacing.two + 2, paddingHorizontal: 12, paddingTop: 12, paddingBottom: Spacing.one + 2, borderRadius: Radius.lg },
-  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  sectionCard: { gap: Spacing.two, paddingHorizontal: 12, paddingVertical: Spacing.one + 2, borderRadius: Radius.lg },
+  moveHandle: { alignSelf: "center", width: 64, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  moveDisabled: { opacity: 0.35 },
+  footerChip: { minHeight: 30, paddingHorizontal: Spacing.two + 2, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  sectionTop: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
   headMain: { flex: 1, minWidth: 0, gap: Spacing.one },
-  timeText: { fontWeight: 600, fontSize: 16, flexShrink: 1, fontVariant: ["tabular-nums"] },
-  typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
-  tag: { width: 44 },
+  typeText: { fontWeight: 600, fontSize: 15, flexShrink: 1, fontVariant: ["tabular-nums"] },
   field: { flex: 1, minWidth: 0, gap: Spacing.one + 2 },
   fixedField: { gap: Spacing.one + 2 },
   fieldBody: { flex: 1, justifyContent: "center" },
-  sectionFields: { flexDirection: "row", gap: Spacing.two },
   changeRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
   addChange: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 36 },
   addChangePressed: { opacity: 0.7 },
