@@ -217,7 +217,7 @@ function SectionRow({
             onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
           />
         </LabeledField>
-        <LabeledField label="Letter" width={LETTER_WIDTH}>
+        <LabeledField label="Sub" width={LETTER_WIDTH}>
           <LetterStepper
             label={`Letter after the number of ${name}`}
             testID={`section-${index}-letter`}
