@@ -74,6 +74,23 @@ describe("Before Plans are enforced", () => {
     await free.client.mutation(api.songs.createSong, { groupId: libraryId, title: "Library has room" });
   });
 
+  it("refuses to duplicate a Group that already holds more than 100 Songs", async () => {
+    vi.stubEnv("PLANS_ENFORCED", "");
+    const { t, as } = await setup();
+    const free = await as({ email: "free@example.com" });
+    const { groupId } = await free.client.mutation(api.groups.createGroup, { name: "Big", displayName: "F" });
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 101; i++) await ctx.db.insert("songs", { groupId, title: `S${i}`, countIn: true, sections: [] });
+    });
+    await expect(free.client.mutation(api.groups.duplicateGroup, { groupId })).rejects.toThrow(/up to 100 Songs for now, and this one has 101/);
+    await t.run(async (ctx) => {
+      const extra = await ctx.db.query("songs").withIndex("by_group", (q) => q.eq("groupId", groupId)).first();
+      if (extra) await ctx.db.delete(extra._id);
+    });
+    await free.client.mutation(api.groups.duplicateGroup, { groupId });
+    expect((await free.client.query(api.groups.myGroups, {})).filter((group) => !group.offline)).toHaveLength(2);
+  });
+
   it("still shows a comped account as Plus", async () => {
     vi.stubEnv("PLANS_ENFORCED", "");
     vi.stubEnv("COMP_PLUS_EMAILS", "xtectra@example.com");
