@@ -28,10 +28,11 @@ import { errorText } from "@/lib/error-text";
 import { canEditSongs } from "@/lib/roles";
 import { draftProblem, MAX_BPM, MIN_BPM, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
+import { MoveHandle } from "@/components/song/move-handle";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
-import { commonTime, DEFAULT_TIME, markOwnTimes, sameTime, withSongTime, type TimeSignature } from "@/sync/song-time";
+import { markOwnTimes, sameTime, startingSongTime, withSongTime, type SongTimeSignature, type TimeSignature } from "@/sync/song-time";
 import { newTimeChange } from "@/sync/time-changes";
 import { MAX_SECTION_NUMBER, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
 import { CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
@@ -127,24 +128,6 @@ function NumberField({ label, value, onChange, testID, integer = false }: { labe
 }
 
 const MENU_MIN_WIDTH = 120;
-
-function MoveHandle({ by, name, enabled, onMove, testID }: { by: -1 | 1; name: string; enabled: boolean; onMove: (by: -1 | 1) => void; testID: string }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      role="button"
-      aria-label={`Move ${name} ${by < 0 ? "up" : "down"}`}
-      aria-disabled={!enabled}
-      disabled={!enabled}
-      testID={enabled ? testID : undefined}
-      onPress={() => onMove(by)}
-      hitSlop={{ top: 6, bottom: 6, left: 24, right: 24 }}
-      style={({ pressed }) => [styles.moveHandle, { backgroundColor: theme.backgroundSelected }, !enabled ? styles.moveDisabled : null, pressed ? styles.addChangePressed : null]}
-    >
-      <Icon name={by < 0 ? "up" : "down"} size={16} color={enabled ? "text" : "textTertiary"} />
-    </Pressable>
-  );
-}
 
 function SectionRow({
   section,
@@ -331,6 +314,7 @@ type LoadedSong = {
   key: string | null;
   tempoHint: { bpm: number; beatsPerBar: number } | null;
   bpm: number | null;
+  timeSignature?: SongTimeSignature | null;
   countIn: boolean;
   subdivision: number;
   cueLeadBars: number;
@@ -339,7 +323,6 @@ type LoadedSong = {
 };
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
-const startingTimeOf = (song: LoadedSong): TimeSignature => commonTime(song.sections) ?? (song.tempoHint ? { beatsPerBar: song.tempoHint.beatsPerBar, beatUnit: 4 } : DEFAULT_TIME);
 
 function savedDraftOf(song: LoadedSong): SongDraft {
   const bpm = startingBpmOf(song);
@@ -350,7 +333,8 @@ function savedDraftOf(song: LoadedSong): SongDraft {
     subdivision: song.subdivision,
     cueLeadBars: song.cueLeadBars,
     bpm,
-    sections: withSongTempo(markOwnTempos(song.sections, bpm), bpm),
+    timeSignature: startingSongTime(song),
+    sections: withSongTime(markOwnTimes(withSongTempo(markOwnTempos(song.sections, bpm), bpm), startingSongTime(song)), startingSongTime(song)),
   };
 }
 
@@ -403,9 +387,9 @@ function SongForm({
   const [subdivision, setSubdivision] = useState(song.subdivision);
   const [cueLeadBars, setCueLeadBars] = useState(song.cueLeadBars);
   const [songBpm, setSongBpm] = useState(() => startingBpmOf(song));
-  const [songTime, setSongTime] = useState(() => startingTimeOf(song));
+  const [songTime, setSongTime] = useState<SongTimeSignature>(() => startingSongTime(song));
   const [rows, setRows] = useState<SectionRowState[]>(() =>
-    markOwnTimes(markOwnTempos(song.sections, startingBpmOf(song)), startingTimeOf(song)).map((section, id) => ({ id, section })),
+    markOwnTimes(markOwnTempos(song.sections, startingBpmOf(song)), startingSongTime(song)).map((section, id) => ({ id, section })),
   );
   const [nextRowId, setNextRowId] = useState(song.sections.length);
   const sections = withSongTime(withSongTempo(rows.map((row) => row.section), songBpm), songTime);
@@ -414,7 +398,7 @@ function SongForm({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, sections };
+  const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, timeSignature: songTime, sections };
   const changed = !sameDraft(draft, savedDraftOf(song));
   const problem = draftProblem(draft);
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
@@ -560,7 +544,7 @@ function SongForm({
             <View style={styles.fields}>
               <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.numberField} />
               <NumberField label="BPM" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
-              <TimeSignatureField section={songTime} testID="song-time" onChange={setSongTime} />
+              <TimeSignatureField section={songTime} testID="song-time" onChange={(time) => setSongTime({ beatsPerBar: time.beatsPerBar, beatUnit: time.beatUnit ?? 4 })} />
             </View>
             <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
             <Divider />
@@ -769,8 +753,6 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two, paddingHorizontal: 12, paddingVertical: Spacing.one + 2, borderRadius: Radius.lg },
-  moveHandle: { alignSelf: "center", width: 64, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  moveDisabled: { opacity: 0.35 },
   footerChip: { minHeight: 30, paddingHorizontal: Spacing.two + 2, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   sectionTop: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
   headMain: { flex: 1, minWidth: 0, gap: Spacing.one },

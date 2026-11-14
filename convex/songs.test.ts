@@ -185,6 +185,29 @@ describe("Songs", () => {
     ]);
   });
 
+  it("keeps the Song time signature and which Sections follow it, even when most Sections have their own", async () => {
+    const { admin, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Waltz bridge" });
+    const four = { beatsPerBar: 4, beatUnit: 4 };
+    const threeFour = { beatsPerBar: 3, beatUnit: 4 };
+    await admin.mutation(api.songs.updateSong, {
+      songId,
+      timeSignature: four,
+      sections: [
+        { ...verse, ...threeFour, ownTime: true },
+        { ...verse, ...threeFour, ownTime: true },
+        { ...verse, ...four, ownTime: false },
+      ],
+    });
+    const saved = await admin.query(api.songs.get, { songId });
+    expect(saved?.timeSignature).toEqual(four);
+    expect(saved?.sections.map((section) => section.ownTime)).toEqual([true, true, false]);
+    await admin.mutation(api.songs.updateSong, { songId, timeSignature: { beatsPerBar: 6, beatUnit: 8 } });
+    const sections = (await admin.query(api.songs.get, { songId }))?.sections ?? [];
+    expect(sections.map((section) => `${section.beatsPerBar}/${section.beatUnit}`)).toEqual(["3/4", "3/4", "6/8"]);
+    await expect(admin.mutation(api.songs.updateSong, { songId, timeSignature: { beatsPerBar: 4, beatUnit: 3 } })).rejects.toThrow(/Song time signature/);
+  });
+
   it("keeps each Section's time signature, such as 6/8", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });

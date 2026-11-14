@@ -2,26 +2,26 @@ import type { Section } from "./timeline";
 
 export type TempoHint = { bpm: number; beatsPerBar: number } | null | undefined;
 
-const FOLLOWING_TYPE: Record<string, string> = {
-  Intro: "Verse",
-  Verse: "Chorus",
-  "Pre-Chorus": "Chorus",
-  Chorus: "Verse",
-  "Post-Chorus": "Verse",
-  Bridge: "Chorus",
-  Interlude: "Verse",
-  Turnaround: "Verse",
-  Instrumental: "Verse",
-  Solo: "Chorus",
-  Tag: "Outro",
-  Vamp: "Outro",
-  Breakdown: "Build",
-  Build: "Chorus",
-  Outro: "Ending",
-  Ending: "Ending",
-};
+const FOLLOWING_TYPE: ReadonlyMap<string, string> = new Map([
+  ["Intro", "Verse"],
+  ["Verse", "Chorus"],
+  ["Pre-Chorus", "Chorus"],
+  ["Chorus", "Verse"],
+  ["Post-Chorus", "Verse"],
+  ["Bridge", "Chorus"],
+  ["Interlude", "Verse"],
+  ["Turnaround", "Verse"],
+  ["Instrumental", "Verse"],
+  ["Solo", "Chorus"],
+  ["Tag", "Outro"],
+  ["Vamp", "Outro"],
+  ["Breakdown", "Build"],
+  ["Build", "Chorus"],
+  ["Outro", "Ending"],
+  ["Ending", "Ending"],
+]);
 
-export const sectionTypeAfter = (previous: string | undefined) => (previous === undefined ? "Intro" : (FOLLOWING_TYPE[previous] ?? "Verse"));
+export const sectionTypeAfter = (previous: string | undefined) => (previous === undefined ? "Intro" : (FOLLOWING_TYPE.get(previous) ?? "Verse"));
 
 export function newSectionAfter(previous: Section | undefined, tempoHint: TempoHint): Section {
   return {

@@ -3,7 +3,7 @@ import { MAX_BARS, playsOf, type Section } from "@/sync/timeline";
 
 import { MAX_SONG_TITLE } from "./copy-title";
 
-type DraftSection = Section & { customLabel?: string; ownTempo?: boolean };
+type DraftSection = Section & { customLabel?: string; ownTempo?: boolean; ownTime?: boolean };
 
 export type SongDraft = {
   title: string;
@@ -12,6 +12,7 @@ export type SongDraft = {
   subdivision: number;
   cueLeadBars: number;
   bpm: number;
+  timeSignature: { beatsPerBar: number; beatUnit: number };
   sections: readonly DraftSection[];
 };
 
@@ -26,12 +27,13 @@ const sectionShape = (section: DraftSection) => [
   section.voiceCueEnabled !== false,
   section.customLabel?.trim() || null,
   section.ownTempo === true,
+  section.ownTime === true,
   playsOf(section),
   byBar(section.timeChanges ?? []).map((change) => [change.bar, change.bars, change.beatsPerBar, change.beatUnit]),
 ];
 
 const shapeOf = (draft: SongDraft) =>
-  JSON.stringify([draft.title.trim(), draft.key.trim(), draft.countIn, draft.subdivision, draft.cueLeadBars, draft.bpm, draft.sections.map(sectionShape)]);
+  JSON.stringify([draft.title.trim(), draft.key.trim(), draft.countIn, draft.subdivision, draft.cueLeadBars, draft.bpm, [draft.timeSignature.beatsPerBar, draft.timeSignature.beatUnit], draft.sections.map(sectionShape)]);
 
 export const sameDraft = (a: SongDraft, b: SongDraft) => shapeOf(a) === shapeOf(b);
 

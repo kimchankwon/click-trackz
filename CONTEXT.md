@@ -86,12 +86,16 @@ A run of consecutive bars sharing one Section type and one tempo, in one time si
 _Avoid_: Part, segment, block
 
 **Time change**:
-A few bars inside a Section that play in another time signature, such as one bar of 2/4 at bar 8, before the Section's own time signature returns. A Time change has no Voice cue of its own, so a Cue lead counts straight across it, and the beat keeps its note value: a quarter note stays a quarter note.
-_Avoid_: Subsection, meter change, odd bar
+A few bars inside a Section that play in another time signature, such as one bar of 2/4 at bar 8, before the Section's own time signature returns. A Time change has no Voice cue of its own, so a Cue lead counts straight across it, and the beat keeps its note value: a quarter note stays a quarter note. In the Song editor the button that adds one reads Subsection, the word Members use for it.
+_Avoid_: meter change, odd bar
 
 **Song tempo**:
 The BPM every Section of a Song plays at, unless that Section has its own tempo.
 _Avoid_: Default BPM, global tempo
+
+**Song time signature**:
+The time signature every Section of a Song plays in, unless that Section has its own.
+_Avoid_: Default meter, global time signature
 
 **Own tempo**:
 A Section's choice to play at its own BPM instead of the Song tempo.

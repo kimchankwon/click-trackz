@@ -23,6 +23,7 @@ describe("new Sections", () => {
     expect(sectionTypeAfter("Bridge")).toBe("Chorus");
     expect(sectionTypeAfter("Outro")).toBe("Ending");
     expect(sectionTypeAfter("Hook")).toBe("Verse");
+    expect(sectionTypeAfter("constructor")).toBe("Verse");
   });
 
   it("inserts between Sections, at the start or at the end", () => {
