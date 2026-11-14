@@ -22,6 +22,7 @@ describe("Comments", () => {
   it("wakes when the next bubble should go", () => {
     expect(nextBubbleChangeIn([{ userId: "a", text: "x", at: 1_000 }], 5_000)).toBe(6_000);
     expect(nextBubbleChangeIn([{ userId: "a", text: "x", at: 1_000 }], 20_000)).toBeNull();
+    expect(nextBubbleChangeIn([{ userId: "a", text: "x", at: 10_000 }], 9_500)).toBe(500);
   });
 });
 

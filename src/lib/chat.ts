@@ -26,8 +26,8 @@ export function bubblesAt(comments: readonly Said[], nowMs: number): Map<string,
 }
 
 export function nextBubbleChangeIn(comments: readonly Said[], nowMs: number): number | null {
-  const endings = comments.map((comment) => comment.at + COMMENT_BUBBLE_MS - nowMs).filter((ms) => ms > 0);
-  return endings.length === 0 ? null : Math.min(...endings);
+  const changes = comments.map((comment) => (comment.at > nowMs ? comment.at - nowMs : comment.at + COMMENT_BUBBLE_MS - nowMs)).filter((ms) => ms > 0);
+  return changes.length === 0 ? null : Math.min(...changes);
 }
 
 export const isFloating = (at: number, nowMs: number) => nowMs - at >= -REACTION_FLOAT_MS && nowMs - at < REACTION_FLOAT_MS;

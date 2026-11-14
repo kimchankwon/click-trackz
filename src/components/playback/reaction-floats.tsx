@@ -15,20 +15,24 @@ const laneOf = (chatId: string) => {
   return hash % LANES;
 };
 
-function Float({ reaction, onDone }: { reaction: ChatEntry; onDone: (chatId: string) => void }) {
+function Float({ reaction, now, onDone }: { reaction: ChatEntry; now: () => number; onDone: (chatId: string) => void }) {
   const still = useReducedMotion();
   const progress = useSharedValue(0);
   const finish = useEffectEvent(() => onDone(reaction.chatId));
+  const ageNow = useEffectEvent(() => Math.min(REACTION_FLOAT_MS, Math.max(0, now() - reaction.at)));
   useEffect(() => {
-    progress.value = withTiming(1, { duration: REACTION_FLOAT_MS, easing: Easing.out(Easing.quad) });
-    const timer = setTimeout(finish, REACTION_FLOAT_MS);
+    const age = ageNow();
+    const left = REACTION_FLOAT_MS - age;
+    progress.value = age / REACTION_FLOAT_MS;
+    progress.value = withTiming(1, { duration: left, easing: Easing.linear });
+    const timer = setTimeout(finish, left);
     return () => clearTimeout(timer);
   }, [progress, reaction.chatId]);
   const lane = laneOf(reaction.chatId);
   const style = useAnimatedStyle(() => {
-    const p = progress.value;
+    const p = 1 - (1 - progress.value) ** 2;
     return {
-      opacity: p < 0.1 ? p * 10 : p > 0.6 ? Math.max(0, (1 - p) / 0.4) : 1,
+      opacity: still ? 1 : p < 0.1 ? p * 10 : p > 0.6 ? Math.max(0, (1 - p) / 0.4) : 1,
       transform: [
         { translateY: still ? 0 : -RISE * p },
         { translateX: still ? 0 : Math.sin(p * Math.PI * 2 + lane) * 8 },
@@ -50,13 +54,13 @@ export function ReactionFloats({ reactions, now }: { reactions: readonly ChatEnt
   useEffect(() => {
     const nowMs = now();
     const fresh = reactions.filter((reaction) => !seen.current.has(reaction.chatId) && isFloating(reaction.at, nowMs));
-    reactions.forEach((reaction) => seen.current.add(reaction.chatId));
+    fresh.forEach((reaction) => seen.current.add(reaction.chatId));
     if (fresh.length > 0) setFloating((current) => [...current, ...fresh]);
   }, [reactions, now]);
   return (
     <View pointerEvents="none" style={styles.layer}>
       {floating.map((reaction) => (
-        <Float key={reaction.chatId} reaction={reaction} onDone={(chatId) => setFloating((current) => current.filter((other) => other.chatId !== chatId))} />
+        <Float key={reaction.chatId} reaction={reaction} now={now} onDone={(chatId) => setFloating((current) => current.filter((other) => other.chatId !== chatId))} />
       ))}
     </View>
   );

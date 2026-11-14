@@ -6,9 +6,10 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireMember } from "./access";
 import { logActivity } from "./activity";
-import { cleanComment, COMMENT_GAP_MS, isReaction, MAX_COMMENT_LENGTH, REACTION_GAP_MS } from "../src/lib/chat";
+import { cleanComment, COMMENT_GAP_MS, isReaction, MAX_COMMENT_LENGTH, REACTION_FLOAT_MS, REACTION_GAP_MS } from "../src/lib/chat";
 
-const RECENT_REACTIONS = 20;
+const FLOATING_WINDOW_MS = 2 * REACTION_FLOAT_MS;
+const MOST_FLOATING = 500;
 const KEEP_REACTIONS_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
 
@@ -72,9 +73,9 @@ export const reactions = query({
     await requireMember(ctx, groupId);
     const rows = await ctx.db
       .query("chat")
-      .withIndex("by_group_kind", (q) => q.eq("groupId", groupId).eq("kind", "reaction"))
+      .withIndex("by_group_kind", (q) => q.eq("groupId", groupId).eq("kind", "reaction").gte("_creationTime", Date.now() - FLOATING_WINDOW_MS))
       .order("desc")
-      .take(RECENT_REACTIONS);
+      .take(MOST_FLOATING);
     return rows.map(shown);
   },
 });

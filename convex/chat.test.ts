@@ -68,6 +68,18 @@ describe("Comments and Reactions", () => {
     expect((await admin.client.query(api.activity.list, { groupId, paginationOpts: PAGE })).page.every((row) => row.kind !== "comment")).toBe(true);
   });
 
+  it("returns every Reaction that can still float, however many, and none that have finished", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.chat.react, { groupId, reaction: "👍" });
+    vi.setSystemTime(NOW + 7_000);
+    expect(await admin.client.query(api.chat.reactions, { groupId })).toEqual([]);
+    for (let i = 0; i < 24; i++) {
+      vi.setSystemTime(NOW + 8_000 + i * 130);
+      await (i % 2 === 0 ? admin : member).client.mutation(api.chat.react, { groupId, reaction: "🔥" });
+    }
+    expect(await admin.client.query(api.chat.reactions, { groupId })).toHaveLength(24);
+  });
+
   it("keeps people outside the Group and My Library out of it", async () => {
     const { admin, outsider, groupId } = await setupGroup();
     await expect(outsider.client.mutation(api.chat.comment, { groupId, text: "hi" })).rejects.toThrow(/not in this Group/);
@@ -82,7 +94,7 @@ describe("Comments and Reactions", () => {
     await member.client.mutation(api.chat.comment, { groupId, text: "kept" });
     vi.setSystemTime(NOW + 11 * 60_000);
     await t.mutation(internal.chat.forgetOldReactions, {});
-    expect(await admin.client.query(api.chat.reactions, { groupId })).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query("chat").collect())).toMatchObject([{ kind: "comment", text: "kept" }]);
     expect((await admin.client.query(api.chat.comments, { groupId, paginationOpts: PAGE })).page).toHaveLength(1);
   });
 
