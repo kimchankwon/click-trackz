@@ -1,8 +1,8 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { inParallel, MAX_CONCURRENT_REQUESTS, SAMPLE_RATE, synthesize, transcribe, wav } from "./voice-pack-audio.mts";
+import { inParallel, MAX_CONCURRENT_REQUESTS, readClip, SAMPLE_RATE, synthesize, transcribe, wav, writeClip } from "./voice-pack-audio.mts";
 import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
 import { cleanedTake, endingSemitones, finishedFor, takeScore } from "./voice-pack-measure.mts";
 
@@ -35,12 +35,11 @@ const jobs = chosenSpeeds.flatMap((voiceSpeed) => chosen.flatMap((speaker) => cl
 await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, clip }) => {
   const outDir = path.join(outRoot, voiceSpeed, speaker.id);
   await mkdir(outDir, { recursive: true });
-  const file = path.join(outDir, `${clip.key}.wav`);
+  const file = path.join(outDir, `${clip.key}.flac`);
   let kept: { pcm: Int16Array; score: number } | null = null;
   if (!replace && (await exists(file))) {
     if (!retakeRising) return;
-    const bytes = await readFile(file);
-    const pcm = new Int16Array(bytes.buffer.slice(bytes.byteOffset + 44, bytes.byteOffset + bytes.byteLength));
+    const pcm = await readClip(file);
     if ((endingSemitones(pcm) ?? 0) <= RISING_RETAKE_SEMITONES) return;
     kept = { pcm, score: takeScore(pcm) };
   }
@@ -60,15 +59,15 @@ await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, cl
     }
   }
   if (best === null) {
-    console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.wav NO TAKE READ BACK RIGHT, left as it was`);
+    console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.flac NO TAKE READ BACK RIGHT, left as it was`);
     process.exitCode = 1;
     return;
   }
   if (kept !== null && best.score >= kept.score) return;
   const final = finishedFor(speaker, best.pcm);
-  await writeFile(file, wav(final));
+  await writeClip(file, final);
   const ending = endingSemitones(final);
-  console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.wav ${((final.length / SAMPLE_RATE) * 1000).toFixed(0)} ms, ends ${ending === null ? "unvoiced" : `${ending.toFixed(1)} st`}${best.speed < delivery.speed - 0.001 ? `, at ${best.speed.toFixed(1)}x` : ""}`);
+  console.log(`${voiceSpeed}/${speaker.id}/${clip.key}.flac ${((final.length / SAMPLE_RATE) * 1000).toFixed(0)} ms, ends ${ending === null ? "unvoiced" : `${ending.toFixed(1)} st`}${best.speed < delivery.speed - 0.001 ? `, at ${best.speed.toFixed(1)}x` : ""}`);
 });
 await rm(scratch, { recursive: true, force: true });
 
@@ -76,7 +75,7 @@ const missing = writesAppClips
   ? (
       await Promise.all(
         voiceSpeeds.flatMap(({ id: voiceSpeed }) =>
-          speakers.flatMap((speaker) => clips.map(async (clip) => ((await exists(path.join(outRoot, voiceSpeed, speaker.id, `${clip.key}.wav`))) ? null : `${voiceSpeed}/${speaker.id}/${clip.key}.wav`))),
+          speakers.flatMap((speaker) => clips.map(async (clip) => ((await exists(path.join(outRoot, voiceSpeed, speaker.id, `${clip.key}.flac`))) ? null : `${voiceSpeed}/${speaker.id}/${clip.key}.flac`))),
         ),
       )
     ).filter((file) => file !== null)
@@ -102,7 +101,7 @@ if (writesAppClips && missing.length === 0) {
       `  ${voiceSpeed}: {`,
       ...speakers.flatMap((speaker) => [
         `    ${speaker.id}: {`,
-        ...clips.map((clip) => `      "${clip.key}": require("../../assets/voice/${voiceSpeed}/${speaker.id}/${clip.key}.wav"),`),
+        ...clips.map((clip) => `      "${clip.key}": require("../../assets/voice/${voiceSpeed}/${speaker.id}/${clip.key}.flac"),`),
         "    },",
       ]),
       "  },",

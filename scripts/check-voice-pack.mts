@@ -17,7 +17,7 @@ export const comparable = (text: string) =>
 const jobs = voiceSpeeds.flatMap(({ id: voiceSpeed }) => speakers.flatMap((speaker) => clips.map((clip) => ({ voiceSpeed, speaker: speaker.id, clip }))));
 const results: { voiceSpeed: string; speaker: string; key: string; expected: string; heard: string; match: boolean }[] = [];
 await inParallel(jobs, MAX_CONCURRENT_REQUESTS, async ({ voiceSpeed, speaker, clip }) => {
-  const heard = await transcribe(path.join(dir, voiceSpeed, speaker, `${clip.key}.wav`));
+  const heard = await transcribe(path.join(dir, voiceSpeed, speaker, `${clip.key}.flac`));
   results.push({ voiceSpeed, speaker, key: clip.key, expected: clip.heard, heard, match: comparable(heard) === comparable(clip.heard) });
 });
 results.sort((a, b) => a.voiceSpeed.localeCompare(b.voiceSpeed) || a.speaker.localeCompare(b.speaker) || a.key.localeCompare(b.key));
