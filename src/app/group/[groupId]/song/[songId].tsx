@@ -16,6 +16,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { LetterStepper, NumberStepper } from "@/components/ui/stepper-input";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { Segmented } from "@/components/ui/segmented";
 import { useDockInset } from "@/components/ui/use-dock-inset";
@@ -26,19 +27,24 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { canEditSongs } from "@/lib/roles";
-import { draftProblem, sameDraft, type SongDraft } from "@/lib/song-draft";
+import { draftProblem, MAX_BPM, MIN_BPM, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
-import { bpmOptions, LETTER_OPTIONS, NO_CHOICE, NUMBER_OPTIONS, PLAYS_OPTIONS, SONG_TEMPO, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
-import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type TimeChange } from "@/sync/timeline";
+import { MAX_SECTION_NUMBER, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
+import { CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MIN_SAVING_MS = 400;
+const STEPPER_WIDTH = 56;
+const BARS_RANGE = { min: 1, max: MAX_BARS };
+const PLAYS_RANGE = { min: 1, max: MAX_PLAYS };
+const SECTION_BPM_RANGE = { min: MIN_BPM, max: MAX_BPM, optional: true };
+const SECTION_NUMBER_RANGE = { min: 1, max: MAX_SECTION_NUMBER, optional: true };
 
 type EditableSection = Section & { customLabel?: string; ownTempo?: boolean };
 
@@ -49,13 +55,13 @@ function withPlays(section: EditableSection, plays: number): EditableSection {
 
 type TimeSignature = Pick<Section, "beatsPerBar" | "beatUnit">;
 
-function LabeledField({ label, children }: { label: string; children: ReactNode }) {
+function LabeledField({ label, width, children }: { label: string; width?: number; children: ReactNode }) {
   return (
-    <View style={styles.field}>
+    <View style={width === undefined ? styles.field : [styles.fixedField, { width }]}>
       <ThemedText themeColor="textSecondary" style={styles.fieldLabel} numberOfLines={1}>
         {label}
       </ThemedText>
-      {children}
+      <View style={styles.fieldBody}>{children}</View>
     </View>
   );
 }
@@ -76,12 +82,17 @@ function TimeSignatureField({ section, testID, onChange }: { section: TimeSignat
   );
 }
 
-function TimeChangeRow({ change, testID, onChange, onRemove }: { change: TimeChange; testID: string; onChange: (next: TimeChange) => void; onRemove: () => void }) {
+function TimeChangeRow({ change, sectionBars, testID, onChange, onRemove }: { change: TimeChange; sectionBars: number; testID: string; onChange: (next: TimeChange) => void; onRemove: () => void }) {
   const theme = useTheme();
+  const within = { min: 1, max: Math.max(1, sectionBars) };
   return (
     <View style={[styles.changeRow, { backgroundColor: theme.background }]} testID={testID}>
-      <NumberField label="From bar" integer value={change.bar} testID={`${testID}-bar`} onChange={(bar) => onChange({ ...change, bar })} />
-      <NumberField label="Bars" integer value={change.bars} testID={`${testID}-bars`} onChange={(bars) => onChange({ ...change, bars })} />
+      <LabeledField label="From bar" width={STEPPER_WIDTH}>
+        <NumberStepper label="From bar" testID={`${testID}-bar`} value={change.bar} range={within} onChange={(bar) => onChange({ ...change, bar: bar ?? change.bar })} />
+      </LabeledField>
+      <LabeledField label="Bars" width={STEPPER_WIDTH}>
+        <NumberStepper label="Bars" testID={`${testID}-bars`} value={change.bars} range={within} onChange={(bars) => onChange({ ...change, bars: bars ?? change.bars })} />
+      </LabeledField>
       <TimeSignatureField section={change} testID={`${testID}-time`} onChange={(time) => onChange({ ...change, ...time })} />
       <IconButton icon="trash" color="textTertiary" size={40} label={`Remove the time change at bar ${change.bar}`} onPress={onRemove} testID={`${testID}-remove`} />
     </View>
@@ -145,11 +156,6 @@ function SectionRow({
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
       <View style={styles.sectionTop}>
-        <View style={[styles.indexBadge, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText type="smallBold" style={styles.indexText}>
-            {index + 1}
-          </ThemedText>
-        </View>
         <Dropdown
           look="field"
           label={`Section type of Section ${index + 1}`}
@@ -164,41 +170,26 @@ function SectionRow({
             </ThemedText>
           }
         />
-        <Dropdown
-          look="field"
+        <NumberStepper
           label={`Number of Section ${index + 1}`}
           testID={`section-${index}-number`}
           style={styles.tag}
-          menuMinWidth={MENU_MIN_WIDTH}
-          muted={!section.number}
-          options={NUMBER_OPTIONS}
-          value={section.number ? String(section.number) : NO_CHOICE}
-          shown={
-            <ThemedText themeColor={section.number ? "text" : "textTertiary"} style={styles.typeText} numberOfLines={1}>
-              {section.number ?? "#"}
-            </ThemedText>
-          }
-          onChange={(next) => onChange(next === NO_CHOICE ? { ...section, number: undefined, letter: undefined } : { ...section, number: Number(next) })}
+          value={section.number}
+          range={SECTION_NUMBER_RANGE}
+          placeholder="#"
+          onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
         />
         {section.number ? (
-          <Dropdown
-            look="field"
+          <LetterStepper
             label={`Letter after the number of Section ${index + 1}`}
             testID={`section-${index}-letter`}
             style={styles.tag}
-            menuMinWidth={MENU_MIN_WIDTH}
-            muted={section.letter === undefined}
-            options={LETTER_OPTIONS}
-            value={section.letter ?? NO_CHOICE}
-            shown={
-              <ThemedText themeColor={section.letter ? "text" : "textTertiary"} style={styles.typeText} numberOfLines={1}>
-                {section.letter ?? "–"}
-              </ThemedText>
-            }
-            onChange={(next) => onChange({ ...section, letter: next === NO_CHOICE ? undefined : next })}
+            value={section.letter}
+            onChange={(letter) => onChange({ ...section, letter: letter as SectionLetter | undefined })}
           />
         ) : null}
         <ReorderControl
+          vertical
           name={`Section ${index + 1}`}
           canMoveUp={index > 0}
           canMoveDown={index < count - 1}
@@ -208,49 +199,31 @@ function SectionRow({
         />
       </View>
       <View style={styles.sectionFields}>
-        <View style={styles.barsField}>
-          <NumberField label="Bars" integer value={section.bars} testID={`section-${index}-bars`} onChange={(bars) => onChange({ ...section, bars })} />
-        </View>
+        <LabeledField label="Bars" width={STEPPER_WIDTH}>
+          <NumberStepper label={`Bars of Section ${index + 1}`} testID={`section-${index}-bars`} value={section.bars} range={BARS_RANGE} onChange={(bars) => onChange({ ...section, bars: bars ?? section.bars })} />
+        </LabeledField>
         <TimeSignatureField section={section} testID={`section-${index}-time`} onChange={(time) => onChange({ ...section, ...time })} />
-        <LabeledField label="BPM">
-          <Dropdown
-            look="field"
+        <LabeledField label="BPM" width={STEPPER_WIDTH}>
+          <NumberStepper
             label={`BPM of Section ${index + 1}`}
             testID={`section-${index}-bpm`}
-            menuMinWidth={170}
-            muted={!ownTempo}
-            options={bpmOptions(songBpm, ownTempo ? section.bpm : null)}
-            value={ownTempo ? String(section.bpm) : SONG_TEMPO}
-            shown={
-              <ThemedText themeColor={ownTempo ? "text" : "textSecondary"} style={styles.valueText} numberOfLines={1}>
-                {ownTempo ? section.bpm : songBpm}
-              </ThemedText>
-            }
-            onChange={(next) => onChange(next === SONG_TEMPO ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm: Number(next) })}
+            value={ownTempo ? section.bpm : undefined}
+            range={SECTION_BPM_RANGE}
+            placeholder={String(songBpm)}
+            stepFrom={songBpm}
+            muted
+            onChange={(bpm) => onChange(bpm === undefined || bpm === songBpm ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm })}
           />
         </LabeledField>
-        <LabeledField label="Plays">
-          <Dropdown
-            look="field"
-            label={`Plays of Section ${index + 1}`}
-            testID={`section-${index}-plays`}
-            menuMinWidth={MENU_MIN_WIDTH}
-            muted={plays === 1}
-            options={PLAYS_OPTIONS}
-            value={String(plays)}
-            shown={
-              <ThemedText themeColor={plays > 1 ? "accent" : "textSecondary"} style={styles.valueText} numberOfLines={1}>
-                {`×${plays}`}
-              </ThemedText>
-            }
-            onChange={(next) => onChange(withPlays(section, Number(next)))}
-          />
+        <LabeledField label="Plays" width={STEPPER_WIDTH}>
+          <NumberStepper label={`Plays of Section ${index + 1}`} testID={`section-${index}-plays`} value={plays} range={PLAYS_RANGE} onChange={(next) => onChange(withPlays(section, next ?? plays))} />
         </LabeledField>
       </View>
       {changes.map((change, changeIndex) => (
         <TimeChangeRow
           key={changeIndex}
           change={change}
+          sectionBars={section.bars}
           testID={`section-${index}-change-${changeIndex}`}
           onChange={(edited) => updateChanges(changes.map((other, otherIndex) => (otherIndex === changeIndex ? edited : other)))}
           onRemove={() => updateChanges(changes.filter((_, otherIndex) => otherIndex !== changeIndex))}
@@ -723,19 +696,17 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", alignItems: "center", gap: Spacing.two, minHeight: 36 },
   voiceCue: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginRight: Spacing.one },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
-  indexBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", marginRight: Spacing.one },
-  indexText: { fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two + 2, paddingHorizontal: 12, paddingTop: 12, paddingBottom: Spacing.one + 2, borderRadius: Radius.lg },
-  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
+  sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
-  valueText: { fontWeight: 600, fontSize: 16, flexShrink: 1, fontVariant: ["tabular-nums"] },
-  tag: { width: 42 },
-  field: { flexGrow: 1, flexShrink: 1, flexBasis: "auto", minWidth: 0, gap: Spacing.one },
-  sectionFields: { flexDirection: "row", gap: 6 },
-  barsField: { width: 46, flexDirection: "row" },
+  tag: { width: 44 },
+  field: { flex: 1, minWidth: 0, gap: Spacing.one },
+  fixedField: { gap: Spacing.one },
+  fieldBody: { flex: 1, justifyContent: "center" },
+  sectionFields: { flexDirection: "row", gap: Spacing.two },
   changeRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
   addChange: { flexDirection: "row", alignItems: "center", gap: Spacing.one, minHeight: 36 },
   addChangePressed: { opacity: 0.7 },

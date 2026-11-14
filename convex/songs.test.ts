@@ -61,7 +61,7 @@ describe("Songs", () => {
 
     const bad = (patch: object) => admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, ...patch }] });
     await expect(bad({ bars: 0 })).rejects.toThrow(/Bars/);
-    await expect(bad({ bars: 65 })).rejects.toThrow(/Bars/);
+    await expect(bad({ bars: 101 })).rejects.toThrow(/Bars/);
     await expect(bad({ beatsPerBar: 13 })).rejects.toThrow(/Beats per bar/);
     await expect(bad({ bpm: 29 })).rejects.toThrow(/BPM/);
     await expect(bad({ bpm: 301 })).rejects.toThrow(/BPM/);
@@ -88,8 +88,8 @@ describe("Songs", () => {
   it("saves a letter after a Section's number, and refuses one without a number", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Lettered" });
-    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, letter: "A" }, { ...verse, letter: "B" }, { ...verse, letter: "E" }] });
-    expect((await member.query(api.songs.get, { songId }))?.sections.map((section) => section.letter)).toEqual(["A", "B", "E"]);
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, letter: "A" }, { ...verse, letter: "B" }, { ...verse, letter: "Z" }] });
+    expect((await member.query(api.songs.get, { songId }))?.sections.map((section) => section.letter)).toEqual(["A", "B", "Z"]);
     const { number, ...unnumbered } = verse;
     expect(number).toBe(1);
     await expect(admin.mutation(api.songs.updateSong, { songId, sections: [{ ...unnumbered, letter: "A" }] })).rejects.toThrow(/letter goes after a number/);

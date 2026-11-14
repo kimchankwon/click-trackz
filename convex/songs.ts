@@ -9,7 +9,7 @@ import { touchLibrary } from "./library";
 import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
-import { BEAT_UNITS, CUE_LEAD_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
+import { BEAT_UNITS, CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
 import { songSummary, songView } from "../src/library/song-views";
 import { sectionFields } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
@@ -81,7 +81,7 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   if (sectionType === undefined) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
   if (section.letter !== undefined && section.number === undefined) throw new ConvexError(`${where}: A letter goes after a number, so give the Section a number first`);
-  if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
+  if (!wholeBetween(section.bars, 1, MAX_BARS)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to ${MAX_BARS}`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
   if (section.beatUnit !== undefined && !BEAT_UNITS.some((unit) => unit === section.beatUnit)) {
     throw new ConvexError(`${where}: The time signature must count halves, quarters, eighths or sixteenths`);

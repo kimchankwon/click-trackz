@@ -1,4 +1,4 @@
-export const SECTION_LETTERS = ["A", "B", "C", "D", "E"] as const;
+export const SECTION_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"] as const;
 
 export type SectionLetter = (typeof SECTION_LETTERS)[number];
 
@@ -25,6 +25,7 @@ export type TimeChange = {
 export const MAX_TIME_CHANGES = 8;
 
 export const MAX_PLAYS = 16;
+export const MAX_BARS = 100;
 
 export const playsOf = (section: Pick<Section, "plays">): number =>
   section.plays !== undefined && Number.isInteger(section.plays) && section.plays > 1 ? Math.min(section.plays, MAX_PLAYS) : 1;

@@ -1,5 +1,5 @@
 import { byBar, timeChangesProblem } from "@/sync/time-changes";
-import { playsOf, type Section } from "@/sync/timeline";
+import { MAX_BARS, playsOf, type Section } from "@/sync/timeline";
 
 import { MAX_SONG_TITLE } from "./copy-title";
 
@@ -35,7 +35,6 @@ const shapeOf = (draft: SongDraft) =>
 
 export const sameDraft = (a: SongDraft, b: SongDraft) => shapeOf(a) === shapeOf(b);
 
-export const MAX_BARS = 64;
 export const MAX_SECTIONS = 64;
 export const MAX_KEY = 8;
 export const MIN_BPM = 30;
