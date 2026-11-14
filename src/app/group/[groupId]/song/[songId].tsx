@@ -32,6 +32,7 @@ import { InsertSectionGap } from "@/components/song/insert-section-gap";
 import { TapTempoButton } from "@/components/song/tap-tempo-button";
 import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
+import { commonTime, DEFAULT_TIME, markOwnTimes, sameTime, withSongTime, type TimeSignature } from "@/sync/song-time";
 import { newTimeChange } from "@/sync/time-changes";
 import { MAX_SECTION_NUMBER, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
 import { CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
@@ -46,14 +47,14 @@ const PLAYS_RANGE = { min: 1, max: MAX_PLAYS };
 const SECTION_BPM_RANGE = { min: MIN_BPM, max: MAX_BPM, optional: true };
 const SECTION_NUMBER_RANGE = { min: 1, max: MAX_SECTION_NUMBER, optional: true };
 
-type EditableSection = Section & { customLabel?: string; ownTempo?: boolean };
+type EditableSection = Section & { customLabel?: string; ownTempo?: boolean; ownTime?: boolean };
 
 function withPlays(section: EditableSection, plays: number): EditableSection {
   const next = Math.min(MAX_PLAYS, Math.max(1, plays));
   return { ...section, plays: next > 1 ? next : undefined };
 }
 
-type TimeSignature = Pick<Section, "beatsPerBar" | "beatUnit">;
+const FOLLOW_SONG = "song";
 
 function LabeledField({ label, width, children }: { label: string; width?: number; children: ReactNode }) {
   return (
@@ -129,6 +130,7 @@ const MENU_MIN_WIDTH = 120;
 function SectionRow({
   section,
   songBpm,
+  songTime,
   index,
   count,
   vocabulary,
@@ -139,6 +141,7 @@ function SectionRow({
 }: {
   section: EditableSection;
   songBpm: number;
+  songTime: TimeSignature;
   index: number;
   count: number;
   vocabulary: readonly string[];
@@ -153,23 +156,44 @@ function SectionRow({
   const addedChange = newTimeChange(section);
   const updateChanges = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
   const ownTempo = section.ownTempo === true;
+  const ownTime = section.ownTime === true;
+  const followTime = (key: string) =>
+    key === FOLLOW_SONG || sameTime(timeOfKey(key), songTime)
+      ? onChange({ ...section, ...songTime, ownTime: false })
+      : onChange({ ...section, ...timeOfKey(key), ownTime: true });
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
       <View style={styles.sectionTop}>
-        <Dropdown
-          look="field"
-          label={`Section type of Section ${index + 1}`}
-          testID={`section-${index}-type`}
-          style={styles.grow}
-          options={vocabulary.map((type) => ({ value: type, label: type }))}
-          value={section.sectionType}
-          onChange={(sectionType) => onChange({ ...section, sectionType })}
-          shown={
-            <ThemedText style={styles.typeText} numberOfLines={1}>
-              {section.sectionType}
-            </ThemedText>
-          }
-        />
+        <View style={styles.headMain}>
+          <Dropdown
+            look="field"
+            label={`Section type of Section ${index + 1}`}
+            testID={`section-${index}-type`}
+            options={vocabulary.map((type) => ({ value: type, label: type }))}
+            value={section.sectionType}
+            onChange={(sectionType) => onChange({ ...section, sectionType })}
+            shown={
+              <ThemedText style={styles.typeText} numberOfLines={1}>
+                {section.sectionType}
+              </ThemedText>
+            }
+          />
+          <Dropdown
+            look="field"
+            label={`Time signature of Section ${index + 1}`}
+            testID={`section-${index}-time`}
+            muted={!ownTime}
+            menuMinWidth={MENU_MIN_WIDTH}
+            options={[{ value: FOLLOW_SONG, label: `Song (${timeKeyOf(songTime)})` }, ...timeOptions(section)]}
+            value={ownTime ? timeKeyOf(section) : FOLLOW_SONG}
+            onChange={followTime}
+            shown={
+              <ThemedText themeColor={ownTime ? "text" : "textSecondary"} style={styles.timeText} numberOfLines={1}>
+                {timeKeyOf(ownTime ? section : songTime)}
+              </ThemedText>
+            }
+          />
+        </View>
         <NumberStepper
           label={`Number of Section ${index + 1}`}
           testID={`section-${index}-number`}
@@ -199,11 +223,10 @@ function SectionRow({
         />
       </View>
       <View style={styles.sectionFields}>
-        <LabeledField label="Bars" width={STEPPER_WIDTH}>
+        <LabeledField label="Bars">
           <NumberStepper label={`Bars of Section ${index + 1}`} testID={`section-${index}-bars`} value={section.bars} range={BARS_RANGE} onChange={(bars) => onChange({ ...section, bars: bars ?? section.bars })} />
         </LabeledField>
-        <TimeSignatureField section={section} testID={`section-${index}-time`} onChange={(time) => onChange({ ...section, ...time })} />
-        <LabeledField label="BPM" width={STEPPER_WIDTH}>
+        <LabeledField label="BPM">
           <NumberStepper
             label={`BPM of Section ${index + 1}`}
             testID={`section-${index}-bpm`}
@@ -215,7 +238,7 @@ function SectionRow({
             onChange={(bpm) => onChange(bpm === undefined || bpm === songBpm ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm })}
           />
         </LabeledField>
-        <LabeledField label="Plays" width={STEPPER_WIDTH}>
+        <LabeledField label="Plays">
           <NumberStepper label={`Plays of Section ${index + 1}`} testID={`section-${index}-plays`} value={plays} range={PLAYS_RANGE} onChange={(next) => onChange(withPlays(section, next ?? plays))} />
         </LabeledField>
       </View>
@@ -278,6 +301,7 @@ type LoadedSong = {
 };
 
 const startingBpmOf = (song: LoadedSong) => song.bpm ?? commonBpm(song.sections) ?? song.tempoHint?.bpm ?? DEFAULT_BPM;
+const startingTimeOf = (song: LoadedSong): TimeSignature => commonTime(song.sections) ?? (song.tempoHint ? { beatsPerBar: song.tempoHint.beatsPerBar, beatUnit: 4 } : DEFAULT_TIME);
 
 function savedDraftOf(song: LoadedSong): SongDraft {
   const bpm = startingBpmOf(song);
@@ -341,9 +365,12 @@ function SongForm({
   const [subdivision, setSubdivision] = useState(song.subdivision);
   const [cueLeadBars, setCueLeadBars] = useState(song.cueLeadBars);
   const [songBpm, setSongBpm] = useState(() => startingBpmOf(song));
-  const [rows, setRows] = useState<SectionRowState[]>(() => markOwnTempos(song.sections, startingBpmOf(song)).map((section, id) => ({ id, section })));
+  const [songTime, setSongTime] = useState(() => startingTimeOf(song));
+  const [rows, setRows] = useState<SectionRowState[]>(() =>
+    markOwnTimes(markOwnTempos(song.sections, startingBpmOf(song)), startingTimeOf(song)).map((section, id) => ({ id, section })),
+  );
   const [nextRowId, setNextRowId] = useState(song.sections.length);
-  const sections = withSongTempo(rows.map((row) => row.section), songBpm);
+  const sections = withSongTime(withSongTempo(rows.map((row) => row.section), songBpm), songTime);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -451,7 +478,8 @@ function SongForm({
   const insertSection = (at: number) => {
     const previous = at > 0 ? rows[at - 1].section : undefined;
     const tempo = previous?.ownTempo === true ? { bpm: previous.bpm, ownTempo: true } : { bpm: songBpm, ownTempo: false };
-    setRows(insertAt(rows, at, { id: nextRowId, section: { ...newSectionAfter(sections[at - 1], song.tempoHint), ...tempo } }));
+    const time = previous?.ownTime === true ? { beatsPerBar: previous.beatsPerBar, beatUnit: previous.beatUnit, ownTime: true } : { ...songTime, ownTime: false };
+    setRows(insertAt(rows, at, { id: nextRowId, section: { ...newSectionAfter(sections[at - 1], song.tempoHint), ...tempo, ...time } }));
     setNextRowId(nextRowId + 1);
   };
 
@@ -493,7 +521,8 @@ function SongForm({
             <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
             <View style={styles.fields}>
               <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.numberField} />
-              <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
+              <NumberField label="BPM" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
+              <TimeSignatureField section={songTime} testID="song-time" onChange={setSongTime} />
             </View>
             <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
             <Divider />
@@ -532,6 +561,7 @@ function SongForm({
                 <SectionRow
                   section={row.section}
                   songBpm={songBpm}
+                  songTime={songTime}
                   index={index}
                   count={rows.length}
                   vocabulary={vocabulary}
@@ -701,10 +731,12 @@ const styles = StyleSheet.create({
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two + 2, paddingHorizontal: 12, paddingTop: 12, paddingBottom: Spacing.one + 2, borderRadius: Radius.lg },
   sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  headMain: { flex: 1, minWidth: 0, gap: Spacing.one },
+  timeText: { fontWeight: 600, fontSize: 16, flexShrink: 1, fontVariant: ["tabular-nums"] },
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
   tag: { width: 44 },
-  field: { flex: 1, minWidth: 0, gap: Spacing.one },
-  fixedField: { gap: Spacing.one },
+  field: { flex: 1, minWidth: 0, gap: Spacing.one + 2 },
+  fixedField: { gap: Spacing.one + 2 },
   fieldBody: { flex: 1, justifyContent: "center" },
   sectionFields: { flexDirection: "row", gap: Spacing.two },
   changeRow: { flexDirection: "row", alignItems: "flex-end", gap: Spacing.two, padding: Spacing.two, borderRadius: Radius.md },
