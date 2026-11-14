@@ -164,7 +164,7 @@ export function SoundSettings({
               <View style={styles.grow}>
                 <Switch
                   label="Lock screen controls"
-                  hint="Keeps playing when you leave the app."
+                  hint="Plays in background"
                   testID="lock-screen-controls"
                   value={lockScreen === "on"}
                   onChange={(on) => setLockScreen(on ? "on" : "off")}
@@ -180,7 +180,7 @@ export function SoundSettings({
           <View style={styles.grow}>
             <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              For Bluetooth audio on this device
+              For bluetooth audio
             </ThemedText>
           </View>
           <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
@@ -215,9 +215,11 @@ export function SoundSettings({
           </View>
         </View>
       </Card>
-      <ThemedText type="caption" themeColor={saveError ? "danger" : "textSecondary"} testID="sound-saved-caption" style={styles.caption}>
-        {saveError ?? "Mix and Speaker are saved to your account, so every Group and device uses them. The rest stays on this device."}
-      </ThemedText>
+      {saveError ? (
+        <ThemedText type="caption" themeColor="danger" testID="sound-saved-caption" style={styles.caption}>
+          {saveError}
+        </ThemedText>
+      ) : null}
     </>
   );
 }

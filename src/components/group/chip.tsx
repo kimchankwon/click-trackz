@@ -17,11 +17,13 @@ export function Chip({
   compact,
   queued,
   accessibleName,
+  hideCheck,
 }: {
   strong?: boolean;
   compact?: boolean;
   queued?: boolean;
   accessibleName?: string;
+  hideCheck?: boolean;
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -31,7 +33,7 @@ export function Chip({
   disabled?: boolean;
 }) {
   const theme = useTheme();
-  const showCheck = selected && role !== "button";
+  const showCheck = selected && role !== "button" && !hideCheck;
   const leading = showCheck ? "check" : icon;
   return (
     <Pressable

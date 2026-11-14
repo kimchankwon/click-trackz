@@ -6,7 +6,7 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Radius, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { activityWhen } from "@/lib/activity-when";
 import { api } from "../../../convex/_generated/api";
@@ -77,7 +77,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
       ) : (
         <ScrollView
           nestedScrollEnabled
-          style={[styles.list, { borderColor: theme.border }, expanded ? null : styles.collapsed]}
+          style={expanded ? null : styles.collapsed}
           contentContainerStyle={styles.listContent}
           testID="activity-list"
         >
@@ -135,9 +135,8 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
 const styles = StyleSheet.create({
   controls: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
-  list: { borderWidth: 1, borderRadius: Radius.md },
   collapsed: { maxHeight: COLLAPSED_HEIGHT },
-  listContent: { padding: Spacing.three },
+  listContent: { paddingVertical: Spacing.one },
   more: { marginTop: Spacing.three },
   item: { gap: 2 },
   separator: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.two },
