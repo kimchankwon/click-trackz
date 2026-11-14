@@ -106,7 +106,7 @@ export function SoundSettings({
         <SpeakerPicker
           value={sound.speaker}
           onChange={(speaker) => {
-            update({ speaker });
+            if (speaker !== sound.speaker) update({ speaker });
             onSpeaker?.(speaker, sound.voiceSpeed);
           }}
         />

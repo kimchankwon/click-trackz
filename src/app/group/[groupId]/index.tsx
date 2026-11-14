@@ -7,8 +7,10 @@ import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
-import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
+import type { BuiltinClipKey, SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { CueAudioEngine, type CueMix } from "@/audio/engine";
+import { pickPreviewPhrase } from "@/audio/preview-phrase";
+import { allClipKeys } from "@/audio/voice-clips";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
@@ -323,6 +325,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [editingTempo, setEditingTempo] = useState<Id<"songs"> | null>(null);
   const [unclocked, setUnclocked] = useState(false);
   const engine = useRef<CueAudioEngine | null>(null);
+  const lastPreviewPhrase = useRef<BuiltinClipKey | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [soundProblem, setSoundProblem] = useState<string | null>(null);
@@ -649,7 +652,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     if (!current?.enabled) return;
     run(async () => {
       await current.setSpeaker(next, nextSpeed);
-      current.preview("chorus");
+      lastPreviewPhrase.current = pickPreviewPhrase(allClipKeys, lastPreviewPhrase.current);
+      current.preview(lastPreviewPhrase.current);
     });
   };
 
@@ -1057,9 +1061,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       ) : null}
       {playing ? null : (
         <View style={styles.nextBlock}>
-          {!steers ? (
+          {!steers && locked ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              {locked ? "This Group is locked, so Playback cannot start." : "A Playback Manager starts and steers Playback."}
+              This Group is locked, so Playback cannot start.
             </ThemedText>
           ) : null}
           {editsSongs && startBlocker === "needsSections" && startSongId ? (

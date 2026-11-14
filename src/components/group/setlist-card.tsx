@@ -133,11 +133,11 @@ export function SetlistCard({
       ) : null}
       {setlists.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
-          No Setlists yet. Tap + to plan what the Group plays.
+          No Setlists yet.
         </ThemedText>
       ) : setlist === undefined ? null : entries.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
-          This Setlist is empty. Tap Edit to add Songs.
+          This Setlist is empty.
         </ThemedText>
       ) : (
         <View style={styles.list}>
