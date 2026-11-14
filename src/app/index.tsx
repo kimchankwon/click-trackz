@@ -108,7 +108,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
 
       <Card title="My Library">
         <ThemedText type="caption" themeColor="textSecondary">
-          {`Your own Songs and Setlists, kept on this device too, so they play with no connection and no one else following.${usage?.enforced ? " Free holds 10 Songs; Plus and Pro hold 1000." : ""}`}
+          {`Plays offline, just for you.${usage?.enforced ? " Free holds 10 Songs; Plus and Pro hold 1000." : ""}`}
         </ThemedText>
         <ActionButton
           variant="outline"

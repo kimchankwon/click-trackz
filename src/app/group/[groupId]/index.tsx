@@ -968,7 +968,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       {locked ? <LockedNotice isAdmin={isAdmin} /> : null}
       {offline && !connected ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered} testID="library-offline-note">
-          No connection. My Library plays from this device; editing comes back when you reconnect.
+          Offline. Editing returns when you reconnect
         </ThemedText>
       ) : null}
       {offlinePlay ? (
@@ -1180,7 +1180,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             />
             {offlinePlay ? (
               <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
-                {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
+                {groupPlaying ? "The Group is playing now" : "Only you hear this"}
               </ThemedText>
             ) : null}
           </Card>
