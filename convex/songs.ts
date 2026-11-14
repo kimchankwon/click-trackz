@@ -9,10 +9,11 @@ import { touchLibrary } from "./library";
 import { requireRoomForSongs } from "./plans";
 import { groupVocabulary } from "./vocabulary";
 import { wordKey } from "../src/audio/clip-choice";
-import { BEAT_UNITS, CUE_LEAD_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
+import { BEAT_UNITS, CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, SUBDIVISIONS } from "../src/sync/timeline";
 import { songSummary, songView } from "../src/library/song-views";
-import { sectionFields } from "./schema";
+import { sectionFields, songTimeSignature } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
+import { markOwnTimes, startingSongTime, withSongTime } from "../src/sync/song-time";
 import { byBar, timeChangesProblem } from "../src/sync/time-changes";
 import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
@@ -63,6 +64,7 @@ export function songCopyFields(song: Doc<"songs">): Omit<Doc<"songs">, "_id" | "
     key: song.key,
     tempoHint: song.tempoHint,
     bpm: song.bpm,
+    timeSignature: song.timeSignature,
     countIn: song.countIn,
     subdivision: song.subdivision,
     cueLeadBars: song.cueLeadBars,
@@ -74,6 +76,7 @@ export function songCopyFields(song: Doc<"songs">): Omit<Doc<"songs">, "_id" | "
 const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
 const validBpm = (bpm: number) => bpm >= 30 && bpm <= 300;
+const validTime = (time: { beatsPerBar: number; beatUnit: number }) => wholeBetween(time.beatsPerBar, 1, 12) && BEAT_UNITS.some((unit) => unit === time.beatUnit);
 
 function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<string, string>): Section {
   const where = `Section ${index + 1}`;
@@ -81,7 +84,7 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   if (sectionType === undefined) throw new ConvexError(`${where}: Section type is not in the Cue vocabulary`);
   if (section.number !== undefined && !wholeBetween(section.number, 1, 9)) throw new ConvexError(`${where}: number must be 1 to 9`);
   if (section.letter !== undefined && section.number === undefined) throw new ConvexError(`${where}: A letter goes after a number, so give the Section a number first`);
-  if (!wholeBetween(section.bars, 1, 64)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to 64`);
+  if (!wholeBetween(section.bars, 1, MAX_BARS)) throw new ConvexError(`${where}: Bars must be a whole number from 1 to ${MAX_BARS}`);
   if (!wholeBetween(section.beatsPerBar, 1, 12)) throw new ConvexError(`${where}: Beats per bar must be a whole number from 1 to 12`);
   if (section.beatUnit !== undefined && !BEAT_UNITS.some((unit) => unit === section.beatUnit)) {
     throw new ConvexError(`${where}: The time signature must count halves, quarters, eighths or sixteenths`);
@@ -113,20 +116,24 @@ export const updateSong = mutation({
     subdivision: v.optional(v.number()),
     cueLeadBars: v.optional(v.number()),
     bpm: v.optional(v.number()),
+    timeSignature: v.optional(songTimeSignature),
     sections: v.optional(v.array(sectionValidator)),
   },
-  handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, sections }) => {
+  handler: async (ctx, { songId, title, key, countIn, subdivision, cueLeadBars, bpm, timeSignature, sections }) => {
     const song = await ctx.db.get(songId);
     if (song === null) throw new ConvexError("That Song no longer exists");
     const { membership } = await requireRoleInUnlocked(ctx, song.groupId, "songManager");
     if (bpm !== undefined && !validBpm(bpm)) throw new ConvexError("Song tempo must be from 30 to 300 BPM");
+    if (timeSignature !== undefined && !validTime(timeSignature)) throw new ConvexError("Song time signature must have 1 to 12 beats of halves, quarters, eighths or sixteenths");
     if (subdivision !== undefined && !SUBDIVISIONS.some((n) => n === subdivision)) throw new ConvexError("Clicks per beat must be 1, 2, 3 or 4");
     if (cueLeadBars !== undefined && !CUE_LEAD_BARS.some((n) => n === cueLeadBars)) throw new ConvexError("Cues can start one or two bars before a Section");
     if (sections !== undefined && sections.length > 64) throw new ConvexError("A Song can have at most 64 Sections");
     const songBpm = bpm ?? song.bpm;
     const stored = song.bpm === undefined ? markOwnTempos(song.sections, commonBpm(song.sections) ?? bpm ?? 0) : song.sections;
-    const given = sections ?? (bpm !== undefined ? stored : undefined);
-    let shaped = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
+    const given = sections ?? (bpm !== undefined || timeSignature !== undefined ? markOwnTimes(stored, startingSongTime(song)) : undefined);
+    const songTime = timeSignature ?? song.timeSignature;
+    const tempoed = given !== undefined && songBpm !== undefined ? withSongTempo(given, songBpm) : given;
+    let shaped = tempoed !== undefined && songTime !== undefined ? withSongTime(tempoed, songTime) : tempoed;
     if (sections !== undefined && shaped !== undefined) {
       const vocabulary = new Map((await groupVocabulary(ctx, song.groupId)).map((word) => [wordKey(word), word]));
       shaped = shaped.map((section, index) => checkSection(section, index, vocabulary));
@@ -138,6 +145,7 @@ export const updateSong = mutation({
       ...(subdivision !== undefined ? { subdivision } : {}),
       ...(cueLeadBars !== undefined ? { cueLeadBars } : {}),
       ...(bpm !== undefined ? { bpm } : {}),
+      ...(timeSignature !== undefined ? { timeSignature } : {}),
       ...(shaped !== undefined ? { sections: shaped } : {}),
     };
     await ctx.db.patch(songId, changes);
