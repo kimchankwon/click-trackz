@@ -1,11 +1,17 @@
 import { router } from "expo-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
+import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
+import { ActionButton } from "@/components/action-button";
+import { useTimingTest } from "@/audio/use-timing-test";
+import { clipKeyForSpokenCount } from "@/audio/voice-clips";
+import { errorText } from "@/lib/error-text";
+import { earlyLateText, stripRangeMs } from "@/lib/timing-strip";
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
@@ -36,6 +42,8 @@ import { isVoiceOffsetSetting, stepVoiceOffset, VOICE_OFFSET_MAX_MS, VOICE_OFFSE
 import type { Sound } from "@/settings/use-sound-settings";
 
 const MIX_TEXT_INSET = 38;
+const TEST_BEATS = 4;
+const TEST_INTERVAL_MS = 750;
 
 const VOICE_SPEED_OPTIONS: readonly { value: VoiceSpeed; label: string }[] = [
   { value: "normal", label: "Normal" },
@@ -62,6 +70,21 @@ export function SoundSettings({
   const [voiceOffset, setVoiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const offsetMs = Number(voiceOffset);
   const moveVoice = (steps: number) => setVoiceOffset(String(stepVoiceOffset(offsetMs, steps)));
+  const test = useTimingTest();
+  const [testProblem, setTestProblem] = useState<string | null>(null);
+  const testVoice = () => {
+    setTestProblem(null);
+    test
+      .run({
+        beats: TEST_BEATS,
+        intervalMs: TEST_INTERVAL_MS,
+        latencyNudgeMs: Number(latencyNudge),
+        voiceOffsetMs: offsetMs,
+        volumes: { click: sound.clickVolume, voice: sound.voiceVolume },
+        voice: { speaker: sound.speaker, voiceSpeed: sound.voiceSpeed, keyFor: (index) => clipKeyForSpokenCount(index + 1) },
+      })
+      .catch((error: unknown) => setTestProblem(errorText(error)));
+  };
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
@@ -214,6 +237,35 @@ export function SoundSettings({
             />
           </View>
         </View>
+        <View style={[styles.testPanel, { backgroundColor: theme.background }]}>
+          <TimingStrip
+            testID="voice-offset-strip"
+            rangeMs={stripRangeMs([offsetMs, 40])}
+            lanes={[
+              { label: "Click", marks: [0], tone: "text" },
+              { label: "Voice", marks: [offsetMs], tone: "accent" },
+            ]}
+            summary={`The Voice plays ${earlyLateText(offsetMs, "before", "after", "with")} the Click`}
+          />
+          <BeatTrack
+            testID="voice-offset-track"
+            beats={TEST_BEATS}
+            intervalMs={TEST_INTERVAL_MS}
+            lit={test.lit}
+            firstBeatAt={test.firstBeatAt}
+            running={test.running}
+            lanes={[
+              { label: "Click", offsetMs: 0, tone: "text" },
+              { label: "Voice", offsetMs, tone: "accent" },
+            ]}
+          />
+          <View style={styles.testRow}>
+            <ThemedText type="caption" themeColor={testProblem ? "danger" : "textSecondary"} style={styles.grow}>
+              {testProblem ?? `Voice ${earlyLateText(offsetMs, "sooner than", "later than", "with")} the Click`}
+            </ThemedText>
+            <ActionButton small icon="play" label={test.running ? "Playing…" : "Test"} testID="voice-offset-test" disabled={test.running} onPress={testVoice} />
+          </View>
+        </View>
       </Card>
       {saveError ? (
         <ThemedText type="caption" themeColor="danger" testID="sound-saved-caption" style={styles.caption}>
@@ -231,6 +283,8 @@ const styles = StyleSheet.create({
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   plainHint: { paddingHorizontal: Spacing.one },
   caption: { width: "100%", paddingHorizontal: Spacing.one },
+  testPanel: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.two },
+  testRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.three },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
   stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },

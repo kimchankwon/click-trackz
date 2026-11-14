@@ -6,6 +6,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CueAudioEngine } from "@/audio/engine";
 import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
 import { VolumeBar } from "@/components/playback/volume-bar";
+import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
+import { useTimingTest } from "@/audio/use-timing-test";
+import { earlyLateText, middleOf, stripRangeMs } from "@/lib/timing-strip";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -23,10 +26,21 @@ const CLICKS = 10;
 const INTERVAL_MS = 1_000;
 const WARM_UP_CLICKS = 2;
 const ROUND_TAIL_MS = 900;
+const TEST_BEATS = 4;
+const TEST_INTERVAL_MS = 750;
+const TEST_VOLUMES = { click: 0.8, voice: 0 };
 
 type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
+
+function tapSummary(taps: { speaker: readonly number[]; output: readonly number[] | null }): string {
+  const speaker = middleOf(taps.speaker);
+  const output = taps.output ? middleOf(taps.output) : null;
+  if (speaker === null) return "No taps landed near the clicks";
+  if (output === null) return `Your taps landed ${earlyLateText(speaker, "before", "after", "on")} the clicks`;
+  return `Your output is ${earlyLateText(output - speaker, "earlier", "later", "no later")} than the speaker`;
+}
 
 export default function LatencyScreen() {
   const theme = useTheme();
@@ -45,6 +59,8 @@ export default function LatencyScreen() {
   const [tapCount, setTapCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [chosenPreset, setChosenPreset] = useState<string | null>(null);
+  const [taps, setTaps] = useState<{ speaker: readonly number[]; output: readonly number[] | null } | null>(null);
+  const test = useTimingTest();
 
   useEffect(
     () => () => {
@@ -62,6 +78,7 @@ export default function LatencyScreen() {
     if (next === "speaker") {
       speakerRound.current = null;
       setSpeakerDone(false);
+      setTaps(null);
     }
     let started: ReturnType<CueAudioEngine["tapTestRound"]>;
     try {
@@ -94,11 +111,13 @@ export default function LatencyScreen() {
       reportedLatencyMs: current.reportedLatencyMs,
     };
     if (finished === "speaker") {
+      setTaps({ speaker: result.tapOffsetsMs, output: null });
       speakerRound.current = result;
       setSpeakerDone(true);
       setMessage(`Got ${result.tapOffsetsMs.length} taps. Now switch to your headphones or speakers and do round 2.`);
       return;
     }
+    setTaps((shown) => (shown ? { ...shown, output: result.tapOffsetsMs } : null));
     const measured = speakerRound.current ? nudgeFromTapTest(speakerRound.current, result) : null;
     speakerRound.current = null;
     setSpeakerDone(false);
@@ -161,6 +180,50 @@ export default function LatencyScreen() {
                   <ActionButton full medium compact label={step > 0 ? `+${step}` : `\u2212${-step}`} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
                 </View>
               ))}
+            </View>
+          </View>
+
+          <View style={styles.group}>
+            <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
+              Check by ear
+            </ThemedText>
+            <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
+              <TimingStrip
+                testID="nudge-strip"
+                rangeMs={stripRangeMs([nudge])}
+                lanes={[
+                  { label: "Phone plays", marks: [-nudge], tone: "accent" },
+                  { label: "You hear", marks: [0], tone: "text" },
+                ]}
+                summary={`The phone plays each sound ${earlyLateText(-nudge, "early", "late", "on the beat")}, so you hear it on the beat`}
+              />
+              <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+                {nudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-nudge, "early", "late", "on the beat")} so it reaches you on the beat`}
+              </ThemedText>
+              <BeatTrack
+                testID="nudge-track"
+                beats={TEST_BEATS}
+                intervalMs={TEST_INTERVAL_MS}
+                lit={test.lit}
+                firstBeatAt={test.firstBeatAt}
+                running={test.running}
+                lanes={[
+                  { label: "Phone plays", offsetMs: -nudge, tone: "accent" },
+                  { label: "You hear", offsetMs: 0, tone: "text" },
+                ]}
+              />
+              <ActionButton
+                icon="play"
+                label={test.running ? "Playing…" : "Play test"}
+                testID="nudge-test"
+                disabled={test.running}
+                onPress={() =>
+                  run(() => test.run({ beats: TEST_BEATS, intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }))
+                }
+              />
+              <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+                Each click should land as the line crosses its beat
+              </ThemedText>
             </View>
           </View>
 
@@ -249,6 +312,22 @@ export default function LatencyScreen() {
                   );
                 })}
               </View>
+              {taps ? (
+                <View style={styles.tapResults}>
+                  <TimingStrip
+                    testID="tap-strip"
+                    rangeMs={stripRangeMs([...taps.speaker, ...(taps.output ?? [])])}
+                    lanes={[
+                      { label: "Speaker", marks: taps.speaker, tone: "muted", dots: true },
+                      ...(taps.output ? [{ label: "Your output", marks: taps.output, tone: "accent" as const, dots: true }] : []),
+                    ]}
+                    summary={tapSummary(taps)}
+                  />
+                  <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
+                    {tapSummary(taps)}
+                  </ThemedText>
+                </View>
+              ) : null}
               {message ? (
                 <ThemedText testID="latency-message" type="smallBold" role="status" aria-live="polite">
                   {message}
@@ -325,6 +404,7 @@ const styles = StyleSheet.create({
   roundTrack: { flexDirection: "row", borderRadius: Radius.md, padding: 3, gap: 3 },
   roundSegment: { flex: 1, flexDirection: "row", gap: Spacing.two, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm },
   roundRaised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
+  tapResults: { gap: Spacing.two },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });

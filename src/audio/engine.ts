@@ -30,6 +30,7 @@ const CLICK_SOUND: Record<ClickLevel, { hz: number; gain: number }> = {
   offbeat: { hz: 880, gain: 0.3 },
 };
 const RESUME_WAIT_MS = 1_000;
+const TIMING_TEST_START_S = 0.6;
 
 export type CueMix = {
   click: boolean;
@@ -281,6 +282,31 @@ export class CueAudioEngine {
       clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
     }
     return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
+  }
+
+  setOffsets({ latencyNudgeMs, voiceOffsetMs }: { latencyNudgeMs: number; voiceOffsetMs: number }) {
+    this.latencyNudgeMs = latencyNudgeMs;
+    this.voiceOffsetMs = voiceOffsetMs;
+  }
+
+  timingTest(beats: number, intervalMs: number, voiceKeyFor: (index: number) => BuiltinClipKey | null = () => null): { beatTimesMs: number[]; lastBeatInMs: number } {
+    const context = this.context;
+    if (context === null) throw new Error("Enable sound first");
+    tapTestOwner = this;
+    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    const firstAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
+    const nowMs = performance.now();
+    const beatTimesMs: number[] = [];
+    for (let index = 0; index < beats; index++) {
+      const beatAt = firstAt + (index * intervalMs) / 1000;
+      const when = beatAt - aheadMs / 1000;
+      this.click(context, when, index % 4 === 0 ? "bar" : "beat");
+      const key = voiceKeyFor(index);
+      const buffer = key ? this.clips.get(key) : undefined;
+      if (buffer) this.playOnBeat(context, buffer, when);
+      beatTimesMs.push(nowMs + (beatAt - context.currentTime) * 1000);
+    }
+    return { beatTimesMs, lastBeatInMs: beatTimesMs[beatTimesMs.length - 1] - nowMs };
   }
 
   setSides(sides: CueSides) {

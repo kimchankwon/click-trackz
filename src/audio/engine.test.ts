@@ -292,6 +292,41 @@ describe("Voice cue offset", () => {
   });
 });
 
+describe("Timing test", () => {
+  it("sends each Click early by the Latency nudge and says when each beat should be heard", async () => {
+    const engine = new CueAudioEngine();
+    engine.latencyNudgeMs = 120;
+    await engine.enable(serverNow, null);
+    const context = contexts().at(-1)!;
+    const { beatTimesMs, lastBeatInMs } = engine.timingTest(4, 500);
+    const sent = context.oscillatorNodes.map((node) => node.startedAt ?? 0);
+    expect(sent).toHaveLength(4);
+    expect(sent[0]).toBeCloseTo(0.6);
+    expect(sent[1] - sent[0]).toBeCloseTo(0.5);
+    expect(beatTimesMs[1] - beatTimesMs[0]).toBeCloseTo(500);
+    expect(lastBeatInMs).toBeCloseTo(720 + 1_500);
+    engine.dispose();
+  });
+
+  it("plays the Voice on the beat, moved by the Voice cue offset", async () => {
+    const voiceFor = async (offsetMs: number) => {
+      const engine = new CueAudioEngine();
+      engine.voiceOffsetMs = offsetMs;
+      await engine.enable(serverNow, null);
+      await engine.setSpeaker("adam");
+      const context = contexts().at(-1)!;
+      engine.timingTest(2, 500, () => "verse" as never);
+      const starts = [...context.voiceStarts];
+      engine.dispose();
+      return starts;
+    };
+    const plain = await voiceFor(0);
+    const later = await voiceFor(50);
+    expect(plain).toHaveLength(2);
+    expect(later[0] - plain[0]).toBeCloseTo(0.05);
+  });
+});
+
 describe("Stereo split", () => {
   it("pans the Click and the Voice cues to their own sides, set before or after sound is on", async () => {
     const engine = new CueAudioEngine();
