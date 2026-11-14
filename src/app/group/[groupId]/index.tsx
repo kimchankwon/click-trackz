@@ -1472,6 +1472,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             key: pane,
             content: (
               <ScrollView
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets
                 contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
                 onScroll={(event) => pinnedScroll.onScroll(pane, event)}
                 scrollEventThrottle={16}

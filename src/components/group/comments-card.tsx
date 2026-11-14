@@ -70,6 +70,7 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
       <ScrollView
         ref={list}
         nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         style={[styles.list, { backgroundColor: theme.background, borderColor: theme.border }]}
         contentContainerStyle={styles.listContent}
         testID="comments-list"
