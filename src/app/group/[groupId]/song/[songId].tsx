@@ -62,7 +62,7 @@ const FOLLOW_SONG = "song";
 function LabeledField({ label, width, children }: { label: string; width?: number; children: ReactNode }) {
   return (
     <View style={width === undefined ? styles.field : [styles.fixedField, { width }]}>
-      <ThemedText themeColor="textSecondary" style={styles.fieldLabel} numberOfLines={1}>
+      <ThemedText themeColor="textSecondary" style={[styles.fieldLabel, width === undefined ? null : styles.centeredLabel]} numberOfLines={1}>
         {label}
       </ThemedText>
       <View style={styles.fieldBody}>{children}</View>
@@ -217,16 +217,15 @@ function SectionRow({
             onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
           />
         </LabeledField>
-        {section.number ? (
-          <LabeledField label="Letter" width={LETTER_WIDTH}>
-            <LetterStepper
-              label={`Letter after the number of ${name}`}
-              testID={`section-${index}-letter`}
-              value={section.letter}
-              onChange={(letter) => onChange({ ...section, letter: letter as SectionLetter | undefined })}
-            />
-          </LabeledField>
-        ) : null}
+        <LabeledField label="Letter" width={LETTER_WIDTH}>
+          <LetterStepper
+            label={`Letter after the number of ${name}`}
+            testID={`section-${index}-letter`}
+            value={section.number ? section.letter : undefined}
+            disabled={!section.number}
+            onChange={(letter) => onChange({ ...section, letter: letter as SectionLetter | undefined })}
+          />
+        </LabeledField>
         <LabeledField label="Bars" width={BARS_WIDTH}>
           <NumberStepper label={`Bars of ${name}`} testID={`section-${index}-bars`} value={section.bars} range={BARS_RANGE} onChange={(bars) => onChange({ ...section, bars: bars ?? section.bars })} />
         </LabeledField>
@@ -757,6 +756,7 @@ const styles = StyleSheet.create({
   cardEdge: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
+  centeredLabel: { textAlign: "center" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two, paddingHorizontal: 12, paddingVertical: Spacing.one + 2, borderRadius: Radius.lg },
