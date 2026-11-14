@@ -58,7 +58,7 @@ export class CueAudioEngine {
   private voiceBus: GainNode | null = null;
   private clickPan: StereoPannerNode | null = null;
   private voicePan: StereoPannerNode | null = null;
-  private volumes: CueVolumes = { click: 0.8, voice: 0.9 };
+  private volumes: CueVolumes = { click: 0.8, voice: 0.6 };
   private sides: CueSides = { click: "both", voice: "both" };
   private clips = new Map<BuiltinClipKey, AudioBuffer>();
   private readonly builtinKeys: ReadonlySet<string> = new Set(allClipKeys);
