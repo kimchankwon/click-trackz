@@ -33,7 +33,7 @@ import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { newTimeChange } from "@/sync/time-changes";
 import { bpmOptions, LETTER_OPTIONS, NO_CHOICE, NUMBER_OPTIONS, PLAYS_OPTIONS, SONG_TEMPO, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
-import { CUE_LEAD_BARS, letterAfterNumber, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type TimeChange } from "@/sync/timeline";
+import { CUE_LEAD_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -115,8 +115,6 @@ function NumberField({ label, value, onChange, testID, integer = false }: { labe
 
 const MENU_MIN_WIDTH = 120;
 
-const titleOf = (section: EditableSection) => `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
-
 function SectionRow({
   section,
   songBpm,
@@ -162,16 +160,32 @@ function SectionRow({
           onChange={(sectionType) => onChange({ ...section, sectionType })}
           shown={
             <ThemedText style={styles.typeText} numberOfLines={1}>
-              {titleOf(section)}
+              {section.sectionType}
             </ThemedText>
           }
+        />
+        <Dropdown
+          look="field"
+          label={`Number of Section ${index + 1}`}
+          testID={`section-${index}-number`}
+          style={styles.tag}
+          menuMinWidth={MENU_MIN_WIDTH}
+          muted={!section.number}
+          options={NUMBER_OPTIONS}
+          value={section.number ? String(section.number) : NO_CHOICE}
+          shown={
+            <ThemedText themeColor={section.number ? "text" : "textTertiary"} style={styles.typeText} numberOfLines={1}>
+              {section.number ?? "#"}
+            </ThemedText>
+          }
+          onChange={(next) => onChange(next === NO_CHOICE ? { ...section, number: undefined, letter: undefined } : { ...section, number: Number(next) })}
         />
         {section.number ? (
           <Dropdown
             look="field"
             label={`Letter after the number of Section ${index + 1}`}
             testID={`section-${index}-letter`}
-            style={styles.letter}
+            style={styles.tag}
             menuMinWidth={MENU_MIN_WIDTH}
             muted={section.letter === undefined}
             options={LETTER_OPTIONS}
@@ -213,23 +227,6 @@ function SectionRow({
               </ThemedText>
             }
             onChange={(next) => onChange(next === SONG_TEMPO ? { ...section, ownTempo: false, bpm: songBpm } : { ...section, ownTempo: true, bpm: Number(next) })}
-          />
-        </LabeledField>
-        <LabeledField label="Number">
-          <Dropdown
-            look="field"
-            label={`Number of Section ${index + 1}`}
-            testID={`section-${index}-number`}
-            menuMinWidth={MENU_MIN_WIDTH}
-            muted={!section.number}
-            options={NUMBER_OPTIONS}
-            value={section.number ? String(section.number) : NO_CHOICE}
-            shown={
-              <ThemedText themeColor={section.number ? "text" : "textTertiary"} style={styles.valueText} numberOfLines={1}>
-                {section.number ?? "–"}
-              </ThemedText>
-            }
-            onChange={(next) => onChange(next === NO_CHOICE ? { ...section, number: undefined, letter: undefined } : { ...section, number: Number(next) })}
           />
         </LabeledField>
         <LabeledField label="Plays">
@@ -479,7 +476,9 @@ function SongForm({
   };
 
   const insertSection = (at: number) => {
-    setRows(insertAt(rows, at, { id: nextRowId, section: { ...newSectionAfter(sections[at - 1], song.tempoHint), bpm: songBpm, ownTempo: false } }));
+    const previous = at > 0 ? rows[at - 1].section : undefined;
+    const tempo = previous?.ownTempo === true ? { bpm: previous.bpm, ownTempo: true } : { bpm: songBpm, ownTempo: false };
+    setRows(insertAt(rows, at, { id: nextRowId, section: { ...newSectionAfter(sections[at - 1], song.tempoHint), ...tempo } }));
     setNextRowId(nextRowId + 1);
   };
 
@@ -733,7 +732,7 @@ const styles = StyleSheet.create({
   sectionTop: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   typeText: { fontWeight: 600, fontSize: 17, flexShrink: 1 },
   valueText: { fontWeight: 600, fontSize: 16, flexShrink: 1, fontVariant: ["tabular-nums"] },
-  letter: { width: 64 },
+  tag: { width: 42 },
   field: { flexGrow: 1, flexShrink: 1, flexBasis: "auto", minWidth: 0, gap: Spacing.one },
   sectionFields: { flexDirection: "row", gap: 6 },
   barsField: { width: 46, flexDirection: "row" },
