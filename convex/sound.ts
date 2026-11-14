@@ -14,7 +14,7 @@ export type SoundSettings = Infer<typeof soundFields>;
 
 export const defaultSound: SoundSettings = {
   clickVolume: 0.8,
-  voiceVolume: 0.9,
+  voiceVolume: 0.6,
   speaker: "adam",
   voiceSpeed: "faster",
   click: true,
