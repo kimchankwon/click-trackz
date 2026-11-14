@@ -70,7 +70,10 @@ export function SoundSettings({
   const [voiceOffset, setVoiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const offsetMs = Number(voiceOffset);
   const moveVoice = (steps: number) => setVoiceOffset(String(stepVoiceOffset(offsetMs, steps)));
+  const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
+  const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const test = useTimingTest();
+  const shownOffset = test.tested?.voiceOffsetMs ?? offsetMs;
   const [testProblem, setTestProblem] = useState<string | null>(null);
   const testVoice = () => {
     setTestProblem(null);
@@ -81,12 +84,11 @@ export function SoundSettings({
         latencyNudgeMs: Number(latencyNudge),
         voiceOffsetMs: offsetMs,
         volumes: { click: sound.clickVolume, voice: sound.voiceVolume },
+        sides: { click: clickSide, voice: voiceSide },
         voice: { speaker: sound.speaker, voiceSpeed: sound.voiceSpeed, keyFor: (index) => clipKeyForSpokenCount(index + 1) },
       })
       .catch((error: unknown) => setTestProblem(errorText(error)));
   };
-  const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
-  const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
   const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>(LOCK_SCREEN_SETTING_KEY, DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
@@ -240,12 +242,12 @@ export function SoundSettings({
         <View style={[styles.testPanel, { backgroundColor: theme.background }]}>
           <TimingStrip
             testID="voice-offset-strip"
-            rangeMs={stripRangeMs([offsetMs, 40])}
+            rangeMs={stripRangeMs([shownOffset, 40])}
             lanes={[
               { label: "Click", marks: [0], tone: "text" },
-              { label: "Voice", marks: [offsetMs], tone: "accent" },
+              { label: "Voice", marks: [shownOffset], tone: "accent" },
             ]}
-            summary={`The Voice plays ${earlyLateText(offsetMs, "before", "after", "with")} the Click`}
+            summary={`The Voice plays ${earlyLateText(shownOffset, "before", "after", "with")} the Click`}
           />
           <BeatTrack
             testID="voice-offset-track"
@@ -256,12 +258,12 @@ export function SoundSettings({
             running={test.running}
             lanes={[
               { label: "Click", offsetMs: 0, tone: "text" },
-              { label: "Voice", offsetMs, tone: "accent" },
+              { label: "Voice", offsetMs: shownOffset, tone: "accent" },
             ]}
           />
           <View style={styles.testRow}>
             <ThemedText type="caption" themeColor={testProblem ? "danger" : "textSecondary"} style={styles.grow}>
-              {testProblem ?? `Voice ${earlyLateText(offsetMs, "sooner than", "later than", "with")} the Click`}
+              {testProblem ?? `Voice ${earlyLateText(shownOffset, "sooner than", "later than", "with")} the Click`}
             </ThemedText>
             <ActionButton small icon="play" label={test.running ? "Playing…" : "Test"} testID="voice-offset-test" disabled={test.running} onPress={testVoice} />
           </View>

@@ -195,7 +195,7 @@ describe("Group Playback", () => {
       sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }],
     });
     const playback = await member.query(api.playback.current, { groupId });
-    expect(playback?.song.sections).toEqual([...demoSong.sections]);
+    expect(playback?.song.sections).toMatchObject([...demoSong.sections]);
     const startsAt = NOW + LEAD_IN_MS;
     vi.setSystemTime(startsAt + 3_000);
     await admin.mutation(api.playback.jump, { groupId, toSection: 3, mode: "nextBar" });

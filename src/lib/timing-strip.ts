@@ -19,3 +19,11 @@ export function earlyLateText(ms: number, early: string, late: string, same: str
   if (rounded === 0) return same;
   return `${Math.abs(rounded)} ms ${rounded < 0 ? early : late}`;
 }
+
+export function tapSummary(taps: { speaker: readonly number[]; output: readonly number[] | null }): string {
+  const speaker = middleOf(taps.speaker);
+  const output = taps.output ? middleOf(taps.output) : null;
+  if (speaker === null) return "No taps landed near the clicks";
+  if (output === null) return `Your taps landed ${earlyLateText(speaker, "before", "after", "on")} the clicks`;
+  return `Your output is ${earlyLateText(output - speaker, "earlier", "later", "no later")} than the speaker`;
+}

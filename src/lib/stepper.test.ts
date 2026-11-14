@@ -8,9 +8,12 @@ const number = { min: 1, max: 9, optional: true };
 
 describe("number steppers", () => {
   it("keeps only digits, no longer than the largest value", () => {
-    expect(digitsIn("1a2.5", bars)).toBe("125");
+    expect(digitsIn("1a25", bars)).toBe("125");
+    expect(digitsIn("1a2.5", bars)).toBe("12");
     expect(digitsIn("-7", bars)).toBe("7");
     expect(digitsIn("12", number)).toBe("1");
+    expect(digitsIn("72.5", { min: 30, max: 300 })).toBe("72");
+    expect(digitsIn("72,5", { min: 30, max: 300 })).toBe("72");
   });
 
   it("takes a typed value only once it is in range", () => {

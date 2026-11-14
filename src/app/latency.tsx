@@ -8,7 +8,7 @@ import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
 import { useTimingTest } from "@/audio/use-timing-test";
-import { earlyLateText, middleOf, stripRangeMs } from "@/lib/timing-strip";
+import { earlyLateText, stripRangeMs, tapSummary } from "@/lib/timing-strip";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -34,13 +34,6 @@ type Step = "idle" | "speaker" | "output" | "done";
 
 const ignorePress = () => undefined;
 
-function tapSummary(taps: { speaker: readonly number[]; output: readonly number[] | null }): string {
-  const speaker = middleOf(taps.speaker);
-  const output = taps.output ? middleOf(taps.output) : null;
-  if (speaker === null) return "No taps landed near the clicks";
-  if (output === null) return `Your taps landed ${earlyLateText(speaker, "before", "after", "on")} the clicks`;
-  return `Your output is ${earlyLateText(output - speaker, "earlier", "later", "no later")} than the speaker`;
-}
 
 export default function LatencyScreen() {
   const theme = useTheme();
@@ -61,6 +54,7 @@ export default function LatencyScreen() {
   const [chosenPreset, setChosenPreset] = useState<string | null>(null);
   const [taps, setTaps] = useState<{ speaker: readonly number[]; output: readonly number[] | null } | null>(null);
   const test = useTimingTest();
+  const shownNudge = test.tested?.latencyNudgeMs ?? nudge;
 
   useEffect(
     () => () => {
@@ -73,7 +67,7 @@ export default function LatencyScreen() {
   const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
 
   const startRound = async (next: "speaker" | "output") => {
-    if (roundBusy.current) return;
+    if (roundBusy.current || test.running) return;
     roundBusy.current = true;
     if (next === "speaker") {
       speakerRound.current = null;
@@ -190,15 +184,15 @@ export default function LatencyScreen() {
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <TimingStrip
                 testID="nudge-strip"
-                rangeMs={stripRangeMs([nudge])}
+                rangeMs={stripRangeMs([shownNudge])}
                 lanes={[
-                  { label: "Phone plays", marks: [-nudge], tone: "accent" },
+                  { label: "Phone plays", marks: [-shownNudge], tone: "accent" },
                   { label: "You hear", marks: [0], tone: "text" },
                 ]}
-                summary={`The phone plays each sound ${earlyLateText(-nudge, "early", "late", "on the beat")}, so you hear it on the beat`}
+                summary={`The phone plays each sound ${earlyLateText(-shownNudge, "early", "late", "on the beat")}, so you hear it on the beat`}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                {nudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-nudge, "early", "late", "on the beat")} so it reaches you on the beat`}
+                {shownNudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-shownNudge, "early", "late", "on the beat")} so it reaches you on the beat`}
               </ThemedText>
               <BeatTrack
                 testID="nudge-track"
@@ -208,7 +202,7 @@ export default function LatencyScreen() {
                 firstBeatAt={test.firstBeatAt}
                 running={test.running}
                 lanes={[
-                  { label: "Phone plays", offsetMs: -nudge, tone: "accent" },
+                  { label: "Phone plays", offsetMs: -shownNudge, tone: "accent" },
                   { label: "You hear", offsetMs: 0, tone: "text" },
                 ]}
               />
@@ -216,10 +210,11 @@ export default function LatencyScreen() {
                 icon="play"
                 label={test.running ? "Playing…" : "Play test"}
                 testID="nudge-test"
-                disabled={test.running}
-                onPress={() =>
-                  run(() => test.run({ beats: TEST_BEATS, intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }))
-                }
+                disabled={test.running || listening}
+                onPress={() => {
+                  if (roundBusy.current) return;
+                  run(() => test.run({ beats: TEST_BEATS, intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }));
+                }}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
                 Each click should land as the line crosses its beat
@@ -292,7 +287,7 @@ export default function LatencyScreen() {
               <View style={[styles.roundTrack, { backgroundColor: theme.backgroundSelected }]}>
                 {(["speaker", "output"] as const).map((round) => {
                   const next = round === "speaker" ? !speakerDone : speakerDone;
-                  const available = round === "speaker" || speakerDone;
+                  const available = (round === "speaker" || speakerDone) && !test.running;
                   return (
                     <Pressable
                       key={round}

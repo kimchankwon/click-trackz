@@ -43,6 +43,7 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 const MIN_SAVING_MS = 400;
 const STEPPER_WIDTH = 56;
 const TAG_WIDTH = 44;
+const LETTER_WIDTH = 48;
 const BARS_WIDTH = 50;
 const BARS_RANGE = { min: 1, max: MAX_BARS };
 const PLAYS_RANGE = { min: 1, max: MAX_PLAYS };
@@ -217,7 +218,7 @@ function SectionRow({
           />
         </LabeledField>
         {section.number ? (
-          <LabeledField label="Ver." width={TAG_WIDTH}>
+          <LabeledField label="Letter" width={LETTER_WIDTH}>
             <LetterStepper
               label={`Letter after the number of ${name}`}
               testID={`section-${index}-letter`}
@@ -280,7 +281,7 @@ function SectionRow({
         <Pressable
           role="switch"
           aria-checked={showBpm}
-          aria-label={`Own BPM for ${name}`}
+          aria-label={`Own tempo for ${name}`}
           testID={`section-${index}-bpm-toggle`}
           onPress={toggleBpm}
           style={({ pressed }) => [

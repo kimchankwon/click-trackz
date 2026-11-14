@@ -1131,15 +1131,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
                   Start at bar
                 </ThemedText>
-                <Dropdown
-                  look="field"
-                  label="Start at bar"
-                  testID="play-bar"
-                  style={styles.barControl}
-                  options={Array.from({ length: Math.max(1, startSectionBars) }, (_, offset) => ({ value: String(offset + 1), label: String(offset + 1) }))}
-                  value={String(startBar)}
-                  onChange={(bar) => tapBar(Number(bar))}
-                />
+                {picksBar ? (
+                  <Dropdown
+                    look="field"
+                    label="Start at bar"
+                    testID="play-bar"
+                    style={styles.barControl}
+                    options={Array.from({ length: startSectionBars }, (_, offset) => ({ value: String(offset + 1), label: String(offset + 1) }))}
+                    value={String(startBar)}
+                    onChange={(bar) => tapBar(Number(bar))}
+                  />
+                ) : (
+                  <View style={[styles.barControl, styles.barHolder]} />
+                )}
               </View>
             ) : null}
             {steers ? (
@@ -1647,6 +1651,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   reserved: { opacity: 0 },
   barControl: { width: 96 },
+  barHolder: { height: 44 },
   stageRow: { alignItems: "center", width: "100%" },
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },
