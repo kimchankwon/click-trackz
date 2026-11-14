@@ -13,8 +13,8 @@ const snapshot: LibrarySnapshot = {
   savedAt: 5,
   format: 1,
   songs: [
-    { songId: "s1" as Id<"songs">, title: "Etude", key: "G", tempoHint: null, bpm: null, countIn: true, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [verse] },
-    { songId: "s2" as Id<"songs">, title: "Sketch", key: null, tempoHint: null, bpm: null, countIn: false, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [] },
+    { songId: "s1" as Id<"songs">, title: "Etude", key: "G", tempoHint: null, bpm: null, timeSignature: null, countIn: true, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [verse] },
+    { songId: "s2" as Id<"songs">, title: "Sketch", key: null, tempoHint: null, bpm: null, timeSignature: null, countIn: false, subdivision: 1, cueLeadBars: 2, copyBase: null, sections: [] },
   ],
   setlists: [
     {

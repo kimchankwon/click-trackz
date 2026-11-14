@@ -2,12 +2,15 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { SECTION_LETTERS } from "../src/sync/timeline";
 import { soundFields } from "./sound";
+
+export const songTimeSignature = v.object({ beatsPerBar: v.number(), beatUnit: v.number() });
 
 export const sectionFields = v.object({
   sectionType: v.string(),
   number: v.optional(v.number()),
-  letter: v.optional(v.union(v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"), v.literal("E"))),
+  letter: v.optional(v.union(...SECTION_LETTERS.map((letter) => v.literal(letter)))),
   bars: v.number(),
   beatsPerBar: v.number(),
   beatUnit: v.optional(v.number()),
@@ -15,6 +18,7 @@ export const sectionFields = v.object({
   voiceCueEnabled: v.optional(v.boolean()),
   customLabel: v.optional(v.string()),
   ownTempo: v.optional(v.boolean()),
+  ownTime: v.optional(v.boolean()),
   plays: v.optional(v.number()),
   timeChanges: v.optional(v.array(v.object({ bar: v.number(), bars: v.number(), beatsPerBar: v.number(), beatUnit: v.number() }))),
 });
@@ -79,6 +83,7 @@ export default defineSchema({
     key: v.optional(v.string()),
     tempoHint: v.optional(v.object({ bpm: v.number(), beatsPerBar: v.number() })),
     bpm: v.optional(v.number()),
+    timeSignature: v.optional(songTimeSignature),
     countIn: v.boolean(),
     subdivision: v.optional(v.number()),
     cueLeadBars: v.optional(v.number()),
