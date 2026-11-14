@@ -26,16 +26,25 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
   const [nowMs, setNowMs] = useState(() => Date.now());
   const newest = chat.comments.at(-1)?.chatId;
   const scrolledTo = useRef<string | undefined>(undefined);
+  const contentHeight = useRef(0);
+  const offset = useRef(0);
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), CLOCK_MS);
     return () => clearInterval(timer);
   }, []);
 
-  const followNewest = () => {
-    if (newest === undefined || newest === scrolledTo.current) return;
-    const animated = scrolledTo.current !== undefined;
-    scrolledTo.current = newest;
-    list.current?.scrollToEnd({ animated });
+  const keepPlace = (_width: number, height: number) => {
+    const grew = height - contentHeight.current;
+    contentHeight.current = height;
+    if (newest === undefined) return;
+    if (newest !== scrolledTo.current) {
+      const animated = scrolledTo.current !== undefined;
+      scrolledTo.current = newest;
+      list.current?.scrollToEnd({ animated });
+    } else if (grew !== 0) {
+      offset.current = Math.max(0, offset.current + grew);
+      list.current?.scrollTo({ y: offset.current, animated: false });
+    }
   };
 
   const send = () => {
@@ -64,7 +73,11 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
         style={[styles.list, { backgroundColor: theme.background, borderColor: theme.border }]}
         contentContainerStyle={styles.listContent}
         testID="comments-list"
-        onContentSizeChange={followNewest}
+        onContentSizeChange={keepPlace}
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
         {chat.canLoadOlder || chat.loadingOlder ? (
           <View style={styles.older}>
