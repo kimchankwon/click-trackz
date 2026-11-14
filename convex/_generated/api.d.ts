@@ -12,6 +12,7 @@ import type * as accents from "../accents.js";
 import type * as access from "../access.js";
 import type * as activity from "../activity.js";
 import type * as auth from "../auth.js";
+import type * as chat from "../chat.js";
 import type * as cleanup from "../cleanup.js";
 import type * as clock from "../clock.js";
 import type * as crons from "../crons.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   activity: typeof activity;
   auth: typeof auth;
+  chat: typeof chat;
   cleanup: typeof cleanup;
   clock: typeof clock;
   crons: typeof crons;

@@ -1,12 +1,12 @@
 import { usePaginatedQuery } from "convex/react";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { Dropdown } from "@/components/ui/dropdown";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { activityWhen } from "@/lib/activity-when";
 import { api } from "../../../convex/_generated/api";
@@ -16,7 +16,7 @@ const PAGE = 20;
 const SHOWN_DETAILS = 2;
 const CLOCK_MS = 30_000;
 
-type Shown = "all" | "playback" | "song" | "setlist" | "group";
+type Shown = "all" | "playback" | "song" | "setlist" | "group" | "comment";
 
 const SHOWN_OPTIONS: readonly { value: Shown; label: string }[] = [
   { value: "all", label: "Everything" },
@@ -24,11 +24,15 @@ const SHOWN_OPTIONS: readonly { value: Shown; label: string }[] = [
   { value: "song", label: "Songs" },
   { value: "setlist", label: "Setlists" },
   { value: "group", label: "Members and Group" },
+  { value: "comment", label: "Comments" },
 ];
+
+const COLLAPSED_HEIGHT = 300;
 
 export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opened: boolean }) {
   const theme = useTheme();
   const [shown, setShown] = useState<Shown>("all");
+  const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -49,7 +53,19 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
     });
   return (
     <Card title="Activity">
-      <Dropdown label="Show" testID="activity-shown" options={SHOWN_OPTIONS} value={shown} onChange={setShown} />
+      <View style={styles.controls}>
+        <View style={styles.grow}>
+          <Dropdown label="Show" testID="activity-shown" options={SHOWN_OPTIONS} value={shown} onChange={setShown} />
+        </View>
+        <ActionButton
+          small
+          variant="secondary"
+          icon={expanded ? "collapse" : "expand"}
+          label={expanded ? "Collapse" : "Expand"}
+          testID="activity-expand"
+          onPress={() => setExpanded(!expanded)}
+        />
+      </View>
       {status === "LoadingFirstPage" ? (
         <ThemedText type="small" themeColor="textSecondary" testID="activity-loading">
           Loading…
@@ -59,7 +75,12 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
           Nothing yet.
         </ThemedText>
       ) : (
-        <View testID="activity-list">
+        <ScrollView
+          nestedScrollEnabled
+          style={[styles.list, { borderColor: theme.border }, expanded ? null : styles.collapsed]}
+          contentContainerStyle={styles.listContent}
+          testID="activity-list"
+        >
           {results.map((row, index) => {
             const expanded = open.has(row.activityId) || row.details.length <= SHOWN_DETAILS;
             return (
@@ -94,22 +115,30 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
               </View>
             );
           })}
-        </View>
+          {status === "CanLoadMore" || status === "LoadingMore" ? (
+            <View style={styles.more}>
+              <ActionButton
+                variant="secondary"
+                label={status === "LoadingMore" ? "Loading…" : "Show older"}
+                testID="activity-more"
+                disabled={status === "LoadingMore"}
+                onPress={() => loadMore(PAGE)}
+              />
+            </View>
+          ) : null}
+        </ScrollView>
       )}
-      {status === "CanLoadMore" || status === "LoadingMore" ? (
-        <ActionButton
-          variant="secondary"
-          label={status === "LoadingMore" ? "Loading…" : "Show older"}
-          testID="activity-more"
-          disabled={status === "LoadingMore"}
-          onPress={() => loadMore(PAGE)}
-        />
-      ) : null}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
+  controls: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  grow: { flex: 1, minWidth: 0 },
+  list: { borderWidth: 1, borderRadius: Radius.md },
+  collapsed: { maxHeight: COLLAPSED_HEIGHT },
+  listContent: { padding: Spacing.three },
+  more: { marginTop: Spacing.three },
   item: { gap: 2 },
   separator: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.two },
   summary: { fontWeight: 600 },

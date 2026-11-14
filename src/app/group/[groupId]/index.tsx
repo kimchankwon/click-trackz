@@ -23,6 +23,9 @@ import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
 import { MembersCard } from "@/components/group/members-card";
 import { ActivityCard } from "@/components/group/activity-card";
+import { CommentsCard } from "@/components/group/comments-card";
+import { ReactionFloats } from "@/components/playback/reaction-floats";
+import { useGroupChat } from "@/chat/use-group-chat";
 import { JoinRoleCard } from "@/components/group/join-role-card";
 import { RenameGroup } from "@/components/group/rename-group";
 import { SetlistCard } from "@/components/group/setlist-card";
@@ -367,6 +370,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   useHeartbeat(groupId, tab === "play", playing, !offline && !idleWithoutPlayback);
   useStillHere(groupId, group.guest && !offline && idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
+  const chat = useGroupChat(groupId, !offline, serverNow);
   const members = useQuery(api.groups.members, offline ? "skip" : { groupId });
   const viewer = useQuery(api.users.viewer, {});
   const stopping = playing && (stopPending || (playback?.stopsAt ?? null) !== null);
@@ -1043,7 +1047,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
           idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
         />
-        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} />
+        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} />
+        {offline || tab !== "play" ? null : <ReactionFloats reactions={chat.reactions} now={chat.now} />}
       </View>
       {tempoOpen && startSong && songTempo !== null && startSongId ? (
         <TempoPanel
@@ -1165,6 +1170,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           ) : null}
         </Card>
       )}
+      {offline ? null : <CommentsCard chat={chat} viewerId={viewer?.id} />}
     </View>
   );
 
@@ -1470,6 +1476,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             key: pane,
             content: (
               <ScrollView
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets
                 contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
                 onScroll={(event) => pinnedScroll.onScroll(pane, event)}
                 scrollEventThrottle={16}
