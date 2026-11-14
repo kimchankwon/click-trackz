@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { Icon } from "@/components/ui/icon";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
@@ -105,7 +104,6 @@ export function SongRow({
         ) : (
           <View style={styles.keyPill} aria-label="No Key" />
         )}
-        {selected && selectable && !opens ? <Icon name="check" size={20} color="accent" /> : null}
       </Pressable>
       {trailing}
     </View>

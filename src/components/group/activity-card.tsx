@@ -1,6 +1,6 @@
 import { usePaginatedQuery } from "convex/react";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
@@ -27,7 +27,7 @@ const SHOWN_OPTIONS: readonly { value: Shown; label: string }[] = [
   { value: "comment", label: "Comments" },
 ];
 
-const COLLAPSED_HEIGHT = 300;
+const COLLAPSED_ROWS = 4;
 
 export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opened: boolean }) {
   const theme = useTheme();
@@ -57,14 +57,16 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
         <View style={styles.grow}>
           <Dropdown label="Show" testID="activity-shown" options={SHOWN_OPTIONS} value={shown} onChange={setShown} />
         </View>
-        <ActionButton
-          small
-          variant="secondary"
-          icon={expanded ? "collapse" : "expand"}
-          label={expanded ? "Collapse" : "Expand"}
-          testID="activity-expand"
-          onPress={() => setExpanded(!expanded)}
-        />
+        {expanded || results.length > COLLAPSED_ROWS || status === "CanLoadMore" ? (
+          <ActionButton
+            small
+            variant="secondary"
+            icon={expanded ? "collapse" : "expand"}
+            label={expanded ? "Collapse" : "Expand"}
+            testID="activity-expand"
+            onPress={() => setExpanded(!expanded)}
+          />
+        ) : null}
       </View>
       {status === "LoadingFirstPage" ? (
         <ThemedText type="small" themeColor="textSecondary" testID="activity-loading">
@@ -75,13 +77,8 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
           Nothing yet.
         </ThemedText>
       ) : (
-        <ScrollView
-          nestedScrollEnabled
-          style={expanded ? null : styles.collapsed}
-          contentContainerStyle={styles.listContent}
-          testID="activity-list"
-        >
-          {results.map((row, index) => {
+        <View style={styles.listContent} testID="activity-list">
+          {(expanded ? results : results.slice(0, COLLAPSED_ROWS)).map((row, index) => {
             const expanded = open.has(row.activityId) || row.details.length <= SHOWN_DETAILS;
             return (
               <View key={row.activityId} style={styles.item} testID={`activity-${index}`}>
@@ -115,7 +112,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
               </View>
             );
           })}
-          {status === "CanLoadMore" || status === "LoadingMore" ? (
+          {expanded && (status === "CanLoadMore" || status === "LoadingMore") ? (
             <View style={styles.more}>
               <ActionButton
                 variant="secondary"
@@ -126,7 +123,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
               />
             </View>
           ) : null}
-        </ScrollView>
+        </View>
       )}
     </Card>
   );
@@ -135,7 +132,6 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
 const styles = StyleSheet.create({
   controls: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
-  collapsed: { maxHeight: COLLAPSED_HEIGHT },
   listContent: { paddingVertical: Spacing.one },
   more: { marginTop: Spacing.three },
   item: { gap: 2 },

@@ -190,10 +190,9 @@ export default function LatencyScreen() {
                     ]}
                   >
                     <View style={styles.presetTop}>
-                      <ThemedText type="smallBold" style={styles.grow}>
+                      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"} style={styles.grow}>
                         {preset.label}
                       </ThemedText>
-                      {selected ? <Icon name="check" size={18} color="accent" /> : null}
                     </View>
                     <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabular}>
                       {preset.ms} ms

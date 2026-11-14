@@ -521,11 +521,16 @@ function SongForm({
             <Field label="Title" testID="song-title-input" value={title} onChangeText={setTitle} placeholder="Song title" />
             <View style={styles.fields}>
               <Field label="Key" testID="song-key-input" value={songKey} onChangeText={setSongKey} placeholder="e.g. D" containerStyle={styles.numberField} />
-              <NumberField label="Song tempo (BPM)" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
+              <NumberField label="BPM" value={songBpm} testID="song-bpm" onChange={setSongBpm} />
             </View>
             <TapTempoButton testID="tap-tempo" onTempo={setSongBpm} />
             <Divider />
-            <Switch label="Count-in" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
+            <View style={styles.settingRow}>
+              <ThemedText type="smallBold" style={styles.grow}>
+                Count-in
+              </ThemedText>
+              <Switch bare label="Count-in" value={countIn} onChange={setCountIn} testID="count-in-toggle" />
+            </View>
             <Divider />
             <View style={styles.subdivision}>
               <ThemedText type="smallBold">Voice cues start</ThemedText>
@@ -708,6 +713,7 @@ const styles = StyleSheet.create({
   copyTargets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   container: { flex: 1 },
   subdivision: { gap: Spacing.two },
+  settingRow: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   content: {
     gap: Spacing.four,
     paddingHorizontal: Spacing.four,

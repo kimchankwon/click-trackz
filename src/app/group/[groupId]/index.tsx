@@ -4,6 +4,7 @@ import { router, useIsFocused, useLocalSearchParams, useNavigation, usePreventRe
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type AppStateStatus } from "react-native";
+import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { describeAudioError } from "@/audio/audio-failure";
@@ -20,7 +21,7 @@ import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
 import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
-import { Chip } from "@/components/group/chip";
+import { Dropdown } from "@/components/ui/dropdown";
 import { MembersCard } from "@/components/group/members-card";
 import { ActivityCard } from "@/components/group/activity-card";
 import { CommentsCard } from "@/components/group/comments-card";
@@ -673,16 +674,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const followingSection = nextStart === null ? undefined : song.sections[nextStart.sectionIndex];
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
-  const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : "Next";
+  const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
+  const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
+  const vamping = vampTitle !== null && !upcoming;
+  const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : vamping ? "Vamping" : "Next";
   const nextLine = !playing
     ? null
     : upcoming
       ? `${titleOf(upcoming)}${passText(lead)}`
-      : followingSection
+      : vamping
+        ? vampTitle
+        : followingSection
         ? `${titleOf(followingSection)}${passText(nextStart)}`
         : "End of Song";
-  const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
-  const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
   useEffect(() => {
     if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
@@ -817,6 +821,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     else if (startSongId) setStartPick({ songId: startSongId, index, bar: 1 });
   };
 
+  const picksBar = !playing && startBlocker === null && startSectionBars > 1;
   const tapBar = (bar: number) => {
     if (steers && startSongId) setStartPick({ songId: startSongId, index: startSection, bar });
   };
@@ -941,7 +946,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   );
 
   const soundPromptFor = (testID: string) => (soundOn ? null : (
-    <>
+    <Animated.View exiting={FadeOut.duration(180)} style={styles.soundPromptBlock}>
       <View style={[styles.soundPrompt, { backgroundColor: theme.accentTint }]}>
         <Icon name="sound" size={20} color="accent" />
         <ThemedText type="smallBold" style={styles.grow}>
@@ -954,7 +959,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           {soundProblem}
         </ThemedText>
       ) : null}
-    </>
+    </Animated.View>
   ));
 
   const playTab = (
@@ -975,207 +980,213 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </View>
       ) : null}
       {soundPromptFor("enable-sound")}
-      {playing ? (
-        <View style={[styles.stageHead, styles.titleBlock]}>
-          <View style={styles.headRow}>
-            <View style={styles.headSide}>
-              {steers ? (
-                <IconButton
-                  icon="repeat"
-                  label="Repeat this Section"
-                  testID="repeat-section"
-                  round
-                  filled
-                  disabled={beat?.sectionIndex == null || stopping || vampTitle !== null}
-                  onPress={() => repeatNow(false)}
-                />
-              ) : null}
-            </View>
-            <View style={styles.headMiddle}>
-              <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
-                {shownTitle ?? " "}
-              </ThemedText>
-              {starterName ? (
-                <View style={styles.starter} testID="started-by">
-                  <Icon name="member" size={14} color="textSecondary" />
-                  <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
-                    Started by {starterName}
-                  </ThemedText>
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.headSide}>
-              {steers ? (
-                vampTitle === null ? (
-                  <IconButton icon="vamp" label="Vamp this Section" testID="vamp-section" round filled disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
-                ) : (
-                  <IconButton icon="vamp" label="End vamp" testID="end-vamp" round filled active disabled={stopping} onPress={endVampNow} />
-                )
-              ) : null}
-            </View>
-          </View>
-          <ThemedText
-            type="title"
-            testID="current-section"
-            numberOfLines={1}
-            style={[styles.centered, styles.sectionHeading, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
-          >
-            {currentSection}
-          </ThemedText>
-          {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
-        </View>
-      ) : (
-        <View style={[styles.stageHead, styles.titleBlock]}>
-          <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
-            {shownTitle ?? (steers ? "Pick a Song" : "Waiting for Playback")}
-          </ThemedText>
-          {shownTitle && songFacts ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="song-facts" style={styles.centered}>
-              {songFacts}
-            </ThemedText>
-          ) : null}
-          {stopperName ? (
-            <View style={styles.starter} testID="stopped-by">
-              <Icon name="stop" size={14} color="textSecondary" />
-              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
-                Stopped by {stopperName}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
-      )}
-      <View style={styles.stageRow}>
-        <BeatPulse
-          beat={beat}
-          playing={playing}
-          idle={idle}
-          onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
-          idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
-        />
-        <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} />
-        {offline || tab !== "play" ? null : <ReactionFloats reactions={chat.reactions} now={chat.now} />}
-      </View>
-      {tempoOpen && startSong && songTempo !== null && startSongId ? (
-        <TempoPanel
-          key={startSongId}
-          bpm={songTempo}
-          ownTempoCount={startSong.sections.filter((section) => section.ownTempo === true || (startSong.bpm === null && section.bpm !== songTempo)).length}
-          onSave={(bpm) => updateSong({ songId: startSongId, bpm }).then(() => undefined)}
-          onClose={() => setEditingTempo(null)}
-        />
-      ) : null}
-      {playing ? null : (
-        <View style={nextSlot}>
-          {!steers && locked ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              This Group is locked, so Playback cannot start.
-            </ThemedText>
-          ) : null}
-          {editsSongs && startBlocker === "needsSections" && startSongId ? (
-            <Pressable
-              role="link"
-              testID="start-needs-sections"
-              onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: startSongId } })}
-              style={styles.inlineLink}
-            >
-              <ThemedText type="smallBold" themeColor="accent">
-                Add Sections to this Song
-              </ThemedText>
-              <Icon name="forward" size={18} color="accent" />
-            </Pressable>
-          ) : null}
-        </View>
-      )}
-      {nextLine ? (
-        <View style={nextSlot} aria-live="polite" testID="playback-next-block">
-          <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
-            {nextLabel}
-          </ThemedText>
-          <View style={styles.nextRow}>
-            <Icon name="next" size={22} color="accent" />
-            <ThemedText testID="playback-next" themeColor={upcoming ? "accent" : "text"} numberOfLines={1} style={styles.nextText}>
-              {nextLine}
-            </ThemedText>
-          </View>
-        </View>
-      ) : null}
-      {playing && vampTitle !== null && !steers ? (
-        <ThemedText type="smallBold" themeColor="accent" testID="vamp-status" style={styles.centered}>
-          {`Vamping ${vampTitle} until a Playback Manager ends it`}
-        </ThemedText>
-      ) : null}
-      {shownSections.length > 0 ? (
-        <Card>
-          <View style={styles.wrap} role="group" aria-label="Sections">
-            {shownSections.map((section, index) => (
-              <SectionChip
-                key={index}
-                label={shortTitleOf(section)}
-                plays={playsOf(section)}
-                accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
-                queued={playing && queuedSections.includes(index)}
-                testID={`play-section-${index}`}
-                selected={playing ? beat?.sectionIndex === index : steers && startSection === index && startBlocker === null}
-                onPress={() => tapSection(index)}
-              />
-            ))}
-          </View>
-          {steers && !playing && startBlocker === null && startSectionBars > 1 ? (
-            <View style={styles.barPicker}>
-              <ThemedText type="caption" themeColor="textSecondary">
-                Start at bar
-              </ThemedText>
-              <View style={styles.wrapTight} role="radiogroup" aria-label="Start at bar">
-                {Array.from({ length: startSectionBars }, (_, offset) => offset + 1).map((bar) => (
-                  <Chip key={bar} role="radio" label={String(bar)} testID={`play-bar-${bar}`} selected={startBar === bar} onPress={() => tapBar(bar)} />
-                ))}
-              </View>
-            </View>
-          ) : null}
-          {steers ? (
-            <>
-              <View style={styles.jumpMode}>
-                <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
-                  When I tap a Section, go
-                </ThemedText>
-                <View style={styles.jumpControl}>
-                  <Segmented
-                    compact
-                    label="When I tap a Section, go"
-                    value={jumpMode}
-                    onChange={setJumpMode}
-                    options={[
-                      { value: "endOfSection", label: "After it" },
-                      { value: "nextBar", label: "Next bar" },
-                    ]}
+      <Animated.View layout={LinearTransition.duration(220)} style={styles.playColumn}>
+        {playing ? (
+          <View style={[styles.stageHead, styles.titleBlock]}>
+            <View style={styles.headRow}>
+              <View style={styles.headSide}>
+                {steers ? (
+                  <IconButton
+                    icon="repeat"
+                    label="Repeat this Section"
+                    testID="repeat-section"
+                    round
+                    filled
+                    disabled={beat?.sectionIndex == null || stopping || vampTitle !== null}
+                    onPress={() => repeatNow(false)}
                   />
-                </View>
+                ) : null}
               </View>
-            </>
-          ) : null}
-        </Card>
-      ) : null}
-      {offline || !seesLibrary ? null : (
-        <Card title="Play mode">
-          <Segmented
-            label="Play mode"
-            testID="play-mode"
-            value={offlinePlay ? "offline" : "group"}
-            disabled={playing && offlinePlay}
-            onChange={(next) => switchPlayMode(next === "offline")}
-            options={[
-              { value: "group", label: "With the Group" },
-              { value: "offline", label: "Offline" },
-            ]}
-          />
-          {offlinePlay ? (
-            <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
-              {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
+              <View style={styles.headMiddle}>
+                <ThemedText testID="song-title" themeColor="textSecondary" style={[styles.centered, styles.playingSong]} numberOfLines={1}>
+                  {shownTitle ?? " "}
+                </ThemedText>
+                {starterName ? (
+                  <View style={styles.starter} testID="started-by">
+                    <Icon name="member" size={14} color="textSecondary" />
+                    <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                      Started by {starterName}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+              <View style={styles.headSide}>
+                {steers ? (
+                  vampTitle === null ? (
+                    <IconButton icon="vamp" label="Vamp this Section" testID="vamp-section" round filled disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
+                  ) : (
+                    <IconButton icon="vamp" label="End vamp" testID="end-vamp" round filled active disabled={stopping} onPress={endVampNow} />
+                  )
+                ) : null}
+              </View>
+            </View>
+            <ThemedText
+              type="title"
+              testID="current-section"
+              numberOfLines={1}
+              style={[styles.centered, styles.sectionHeading, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
+            >
+              {currentSection}
             </ThemedText>
-          ) : null}
-        </Card>
-      )}
-      {offline ? null : <CommentsCard chat={chat} viewerId={viewer?.id} />}
+            {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
+          </View>
+        ) : (
+          <View style={[styles.stageHead, styles.titleBlock]}>
+            <ThemedText type="title" testID="song-title" style={[styles.centered, styles.idleTitle]} numberOfLines={2}>
+              {shownTitle ?? (steers ? "Pick a Song" : "Waiting for Playback")}
+            </ThemedText>
+            {shownTitle && songFacts ? (
+              <ThemedText type="small" themeColor="textSecondary" testID="song-facts" style={styles.centered}>
+                {songFacts}
+              </ThemedText>
+            ) : null}
+            {stopperName ? (
+              <View style={styles.starter} testID="stopped-by">
+                <Icon name="stop" size={14} color="textSecondary" />
+                <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.starterName}>
+                  Stopped by {stopperName}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        )}
+        <View style={styles.stageRow}>
+          <BeatPulse
+            beat={beat}
+            playing={playing}
+            idle={idle}
+            onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
+            idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
+          />
+          <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} />
+          {offline || tab !== "play" ? null : <ReactionFloats reactions={chat.reactions} now={chat.now} />}
+        </View>
+        {tempoOpen && startSong && songTempo !== null && startSongId ? (
+          <TempoPanel
+            key={startSongId}
+            bpm={songTempo}
+            ownTempoCount={startSong.sections.filter((section) => section.ownTempo === true || (startSong.bpm === null && section.bpm !== songTempo)).length}
+            onSave={(bpm) => updateSong({ songId: startSongId, bpm }).then(() => undefined)}
+            onClose={() => setEditingTempo(null)}
+          />
+        ) : null}
+        {playing ? null : (
+          <View style={nextSlot}>
+            {!steers && locked ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                This Group is locked, so Playback cannot start.
+              </ThemedText>
+            ) : null}
+            {editsSongs && startBlocker === "needsSections" && startSongId ? (
+              <Pressable
+                role="link"
+                testID="start-needs-sections"
+                onPress={() => router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: startSongId } })}
+                style={styles.inlineLink}
+              >
+                <ThemedText type="smallBold" themeColor="accent">
+                  Add Sections to this Song
+                </ThemedText>
+                <Icon name="forward" size={18} color="accent" />
+              </Pressable>
+            ) : null}
+          </View>
+        )}
+        {nextLine ? (
+          <View style={nextSlot} aria-live="polite" testID="playback-next-block">
+            <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
+              {nextLabel}
+            </ThemedText>
+            <View style={styles.nextRow}>
+              <Icon name={vamping ? "vamp" : "next"} size={22} color="accent" />
+              <ThemedText testID="playback-next" themeColor={upcoming || vamping ? "accent" : "text"} numberOfLines={1} style={styles.nextText}>
+                {nextLine}
+              </ThemedText>
+            </View>
+          </View>
+        ) : null}
+        {shownSections.length > 0 ? (
+          <Card>
+            <View style={styles.wrap} role="group" aria-label="Sections">
+              {shownSections.map((section, index) => (
+                <SectionChip
+                  key={index}
+                  label={shortTitleOf(section)}
+                  plays={playsOf(section)}
+                  accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
+                  queued={playing && queuedSections.includes(index)}
+                  testID={`play-section-${index}`}
+                  selected={playing ? beat?.sectionIndex === index : steers && startSection === index && startBlocker === null}
+                  onPress={() => tapSection(index)}
+                />
+              ))}
+            </View>
+            {steers ? (
+              <View
+                style={[styles.jumpMode, picksBar ? null : styles.reserved]}
+                aria-hidden={!picksBar}
+                importantForAccessibility={picksBar ? "auto" : "no-hide-descendants"}
+                pointerEvents={picksBar ? "auto" : "none"}
+              >
+                <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
+                  Start at bar
+                </ThemedText>
+                <Dropdown
+                  look="field"
+                  label="Start at bar"
+                  testID="play-bar"
+                  style={styles.barControl}
+                  options={Array.from({ length: Math.max(1, startSectionBars) }, (_, offset) => ({ value: String(offset + 1), label: String(offset + 1) }))}
+                  value={String(startBar)}
+                  onChange={(bar) => tapBar(Number(bar))}
+                />
+              </View>
+            ) : null}
+            {steers ? (
+              <>
+                <View style={styles.jumpMode}>
+                  <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
+                    When I tap a Section, go
+                  </ThemedText>
+                  <View style={styles.jumpControl}>
+                    <Segmented
+                      compact
+                      label="When I tap a Section, go"
+                      value={jumpMode}
+                      onChange={setJumpMode}
+                      options={[
+                        { value: "endOfSection", label: "After it" },
+                        { value: "nextBar", label: "Next bar" },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </>
+            ) : null}
+          </Card>
+        ) : null}
+        {offline || !seesLibrary ? null : (
+          <Card title="Play mode">
+            <Segmented
+              label="Play mode"
+              testID="play-mode"
+              value={offlinePlay ? "offline" : "group"}
+              disabled={playing && offlinePlay}
+              onChange={(next) => switchPlayMode(next === "offline")}
+              options={[
+                { value: "group", label: "With the Group" },
+                { value: "offline", label: "Offline" },
+              ]}
+            />
+            {offlinePlay ? (
+              <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
+                {groupPlaying ? "The Group is playing now. Switch to With the Group to follow it." : "Only you hear this. The Group's Playback is not changed."}
+              </ThemedText>
+            ) : null}
+          </Card>
+        )}
+        {offline ? null : <CommentsCard chat={chat} viewerId={viewer?.id} />}
+      </Animated.View>
     </View>
   );
 
@@ -1295,6 +1306,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         {managesGroup ? <RenameGroup groupId={groupId} name={group.name} /> : null}
         {managesGroup ? (
           <ActionButton
+            full
             icon="copy"
             label="Duplicate Group"
             testID="duplicate-group"
@@ -1602,6 +1614,7 @@ const styles = StyleSheet.create({
   nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: NEXT_TEXT_LINE, maxWidth: "100%" },
   nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: NEXT_TEXT_LINE, fontWeight: 700, flexShrink: 1 },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
+  soundPromptBlock: { width: "100%", gap: Spacing.two },
   soundPrompt: {
     flexDirection: "row",
     alignItems: "center",
@@ -1632,8 +1645,8 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
-  wrapTight: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
-  barPicker: { gap: Spacing.two },
+  reserved: { opacity: 0 },
+  barControl: { width: 96 },
   stageRow: { alignItems: "center", width: "100%" },
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },

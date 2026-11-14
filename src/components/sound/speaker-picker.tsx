@@ -9,7 +9,7 @@ export function SpeakerPicker({ value, onChange }: { value: SpeakerId; onChange:
     <View style={styles.grid} role="radiogroup" aria-label="Speaker" testID="speaker-picker">
       {speakers.map((option) => (
         <View key={option.id} style={styles.cell}>
-          <Chip role="radio" hideCheck label={option.name} testID={`speaker-${option.id}`} selected={value === option.id} onPress={() => onChange(option.id)} />
+          <Chip role="radio" label={option.name} testID={`speaker-${option.id}`} selected={value === option.id} onPress={() => onChange(option.id)} />
         </View>
       ))}
     </View>

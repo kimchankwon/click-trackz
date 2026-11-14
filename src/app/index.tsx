@@ -101,12 +101,9 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
 
       {joinedGroups.length > 0 ? <GroupList groups={joinedGroups} onlineIn={onlineIn} testID="joined-groups" /> : null}
       {ownedGroups.length > 0 ? (
-        <View style={styles.subsection}>
-          <ThemedText type="subtitle" role="heading" testID="your-groups-heading">
-            Your Groups
-          </ThemedText>
+        <Card title="Your Groups" plain>
           <GroupList groups={ownedGroups} onlineIn={onlineIn} testID="your-groups" />
-        </View>
+        </Card>
       ) : null}
 
       <Card title="My Library">
@@ -434,7 +431,6 @@ const styles = StyleSheet.create({
   pageHead: { gap: Spacing.one },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.two },
   account: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2 },
-  subsection: { gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
   aboutLink: { alignSelf: "center", paddingVertical: Spacing.two },
