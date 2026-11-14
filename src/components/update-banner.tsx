@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, View } from "react-native";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActionButton } from "@/components/action-button";
@@ -15,15 +15,22 @@ export function UpdateBanner() {
   const playing = usePlayingHere();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  if (!available || playing) return null;
   return (
     <View pointerEvents="box-none" style={[styles.layer, { top: insets.top + Spacing.two }]}>
-      <Animated.View entering={FadeInUp.duration(240)} role="status" testID="update-banner" style={[styles.banner, { backgroundColor: theme.inverse }]}>
-        <ThemedText type="smallBold" themeColor="onInverse" style={styles.text}>
-          {Platform.OS === "web" ? "A new version is ready" : "An update is ready. Restart to use it."}
-        </ThemedText>
-        <ActionButton small accent label={Platform.OS === "web" ? "Reload" : "Restart"} testID="update-reload" onPress={reloadApp} />
-      </Animated.View>
+      {available && !playing ? (
+        <Animated.View
+          entering={FadeInUp.duration(240)}
+          exiting={FadeOutUp.duration(200)}
+          role="status"
+          testID="update-banner"
+          style={[styles.banner, { backgroundColor: theme.inverse }]}
+        >
+          <ThemedText type="smallBold" themeColor="onInverse" style={styles.text}>
+            {Platform.OS === "web" ? "A new version is ready" : "An update is ready. Restart to use it."}
+          </ThemedText>
+          <ActionButton small accent label={Platform.OS === "web" ? "Reload" : "Restart"} testID="update-reload" onPress={reloadApp} />
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

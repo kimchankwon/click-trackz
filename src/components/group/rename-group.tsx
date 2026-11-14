@@ -31,6 +31,7 @@ export function RenameGroup({ groupId, name }: { groupId: Id<"groups">; name: st
   if (draft === null) {
     return (
       <ActionButton
+        full
         icon="edit"
         label="Rename Group"
         testID="rename-group"

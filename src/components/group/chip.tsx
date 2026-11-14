@@ -17,13 +17,11 @@ export function Chip({
   compact,
   queued,
   accessibleName,
-  hideCheck,
 }: {
   strong?: boolean;
   compact?: boolean;
   queued?: boolean;
   accessibleName?: string;
-  hideCheck?: boolean;
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -33,8 +31,6 @@ export function Chip({
   disabled?: boolean;
 }) {
   const theme = useTheme();
-  const showCheck = selected && role !== "button" && !hideCheck;
-  const leading = showCheck ? "check" : icon;
   return (
     <Pressable
       role={role}
@@ -56,7 +52,7 @@ export function Chip({
         pressed ? styles.pressed : null,
       ]}
     >
-      {leading ? <Icon name={leading} size={16} color={selected ? (strong ? "onAccent" : "accent") : "textSecondary"} /> : null}
+      {icon ? <Icon name={icon} size={16} color={selected ? (strong ? "onAccent" : "accent") : "textSecondary"} /> : null}
       <ThemedText type="default" themeColor={selected ? (strong ? "onAccent" : "accent") : "text"} style={selected ? styles.selectedLabel : styles.label}>
         {label}
       </ThemedText>

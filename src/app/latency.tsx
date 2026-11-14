@@ -130,8 +130,7 @@ export default function LatencyScreen() {
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
-            Bluetooth headphones and some speakers play sound late. The nudge schedules your Click and Voice cues earlier so
-            they line up with everyone else.
+            Lines up late Bluetooth audio with everyone else
           </ThemedText>
 
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
@@ -190,10 +189,9 @@ export default function LatencyScreen() {
                     ]}
                   >
                     <View style={styles.presetTop}>
-                      <ThemedText type="smallBold" style={styles.grow}>
+                      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"} style={styles.grow}>
                         {preset.label}
                       </ThemedText>
-                      {selected ? <Icon name="check" size={18} color="accent" /> : null}
                     </View>
                     <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabular}>
                       {preset.ms} ms

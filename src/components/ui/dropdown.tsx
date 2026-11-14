@@ -84,7 +84,7 @@ export function Dropdown<T extends string>({
         )}
         <Icon name="expand" size={field ? 14 : 16} color="textSecondary" />
       </Pressable>
-      <Modal visible={open} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
+      <Modal visible={open} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
         <Pressable aria-label={`Close ${label}`} style={StyleSheet.absoluteFill} onPress={close} testID={testID ? `${testID}-outside` : undefined} />
         {place ? (
           <View

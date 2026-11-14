@@ -44,9 +44,9 @@ export function AccentPicker() {
         <ThemedText type="caption" themeColor="danger" testID="accent-error">
           {saveError}
         </ThemedText>
-      ) : (
+      ) : signedIn ? null : (
         <ThemedText type="caption" themeColor="textSecondary" testID="accent-caption">
-          {signedIn ? "Saved to your profile, so it follows you to your other devices." : "Saved on this device. Sign in with Google to keep it on every device."}
+          Sign in to keep it on every device
         </ThemedText>
       )}
     </Card>

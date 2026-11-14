@@ -76,7 +76,7 @@ export function SetlistCard({
           <View style={[styles.banner, { backgroundColor: theme.warningTint }]}>
             <Icon name="warning" size={18} color="warning" />
             <ThemedText type="small" style={[styles.bannerText, { color: theme.warningText }]}>
-              None of these Songs have Sections yet, so none can start. Add them in the Song library.
+              Add Sections to these Songs to play them
             </ThemedText>
           </View>
         ) : null
