@@ -78,8 +78,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
   const joinGroup = useMutation(api.groups.joinGroup);
   const signInWithGoogle = useGoogleSignIn();
   const [displayName, setDisplayName] = useState("");
-  const [invited, setInvited] = useState(readPendingJoin);
-  const [joinCode, setJoinCode] = useState(invited ?? "");
+  const [joinCode, setJoinCode] = useState(() => readPendingJoin() ?? "");
   const [groupName, setGroupName] = useState("");
   const isGuest = viewer?.isAnonymous ?? storedHome?.isAnonymous ?? true;
   const usage = useQuery(api.subscriptions.mine, viewer ? {} : "skip");
@@ -100,7 +99,6 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
         <ConnectionBadge roundTripMs={roundTripMs} />
       </View>
 
-      {groups !== undefined && groups.length === 0 ? <ThemedText themeColor="textSecondary">Join a Group with its code to get started.</ThemedText> : null}
       {joinedGroups.length > 0 ? <GroupList groups={joinedGroups} onlineIn={onlineIn} testID="joined-groups" /> : null}
       {ownedGroups.length > 0 ? (
         <View style={styles.subsection}>
@@ -135,11 +133,6 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
       </Card>
 
       <Card title="Join a Group">
-        {invited !== null && joinCode === invited ? (
-          <ThemedText type="caption" themeColor="accent" testID="invite-ready">
-            Your invite code is filled in. Add your name and tap Join.
-          </ThemedText>
-        ) : null}
         <Field
           label="Your name in the Group"
           testID="display-name"
@@ -170,7 +163,6 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
               run(async () => {
                 const groupId = await joinGroup({ joinCode, displayName });
                 void clearPendingJoin();
-                setInvited(null);
                 setJoinCode("");
                 setDisplayName("");
                 router.push({ pathname: "/group/[groupId]", params: { groupId } });
@@ -406,7 +398,7 @@ export default function HomeScreen() {
                   <ActionButton large variant="outline" leading={<GoogleMark />} label="Sign in with Google" testID="google-sign-in" onPress={() => run(signInWithGoogle)} />
                   {invite !== null ? (
                     <ThemedText type="smallBold" themeColor="accent" style={styles.centered} testID="invite-notice">
-                      You have an invite to join a Group. Continue as a guest or sign in, then add your name.
+                      You have an invite to join a Group.
                     </ThemedText>
                   ) : null}
                   <AboutLink />
