@@ -49,7 +49,9 @@
         {
           "iosBackgroundMode": true,
           "androidForegroundService": false,
-          "iosMicrophonePermission": "Click Trackz never records or listens through your microphone. The audio engine that plays the Click, Count and Voice cues also supports recording, so iOS asks every app that uses it to explain microphone access."
+          "iosMicrophonePermission": "Click Trackz never records or listens through your microphone. The audio engine that plays the Click, Count and Voice cues also supports recording, so iOS asks every app that uses it to explain microphone access.",
+          "disableFFmpeg": true,
+          "disableStaticExternalLibs": true
         }
       ]
     ],

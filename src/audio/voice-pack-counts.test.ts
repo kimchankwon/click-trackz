@@ -16,7 +16,7 @@ describe("Voice packs", () => {
       expect(speakers.length).toBeGreaterThan(0);
       for (const speaker of speakers) {
         const files = new Set(readdirSync(`${voiceDir}/${speed}/${speaker}`));
-        for (let count = 1; count <= MAX_SPOKEN_COUNT; count++) expect(files, `${speed}/${speaker} count-${count}`).toContain(`count-${count}.wav`);
+        for (let count = 1; count <= MAX_SPOKEN_COUNT; count++) expect(files, `${speed}/${speaker} count-${count}`).toContain(`count-${count}.flac`);
       }
     }
   });
