@@ -44,23 +44,51 @@ afterEach(() => {
 });
 
 describe("Before Plans are enforced", () => {
-  it("lets anyone signed in create Groups and Songs and fill My Library, and never locks a Group", async () => {
+  it("lets anyone signed in create up to 5 Groups, never counting My Library, and never locks a Group", async () => {
+    vi.stubEnv("PLANS_ENFORCED", "");
+    const { as } = await setup();
+    const free = await as({ email: "free@example.com" });
+    await free.client.mutation(api.groups.openOffline, {});
+    for (const name of ["One", "Two", "Three", "Four", "Five"]) await free.client.mutation(api.groups.createGroup, { name, displayName: "F" });
+    await expect(free.client.mutation(api.groups.createGroup, { name: "Six", displayName: "F" })).rejects.toThrow(/up to 5 Groups for now/);
+    const groupId = (await free.client.query(api.groups.myGroups, {})).find((group) => !group.offline)!.groupId;
+    await expect(free.client.mutation(api.groups.duplicateGroup, { groupId })).rejects.toThrow(/up to 5 Groups for now/);
+    expect((await free.client.query(api.groups.myGroups, {})).every((group) => !group.locked)).toBe(true);
+    expect(await free.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "free", enforced: false, groups: 5 });
+  });
+
+  it("lets each Group hold up to 100 Songs, and leaves My Library unlimited", async () => {
     vi.stubEnv("PLANS_ENFORCED", "");
     const { t, as } = await setup();
     const free = await as({ email: "free@example.com" });
-    for (const name of ["One", "Two", "Three", "Four"]) await free.client.mutation(api.groups.createGroup, { name, displayName: "F" });
-    const groupId = (await free.client.query(api.groups.myGroups, {}))[0].groupId;
-    await t.run(async (ctx) => {
-      for (let i = 0; i < 100; i++) await ctx.db.insert("songs", { groupId, title: `S${i}`, countIn: true, sections: [] });
-    });
-    await free.client.mutation(api.songs.createSong, { groupId, title: "One more" });
+    const { groupId: full } = await free.client.mutation(api.groups.createGroup, { name: "Full", displayName: "F" });
+    const { groupId: other } = await free.client.mutation(api.groups.createGroup, { name: "Other", displayName: "F" });
     const libraryId = await free.client.mutation(api.groups.openOffline, {});
     await t.run(async (ctx) => {
-      for (let i = 0; i < 10; i++) await ctx.db.insert("songs", { groupId: libraryId, title: `L${i}`, countIn: true, sections: [] });
+      for (let i = 0; i < 100; i++) await ctx.db.insert("songs", { groupId: full, title: `S${i}`, countIn: true, sections: [] });
+      for (let i = 0; i < 100; i++) await ctx.db.insert("songs", { groupId: libraryId, title: `L${i}`, countIn: true, sections: [] });
     });
-    await free.client.mutation(api.songs.createSong, { groupId: libraryId, title: "Eleventh" });
-    expect((await free.client.query(api.groups.myGroups, {})).every((group) => !group.locked)).toBe(true);
-    expect(await free.client.query(api.subscriptions.mine, {})).toMatchObject({ plan: "free", enforced: false, groups: 4 });
+    await expect(free.client.mutation(api.songs.createSong, { groupId: full, title: "One more" })).rejects.toThrow(/up to 100 Songs for now/);
+    const songId = await free.client.mutation(api.songs.createSong, { groupId: other, title: "Fits" });
+    await expect(free.client.mutation(api.songs.copyToGroup, { songId, toGroupId: full })).rejects.toThrow(/up to 100 Songs for now/);
+    await free.client.mutation(api.songs.createSong, { groupId: libraryId, title: "Library has room" });
+  });
+
+  it("refuses to duplicate a Group that already holds more than 100 Songs", async () => {
+    vi.stubEnv("PLANS_ENFORCED", "");
+    const { t, as } = await setup();
+    const free = await as({ email: "free@example.com" });
+    const { groupId } = await free.client.mutation(api.groups.createGroup, { name: "Big", displayName: "F" });
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 101; i++) await ctx.db.insert("songs", { groupId, title: `S${i}`, countIn: true, sections: [] });
+    });
+    await expect(free.client.mutation(api.groups.duplicateGroup, { groupId })).rejects.toThrow(/up to 100 Songs for now, and this one has 101/);
+    await t.run(async (ctx) => {
+      const extra = await ctx.db.query("songs").withIndex("by_group", (q) => q.eq("groupId", groupId)).first();
+      if (extra) await ctx.db.delete(extra._id);
+    });
+    await free.client.mutation(api.groups.duplicateGroup, { groupId });
+    expect((await free.client.query(api.groups.myGroups, {})).filter((group) => !group.offline)).toHaveLength(2);
   });
 
   it("still shows a comped account as Plus", async () => {

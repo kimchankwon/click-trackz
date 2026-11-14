@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { betterPlan, canAddLibrarySongs, canAddSongs, canCreateGroup, isGroupLocked, planLimits, usageSummary } from "./plans";
+import { betterPlan, canAddLibrarySongs, canAddSongs, canAddSongsBeforeLaunch, canCreateGroup, canCreateGroupBeforeLaunch, isGroupLocked, planLimits, usageSummary } from "./plans";
 
 describe("plans", () => {
   it("gives Free no Groups of its own, Plus 3 Groups and 100 Songs, and Pro no limits on Groups", () => {
@@ -48,7 +48,20 @@ describe("plans", () => {
   it("sums up usage against the plan's limits, or as plain counts when limits are off or unlimited", () => {
     const usage = { groups: 1, songs: 1, librarySongs: 2, limits: planLimits("plus"), enforced: true };
     expect(usageSummary(usage)).toBe("1 of 3 Groups · 1 of 100 Group Songs · 2 of 1000 My Library Songs");
-    expect(usageSummary({ ...usage, enforced: false, limits: planLimits("free") })).toBe("1 Group · 1 Group Song · 2 My Library Songs");
+    expect(usageSummary({ ...usage, enforced: false, limits: planLimits("free") })).toBe("1 of 5 Groups · 1 Group Song · 2 My Library Songs");
     expect(usageSummary({ ...usage, groups: 0, limits: planLimits("pro") })).toBe("0 Groups · 1 Group Song · 2 of 1000 My Library Songs");
+  });
+});
+
+describe("before Plans are charged", () => {
+  it("lets everyone create up to 5 Groups", () => {
+    expect(canCreateGroupBeforeLaunch(4)).toBe(true);
+    expect(canCreateGroupBeforeLaunch(5)).toBe(false);
+  });
+
+  it("lets each Group hold up to 100 Songs", () => {
+    expect(canAddSongsBeforeLaunch(99, 1)).toBe(true);
+    expect(canAddSongsBeforeLaunch(100, 1)).toBe(false);
+    expect(canAddSongsBeforeLaunch(0, 101)).toBe(false);
   });
 });

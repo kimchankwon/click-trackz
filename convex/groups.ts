@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
 import { logActivity } from "./activity";
 import { deleteGroupRows } from "./cleanup";
-import { groupLocked, requireOwnerRoomForSongs, requireRoomForGroup } from "./plans";
+import { groupLocked, requireRoomForGroup, requireRoomForGroupCopy } from "./plans";
 import { joinRoleValidator, roleValidator } from "./schema";
 import { songCopyFields } from "./songs";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "../src/lib/copy-title";
@@ -75,7 +75,7 @@ export const duplicateGroup = mutation({
       .query("songs")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
       .collect();
-    await requireOwnerRoomForSongs(ctx, user._id, songs.length, "mine");
+    await requireRoomForGroupCopy(ctx, user._id, songs.length);
     const mine = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
