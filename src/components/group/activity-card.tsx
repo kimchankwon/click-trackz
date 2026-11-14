@@ -56,7 +56,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
         </ThemedText>
       ) : results.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary" testID="activity-empty">
-          Nothing yet. Changes to Songs, Setlists and Members, and every Start, Jump and Stop, show here.
+          Nothing yet.
         </ThemedText>
       ) : (
         <View testID="activity-list">

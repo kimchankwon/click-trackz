@@ -202,7 +202,7 @@ function SetlistForm({
             </ThemedText>
             {entries.length === 0 ? (
               <ThemedText type="small" themeColor="textSecondary">
-                No Songs yet. Add them from the library below.
+                No Songs yet.
               </ThemedText>
             ) : null}
             {entries.length > 0 ? (

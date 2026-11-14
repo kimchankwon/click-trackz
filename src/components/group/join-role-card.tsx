@@ -9,11 +9,6 @@ import { JOIN_ROLES, ROLE_NAMES, type JoinRole } from "@/lib/roles";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-const EXPLAINED: Record<JoinRole, string> = {
-  member: "People who join with the code start as Members. Give them a Role from the list above.",
-  playbackManager: "People who join with the code, Guests included, start as Playback Managers and can Start, Jump and Stop.",
-  songManager: "People who join with the code, Guests included, start as Song Managers and can edit Songs and Setlists.",
-};
 
 export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joinRole: JoinRole }) {
   const setJoinRole = useMutation(api.groups.setJoinRole);
@@ -38,9 +33,11 @@ export function JoinRoleCard({ groupId, joinRole }: { groupId: Id<"groups">; joi
         onChange={choose}
         disabled={pending !== null}
       />
-      <ThemedText type="caption" themeColor="textSecondary" testID="join-role-explained">
-        {EXPLAINED[shown]}
-      </ThemedText>
+      {shown === "member" ? null : (
+        <ThemedText type="caption" themeColor="textSecondary" testID="join-role-explained">
+          Guests who join with the code get this Role too.
+        </ThemedText>
+      )}
       {error ? (
         <ThemedText type="caption" themeColor="danger" testID="join-role-error">
           {error}
