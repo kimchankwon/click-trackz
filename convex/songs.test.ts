@@ -106,7 +106,7 @@ describe("Songs", () => {
     expect(saved?.sections[1]).not.toHaveProperty("timeChanges");
 
     const bad = (timeChanges: (typeof twoFour)[]) => admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, timeChanges }] });
-    await expect(bad([{ ...twoFour, bar: 9 }])).rejects.toThrow(/Section 1: A time change must start/);
+    await expect(bad([{ ...twoFour, bar: 9 }])).rejects.toThrow(/Section 1: A subsection must start/);
     await expect(bad([{ ...twoFour, bars: 2 }])).rejects.toThrow(/runs past the end/);
     await expect(bad([twoFour, { ...twoFour, bar: 7, bars: 2 }])).rejects.toThrow(/overlaps/);
     await expect(bad([{ ...twoFour, beatUnit: 5 }])).rejects.toThrow(/halves, quarters/);

@@ -88,14 +88,15 @@ function TimeSignatureField({ section, testID, onChange }: { section: TimeSignat
 
 function TimeChangeRow({ change, sectionBars, testID, onChange, onRemove }: { change: TimeChange; sectionBars: number; testID: string; onChange: (next: TimeChange) => void; onRemove: () => void }) {
   const theme = useTheme();
-  const within = { min: 1, max: Math.max(1, sectionBars) };
+  const startRange = { min: 1, max: Math.max(1, sectionBars - change.bars + 1) };
+  const lengthRange = { min: 1, max: Math.max(1, sectionBars - change.bar + 1) };
   return (
     <View style={[styles.changeRow, { backgroundColor: theme.background }]} testID={testID}>
-      <LabeledField label="From bar" width={STEPPER_WIDTH}>
-        <NumberStepper label="From bar" testID={`${testID}-bar`} value={change.bar} range={within} onChange={(bar) => onChange({ ...change, bar: bar ?? change.bar })} />
+      <LabeledField label="At bar" width={STEPPER_WIDTH}>
+        <NumberStepper label="From bar" testID={`${testID}-bar`} value={change.bar} range={startRange} onChange={(bar) => onChange({ ...change, bar: bar ?? change.bar })} />
       </LabeledField>
       <LabeledField label="Bars" width={STEPPER_WIDTH}>
-        <NumberStepper label="Bars" testID={`${testID}-bars`} value={change.bars} range={within} onChange={(bars) => onChange({ ...change, bars: bars ?? change.bars })} />
+        <NumberStepper label="Bars" testID={`${testID}-bars`} value={change.bars} range={lengthRange} onChange={(bars) => onChange({ ...change, bars: bars ?? change.bars })} />
       </LabeledField>
       <TimeSignatureField section={change} testID={`${testID}-time`} onChange={(time) => onChange({ ...change, ...time })} />
       <IconButton icon="trash" color="textTertiary" size={40} label={`Remove the time change at bar ${change.bar}`} onPress={onRemove} testID={`${testID}-remove`} />
@@ -175,7 +176,29 @@ function SectionRow({
   };
   return (
     <View style={[styles.sectionCard, { backgroundColor: theme.backgroundElement }]} testID={`section-${index}`}>
-      <MoveHandle by={-1} name={name} enabled={index > 0} onMove={onMove} testID={`section-${index}-up`} />
+      <View style={styles.cardEdge}>
+        <View style={styles.edgeSide}>
+          <ThemedText type="caption" themeColor="textSecondary" style={styles.cardNumber}>
+            {name}
+          </ThemedText>
+        </View>
+        <MoveHandle by={-1} name={name} enabled={index > 0} onMove={onMove} testID={`section-${index}-up`} />
+        <View style={[styles.edgeSide, styles.edgeEnd]}>
+          <Pressable
+            role="switch"
+            aria-checked={showBpm}
+            aria-label={`Own tempo for ${name}`}
+            testID={`section-${index}-bpm-toggle`}
+            onPress={toggleBpm}
+            hitSlop={8}
+            style={({ pressed }) => [styles.addChange, pressed ? styles.addChangePressed : null]}
+          >
+            <ThemedText themeColor="accent" style={styles.addChangeText}>
+              {showBpm ? "Use Song BPM" : "Change BPM"}
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
       <View style={styles.sectionTop}>
         <View style={styles.headMain}>
           <Dropdown
@@ -277,22 +300,6 @@ function SectionRow({
             </ThemedText>
           </Pressable>
         ) : null}
-        <Pressable
-          role="switch"
-          aria-checked={showBpm}
-          aria-label={`Own tempo for ${name}`}
-          testID={`section-${index}-bpm-toggle`}
-          onPress={toggleBpm}
-          style={({ pressed }) => [
-            styles.footerChip,
-            { backgroundColor: showBpm ? theme.accentTint : theme.backgroundSelected, borderColor: showBpm ? theme.accent : "transparent" },
-            pressed ? styles.addChangePressed : null,
-          ]}
-        >
-          <ThemedText themeColor={showBpm ? "accent" : "textSecondary"} style={styles.addChangeText}>
-            BPM
-          </ThemedText>
-        </Pressable>
         <View style={styles.voiceCue}>
           <ThemedText themeColor="textSecondary" style={styles.fieldLabel}>
             Voice cue
@@ -754,13 +761,15 @@ const styles = StyleSheet.create({
   voiceCue: { flexDirection: "row", alignItems: "center", gap: Spacing.two, marginLeft: "auto" },
   bpmRow: { alignItems: "center" },
   cardEdge: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  edgeSide: { flex: 1, minWidth: 0 },
+  edgeEnd: { alignItems: "flex-end" },
+  cardNumber: { fontWeight: 600 },
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   centeredLabel: { textAlign: "center" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two, paddingHorizontal: 12, paddingVertical: Spacing.one + 2, borderRadius: Radius.lg },
-  footerChip: { minHeight: 30, paddingHorizontal: Spacing.two + 2, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   sectionTop: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
   headMain: { flex: 1, minWidth: 0, gap: Spacing.one },
   typeText: { fontWeight: 600, fontSize: 15, flexShrink: 1, fontVariant: ["tabular-nums"] },

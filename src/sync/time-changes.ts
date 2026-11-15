@@ -8,11 +8,11 @@ export const byBar = (changes: readonly TimeChange[]) => [...changes].sort((a, b
 
 export function timeChangesProblem(section: ChangeableSection): string | null {
   const changes = section.timeChanges ?? [];
-  if (changes.length > MAX_TIME_CHANGES) return `A Section can have at most ${MAX_TIME_CHANGES} time changes`;
+  if (changes.length > MAX_TIME_CHANGES) return `A Section can have at most ${MAX_TIME_CHANGES} subsections`;
   let firstFreeBar = 1;
   for (const change of byBar(changes)) {
-    const where = `The time change at bar ${change.bar}`;
-    if (!wholeBetween(change.bar, 1, section.bars)) return `A time change must start on a bar from 1 to ${section.bars}`;
+    const where = `The subsection at bar ${change.bar}`;
+    if (!wholeBetween(change.bar, 1, section.bars)) return `A subsection must start on a bar from 1 to ${section.bars}`;
     if (!Number.isInteger(change.bars) || change.bars < 1) return `${where} needs a whole number of bars`;
     if (change.bar + change.bars - 1 > section.bars) return `${where} runs past the end of the Section`;
     if (change.bar < firstFreeBar) return `${where} overlaps the one before it`;

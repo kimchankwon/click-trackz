@@ -49,7 +49,7 @@ function sectionEdits(before: ChangedSection, after: ChangedSection): string[] {
     ...change("Tempo", tempoOf(before), tempoOf(after)),
     ...change("Voice cue", onOff(before.voiceCueEnabled !== false), onOff(after.voiceCueEnabled !== false)),
     ...change("Plays", String(playsOf(before)), String(playsOf(after))),
-    ...change("Time changes", timeChangesOf(before), timeChangesOf(after)),
+    ...change("Subsections", timeChangesOf(before), timeChangesOf(after)),
   ];
 }
 
