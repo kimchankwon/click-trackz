@@ -87,7 +87,7 @@ export function SectionList({
       <Animated.View pointerEvents="none" style={[styles.highlight, { backgroundColor: theme.accent }, highlight]} />
       {rows.map((row, index) => {
         const selected = index === current;
-        const lit = index === arrived;
+        const lit = selected && index === arrived;
         const next = index === upcoming;
         const waiting = queued.includes(index);
         return (
