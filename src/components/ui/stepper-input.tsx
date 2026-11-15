@@ -96,15 +96,15 @@ export function NumberStepper({
   );
 }
 
-export function LetterStepper({ label, testID, style, value, onChange }: Shared & { value: string | undefined; onChange: (next: string | undefined) => void }) {
+export function LetterStepper({ label, testID, style, value, disabled = false, onChange }: Shared & { value: string | undefined; disabled?: boolean; onChange: (next: string | undefined) => void }) {
   const theme = useTheme();
   return (
     <Stepper
       label={label}
       testID={testID}
-      style={style}
-      canUp={value !== "Z"}
-      canDown={value !== undefined}
+      style={[style, disabled ? styles.disabled : null]}
+      canUp={!disabled && value !== "Z"}
+      canDown={!disabled && value !== undefined}
       onUp={() => onChange(steppedLetter(value, 1))}
       onDown={() => onChange(steppedLetter(value, -1))}
     >
@@ -114,6 +114,8 @@ export function LetterStepper({ label, testID, style, value, onChange }: Shared 
         value={value ?? ""}
         placeholder="–"
         placeholderTextColor={theme.textTertiary}
+        editable={!disabled}
+        aria-disabled={disabled}
         autoCapitalize="characters"
         autoCorrect={false}
         selectTextOnFocus
@@ -129,5 +131,6 @@ const styles = StyleSheet.create({
   step: { height: 26, alignItems: "center", justifyContent: "center" },
   rule: { height: StyleSheet.hairlineWidth },
   pressed: { opacity: 0.5 },
+  disabled: { opacity: 0.45 },
   input: { height: 36, paddingHorizontal: 2, textAlign: "center", fontFamily: Fonts.body, fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"] },
 });

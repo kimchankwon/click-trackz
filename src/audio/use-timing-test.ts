@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { BuiltinClipKey, SpeakerId, VoiceSpeed } from "./builtin-voice-clips";
-import { CueAudioEngine, type CueVolumes } from "./engine";
+import { CueAudioEngine, type CueSides, type CueVolumes } from "./engine";
 
 const FLASH_MS = 140;
 const TAIL_MS = 500;
@@ -13,6 +13,7 @@ export type TimingTestOptions = {
   latencyNudgeMs: number;
   voiceOffsetMs: number;
   volumes: CueVolumes;
+  sides?: CueSides;
   voice?: { speaker: SpeakerId; voiceSpeed: VoiceSpeed; keyFor: (index: number) => BuiltinClipKey | null };
 };
 
@@ -23,6 +24,7 @@ export function useTimingTest() {
   const [lit, setLit] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [firstBeatAt, setFirstBeatAt] = useState<number | null>(null);
+  const [tested, setTested] = useState<{ latencyNudgeMs: number; voiceOffsetMs: number } | null>(null);
 
   const clear = () => {
     timers.current.forEach(clearTimeout);
@@ -42,6 +44,8 @@ export function useTimingTest() {
   const run = useCallback(async (options: TimingTestOptions) => {
     if (busy.current) return;
     busy.current = true;
+    setRunning(true);
+    setTested({ latencyNudgeMs: options.latencyNudgeMs, voiceOffsetMs: options.voiceOffsetMs });
     try {
       const current = engine.current ?? new CueAudioEngine();
       engine.current = current;
@@ -49,10 +53,10 @@ export function useTimingTest() {
       if (!sounding) throw new Error("This device blocked sound. Check it is not on silent, then try again.");
       if (options.voice) await current.setSpeaker(options.voice.speaker, options.voice.voiceSpeed);
       current.setVolumes(options.volumes);
+      if (options.sides) current.setSides(options.sides);
       current.setOffsets(options);
       const { beatTimesMs, lastBeatInMs } = current.timingTest(options.beats, options.intervalMs, options.voice?.keyFor);
       clear();
-      setRunning(true);
       setFirstBeatAt(beatTimesMs[0] ?? null);
       beatTimesMs.forEach((at, index) => {
         const inMs = at - performance.now();
@@ -63,15 +67,17 @@ export function useTimingTest() {
         setTimeout(() => {
           current.endTapTest();
           setRunning(false);
+          setTested(null);
           busy.current = false;
         }, lastBeatInMs + TAIL_MS),
       );
     } catch (error) {
       busy.current = false;
       setRunning(false);
+      setTested(null);
       throw error;
     }
   }, []);
 
-  return { run, lit, running, firstBeatAt };
+  return { run, lit, running, firstBeatAt, tested };
 }

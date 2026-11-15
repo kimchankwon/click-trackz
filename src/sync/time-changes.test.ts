@@ -97,14 +97,14 @@ describe("timeChangesProblem", () => {
   });
 
   it("names the change that does not fit", () => {
-    expect(timeChangesProblem({ ...base, timeChanges: [change(9)] })).toBe("A time change must start on a bar from 1 to 8");
-    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 3)] })).toBe("The time change at bar 7 runs past the end of the Section");
-    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 0)] })).toBe("The time change at bar 7 needs a whole number of bars");
-    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 1.5)] })).toBe("The time change at bar 7 needs a whole number of bars");
-    expect(timeChangesProblem({ ...base, timeChanges: [change(2, 3), change(4)] })).toBe("The time change at bar 4 overlaps the one before it");
-    expect(timeChangesProblem({ ...base, timeChanges: [change(8, 1, 13)] })).toBe("The time change at bar 8 needs 1 to 12 beats per bar");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(9)] })).toBe("A subsection must start on a bar from 1 to 8");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 3)] })).toBe("The subsection at bar 7 runs past the end of the Section");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 0)] })).toBe("The subsection at bar 7 needs a whole number of bars");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(7, 1.5)] })).toBe("The subsection at bar 7 needs a whole number of bars");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(2, 3), change(4)] })).toBe("The subsection at bar 4 overlaps the one before it");
+    expect(timeChangesProblem({ ...base, timeChanges: [change(8, 1, 13)] })).toBe("The subsection at bar 8 needs 1 to 12 beats per bar");
     expect(timeChangesProblem({ ...base, timeChanges: [change(8, 1, 3, 3)] })).toBe(
-      "The time change at bar 8 must count halves, quarters, eighths or sixteenths",
+      "The subsection at bar 8 must count halves, quarters, eighths or sixteenths",
     );
   });
 });

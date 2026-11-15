@@ -2,7 +2,7 @@ export type NumberRange = { min: number; max: number; optional?: boolean };
 
 const clamp = (value: number, { min, max }: NumberRange) => Math.min(max, Math.max(min, value));
 
-export const digitsIn = (text: string, { max }: NumberRange) => text.replace(/\D/g, "").slice(0, String(max).length);
+export const digitsIn = (text: string, { max }: NumberRange) => (text.split(/[.,]/)[0] ?? "").replace(/\D/g, "").slice(0, String(max).length);
 
 export function typedNumber(digits: string, range: NumberRange): number | undefined | null {
   if (digits === "") return range.optional ? undefined : null;

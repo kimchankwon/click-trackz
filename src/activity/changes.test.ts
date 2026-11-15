@@ -58,7 +58,7 @@ describe("songChanges", () => {
       "Section 2 Quiet verse: Tempo: Song tempo → 80 BPM",
       "Section 2 Quiet verse: Voice cue: on → off",
       "Section 2 Quiet verse: Plays: 1 → 2",
-      "Section 2 Quiet verse: Time changes: none → 2/4 at bar 4 for 1 bar",
+      "Section 2 Quiet verse: Subsections: none → 2/4 at bar 4 for 1 bar",
     ]);
   });
 

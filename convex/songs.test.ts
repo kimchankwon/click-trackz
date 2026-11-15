@@ -106,7 +106,7 @@ describe("Songs", () => {
     expect(saved?.sections[1]).not.toHaveProperty("timeChanges");
 
     const bad = (timeChanges: (typeof twoFour)[]) => admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, timeChanges }] });
-    await expect(bad([{ ...twoFour, bar: 9 }])).rejects.toThrow(/Section 1: A time change must start/);
+    await expect(bad([{ ...twoFour, bar: 9 }])).rejects.toThrow(/Section 1: A subsection must start/);
     await expect(bad([{ ...twoFour, bars: 2 }])).rejects.toThrow(/runs past the end/);
     await expect(bad([twoFour, { ...twoFour, bar: 7, bars: 2 }])).rejects.toThrow(/overlaps/);
     await expect(bad([{ ...twoFour, beatUnit: 5 }])).rejects.toThrow(/halves, quarters/);
@@ -219,12 +219,26 @@ describe("Songs", () => {
     expect(sections.map((section) => section.ownTime)).toEqual([false, false, true]);
   });
 
+  it("keeps a sent Section's own time signature when it arrives without ownership", async () => {
+    const { admin, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Mixed" });
+    const four = { beatsPerBar: 4, beatUnit: 4 };
+    await admin.mutation(api.songs.updateSong, { songId, timeSignature: four, sections: [{ ...verse, ...four, ownTime: false }] });
+    await admin.mutation(api.songs.updateSong, { songId, sections: [verse, { ...verse, beatsPerBar: 3, beatUnit: 4 }] });
+    const sections = (await admin.query(api.songs.get, { songId }))?.sections ?? [];
+    expect(sections.map((section) => `${section.beatsPerBar}/${section.beatUnit ?? 4}`)).toEqual(["4/4", "3/4"]);
+    expect(sections.map((section) => section.ownTime)).toEqual([false, true]);
+  });
+
   it("keeps each Section's time signature, such as 6/8", async () => {
     const { admin, member, groupId } = await setupGroup();
     const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
     const sixEight = { sectionType: "Verse", bars: 4, beatsPerBar: 6, beatUnit: 8, bpm: 150 };
     await admin.mutation(api.songs.updateSong, { songId, sections: [sixEight, verse] });
-    expect((await member.query(api.songs.get, { songId }))?.sections).toEqual([sixEight, verse]);
+    expect((await member.query(api.songs.get, { songId }))?.sections).toEqual([
+      { ...sixEight, ownTime: true },
+      { ...verse, ownTime: false },
+    ]);
   });
 
   it("ends the Group's Playback when the playing Song is deleted", async () => {

@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router, useIsFocused, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type AppStateStatus } from "react-native";
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,7 +15,7 @@ import { allClipKeys } from "@/audio/voice-clips";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
-import { SectionChip } from "@/components/playback/section-chip";
+import { SectionList } from "@/components/playback/section-list";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
 import { StageMembers, type StageMember } from "@/components/playback/stage-members";
@@ -51,7 +51,7 @@ import { AudioDebug } from "@/components/audio-debug";
 import { JoinCodeActions } from "@/components/group/join-code-actions";
 import { SignalBars } from "@/components/ui/signal-bars";
 import { useDockInset } from "@/components/ui/use-dock-inset";
-import { ControlHeight, Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
@@ -89,7 +89,6 @@ import {
 import { aheadWindowMs, beatsBetween, letterAfterNumber, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { drawLeadMs, FRAMES_PER_MEASURE, shownTimeMs } from "@/sync/frame-lead";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
-import { shortTitleOf } from "@/sync/section-short";
 import { commonBpm } from "@/sync/song-tempo";
 import { playbackSpan, songLengthMs } from "@/sync/song-span";
 import { WEAK_PING_MS } from "@/sync/ping-quality";
@@ -154,9 +153,6 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 const emptySong: Song = { countIn: false, sections: [] };
 
 const STAGE_HEAD_HEIGHT = 144;
-const NEXT_LABEL_LINE = 16;
-const NEXT_TEXT_LINE = 26;
-const nextSlotHeight = (fontScale: number) => Math.ceil(NEXT_LABEL_LINE * fontScale + Spacing.one + NEXT_TEXT_LINE * Math.max(1, fontScale));
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -349,8 +345,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [floatHeight, setFloatHeight] = useState(0);
   const pinnedScroll = usePagedPinnedHeader(tab);
   const theme = useTheme();
-  const { fontScale } = useWindowDimensions();
-  const nextSlot = [styles.nextBlock, styles.nextSlot, { minHeight: nextSlotHeight(fontScale) }];
   const dockInset = useDockInset(Spacing.one);
   const toast = useToast();
   const showToast = toast.show;
@@ -688,6 +682,12 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         ? `${titleOf(followingSection)}${passText(nextStart)}`
         : "End of Song";
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
+  const sideNextLabel = upcoming ? (lead?.barsLeft === 2 ? "In 2 bars" : "In 1 bar") : vamping ? "Vamping" : "Next";
+  const upcomingIndex = upcoming ? (nextStart?.sectionIndex ?? null) : null;
+  const nowIndex = playing ? (beat?.sectionIndex ?? null) : null;
+  const [seenSection, setSeenSection] = useState<{ now: number | null; previous: number | null }>({ now: null, previous: null });
+  if (seenSection.now !== nowIndex) setSeenSection({ now: nowIndex, previous: nowIndex === null ? null : (seenSection.now ?? seenSection.previous) });
+  const previousSection = seenSection.previous === null ? undefined : song.sections[seenSection.previous];
   useEffect(() => {
     if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
   }, [nextAnnouncement]);
@@ -1020,14 +1020,34 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 ) : null}
               </View>
             </View>
-            <ThemedText
-              type="title"
-              testID="current-section"
-              numberOfLines={1}
-              style={[styles.centered, styles.sectionHeading, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
-            >
-              {currentSection}
-            </ThemedText>
+            <View style={styles.sectionLine}>
+              <View style={styles.sectionSide} testID="previous-section">
+                <ThemedText themeColor="textTertiary" style={styles.sideLabel}>
+                  {previousSection ? "Previous" : " "}
+                </ThemedText>
+                <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={2}>
+                  {previousSection ? titleOf(previousSection) : ""}
+                </ThemedText>
+              </View>
+              <ThemedText
+                type="title"
+                testID="current-section"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.5}
+                style={[styles.centered, styles.sectionHeading, styles.sectionNow, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
+              >
+                {currentSection}
+              </ThemedText>
+              <View style={[styles.sectionSide, styles.sectionSideEnd]} aria-live="polite" testID="playback-next-block">
+                <ThemedText themeColor={upcoming || vamping ? "accent" : "textTertiary"} style={[styles.sideLabel, styles.sideLabelEnd]}>
+                  {sideNextLabel}
+                </ThemedText>
+                <ThemedText type="smallBold" themeColor={upcoming || vamping ? "accent" : "textSecondary"} numberOfLines={2} style={styles.sideTextEnd} testID="playback-next">
+                  {nextLine ?? ""}
+                </ThemedText>
+              </View>
+            </View>
             {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
           </View>
         ) : (
@@ -1070,8 +1090,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             onClose={() => setEditingTempo(null)}
           />
         ) : null}
-        {playing ? null : (
-          <View style={nextSlot}>
+        {playing || !((!steers && locked) || (editsSongs && startBlocker === "needsSections" && startSongId)) ? null : (
+          <View style={styles.nextBlock}>
             {!steers && locked ? (
               <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
                 This Group is locked, so Playback cannot start.
@@ -1092,35 +1112,20 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             ) : null}
           </View>
         )}
-        {nextLine ? (
-          <View style={nextSlot} aria-live="polite" testID="playback-next-block">
-            <ThemedText themeColor="textSecondary" style={styles.nextLabel}>
-              {nextLabel}
-            </ThemedText>
-            <View style={styles.nextRow}>
-              <Icon name={vamping ? "vamp" : "next"} size={22} color="accent" />
-              <ThemedText testID="playback-next" themeColor={upcoming || vamping ? "accent" : "text"} numberOfLines={1} style={styles.nextText}>
-                {nextLine}
-              </ThemedText>
-            </View>
-          </View>
-        ) : null}
         {shownSections.length > 0 ? (
           <Card>
-            <View style={styles.wrap} role="group" aria-label="Sections">
-              {shownSections.map((section, index) => (
-                <SectionChip
-                  key={index}
-                  label={shortTitleOf(section)}
-                  plays={playsOf(section)}
-                  accessibleName={playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section)}
-                  queued={playing && queuedSections.includes(index)}
-                  testID={`play-section-${index}`}
-                  selected={playing ? beat?.sectionIndex === index : steers && startSection === index && startBlocker === null}
-                  onPress={() => tapSection(index)}
-                />
-              ))}
-            </View>
+            <SectionList
+              rows={shownSections.map((section, index) => ({
+                title: titleOf(section),
+                plays: playsOf(section),
+                accessibleName: playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section),
+                testID: `play-section-${index}`,
+              }))}
+              current={playing ? (beat?.sectionIndex ?? null) : steers && startBlocker === null ? startSection : null}
+              upcoming={upcomingIndex}
+              queued={playing ? queuedSections : []}
+              onPress={tapSection}
+            />
             {steers ? (
               <View
                 style={[styles.jumpMode, picksBar ? null : styles.reserved]}
@@ -1131,15 +1136,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 <ThemedText type="caption" themeColor="textSecondary" style={styles.jumpCaption}>
                   Start at bar
                 </ThemedText>
-                <Dropdown
-                  look="field"
-                  label="Start at bar"
-                  testID="play-bar"
-                  style={styles.barControl}
-                  options={Array.from({ length: Math.max(1, startSectionBars) }, (_, offset) => ({ value: String(offset + 1), label: String(offset + 1) }))}
-                  value={String(startBar)}
-                  onChange={(bar) => tapBar(Number(bar))}
-                />
+                {picksBar ? (
+                  <Dropdown
+                    look="field"
+                    label="Start at bar"
+                    testID="play-bar"
+                    style={styles.barControl}
+                    options={Array.from({ length: startSectionBars }, (_, offset) => ({ value: String(offset + 1), label: String(offset + 1) }))}
+                    value={String(startBar)}
+                    onChange={(bar) => tapBar(Number(bar))}
+                  />
+                ) : (
+                  <View style={[styles.barControl, styles.barHolder]} />
+                )}
               </View>
             ) : null}
             {steers ? (
@@ -1603,16 +1612,19 @@ const styles = StyleSheet.create({
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
+  sectionLine: { flexDirection: "row", alignItems: "center", width: "100%", gap: Spacing.two },
+  sectionSide: { width: 76, gap: 2 },
+  sectionSideEnd: { alignItems: "flex-end" },
+  sideLabel: { fontSize: 11, lineHeight: 14, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" },
+  sideLabelEnd: { textAlign: "right" },
+  sideTextEnd: { textAlign: "right" },
+  sectionNow: { flex: 1, minWidth: 0 },
   sectionHeading: { fontSize: 40, lineHeight: 46, flexShrink: 0 },
   sectionHeadingLong: { fontSize: 32, lineHeight: 40 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 28, lineHeight: 34 },
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
   nextBlock: { alignItems: "center", gap: Spacing.one },
-  nextLabel: { fontSize: 12, lineHeight: NEXT_LABEL_LINE, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" },
-  nextSlot: { justifyContent: "center", maxWidth: "100%" },
-  nextRow: { flexDirection: "row", alignItems: "center", gap: Spacing.one + 2, minHeight: NEXT_TEXT_LINE, maxWidth: "100%" },
-  nextText: { fontFamily: Fonts.display, fontSize: 20, lineHeight: NEXT_TEXT_LINE, fontWeight: 700, flexShrink: 1 },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   soundPromptBlock: { width: "100%", gap: Spacing.two },
   soundPrompt: {
@@ -1644,9 +1656,9 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   grow: { flex: 1, minWidth: 0 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
   reserved: { opacity: 0 },
   barControl: { width: 96 },
+  barHolder: { height: 44 },
   stageRow: { alignItems: "center", width: "100%" },
   jumpMode: { flexDirection: "row", alignItems: "center", gap: 12 },
   jumpCaption: { flex: 1 },
