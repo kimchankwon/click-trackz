@@ -1,43 +1,68 @@
-import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { markGrowth } from "@/lib/timing-test";
 import { stripPosition } from "@/lib/timing-strip";
 
 export type TimingLane = { label: string; marks: readonly number[]; tone: "accent" | "text" | "muted"; dots?: boolean };
 
 const LABEL_WIDTH = 84;
+const LANE_HEIGHT = 28;
 
-export function TimingStrip({ lanes, rangeMs, summary, testID }: { lanes: readonly TimingLane[]; rangeMs: number; summary: string; testID?: string }) {
+function Mark({ position, color, dot, phase }: { position: number; color: string; dot: boolean; phase: SharedValue<number> }) {
+  const grow = useAnimatedStyle(() => {
+    const amount = markGrowth(phase.get(), position);
+    return { transform: [{ scaleX: 1 + amount * 1.5 }, { scaleY: 1 + amount * 0.25 }] };
+  });
+  return <Animated.View style={[dot ? styles.dot : styles.mark, { left: `${position * 100}%`, backgroundColor: color }, dot ? styles.dotFade : null, dot ? null : grow]} />;
+}
+
+export function TimingStrip({
+  lanes,
+  rangeMs,
+  summary,
+  phase,
+  testID,
+}: {
+  lanes: readonly TimingLane[];
+  rangeMs: number;
+  summary: string;
+  phase: SharedValue<number>;
+  testID?: string;
+}) {
   const theme = useTheme();
   const toneColor = { accent: theme.accent, text: theme.text, muted: theme.textSecondary };
+  const playhead = useAnimatedStyle(() => {
+    const at = phase.get();
+    return { opacity: at < 0 ? 0 : 1, left: `${Math.max(0, at) * 100}%` };
+  });
   return (
     <View style={styles.strip} accessible role="img" aria-label={summary} testID={testID}>
-      {lanes.map((lane) => (
-        <View key={lane.label} style={styles.lane}>
-          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.label}>
-            {lane.label}
-          </ThemedText>
-          <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-            <View style={[styles.beatLine, { backgroundColor: theme.textTertiary }]} />
-            {lane.marks.map((ms, index) => (
-              <View
-                key={index}
-                style={[
-                  lane.dots ? styles.dot : styles.mark,
-                  { left: `${stripPosition(ms, rangeMs) * 100}%`, backgroundColor: toneColor[lane.tone] },
-                  lane.dots ? { opacity: 0.75 } : null,
-                ]}
-              />
-            ))}
-          </View>
+      <View style={styles.row}>
+        <View style={styles.labels}>
+          {lanes.map((lane) => (
+            <ThemedText key={lane.label} type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.label}>
+              {lane.label}
+            </ThemedText>
+          ))}
         </View>
-      ))}
-      <View style={styles.lane}>
-        <View style={styles.label} />
+        <View style={styles.tracks}>
+          {lanes.map((lane) => (
+            <View key={lane.label} style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+              <View style={[styles.beatLine, { backgroundColor: theme.textTertiary }]} />
+              {lane.marks.map((ms, index) => (
+                <Mark key={index} position={stripPosition(ms, rangeMs)} color={toneColor[lane.tone]} dot={lane.dots === true} phase={phase} />
+              ))}
+            </View>
+          ))}
+          <Animated.View pointerEvents="none" style={[styles.playhead, { backgroundColor: theme.accent }, playhead]} />
+        </View>
+      </View>
+      <View style={styles.row}>
+        <View style={styles.labels} />
         <View style={styles.axis}>
           <ThemedText type="caption" themeColor="textTertiary" style={styles.tabular}>
             {`${rangeMs} ms early`}
@@ -56,79 +81,16 @@ export function TimingStrip({ lanes, rangeMs, summary, testID }: { lanes: readon
 
 const styles = StyleSheet.create({
   strip: { gap: Spacing.two },
-  lane: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
-  label: { width: LABEL_WIDTH },
-  track: { flex: 1, height: 24, borderRadius: Radius.sm, overflow: "hidden" },
+  row: { flexDirection: "row", gap: Spacing.two },
+  labels: { width: LABEL_WIDTH, gap: Spacing.two },
+  label: { height: LANE_HEIGHT, lineHeight: LANE_HEIGHT },
+  tracks: { flex: 1, gap: Spacing.two },
+  track: { height: LANE_HEIGHT, borderRadius: Radius.sm, overflow: "hidden" },
   beatLine: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, marginLeft: -0.5 },
-  mark: { position: "absolute", top: 3, bottom: 3, width: 4, marginLeft: -2, borderRadius: 2 },
-  dot: { position: "absolute", top: 8, width: 8, height: 8, marginLeft: -4, borderRadius: 4 },
+  mark: { position: "absolute", top: 4, bottom: 4, width: 4, marginLeft: -2, borderRadius: 2 },
+  dot: { position: "absolute", top: 10, width: 8, height: 8, marginLeft: -4, borderRadius: 4 },
+  dotFade: { opacity: 0.75 },
+  playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
   axis: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
   tabular: { fontVariant: ["tabular-nums"] },
-  trackRow: { flexDirection: "row", gap: Spacing.two },
-  trackLabels: { width: LABEL_WIDTH, gap: Spacing.two },
-  trackLabel: { height: 24, lineHeight: 24 },
-  trackLanes: { flex: 1, gap: Spacing.two },
-  litMark: { transform: [{ scaleX: 2 }] },
-  playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
 });
-
-export type TrackLane = { label: string; offsetMs: number; tone: "accent" | "text" | "muted" };
-
-export function BeatTrack({
-  beats,
-  intervalMs,
-  lanes,
-  lit,
-  firstBeatAt,
-  running,
-  testID,
-}: {
-  beats: number;
-  intervalMs: number;
-  lanes: readonly TrackLane[];
-  lit: number | null;
-  firstBeatAt: number | null;
-  running: boolean;
-  testID?: string;
-}) {
-  const theme = useTheme();
-  const progress = useSharedValue(0);
-  const toneColor = { accent: theme.accent, text: theme.text, muted: theme.textSecondary };
-  const spanMs = beats * intervalMs;
-  const at = (index: number, offsetMs: number) => `${Math.min(100, Math.max(0, (((index + 0.5) * intervalMs + offsetMs) / spanMs) * 100))}%` as const;
-  useEffect(() => {
-    if (firstBeatAt === null) return;
-    const startIn = Math.max(0, firstBeatAt - intervalMs / 2 - performance.now());
-    progress.value = 0;
-    progress.value = withDelay(startIn, withTiming(1, { duration: spanMs, easing: Easing.linear }));
-  }, [firstBeatAt, intervalMs, spanMs, progress]);
-  const playhead = useAnimatedStyle(() => ({ left: `${progress.value * 100}%` }));
-  return (
-    <View style={styles.trackRow} testID={testID} aria-hidden>
-      <View style={styles.trackLabels}>
-        {lanes.map((lane) => (
-          <ThemedText key={lane.label} type="caption" themeColor="textSecondary" numberOfLines={1} style={styles.trackLabel}>
-            {lane.label}
-          </ThemedText>
-        ))}
-      </View>
-      <View style={styles.trackLanes}>
-        {lanes.map((lane) => (
-          <View key={lane.label} style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-            {Array.from({ length: beats }, (_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.mark,
-                  { left: at(index, lane.offsetMs), backgroundColor: toneColor[lane.tone] },
-                  index === lit ? styles.litMark : null,
-                ]}
-              />
-            ))}
-          </View>
-        ))}
-        {running ? <Animated.View style={[styles.playhead, { backgroundColor: theme.accent }, playhead]} /> : null}
-      </View>
-    </View>
-  );
-}

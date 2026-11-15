@@ -31,6 +31,7 @@ const CLICK_SOUND: Record<ClickLevel, { hz: number; gain: number }> = {
 };
 const RESUME_WAIT_MS = 1_000;
 const TIMING_TEST_START_S = 0.6;
+const KEPT_TEST_OUTPUTS = 32;
 
 export type CueMix = {
   click: boolean;
@@ -84,6 +85,7 @@ export class CueAudioEngine {
   private silenced = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
+  private timing: { originAt: number; intervalMs: number; outputs: AudioNode[] } | null = null;
   voiceOffsetMs = 0;
   failure: string | null = null;
   private readonly hiddenLookaheadMs: number;
@@ -269,44 +271,48 @@ export class CueAudioEngine {
     }
   }
 
-  tapTestRound(clicks: number, intervalMs: number): { clickTimesMs: number[]; reportedLatencyMs: number; lastClickInMs: number } {
-    const context = this.context;
-    if (context === null) throw new Error("Enable sound first");
-    tapTestOwner = this;
-    const firstAt = context.currentTime + 0.8;
-    const nowMs = performance.now();
-    const clickTimesMs: number[] = [];
-    for (let index = 0; index < clicks; index++) {
-      const when = firstAt + (index * intervalMs) / 1000;
-      this.click(context, when, index % 4 === 0 ? "bar" : "beat");
-      clickTimesMs.push(nowMs + (when - context.currentTime) * 1000);
-    }
-    return { clickTimesMs, reportedLatencyMs: outputLatencyMs(context), lastClickInMs: clickTimesMs[clickTimesMs.length - 1] - nowMs };
-  }
-
   setOffsets({ latencyNudgeMs, voiceOffsetMs }: { latencyNudgeMs: number; voiceOffsetMs: number }) {
     this.latencyNudgeMs = latencyNudgeMs;
     this.voiceOffsetMs = voiceOffsetMs;
   }
 
-  timingTest(beats: number, intervalMs: number, voiceKeyFor: (index: number) => BuiltinClipKey | null = () => null): { beatTimesMs: number[]; lastBeatInMs: number } {
+  startTimingTest(intervalMs: number): number {
     const context = this.context;
     if (context === null) throw new Error("Enable sound first");
+    this.stopTimingTest();
     tapTestOwner = this;
     const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
-    const firstAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
-    const nowMs = performance.now();
-    const beatTimesMs: number[] = [];
-    for (let index = 0; index < beats; index++) {
-      const beatAt = firstAt + (index * intervalMs) / 1000;
-      const when = beatAt - aheadMs / 1000;
-      this.click(context, when, index % 4 === 0 ? "bar" : "beat");
+    const originAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
+    this.timing = { originAt, intervalMs, outputs: [] };
+    return performance.now() + (originAt - context.currentTime) * 1000;
+  }
+
+  scheduleTimingBeats(fromIndex: number, count: number, voiceKeyFor: (index: number) => BuiltinClipKey | null = () => null) {
+    const context = this.context;
+    const timing = this.timing;
+    if (context === null || timing === null) return;
+    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    for (let index = fromIndex; index < fromIndex + count; index++) {
+      const when = timing.originAt + (index * timing.intervalMs) / 1000 - aheadMs / 1000;
+      if (when < context.currentTime) continue;
+      timing.outputs.push(this.click(context, when, index % 4 === 0 ? "bar" : "beat"));
       const key = voiceKeyFor(index);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer) this.playOnBeat(context, buffer, when);
-      beatTimesMs.push(nowMs + (beatAt - context.currentTime) * 1000);
+      if (buffer) timing.outputs.push(this.playOnBeat(context, buffer, when).output);
     }
-    return { beatTimesMs, lastBeatInMs: beatTimesMs[beatTimesMs.length - 1] - nowMs };
+    if (timing.outputs.length > KEPT_TEST_OUTPUTS) timing.outputs.splice(0, timing.outputs.length - KEPT_TEST_OUTPUTS);
+  }
+
+  stopTimingTest() {
+    for (const output of this.timing?.outputs ?? []) {
+      try {
+        output.disconnect();
+      } catch {
+        continue;
+      }
+    }
+    this.timing = null;
+    this.endTapTest();
   }
 
   setSides(sides: CueSides) {

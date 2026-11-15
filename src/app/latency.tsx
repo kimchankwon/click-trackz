@@ -1,39 +1,33 @@
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { CueAudioEngine } from "@/audio/engine";
-import { nudgeFromTapTest, tapOffsets, type TapRound } from "@/audio/tap-test";
-import { VolumeBar } from "@/components/playback/volume-bar";
-import { BeatTrack, TimingStrip } from "@/components/sound/timing-strip";
 import { useTimingTest } from "@/audio/use-timing-test";
-import { earlyLateText, stripRangeMs, tapSummary } from "@/lib/timing-strip";
 import { ActionButton } from "@/components/action-button";
+import { VolumeBar } from "@/components/playback/volume-bar";
+import { TimingStrip } from "@/components/sound/timing-strip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
-import { ScreenHeader } from "@/components/ui/screen-header";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
+import { ScreenHeader } from "@/components/ui/screen-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { earlyLateText } from "@/lib/timing-strip";
+import { MIN_TAPS, nudgeFromTaps } from "@/lib/timing-test";
 import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS, latencyPresets } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
-const CLICKS = 10;
-const INTERVAL_MS = 1_000;
-const WARM_UP_CLICKS = 2;
-const ROUND_TAIL_MS = 900;
-const TEST_BEATS = 4;
-const TEST_INTERVAL_MS = 750;
+const TEST_INTERVAL_MS = 1_000;
+const STRIP_RANGE_MS = TEST_INTERVAL_MS / 2;
 const TEST_VOLUMES = { click: 0.8, voice: 0 };
 
-type Step = "idle" | "speaker" | "output" | "done";
+type Mode = "check" | "measure";
 
 const ignorePress = () => undefined;
-
 
 export default function LatencyScreen() {
   const theme = useTheme();
@@ -41,99 +35,45 @@ export default function LatencyScreen() {
   const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const nudge = Number(stored);
-  const engine = useRef<CueAudioEngine | null>(null);
-  const round = useRef<{ clickTimesMs: number[]; reportedLatencyMs: number; taps: number[] } | null>(null);
-  const speakerRound = useRef<TapRound | null>(null);
-  const roundTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const roundBusy = useRef(false);
-  const [speakerDone, setSpeakerDone] = useState(false);
-  const [step, setStep] = useState<Step>("idle");
-  const [listening, setListening] = useState(false);
-  const [tapCount, setTapCount] = useState(0);
+  const [mode, setMode] = useState<Mode | null>(null);
+  const [offsets, setOffsets] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [chosenPreset, setChosenPreset] = useState<string | null>(null);
-  const [taps, setTaps] = useState<{ speaker: readonly number[]; output: readonly number[] | null } | null>(null);
   const test = useTimingTest();
-  const shownNudge = test.tested?.latencyNudgeMs ?? nudge;
-
-  useEffect(
-    () => () => {
-      if (roundTimer.current) clearTimeout(roundTimer.current);
-      engine.current?.dispose();
-    },
-    [],
-  );
+  const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
+  const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
 
   const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
 
-  const startRound = async (next: "speaker" | "output") => {
-    if (roundBusy.current || test.running) return;
-    roundBusy.current = true;
-    if (next === "speaker") {
-      speakerRound.current = null;
-      setSpeakerDone(false);
-      setTaps(null);
-    }
-    let started: ReturnType<CueAudioEngine["tapTestRound"]>;
-    try {
-      const current = engine.current ?? new CueAudioEngine();
-      engine.current = current;
-      const running = current.enabled ? await current.wake() : await current.enable(() => null, null);
-      if (!running) throw new Error(`This device blocked sound${current.failure ? ` (${current.failure})` : ""}. Tap again to allow it.`);
-      started = current.tapTestRound(CLICKS, INTERVAL_MS);
-    } catch (error) {
-      roundBusy.current = false;
-      throw error;
-    }
-    const { clickTimesMs, reportedLatencyMs, lastClickInMs } = started;
-    round.current = { clickTimesMs, reportedLatencyMs, taps: [] };
-    setTapCount(0);
-    setStep(next);
-    setListening(true);
-    roundTimer.current = setTimeout(() => finishRound(next), lastClickInMs + ROUND_TAIL_MS);
-  };
-
-  const finishRound = (finished: "speaker" | "output") => {
-    roundTimer.current = null;
-    roundBusy.current = false;
-    setListening(false);
-    engine.current?.endTapTest();
-    const current = round.current;
-    if (!current) return;
-    const result: TapRound = {
-      tapOffsetsMs: tapOffsets(current.clickTimesMs, current.taps, WARM_UP_CLICKS),
-      reportedLatencyMs: current.reportedLatencyMs,
-    };
-    if (finished === "speaker") {
-      setTaps({ speaker: result.tapOffsetsMs, output: null });
-      speakerRound.current = result;
-      setSpeakerDone(true);
-      setMessage(`Got ${result.tapOffsetsMs.length} taps. Now switch to your headphones or speakers and do round 2.`);
-      return;
-    }
-    setTaps((shown) => (shown ? { ...shown, output: result.tapOffsetsMs } : null));
-    const measured = speakerRound.current ? nudgeFromTapTest(speakerRound.current, result) : null;
-    speakerRound.current = null;
-    setSpeakerDone(false);
-    if (measured === null) {
-      setMessage("The taps were too few or too uneven to measure. Start again from round 1, tapping on every click.");
-      setStep("idle");
-      return;
-    }
-    const stored = clampLatency(measured);
-    setNudge(stored);
-    setStep("done");
-    setMessage(
-      stored === measured
-        ? `Measured ${measured} ms. Your Latency nudge is set.`
-        : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so your Latency nudge is set to ${stored} ms.`,
-    );
-  };
-
-  const run = (action: () => Promise<unknown>) => {
+  const begin = (next: Mode) => {
     setMessage(null);
-    action().catch((e: unknown) => setMessage(errorText(e)));
+    setOffsets([]);
+    setMode(next);
+    test.start({ intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }).catch((error: unknown) => {
+      setMode(null);
+      setMessage(errorText(error));
+    });
   };
+
+  const end = () => {
+    if (mode === "measure") {
+      const measured = nudgeFromTaps(testedNudge, offsets);
+      if (measured === null) setMessage(`Tap along with at least ${MIN_TAPS} clicks, then press Stop.`);
+      else {
+        const kept = clampLatency(measured);
+        setNudge(kept);
+        setMessage(
+          kept === measured
+            ? `Set to ${measured} ms from ${offsets.length} taps.`
+            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms.`,
+        );
+      }
+    }
+    test.stop();
+    setMode(null);
+  };
+
+  const toggle = (which: Mode) => (mode === which ? end() : begin(which));
 
   return (
     <ThemedView style={styles.container}>
@@ -184,40 +124,26 @@ export default function LatencyScreen() {
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
               <TimingStrip
                 testID="nudge-strip"
-                rangeMs={stripRangeMs([shownNudge])}
+                rangeMs={STRIP_RANGE_MS}
+                phase={test.phase}
                 lanes={[
-                  { label: "Phone plays", marks: [-shownNudge], tone: "accent" },
+                  { label: "Phone plays", marks: [-testedNudge], tone: "accent" },
                   { label: "You hear", marks: [0], tone: "text" },
                 ]}
-                summary={`The phone plays each sound ${earlyLateText(-shownNudge, "early", "late", "on the beat")}, so you hear it on the beat`}
+                summary={`The phone plays each click ${earlyLateText(-testedNudge, "early", "late", "on the beat")}, so you hear it on the beat`}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                {shownNudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-shownNudge, "early", "late", "on the beat")} so it reaches you on the beat`}
+                {testedNudge === 0 ? "Sent on the beat" : `Sent ${earlyLateText(-testedNudge, "early", "late", "on the beat")} so it reaches you on the beat`}
               </ThemedText>
-              <BeatTrack
-                testID="nudge-track"
-                beats={TEST_BEATS}
-                intervalMs={TEST_INTERVAL_MS}
-                lit={test.lit}
-                firstBeatAt={test.firstBeatAt}
-                running={test.running}
-                lanes={[
-                  { label: "Phone plays", offsetMs: -shownNudge, tone: "accent" },
-                  { label: "You hear", offsetMs: 0, tone: "text" },
-                ]}
-              />
               <ActionButton
-                icon="play"
-                label={test.running ? "Playing…" : "Play test"}
+                icon={mode === "check" ? "stop" : "play"}
+                label={mode === "check" ? "Stop" : "Play test"}
                 testID="nudge-test"
-                disabled={test.running || listening}
-                onPress={() => {
-                  if (roundBusy.current) return;
-                  run(() => test.run({ beats: TEST_BEATS, intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }));
-                }}
+                disabled={mode === "measure"}
+                onPress={() => toggle("check")}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                Each click should land as the line crosses its beat
+                Each click should land as the line crosses You hear
               </ThemedText>
             </View>
           </View>
@@ -265,64 +191,25 @@ export default function LatencyScreen() {
               Tap to measure
             </ThemedText>
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
-              <View style={styles.roundStep}>
-                <View style={[styles.stepBadge, { backgroundColor: speakerDone ? theme.accent : theme.backgroundSelected }]}>
-                  <ThemedText type="smallBold" themeColor={speakerDone ? "onAccent" : "text"}>
-                    1
-                  </ThemedText>
-                </View>
-                <ThemedText type="small" style={styles.grow}>
-                  Play through the built-in speaker and tap the pad on every click.
-                </ThemedText>
-              </View>
-              <View style={styles.roundStep}>
-                <View style={[styles.stepBadge, { backgroundColor: theme.backgroundSelected }]}>
-                  <ThemedText type="smallBold">2</ThemedText>
-                </View>
-                <ThemedText type="small" style={styles.grow}>
-                  Switch to the headphones or speakers you will play with and do the same. Only the difference counts, so your
-                  reaction time cancels out.
-                </ThemedText>
-              </View>
-              <View style={[styles.roundTrack, { backgroundColor: theme.backgroundSelected }]}>
-                {(["speaker", "output"] as const).map((round) => {
-                  const next = round === "speaker" ? !speakerDone : speakerDone;
-                  const available = (round === "speaker" || speakerDone) && !test.running;
-                  return (
-                    <Pressable
-                      key={round}
-                      role="button"
-                      aria-disabled={!available}
-                      aria-label={round === "speaker" ? "Round 1: built-in speaker" : "Round 2: your output"}
-                      testID={round === "speaker" ? "round-speaker" : "round-output"}
-                      disabled={!available}
-                      onPress={() => run(() => startRound(round))}
-                      style={[styles.roundSegment, next ? [styles.roundRaised, { backgroundColor: theme.raised }] : null]}
-                    >
-                      <Icon name={round === "speaker" ? "phone" : "headphones"} size={18} color={next ? "onRaised" : available ? "textSecondary" : "textTertiary"} />
-                      <ThemedText type="smallBold" themeColor={next ? "onRaised" : available ? "textSecondary" : "textTertiary"}>
-                        {round === "speaker" ? "Round 1" : "Round 2"}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {taps ? (
-                <View style={styles.tapResults}>
-                  <TimingStrip
-                    testID="tap-strip"
-                    rangeMs={stripRangeMs([...taps.speaker, ...(taps.output ?? [])])}
-                    lanes={[
-                      { label: "Speaker", marks: taps.speaker, tone: "muted", dots: true },
-                      ...(taps.output ? [{ label: "Your output", marks: taps.output, tone: "accent" as const, dots: true }] : []),
-                    ]}
-                    summary={tapSummary(taps)}
-                  />
-                  <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                    {tapSummary(taps)}
-                  </ThemedText>
-                </View>
-              ) : null}
+              <ThemedText type="small">Play through the headphones or speakers you will use, tap the pad on every click, then press Stop.</ThemedText>
+              <TimingStrip
+                testID="tap-strip"
+                rangeMs={STRIP_RANGE_MS}
+                phase={test.phase}
+                lanes={[
+                  { label: "You hear", marks: [0], tone: "text" },
+                  { label: "Your taps", marks: offsets, tone: "accent", dots: true },
+                ]}
+                summary={estimate === null ? "No taps measured yet" : `Your taps suggest a nudge of ${estimate} ms`}
+              />
+              <ActionButton
+                icon={mode === "measure" ? "stop" : "touch"}
+                label={mode === "measure" ? "Stop and set" : "Start tapping"}
+                accent={mode !== "measure"}
+                testID="measure-toggle"
+                disabled={mode === "check"}
+                onPress={() => toggle("measure")}
+              />
               {message ? (
                 <ThemedText testID="latency-message" type="smallBold" role="status" aria-live="polite">
                   {message}
@@ -333,22 +220,22 @@ export default function LatencyScreen() {
                 testID="tap-pad"
                 onPress={ignorePress}
                 onPressIn={() => {
-                  if (!listening || !round.current) return;
-                  round.current.taps.push(performance.now());
-                  setTapCount(round.current.taps.length);
+                  if (mode !== "measure") return;
+                  const offset = test.tapOffset(performance.now());
+                  if (offset !== null) setOffsets((shown) => [...shown, offset]);
                 }}
                 style={[
                   styles.pad,
-                  listening ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: "transparent" },
+                  mode === "measure" ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: "transparent" },
                 ]}
               >
-                <Icon name="touch" size={32} color={listening ? "onAccent" : "accent"} />
-                <ThemedText type="heading" themeColor={listening ? "onAccent" : "text"}>
-                  {listening ? `Tap on every click (${tapCount})` : "Tap pad"}
+                <Icon name="touch" size={32} color={mode === "measure" ? "onAccent" : "accent"} />
+                <ThemedText type="heading" themeColor={mode === "measure" ? "onAccent" : "text"}>
+                  {mode === "measure" ? `Tap on every click (${offsets.length})` : "Tap pad"}
                 </ThemedText>
-                {listening ? (
-                  <ThemedText type="caption" themeColor="onAccent">
-                    {step === "speaker" ? "Round 1, built-in speaker" : "Round 2, your output"}
+                {mode === "measure" ? (
+                  <ThemedText type="caption" themeColor="onAccent" testID="tap-estimate">
+                    {estimate === null ? `Keep tapping, ${Math.max(0, MIN_TAPS - offsets.length)} more to measure` : `Nudge so far: ${clampLatency(estimate)} ms`}
                   </ThemedText>
                 ) : null}
               </Pressable>
@@ -392,14 +279,9 @@ const styles = StyleSheet.create({
   presets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   preset: { width: "48.5%", flexGrow: 1, gap: 2, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
   tabular: { fontVariant: ["tabular-nums"] },
-  roundStep: { flexDirection: "row", gap: Spacing.three, alignItems: "flex-start" },
-  stepBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1, minWidth: 0 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
-  roundTrack: { flexDirection: "row", borderRadius: Radius.md, padding: 3, gap: 3 },
-  roundSegment: { flex: 1, flexDirection: "row", gap: Spacing.two, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.sm },
-  roundRaised: { boxShadow: "0 1px 3px rgba(0, 0, 0, 0.18)" },
-  tapResults: { gap: Spacing.two },
+  buttons: { flexDirection: "row", gap: Spacing.two },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });
