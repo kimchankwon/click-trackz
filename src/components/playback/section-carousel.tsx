@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Spacing } from "@/constants/theme";
@@ -21,6 +21,7 @@ type Shown = {
   next: CarouselEntry | null;
   outgoing: CarouselEntry | null;
   step: number;
+  swaps: number;
 };
 
 const keyOf = (entry: CarouselEntry | null) => (entry === null ? "none" : `${entry.index}:${entry.title}`);
@@ -81,10 +82,10 @@ export function SectionCarousel({
   const [width, setWidth] = useState(0);
   const shift = useSharedValue(0);
   const key = keyOf(current);
-  const [shown, setShown] = useState<Shown>({ key, previous, current, next, outgoing: null, step: 0 });
+  const [shown, setShown] = useState<Shown>({ key, previous, current, next, outgoing: null, step: 0, swaps: 0 });
   if (shown.key !== key) {
     const forward = shown.next !== null && shown.next.index !== null && shown.next.index === current.index;
-    setShown({ key, previous, current, next, outgoing: forward ? shown.previous : null, step: forward ? shown.step + 1 : shown.step });
+    setShown({ key, previous, current, next, outgoing: forward ? shown.previous : null, step: forward ? shown.step + 1 : shown.step, swaps: forward ? shown.swaps : shown.swaps + 1 });
   } else if (keyOf(shown.previous) !== keyOf(previous) || keyOf(shown.next) !== keyOf(next) || shown.current.title !== current.title) {
     setShown({ ...shown, previous, current, next });
   }
@@ -93,6 +94,11 @@ export function SectionCarousel({
     shift.set(1);
     shift.set(withTiming(0, { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) }));
   }, [shown.step, shift]);
+  useEffect(() => {
+    if (shown.swaps === 0) return;
+    cancelAnimation(shift);
+    shift.set(0);
+  }, [shown.swaps, shift]);
   const colors = { previous: theme.textSecondary, current: theme.text, next: nextAccent ? theme.accent : theme.textSecondary };
   return (
     <View style={styles.row} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
