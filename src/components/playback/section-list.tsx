@@ -5,7 +5,7 @@ import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { centredScrollY, SECTION_ROW_GAP, SECTION_ROW_HEIGHT, sectionListHeight } from "@/lib/section-list";
+import { centredScrollY, SECTION_ROW_GAP, SECTION_ROW_HEIGHT, sectionListHeight, VISIBLE_SECTION_ROWS } from "@/lib/section-list";
 
 export type SectionListRow = { title: string; plays: number; accessibleName: string; testID: string };
 
@@ -13,7 +13,7 @@ function NextTag() {
   const theme = useTheme();
   const glow = useSharedValue(1);
   useEffect(() => {
-    glow.value = withRepeat(withTiming(0.35, { duration: 450 }), -1, true);
+    glow.set(withRepeat(withTiming(0.35, { duration: 450 }), -1, true));
     return () => cancelAnimation(glow);
   }, [glow]);
   const style = useAnimatedStyle(() => ({ opacity: glow.value }));
@@ -42,7 +42,7 @@ export function SectionList({
   const theme = useTheme();
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
   const [height, setHeight] = useState(0);
-  const focus = current !== null && upcoming !== null ? (current + upcoming) / 2 : (upcoming ?? current);
+  const focus = current !== null && upcoming !== null && Math.abs(upcoming - current) < VISIBLE_SECTION_ROWS ? (current + upcoming) / 2 : (upcoming ?? current);
   useEffect(() => {
     if (focus === null || height === 0) return;
     list.current?.scrollTo({ y: centredScrollY(focus, height, rows.length), animated: true });
