@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
@@ -8,6 +8,8 @@ import { useTheme } from "@/hooks/use-theme";
 import { centredScrollY, SECTION_ROW_GAP, SECTION_ROW_HEIGHT, sectionListHeight, VISIBLE_SECTION_ROWS } from "@/lib/section-list";
 
 export type SectionListRow = { title: string; plays: number; accessibleName: string; testID: string };
+
+const SLIDE_MS = 380;
 
 function NextTag() {
   const theme = useTheme();
@@ -43,6 +45,17 @@ export function SectionList({
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
   const [height, setHeight] = useState(0);
   const focus = current !== null && upcoming !== null && Math.abs(upcoming - current) < VISIBLE_SECTION_ROWS ? (current + upcoming) / 2 : (upcoming ?? current);
+  const highlightY = useSharedValue(current === null ? 0 : current * (SECTION_ROW_HEIGHT + SECTION_ROW_GAP));
+  const highlightShown = useSharedValue(current === null ? 0 : 1);
+  useEffect(() => {
+    if (current === null) {
+      highlightShown.set(withTiming(0, { duration: SLIDE_MS }));
+      return;
+    }
+    highlightY.set(withTiming(current * (SECTION_ROW_HEIGHT + SECTION_ROW_GAP), { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) }));
+    highlightShown.set(withTiming(1, { duration: SLIDE_MS }));
+  }, [current, highlightY, highlightShown]);
+  const highlight = useAnimatedStyle(() => ({ opacity: highlightShown.get(), transform: [{ translateY: highlightY.get() }] }));
   useEffect(() => {
     if (focus === null || height === 0) return;
     list.current?.scrollTo({ y: centredScrollY(focus, height, rows.length), animated: true });
@@ -58,6 +71,7 @@ export function SectionList({
       aria-label="Sections"
       testID="section-list"
     >
+      <Animated.View pointerEvents="none" style={[styles.highlight, { backgroundColor: theme.accent }, highlight]} />
       {rows.map((row, index) => {
         const selected = index === current;
         const next = index === upcoming;
@@ -73,7 +87,7 @@ export function SectionList({
             style={({ pressed }) => [
               styles.row,
               {
-                backgroundColor: selected ? theme.accent : theme.backgroundSelected,
+                backgroundColor: selected ? "transparent" : theme.backgroundSelected,
                 borderColor: next || waiting ? theme.accent : "transparent",
               },
               pressed ? styles.pressed : null,
@@ -104,6 +118,7 @@ export function SectionList({
 
 const styles = StyleSheet.create({
   content: { gap: SECTION_ROW_GAP },
+  highlight: { position: "absolute", top: 0, left: 0, right: 0, height: SECTION_ROW_HEIGHT, borderRadius: Radius.md },
   row: {
     height: SECTION_ROW_HEIGHT,
     flexDirection: "row",

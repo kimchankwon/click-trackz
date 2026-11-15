@@ -15,6 +15,7 @@ import { allClipKeys } from "@/audio/voice-clips";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { SectionCarousel } from "@/components/playback/section-carousel";
 import { SectionList } from "@/components/playback/section-list";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
@@ -1020,34 +1021,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 ) : null}
               </View>
             </View>
-            <View style={styles.sectionLine}>
-              <View style={styles.sectionSide} testID="previous-section">
-                <ThemedText themeColor="textTertiary" style={styles.sideLabel}>
-                  {previousSection ? "Previous" : " "}
-                </ThemedText>
-                <ThemedText type="smallBold" themeColor="textSecondary" numberOfLines={2}>
-                  {previousSection ? titleOf(previousSection) : ""}
-                </ThemedText>
-              </View>
-              <ThemedText
-                type="title"
-                testID="current-section"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.5}
-                style={[styles.centered, styles.sectionHeading, styles.sectionNow, currentSection.length > 9 ? styles.sectionHeadingLong : null]}
-              >
-                {currentSection}
-              </ThemedText>
-              <View style={[styles.sectionSide, styles.sectionSideEnd]} aria-live="polite" testID="playback-next-block">
-                <ThemedText themeColor={upcoming || vamping ? "accent" : "textTertiary"} style={[styles.sideLabel, styles.sideLabelEnd]}>
-                  {sideNextLabel}
-                </ThemedText>
-                <ThemedText type="smallBold" themeColor={upcoming || vamping ? "accent" : "textSecondary"} numberOfLines={2} style={styles.sideTextEnd} testID="playback-next">
-                  {nextLine ?? ""}
-                </ThemedText>
-              </View>
-            </View>
+            <SectionCarousel
+              previous={previousSection && seenSection.previous !== null ? { index: seenSection.previous, title: titleOf(previousSection) } : null}
+              current={{ index: nowIndex, title: currentSection }}
+              next={nextLine ? { index: upcomingIndex ?? (vamping ? vampSection : (nextStart?.sectionIndex ?? null)), title: nextLine } : null}
+              nextLabel={sideNextLabel}
+              nextAccent={upcoming !== null || vamping}
+            />
             {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
           </View>
         ) : (
@@ -1612,15 +1592,6 @@ const styles = StyleSheet.create({
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
-  sectionLine: { flexDirection: "row", alignItems: "center", width: "100%", gap: Spacing.two },
-  sectionSide: { width: 76, gap: 2 },
-  sectionSideEnd: { alignItems: "flex-end" },
-  sideLabel: { fontSize: 11, lineHeight: 14, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" },
-  sideLabelEnd: { textAlign: "right" },
-  sideTextEnd: { textAlign: "right" },
-  sectionNow: { flex: 1, minWidth: 0 },
-  sectionHeading: { fontSize: 40, lineHeight: 46, flexShrink: 0 },
-  sectionHeadingLong: { fontSize: 32, lineHeight: 40 },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 28, lineHeight: 34 },
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
