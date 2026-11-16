@@ -1054,7 +1054,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               next={nextLine ? { index: upcomingIndex ?? (vamping ? vampSection : (nextStart?.sectionIndex ?? null)), title: nextLine } : null}
               nextLabel={sideNextLabel}
               nextAccent={upcoming !== null || vamping}
-              nextFlashes={upcoming !== null}
+              nextFlashes={playing && !vamping && nextLine !== null}
             />
             {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
           </View>
