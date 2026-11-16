@@ -162,10 +162,23 @@ export default defineSchema({
     onPlay: v.boolean(),
     roundTripMs: v.optional(v.number()),
     seenAt: v.number(),
+    deviceId: v.optional(v.string()),
+    deviceLabel: v.optional(v.string()),
+    nudgeMs: v.optional(v.number()),
+    nudgeRequest: v.optional(v.object({ id: v.string(), ms: v.number(), by: v.id("users") })),
   })
     .index("by_group", ["groupId"])
     .index("by_group_user", ["groupId", "userId"])
     .index("by_group_user_screen", ["groupId", "userId", "screenId"])
     .index("by_group_seen", ["groupId", "seenAt"])
     .index("by_seen", ["seenAt"]),
+  speakerChecks: defineTable({
+    groupId: v.id("groups"),
+    startsAt: v.number(),
+    stopsAt: v.number(),
+    startedBy: v.id("users"),
+    comparedWith: v.string(),
+    listenTo: v.union(v.string(), v.null()),
+    listenToName: v.optional(v.string()),
+  }).index("by_group", ["groupId"]),
 });

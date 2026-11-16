@@ -1,3 +1,4 @@
+export const LATENCY_NUDGE_KEY = "latencyNudgeMs";
 export const LATENCY_MIN_MS = -100;
 export const LATENCY_MAX_MS = 400;
 

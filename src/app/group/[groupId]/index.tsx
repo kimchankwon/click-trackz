@@ -25,6 +25,7 @@ import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Dropdown } from "@/components/ui/dropdown";
 import { MembersCard } from "@/components/group/members-card";
+import { SpeakersCard } from "@/components/group/speakers-card";
 import { ActivityCard } from "@/components/group/activity-card";
 import { CommentsCard } from "@/components/group/comments-card";
 import { ReactionFloats } from "@/components/playback/reaction-floats";
@@ -71,8 +72,10 @@ import { useLockScreen } from "@/audio/use-lock-screen";
 import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
 import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
-import { useHeartbeat, usePresence, useStillHere } from "@/presence/use-presence";
+import { useHeartbeat, useNudgesFromAdmin, usePresence, useStillHere } from "@/presence/use-presence";
+import { deviceLabel } from "@/settings/device-label";
 import { isLatencySetting } from "@/settings/latency";
+import { playsInSpeakerCheck, speakerCheckLive, speakerCheckPlan } from "@/sync/speaker-check";
 import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 import { useSoundSettings } from "@/settings/use-sound-settings";
@@ -155,6 +158,8 @@ type Tempo = { bpm: number; beatsPerBar: number; beatUnit?: number };
 const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSignatureOf(tempo), bpm: `${Math.round(tempo.bpm)} BPM` } : null);
 
 const emptySong: Song = { countIn: false, sections: [] };
+
+const SPEAKER_CHECK_MIX: CueMix = { click: true, voiceCues: false, spokenCounts: false };
 
 const STAGE_HEAD_HEIGHT = 156;
 
@@ -256,11 +261,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const steers = steersGroup || onDevice;
   const [playing, setPlaying] = useState(false);
   const [finishedStart, setFinishedStart] = useState<number | null>(null);
-  const idleWithoutPlayback = useIdleWithoutPlayback(playing);
-  const { estimate, serverNow } = useServerClock({ onDevice: offline, pace: playing ? "playback" : idleWithoutPlayback ? "paused" : "standby" });
+  const [checkLive, setCheckLive] = useState(false);
+  const idleWithoutPlayback = useIdleWithoutPlayback(playing || checkLive);
+  const { estimate, serverNow } = useServerClock({ onDevice: offline, pace: playing || checkLive ? "playback" : idleWithoutPlayback ? "paused" : "standby" });
   const playNow = onDevice ? deviceNow : serverNow;
   const playbackDoc = useQuery(api.playback.current, offline ? "skip" : { groupId });
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
+  const speakerCheck = useQuery(api.speakerCheck.current, offline ? "skip" : { groupId }) ?? null;
   const [devicePlayback, setDevicePlayback] = useState<DevicePlayback | null>(null);
   const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
   const remembers = steersGroup || offline;
@@ -340,7 +347,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const { sound, update: updateSound, saveError: soundSaveError } = useSoundSettings();
   const { speaker, voiceSpeed, clickVolume, voiceVolume } = sound;
   const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
-  const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const [latencyNudge, setLatencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
   const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
@@ -381,7 +388,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   useEffect(() => {
     if (openingGroupId !== null) router.replace({ pathname: "/group/[groupId]", params: { groupId: openingGroupId } });
   }, [openingGroupId]);
-  useHeartbeat(groupId, tab === "play", playing, !offline && !idleWithoutPlayback);
+  const { screenId, deviceId: myDeviceId } = useHeartbeat(groupId, tab === "play", playing || checkLive, !offline && !idleWithoutPlayback, Number(latencyNudge));
+  useNudgesFromAdmin(groupId, screenId, !offline, (byName, nudgeMs) => showToast(`Latency nudge set to ${nudgeMs} ms by ${byName}`));
+  const [myLabel] = useState(deviceLabel);
   useStillHere(groupId, group.guest && !offline && idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
   const chat = useGroupChat(groupId, !offline, serverNow);
@@ -412,12 +421,34 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [groupEndsAt, serverNow]);
 
   useEffect(() => {
-    engine.current?.setPlan(song, song.sections.length > 0 && !mutedHere ? playback : null);
-  }, [song, playback, soundOn, mutedHere]);
+    const look = () => {
+      const now = serverNow();
+      setCheckLive(speakerCheckLive(speakerCheck, now));
+      return speakerCheck === null || (now !== null && now >= speakerCheck.stopsAt);
+    };
+    if (look()) return;
+    const timer = setInterval(() => {
+      if (look()) clearInterval(timer);
+    }, 500);
+    return () => clearInterval(timer);
+  }, [speakerCheck, serverNow]);
+
+  const checkStartsAt = speakerCheck?.startsAt ?? null;
+  const checkStopsAt = speakerCheck?.stopsAt ?? null;
+  const checkPlan = useMemo(
+    () => (checkStartsAt === null || checkStopsAt === null ? null : speakerCheckPlan({ startsAt: checkStartsAt, stopsAt: checkStopsAt })),
+    [checkStartsAt, checkStopsAt],
+  );
+  const checkSoundsHere = checkLive && !onDevice && !playing && speakerCheck !== null && playsInSpeakerCheck(speakerCheck, myDeviceId);
 
   useEffect(() => {
-    if (engine.current) engine.current.mix = mix;
-  }, [mix, soundOn]);
+    if (checkSoundsHere && checkPlan) engine.current?.setPlan(checkPlan.song, checkPlan.playback);
+    else engine.current?.setPlan(song, song.sections.length > 0 && !mutedHere ? playback : null);
+  }, [song, playback, soundOn, mutedHere, checkSoundsHere, checkPlan]);
+
+  useEffect(() => {
+    if (engine.current) engine.current.mix = checkSoundsHere ? SPEAKER_CHECK_MIX : mix;
+  }, [mix, soundOn, checkSoundsHere]);
 
   useEffect(() => {
     engine.current?.setVolumes({ click: clickVolume, voice: voiceVolume });
@@ -1012,6 +1043,16 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
       {locked ? <LockedNotice isAdmin={isAdmin} /> : null}
+      {checkLive && !onDevice && speakerCheck ? (
+        <View style={[styles.offlineBadge, styles.checkBadge, { backgroundColor: theme.accentTint }]} testID="check-notice" role="status" aria-live="polite">
+          <Icon name="headphones" size={14} color="accent" />
+          <ThemedText type="caption" style={styles.grow}>
+            {checkSoundsHere
+              ? `Speaker check from ${speakerCheck.startedByName}. This device clicks once a second`
+              : `Speaker check from ${speakerCheck.startedByName}. Listening to ${speakerCheck.listenToName ?? "another device"}`}
+          </ThemedText>
+        </View>
+      ) : null}
       {offline && !connected ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered} testID="library-offline-note">
           Offline. Editing returns when you reconnect
@@ -1345,6 +1386,21 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </Card>
       ) : null}
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
+      {isAdmin && !offline ? (
+        <SpeakersCard
+          groupId={groupId}
+          nowMs={presence.nowMs}
+          myDeviceId={myDeviceId}
+          myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
+          myLabel={myLabel}
+          myNudgeMs={Number(latencyNudge)}
+          setMyNudge={(nudgeMs) => void setLatencyNudge(String(nudgeMs))}
+          check={speakerCheck}
+          checkLive={checkLive}
+          groupPlaying={playing && !onDevice}
+          locked={locked}
+        />
+      ) : null}
       {managesGroup && group.joinRole ? <JoinRoleCard groupId={groupId} joinRole={group.joinRole} /> : null}
       {canSteerPlayback(group.role) ? <ActivityCard groupId={groupId} opened={groupTabOpened} /> : null}
       <View style={styles.leave}>
@@ -1649,6 +1705,7 @@ const styles = StyleSheet.create({
   onlineButton: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: Spacing.one, paddingHorizontal: Spacing.one, minHeight: 24, borderRadius: Radius.sm },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
+  checkBadge: { alignSelf: "stretch", paddingVertical: Spacing.one },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
