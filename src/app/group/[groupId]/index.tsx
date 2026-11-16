@@ -263,7 +263,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
   const [devicePlayback, setDevicePlayback] = useState<DevicePlayback | null>(null);
   const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
-  const [remembered] = useState(() => (steersGroup || offline ? pickedSongFor<Id<"songs">>(groupId) : null));
+  const remembers = steersGroup || offline;
+  const [remembered] = useState(() => (remembers ? pickedSongFor<Id<"songs">>(groupId) : null));
   const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(remembered?.songId ?? null);
   const [pickedFromSetlist, setPickedFromSetlist] = useState(remembered?.fromSetlist ?? false);
   const livePlayingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
@@ -608,9 +609,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   if (playing && startPick !== null) setStartPick(null);
   const [followedStart, setFollowedStart] = useState<number | null>(remembered?.followedStart ?? null);
-  useEffect(() => {
-    rememberPickedSong(groupId, { songId: selectedSongId, fromSetlist: pickedFromSetlist, orderAt, followedStart });
-  }, [groupId, selectedSongId, pickedFromSetlist, orderAt, followedStart]);
   if (playback !== null && playback.startsAt !== followedStart) {
     setFollowedStart(playback.startsAt);
     if (steers && startedFromSetlist(playback)) {
@@ -622,7 +620,15 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       }
     }
   }
-  const [linedUpAfter, setLinedUpAfter] = useState<number | null>(null);
+  const [linedUpAfter, setLinedUpAfter] = useState<number | null>(remembered?.linedUpAfter ?? null);
+  useEffect(() => {
+    if (!remembers) return;
+    const before = pickedSongFor<Id<"songs">>(groupId);
+    const groupMarkers = offlinePlay
+      ? { followedStart: before?.followedStart ?? null, linedUpAfter: before?.linedUpAfter ?? null }
+      : { followedStart, linedUpAfter };
+    rememberPickedSong(groupId, { songId: selectedSongId, fromSetlist: pickedFromSetlist, orderAt, ...groupMarkers });
+  }, [remembers, offlinePlay, groupId, selectedSongId, pickedFromSetlist, orderAt, followedStart, linedUpAfter]);
   if (finishedStart !== null && finishedStart !== linedUpAfter) {
     setLinedUpAfter(finishedStart);
     const endedOnItsOwn = playback !== null && playback.startsAt === finishedStart && playback.stopsAt === null;

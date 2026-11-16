@@ -8,10 +8,10 @@ describe("picked Song", () => {
   });
 
   it("keeps the latest pick for each Group separately", () => {
-    rememberPickedSong("group-a", { songId: "song-1", fromSetlist: false, orderAt: null, followedStart: 100 });
-    rememberPickedSong("group-b", { songId: "song-2", fromSetlist: true, orderAt: 3, followedStart: null });
-    rememberPickedSong("group-a", { songId: "song-3", fromSetlist: true, orderAt: 1, followedStart: 100 });
-    expect(pickedSongFor("group-a")).toEqual({ songId: "song-3", fromSetlist: true, orderAt: 1, followedStart: 100 });
-    expect(pickedSongFor("group-b")).toEqual({ songId: "song-2", fromSetlist: true, orderAt: 3, followedStart: null });
+    rememberPickedSong("group-a", { songId: "song-1", fromSetlist: false, orderAt: null, followedStart: 100, linedUpAfter: null });
+    rememberPickedSong("group-b", { songId: "song-2", fromSetlist: true, orderAt: 3, followedStart: null, linedUpAfter: 50 });
+    rememberPickedSong("group-a", { songId: "song-3", fromSetlist: true, orderAt: 1, followedStart: 100, linedUpAfter: null });
+    expect(pickedSongFor("group-a")).toEqual({ songId: "song-3", fromSetlist: true, orderAt: 1, followedStart: 100, linedUpAfter: null });
+    expect(pickedSongFor("group-b")).toEqual({ songId: "song-2", fromSetlist: true, orderAt: 3, followedStart: null, linedUpAfter: 50 });
   });
 });

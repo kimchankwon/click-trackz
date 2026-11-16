@@ -3,6 +3,7 @@ export type PickedSong<SongId extends string> = {
   fromSetlist: boolean;
   orderAt: number | null;
   followedStart: number | null;
+  linedUpAfter: number | null;
 };
 
 const picks = new Map<string, PickedSong<string>>();
