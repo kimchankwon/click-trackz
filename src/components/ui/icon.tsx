@@ -16,6 +16,7 @@ const symbols = {
   expand: { ios: "chevron.down", material: "expand_more" },
   up: { ios: "arrow.up", material: "arrow_upward" },
   down: { ios: "arrow.down", material: "arrow_downward" },
+  grip: { ios: "line.3.horizontal", material: "drag_indicator" },
   trash: { ios: "trash", material: "delete" },
   add: { ios: "plus", material: "add" },
   minus: { ios: "minus", material: "remove" },
@@ -55,7 +56,6 @@ const symbols = {
   repeat: { ios: "repeat.1", material: "repeat_one" },
   vamp: { ios: "repeat", material: "repeat" },
   plays: { ios: "repeat", material: "repeat" },
-  haptic: { ios: "iphone.radiowaves.left.and.right", material: "vibration" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

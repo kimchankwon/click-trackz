@@ -32,6 +32,7 @@ export const Colors = {
     onInverse: '#FFFFFF',
     danger: '#B3261E',
     warning: '#E59A0B',
+    onWarning: '#111214',
   },
   dark: {
     text: '#F4F4F5',
@@ -60,6 +61,7 @@ export const Colors = {
     onInverse: '#000000',
     danger: '#FF8A80',
     warning: '#F5A524',
+    onWarning: '#000000',
   },
 } as const;
 

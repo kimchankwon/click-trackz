@@ -40,8 +40,7 @@ const FEATURES: readonly { icon: IconName; title: string; body: string }[] = [
   { icon: "vamp", title: "Steer it live", body: "Jump, Repeat or Vamp a Section. Every change lands on a bar line, for everyone at once." },
   { icon: "library", title: "Setlists", body: "Line up the Songs for the night, with each Song's Key and Leader." },
   { icon: "headphones", title: "Stereo split", body: "Click in one ear and Voice cues in the other, for split in-ear monitors." },
-  { icon: "speed", title: "Latency nudge", body: "Line Bluetooth headphones up with the rest of the band in a few taps." },
-  { icon: "haptic", title: "Haptic beat", body: "Feel the downbeat, or every beat, as a tap on your phone." },
+  { icon: "speed", title: "Latency nudge", body: "Line your speaker or headphones up with the rest of the band in a few taps." },
   { icon: "group", title: "Roles", body: "Give each Member the Role they need, from following along to running Playback and editing Songs." },
   { icon: "phone", title: "My Library", body: "Your own Songs on your own device, for practising alone with no connection." },
 ];

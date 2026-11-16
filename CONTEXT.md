@@ -49,7 +49,7 @@ A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp 
 _Avoid_: Audit log, history, log
 
 **Comment**:
-A short message any Member sends to their Group from Play. It shows above the sender's avatar on the stage for 10 seconds, stays in the Group's list of Comments below Play mode, and is recorded in Activity.
+A short message any Member sends to their Group from Play. It shows above the sender's avatar on the stage for 10 seconds, stays in the Group's list of Comments on Play, and is recorded in Activity.
 _Avoid_: Message, chat, post
 
 **Reaction**:
@@ -172,10 +172,6 @@ _Avoid_: Samples, voice, sound bank
 A per-device choice of which ear hears the Click and which hears the Voice cues: Left, Right or Both, for split in-ear monitors.
 _Avoid_: Panning, channel
 
-**Haptic beat**:
-A per-device choice to feel the downbeats, or every beat, as a tap on the phone while Play is open.
-_Avoid_: Vibration, buzz
-
 **Tap tempo**:
 Setting a Song tempo by tapping along with the beat in the Song editor.
 _Avoid_: Tap BPM
@@ -231,7 +227,7 @@ The Member who pressed Start for the current Playback, shown to everyone on Play
 _Avoid_: Leader, host, owner
 
 **Offline play**:
-A Member's choice, on a Group's Play screen, to play the Group's Songs only on their own device, on the device's own clock. Any Member can Start, Jump and Stop it, and the Group's Playback carries on for everyone else. It ends when they switch back to the Group or leave Play.
+A Member's choice, under Play mode on a Group's Group tab, to play the Group's Songs only on their own device, on the device's own clock. Play shows that it is on. Any Member can Start, Jump and Stop it, and the Group's Playback carries on for everyone else. It ends when they switch back to the Group or leave the Group's screen.
 _Avoid_: Solo, practice mode, personal Playback
 
 **Stop**:
