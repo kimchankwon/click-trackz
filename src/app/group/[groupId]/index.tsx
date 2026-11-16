@@ -297,7 +297,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
   const startBlocker: "noSong" | "needsSections" | "loading" | null =
-    startSongId === null ? "noSong" : startSong === undefined ? "loading" : startSong === null || startSong.sections.length === 0 ? "needsSections" : null;
+    startSongId === null || startSong === null ? "noSong" : startSong === undefined ? "loading" : startSong.sections.length === 0 ? "needsSections" : null;
+  const startWaitsForClock = !onDevice && connected && estimate === null;
+  const startWaitsForConnection = !onDevice && (!connected || estimate === null);
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
@@ -353,7 +355,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [leaving, setLeaving] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
   const screenFocused = useIsFocused();
-  const holdsBack = (playing || (tab !== "play" && screenFocused)) && !leaving && !leavingGroup;
+  const [openingGroupId, setOpeningGroupId] = useState<Id<"groups"> | null>(null);
+  const holdsBack = (playing || (tab !== "play" && screenFocused)) && !leaving && !leavingGroup && openingGroupId === null;
   usePreventRemove(holdsBack, () => (tab !== "play" ? setTab("play") : setAskLeave(true)));
   const navigation = useNavigation();
   useEffect(() => {
@@ -365,9 +368,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
     [offline, seesLibrary],
   );
+  if (!tabs.some((item) => item.id === tab)) setTab("play");
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
+  useEffect(() => {
+    if (openingGroupId !== null) router.replace({ pathname: "/group/[groupId]", params: { groupId: openingGroupId } });
+  }, [openingGroupId]);
   useHeartbeat(groupId, tab === "play", playing, !offline && !idleWithoutPlayback);
   useStillHere(groupId, group.guest && !offline && idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
@@ -586,7 +593,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     return () => clearTimeout(timer);
   }, [playNow, playback, song]);
 
+  const playingNow = useRef(playing);
   useEffect(() => {
+    playingNow.current = playing;
     setPlayingHere(playing);
   }, [playing]);
 
@@ -595,8 +604,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     const strength = hapticFor(hapticBeat, latest);
     if (strength !== null) tapHaptic(strength);
   });
+  const tappedBeatAt = useRef<number | null>(null);
   useEffect(() => {
-    if (beat) tapBeat(beat);
+    if (!beat || tappedBeatAt.current === beat.at) return;
+    tappedBeatAt.current = beat.at;
+    tapBeat(beat);
   }, [beat]);
 
   const [followedStart, setFollowedStart] = useState<number | null>(null);
@@ -698,7 +710,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       ? "Pick a Song to start"
       : startBlocker === "needsSections"
         ? "Add Sections before this Song can start"
-        : null;
+        : startBlocker === null && startWaitsForClock
+          ? "Measuring the clock"
+          : startBlocker === null && startWaitsForConnection
+            ? "Waiting for a connection"
+            : null;
 
   const startPlayback = () =>
     run(async () => {
@@ -723,7 +739,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...position });
+          const pressedAt = serverNow();
+          if (pressedAt === null) throw new Error("This device is still measuring the clock. Try again in a moment.");
+          await start({ groupId, songId: startSongId, ...from, ...position, pressedAt });
         } finally {
           setStartPending(false);
         }
@@ -869,7 +887,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       playing: live.playing,
       muted: liveMuted,
       stopping: liveStopping,
-      canStart: startBlocker === null && !startPending && !unclocked,
+      canStart: startBlocker === null && !startWaitsForConnection && !startPending && !unclocked,
       sectionIndex: live.playing ? liveSection : null,
       sectionCount: song.sections.length,
       hasPreviousSong: previousSong !== null,
@@ -1243,8 +1261,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         return;
       }
       setConfirmingDuplicate(false);
-      if (playing) showToast(`${copy.name} is ready in Your Groups`);
-      else router.replace({ pathname: "/group/[groupId]", params: { groupId: copy.groupId } });
+      if (playingNow.current) showToast(`${copy.name} is ready in Your Groups`);
+      else setOpeningGroupId(copy.groupId);
     } catch (error) {
       if (mine !== attempt.current) showToast(errorText(error), "error");
       else setDuplicateError(errorText(error));
@@ -1255,12 +1273,17 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const confirmDelete = async () => {
     if (deletePending) return;
+    const pressedAt = serverNow();
+    if (!connected || pressedAt === null) {
+      setDeleteError("Deleting the Group needs a connection. Try again once this device is back online.");
+      return;
+    }
     setDeleteError(null);
     setDeletePending(true);
     setLeavingGroup(true);
     const mine = ++attempt.current;
     try {
-      await deleteGroup({ groupId });
+      await deleteGroup({ groupId, pressedAt });
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
@@ -1382,7 +1405,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 label={startLabel}
                 accessibleName="Start"
                 testID="start"
-                disabled={startBlocker !== null}
+                disabled={startBlocker !== null || startWaitsForConnection}
                 pending={startPending}
                 onPress={startPlayback}
               />
@@ -1462,7 +1485,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             onPress={stopPlayback}
           />
         ) : (
-          <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null} pending={startPending} onPress={startPlayback} />
+          <ActionButton medium rounded accent icon="play" label="Start" testID="start" disabled={startBlocker !== null || startWaitsForConnection} pending={startPending} onPress={startPlayback} />
         )}
       </View>
     ) : null;

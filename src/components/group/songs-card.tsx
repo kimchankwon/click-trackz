@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
@@ -34,6 +34,7 @@ export function SongsCard({
   const songs = liveOr(useQuery(api.songs.list, { groupId }), () => stored?.songs);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
+  const adding = useRef(false);
   const list = songs ?? [];
   return (
     <Card title={`Song library (${list.length})`}>
@@ -92,13 +93,19 @@ export function SongsCard({
             label="Add"
             testID="add-song"
             disabled={title.trim() === ""}
-            onPress={() =>
+            onPress={() => {
+              if (adding.current) return;
+              adding.current = true;
               run(async () => {
-                const songId = await createSong({ groupId, title });
-                setTitle("");
-                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
-              })
-            }
+                try {
+                  const songId = await createSong({ groupId, title });
+                  setTitle("");
+                  router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
+                } finally {
+                  adding.current = false;
+                }
+              });
+            }}
           />
         </View>
       ) : null}

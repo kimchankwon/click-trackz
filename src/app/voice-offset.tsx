@@ -1,4 +1,4 @@
-import { router, usePreventRemove } from "expo-router";
+import { usePreventRemove } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { isLatencySetting } from "@/settings/latency";
@@ -46,7 +47,7 @@ export default function VoiceOffsetScreen() {
   const tested = test.tested?.voiceOffsetMs ?? offset;
   usePreventRemove(changed && !leaving, () => setAskLeave(true));
   useEffect(() => {
-    if (leaving) router.back();
+    if (leaving) backOr("/");
   }, [leaving]);
 
   const saveAttempt = useRef(0);
@@ -89,7 +90,7 @@ export default function VoiceOffsetScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Voice cue offset" subtitle="This device only" onBack={() => router.back()} backTestID="voice-offset-back" />
+          <ScreenHeader title="Voice cue offset" subtitle="This device only" onBack={() => backOr("/")} backTestID="voice-offset-back" />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>

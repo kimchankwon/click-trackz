@@ -1,11 +1,15 @@
 import { useConvexConnectionState } from "convex/react";
 
+import { useBrowserOnline } from "./browser-online";
 import { connectionStatus } from "./connection-status";
 
 export function useConnected() {
-  return useConvexConnectionState().isWebSocketConnected;
+  const online = useBrowserOnline();
+  return useConvexConnectionState().isWebSocketConnected && online;
 }
 
 export function useConnectionStatus() {
-  return connectionStatus(useConvexConnectionState());
+  const online = useBrowserOnline();
+  const status = connectionStatus(useConvexConnectionState());
+  return online || status !== "online" ? status : "offline";
 }

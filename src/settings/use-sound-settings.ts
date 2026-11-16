@@ -28,28 +28,36 @@ export function useSoundSettings() {
   const [deviceClick] = useDeviceSetting("clickVolume", String(defaultSound.clickVolume), isVolume);
   const [deviceVoice] = useDeviceSetting("voiceVolume", String(defaultSound.voiceVolume), isVolume);
   const [deviceSpeaker] = useDeviceSetting<SpeakerId>("speaker", defaultSpeaker, isSpeakerId);
-  const [draft, setDraft] = useState<SoundSettings | null>(null);
+  const [draft, setDraft] = useState<Partial<Sound> | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const pending = useRef<{ sound: SoundSettings; timer: ReturnType<typeof setTimeout> | null } | null>(null);
+  const pending = useRef<{ patch: Partial<Sound>; timer: ReturnType<typeof setTimeout> | null } | null>(null);
 
   const profileSound = viewer?.sound ?? null;
+  const saved = useMemo<SoundSettings>(
+    () => profileSound ?? { ...defaultSound, clickVolume: Number(deviceClick), voiceVolume: Number(deviceVoice), speaker: deviceSpeaker },
+    [profileSound, deviceClick, deviceVoice, deviceSpeaker],
+  );
   const sound = useMemo<Sound>(() => {
-    const shown = draft ?? profileSound ?? { ...defaultSound, clickVolume: Number(deviceClick), voiceVolume: Number(deviceVoice), speaker: deviceSpeaker };
+    const shown = { ...saved, ...draft };
     return {
       ...shown,
       speaker: isSpeakerId(shown.speaker) ? shown.speaker : defaultSpeaker,
       voiceSpeed: shown.voiceSpeed !== undefined && isVoiceSpeed(shown.voiceSpeed) ? shown.voiceSpeed : defaultVoiceSpeed,
     };
-  }, [draft, profileSound, deviceClick, deviceVoice, deviceSpeaker]);
+  }, [saved, draft]);
   const canSave = viewer !== undefined && viewer !== null;
+  const latestSaved = useRef(saved);
+  useEffect(() => {
+    latestSaved.current = saved;
+  }, [saved]);
 
   const send = useCallback(
-    (next: SoundSettings) => {
+    (patch: Partial<Sound>) => {
       pending.current = null;
-      save({ sound: next })
-        .then(() => setDraft((current) => (current === next ? null : current)))
+      save({ sound: { ...latestSaved.current, ...patch } })
+        .then(() => setDraft((current) => (current === patch ? null : current)))
         .catch((error: unknown) => {
-          setDraft((current) => (current === next ? null : current));
+          setDraft((current) => (current === patch ? null : current));
           setSaveError(`Your sound settings were not saved, so they may change back. ${errorText(error)}`);
         });
     },
@@ -58,18 +66,18 @@ export function useSoundSettings() {
 
   const update = useCallback(
     (patch: Partial<Sound>) => {
-      const next = { ...(pending.current?.sound ?? sound), ...patch };
+      const next = { ...pending.current?.patch, ...patch };
       setSaveError(null);
       setDraft(next);
       if (pending.current?.timer) clearTimeout(pending.current.timer);
-      pending.current = { sound: next, timer: canSave ? setTimeout(() => send(next), SAVE_AFTER_MS) : null };
+      pending.current = { patch: next, timer: canSave ? setTimeout(() => send(next), SAVE_AFTER_MS) : null };
     },
-    [sound, canSave, send],
+    [canSave, send],
   );
 
   useEffect(() => {
     const waiting = pending.current;
-    if (canSave && waiting !== null && waiting.timer === null) send(waiting.sound);
+    if (canSave && waiting !== null && waiting.timer === null) send(waiting.patch);
   }, [canSave, send]);
 
   const latestSend = useRef(send);
@@ -82,7 +90,7 @@ export function useSoundSettings() {
       const waiting = pending.current;
       if (!waiting || waiting.timer === null) return;
       clearTimeout(waiting.timer);
-      latestSend.current(waiting.sound);
+      latestSend.current(waiting.patch);
     },
     [],
   );

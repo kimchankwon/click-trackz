@@ -13,6 +13,14 @@ export async function requireUser(ctx: QueryCtx): Promise<Doc<"users">> {
   return user;
 }
 
+export const LATE_PRESS_MS = 10_000;
+
+export function refuseLatePress(pressedAt: number | undefined, what: string) {
+  if (pressedAt !== undefined && Date.now() - pressedAt > LATE_PRESS_MS) {
+    throw new ConvexError(`${what} was pressed too long ago to act on now. Try again.`);
+  }
+}
+
 export const isGuest = (user: Doc<"users">) => user.isAnonymous === true;
 
 export async function membershipOf(ctx: QueryCtx, groupId: Id<"groups">, userId: Id<"users">) {

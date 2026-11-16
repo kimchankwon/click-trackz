@@ -1,4 +1,4 @@
-import { router, usePreventRemove } from "expo-router";
+import { usePreventRemove } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import { ScreenHeader } from "@/components/ui/screen-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromTaps } from "@/lib/timing-test";
@@ -43,7 +44,7 @@ export default function LatencyScreen() {
   const [leaving, setLeaving] = useState(false);
   usePreventRemove(changed && !leaving, () => setAskLeave(true));
   useEffect(() => {
-    if (leaving) router.back();
+    if (leaving) backOr("/");
   }, [leaving]);
   const [mode, setMode] = useState<Mode | null>(null);
   const [offsets, setOffsets] = useState<number[]>([]);
@@ -107,7 +108,7 @@ export default function LatencyScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => router.back()} backTestID="latency-back" />
+          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => backOr("/")} backTestID="latency-back" />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>

@@ -1,8 +1,9 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
+import { isGuest, membershipOf, refuseLatePress, requireMember, requireRole, requireUser } from "./access";
 import { logActivity } from "./activity";
 import { deleteGroupRows } from "./cleanup";
 import { groupLocked, requireRoomForGroup, requireRoomForGroupCopy } from "./plans";
@@ -119,9 +120,10 @@ export const rename = mutation({
 });
 
 export const deleteGroup = mutation({
-  args: { groupId: v.id("groups") },
-  handler: async (ctx, { groupId }) => {
+  args: { groupId: v.id("groups"), pressedAt: v.optional(v.number()) },
+  handler: async (ctx, { groupId, pressedAt }) => {
     await requireRole(ctx, groupId, "admin");
+    refuseLatePress(pressedAt, "Delete Group");
     const group = await ctx.db.get(groupId);
     if (group === null) throw new ConvexError("That Group no longer exists");
     if (group.offline === true) throw new ConvexError("My Library cannot be deleted");
@@ -292,7 +294,10 @@ export const leaveGroup = mutation({
 export const myGroups = query({
   args: {},
   handler: async (ctx) => {
-    const user = await requireUser(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new ConvexError("Sign in first");
+    const user = await ctx.db.get(userId);
+    if (user === null) return [];
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", user._id))

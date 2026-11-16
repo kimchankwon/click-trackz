@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { endVampJumps, jumpProblem, jumpsAfter, LEAD_IN_MS, repeatJumps, startedPlayback, startProblem, stopTime, type CommandResult } from "../src/sync/commands";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireMember, requireRole, requireRoleInUnlocked } from "./access";
+import { refuseLatePress, requireMember, requireRole, requireRoleInUnlocked } from "./access";
 import { logActivity } from "./activity";
 import { sectionName } from "../src/activity/changes";
 import type { Jump } from "../src/sync/timeline";
@@ -65,9 +65,11 @@ export const start = mutation({
     fromBar: v.optional(v.number()),
     advance: v.optional(v.boolean()),
     setlistIndex: v.optional(v.number()),
+    pressedAt: v.optional(v.number()),
   },
-  handler: async (ctx, { groupId, songId, fromSection, fromBar, setlistIndex }) => {
+  handler: async (ctx, { groupId, songId, fromSection, fromBar, setlistIndex, pressedAt }) => {
     const { user, membership, group } = await requireRoleInUnlocked(ctx, groupId, "playbackManager");
+    refuseLatePress(pressedAt, "Start");
     if (group.offline === true) throw new ConvexError("My Library plays on this device only");
     const song = await ctx.db.get(songId);
     if (song === null || song.groupId !== groupId) throw new ConvexError("That Song is not in this Group");

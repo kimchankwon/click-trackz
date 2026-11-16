@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
@@ -38,6 +38,7 @@ export function SetlistCard({
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const [deleting, setDeleting] = useState<{ setlistId: Id<"setlists">; name: string } | null>(null);
   const [deletePending, setDeletePending] = useState(false);
+  const creating = useRef(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const theme = useTheme();
   const [shownId, setShownId] = useState<Id<"setlists"> | null>(null);
@@ -64,11 +65,18 @@ export function SetlistCard({
       setDeletePending(false);
     }
   };
-  const createAndOpen = () =>
+  const createAndOpen = () => {
+    if (creating.current) return;
+    creating.current = true;
     run(async () => {
-      const setlistId = await createSetlist({ groupId, name: "New Setlist" });
-      router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
+      try {
+        const setlistId = await createSetlist({ groupId, name: "New Setlist" });
+        router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
+      } finally {
+        creating.current = false;
+      }
     });
+  };
   return (
     <Card
       banner={
