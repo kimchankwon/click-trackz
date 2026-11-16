@@ -8,10 +8,10 @@ import { beatPhase, offsetFromBeat } from "@/lib/timing-test";
 const AHEAD_BEATS = 3;
 const noClock = () => null;
 
-export type TimingTestOptions = {
+type TimingOffsets = { latencyNudgeMs: number; voiceOffsetMs: number };
+
+export type TimingTestOptions = TimingOffsets & {
   intervalMs: number;
-  latencyNudgeMs: number;
-  voiceOffsetMs: number;
   volumes: CueVolumes;
   sides?: CueSides;
   voice?: { speaker: SpeakerId; voiceSpeed: VoiceSpeed; keyFor: (index: number) => BuiltinClipKey | null };
@@ -24,9 +24,11 @@ export function useTimingTest() {
   const origin = useRef<{ firstBeatAt: number; intervalMs: number } | null>(null);
   const busy = useRef(false);
   const attempt = useRef(0);
+  const live = useRef<TimingOffsets>({ latencyNudgeMs: 0, voiceOffsetMs: 0 });
+  const voiceKey = useRef<TimingTestOptions["voice"]>(undefined);
   const phase = useSharedValue(-1);
   const [running, setRunning] = useState(false);
-  const [tested, setTested] = useState<{ latencyNudgeMs: number; voiceOffsetMs: number } | null>(null);
+  const [tested, setTested] = useState<TimingOffsets | null>(null);
 
   const halt = useCallback(() => {
     if (scheduler.current) clearInterval(scheduler.current);
@@ -60,8 +62,10 @@ export function useTimingTest() {
       if (busy.current) return;
       busy.current = true;
       const mine = ++attempt.current;
+      live.current = { latencyNudgeMs: options.latencyNudgeMs, voiceOffsetMs: options.voiceOffsetMs };
+      voiceKey.current = options.voice;
       setRunning(true);
-      setTested({ latencyNudgeMs: options.latencyNudgeMs, voiceOffsetMs: options.voiceOffsetMs });
+      setTested(live.current);
       try {
         const current = engine.current ?? new CueAudioEngine();
         engine.current = current;
@@ -71,7 +75,7 @@ export function useTimingTest() {
         if (attempt.current !== mine) return;
         current.setVolumes(options.volumes);
         if (options.sides) current.setSides(options.sides);
-        current.setOffsets(options);
+        current.setOffsets(live.current);
         const firstBeatAt = current.startTimingTest(options.intervalMs);
         origin.current = { firstBeatAt, intervalMs: options.intervalMs };
         current.scheduleTimingBeats(0, AHEAD_BEATS, options.voice?.keyFor);
@@ -99,10 +103,17 @@ export function useTimingTest() {
     [halt, phase],
   );
 
+  const retune = useCallback((offsets: TimingOffsets) => {
+    if (!busy.current) return;
+    live.current = offsets;
+    setTested(offsets);
+    if (origin.current !== null) engine.current?.retimeTimingTest(offsets, voiceKey.current?.keyFor);
+  }, []);
+
   const tapOffset = useCallback((atMs: number) => {
     const shown = origin.current;
     return shown === null ? null : offsetFromBeat(atMs, shown.firstBeatAt, shown.intervalMs);
   }, []);
 
-  return { start, stop, running, tested, phase, tapOffset };
+  return { start, stop, retune, running, tested, phase, tapOffset };
 }

@@ -54,6 +54,7 @@ export default function VoiceOffsetScreen() {
   const setOffsetDraft = (ms: number) => {
     saveAttempt.current += 1;
     setDraft(ms);
+    test.retune({ latencyNudgeMs: Number(latencyNudge), voiceOffsetMs: ms });
   };
   const move = (steps: number) => setOffsetDraft(stepVoiceOffset(offset, steps));
   const saveAndLeave = async () => {
@@ -159,7 +160,7 @@ export default function VoiceOffsetScreen() {
               </ThemedText>
               <ActionButton icon={test.running ? "stop" : "play"} label={test.running ? "Stop" : "Play test"} testID="voice-offset-test" onPress={toggleTest} />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                Each count should land with its Click
+                {test.running ? "Change the offset while it plays. Each count should land with its Click" : "Each count should land with its Click"}
               </ThemedText>
             </View>
           </View>

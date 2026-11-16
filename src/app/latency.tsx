@@ -59,7 +59,9 @@ export default function LatencyScreen() {
   const saveAttempt = useRef(0);
   const setNudge = (ms: number) => {
     saveAttempt.current += 1;
-    setDraft(clampLatency(ms));
+    const next = clampLatency(ms);
+    setDraft(next);
+    if (mode === "check") test.retune({ latencyNudgeMs: next, voiceOffsetMs: 0 });
   };
   const saveAndLeave = async () => {
     const mine = ++saveAttempt.current;
@@ -175,7 +177,7 @@ export default function LatencyScreen() {
                 onPress={() => toggle("check")}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-                Each click should land as the line crosses You hear
+                {mode === "check" ? "Change the nudge while it plays. Each click should land as the line crosses You hear" : "Each click should land as the line crosses You hear"}
               </ThemedText>
             </View>
           </View>

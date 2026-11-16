@@ -315,6 +315,26 @@ describe("Timing test", () => {
     engine.dispose();
   });
 
+  it("moves the beats still to come when the Latency nudge changes mid-test, leaving sounded ones alone", async () => {
+    const engine = new CueAudioEngine();
+    await engine.enable(serverNow, null);
+    const context = contexts().at(-1)!;
+    engine.startTimingTest(1_000);
+    engine.scheduleTimingBeats(0, 3);
+    const first = context.gains.slice(-3);
+    context.currentTime = 1;
+    engine.retimeTimingTest({ latencyNudgeMs: 100, voiceOffsetMs: 0 });
+    expect(first.map((gain) => gain.disconnected)).toEqual([false, true, true]);
+    const moved = context.oscillatorNodes.slice(-2).map((node) => node.startedAt ?? 0);
+    expect(moved[0]).toBeCloseTo(1.5);
+    expect(moved[1]).toBeCloseTo(2.5);
+    engine.scheduleTimingBeats(3, 1);
+    expect(context.oscillatorNodes.at(-1)?.startedAt).toBeCloseTo(3.5);
+    engine.stopTimingTest();
+    expect(context.gains.slice(-3).every((gain) => gain.disconnected)).toBe(true);
+    engine.dispose();
+  });
+
   it("plays the Voice on the beat, moved by the Voice cue offset", async () => {
     const voiceFor = async (offsetMs: number) => {
       const engine = new CueAudioEngine();

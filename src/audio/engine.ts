@@ -34,7 +34,8 @@ const CLICK_SOUND: Record<ClickLevel, { hz: number; gain: number }> = {
 };
 const RESUME_WAIT_MS = 1_000;
 const TIMING_TEST_START_S = 0.6;
-const KEPT_TEST_OUTPUTS = 32;
+const KEPT_TEST_BEATS = 16;
+const RETIME_MARGIN_S = 0.02;
 
 export type CueMix = {
   click: boolean;
@@ -56,6 +57,18 @@ type Plan = { song: Song; playback: Playback | null };
 
 
 let tapTestOwner: CueAudioEngine | null = null;
+
+type TimingBeat = { index: number; startsAt: number; outputs: AudioNode[] };
+
+function silence(outputs: readonly AudioNode[]) {
+  for (const output of outputs) {
+    try {
+      output.disconnect();
+    } catch {
+      continue;
+    }
+  }
+}
 
 export class CueAudioEngine {
   private context: AudioContext | null = null;
@@ -89,7 +102,7 @@ export class CueAudioEngine {
   private silenced = false;
   mix: CueMix = { click: true, voiceCues: true, spokenCounts: true };
   latencyNudgeMs = 0;
-  private timing: { originAt: number; intervalMs: number; outputs: AudioNode[] } | null = null;
+  private timing: { originAt: number; intervalMs: number; beats: TimingBeat[] } | null = null;
   voiceOffsetMs = 0;
   failure: string | null = null;
   private readonly hiddenLookaheadMs: number;
@@ -289,7 +302,7 @@ export class CueAudioEngine {
     tapTestOwner = this;
     const aheadMs = this.latencyNudgeMs;
     const originAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
-    this.timing = { originAt, intervalMs, outputs: [] };
+    this.timing = { originAt, intervalMs, beats: [] };
     return performance.now() + (originAt - context.currentTime) * 1000;
   }
 
@@ -301,22 +314,35 @@ export class CueAudioEngine {
     for (let index = fromIndex; index < fromIndex + count; index++) {
       const when = timing.originAt + (index * timing.intervalMs) / 1000 - aheadMs / 1000;
       if (when < context.currentTime) continue;
-      timing.outputs.push(this.click(context, when, index % 4 === 0 ? "bar" : "beat"));
+      const beat: TimingBeat = { index, startsAt: when, outputs: [this.click(context, when, index % 4 === 0 ? "bar" : "beat")] };
       const key = voiceKeyFor(index);
       const buffer = key ? this.clips.get(key) : undefined;
-      if (buffer) timing.outputs.push(this.playOnBeat(context, buffer, when).output);
+      if (buffer) {
+        const voice = this.playOnBeat(context, buffer, when);
+        beat.outputs.push(voice.output);
+        beat.startsAt = Math.min(beat.startsAt, Math.max(context.currentTime, when - voice.leadMs / 1000));
+      }
+      timing.beats.push(beat);
     }
-    if (timing.outputs.length > KEPT_TEST_OUTPUTS) timing.outputs.splice(0, timing.outputs.length - KEPT_TEST_OUTPUTS);
+    if (timing.beats.length > KEPT_TEST_BEATS) timing.beats.splice(0, timing.beats.length - KEPT_TEST_BEATS);
+  }
+
+  retimeTimingTest(offsets: { latencyNudgeMs: number; voiceOffsetMs: number }, voiceKeyFor?: (index: number) => BuiltinClipKey | null) {
+    this.setOffsets(offsets);
+    const context = this.context;
+    const timing = this.timing;
+    if (context === null || timing === null) return;
+    const soon = context.currentTime + RETIME_MARGIN_S;
+    const waiting = timing.beats.filter((beat) => beat.startsAt > soon);
+    timing.beats = timing.beats.filter((beat) => beat.startsAt <= soon);
+    for (const beat of waiting) {
+      silence(beat.outputs);
+      this.scheduleTimingBeats(beat.index, 1, voiceKeyFor);
+    }
   }
 
   stopTimingTest() {
-    for (const output of this.timing?.outputs ?? []) {
-      try {
-        output.disconnect();
-      } catch {
-        continue;
-      }
-    }
+    for (const beat of this.timing?.beats ?? []) silence(beat.outputs);
     this.timing = null;
     this.endTapTest();
   }
