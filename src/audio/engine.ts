@@ -20,6 +20,7 @@ import { takePrimedContext } from "./primed-context";
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
 const FUTURE_PRUNE_MS = 2_000;
+const SAME_SOUND_WITHIN_MS = 500;
 const CLICK_MS = 40;
 type ClickLevel = AccentLevel | "offbeat";
 type SoundKind = "click" | "offbeat" | "cue" | "count";
@@ -75,7 +76,7 @@ export class CueAudioEngine {
   private scheduledUntil = -Infinity;
   private hidden = false;
   private future: { output: AudioNode; kind: SoundKind; beatAt: number; soundAt: number; audioAt: number; voiceEndsAt?: number }[] = [];
-  private stillSounding = new Set<string>();
+  private stillSounding = new Map<string, number>();
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -215,6 +216,7 @@ export class CueAudioEngine {
     const previous = this.context;
     if (!this.openContext()) return Promise.resolve(false);
     this.mapping = null;
+    this.stillSounding.clear();
     this.scheduledUntil = -Infinity;
     this.voiceBusyUntil = -Infinity;
     previous?.close().catch(() => undefined);
@@ -355,6 +357,7 @@ export class CueAudioEngine {
     const now = this.serverNow();
     if (restarted || (changed && now === null)) {
       this.cancelAfter(restarted && now !== null ? now : -Infinity);
+      this.stillSounding.clear();
       this.scheduledUntil = -Infinity;
       this.voiceBusyUntil = -Infinity;
     } else if (changed && now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) {
@@ -371,6 +374,7 @@ export class CueAudioEngine {
   silence() {
     this.silenced = true;
     this.cancelAfter(-Infinity);
+    this.stillSounding.clear();
     this.scheduledUntil = -Infinity;
     this.voiceBusyUntil = -Infinity;
     if (this.context?.state === "running") this.context.suspend().catch(() => undefined);
@@ -401,7 +405,7 @@ export class CueAudioEngine {
   private trimTo(until: number) {
     const audioNow = this.context?.currentTime ?? -Infinity;
     this.cancelWhere((entry) => entry.beatAt > until && entry.audioAt > audioNow);
-    this.stillSounding = new Set(this.future.filter((entry) => entry.beatAt > until).map((entry) => soundKey(entry.kind, entry.beatAt)));
+    this.stillSounding = new Map(this.future.filter((entry) => entry.beatAt > until).map((entry) => [soundKey(entry.kind, entry.beatAt), entry.beatAt]));
     this.scheduledUntil = until;
     this.voiceBusyUntil = this.latestVoiceEnd();
   }
@@ -450,10 +454,14 @@ export class CueAudioEngine {
     const now = this.serverNow();
     if (context === null || now === null || context.state !== "running" || this.silenced) return;
     const audioMinusServerMs = context.currentTime * 1000 - now;
-    if (mappingSnaps(this.mapping, audioMinusServerMs)) {
-      this.cancelAfter(-Infinity);
-      this.scheduledUntil = -Infinity;
-      this.voiceBusyUntil = -Infinity;
+    if (this.mapping !== null && mappingSnaps(this.mapping, audioMinusServerMs)) {
+      if (Math.abs(audioMinusServerMs - this.mapping.audioMinusServerMs) <= SAME_SOUND_WITHIN_MS) this.trimTo(-Infinity);
+      else {
+        this.cancelAfter(-Infinity);
+        this.stillSounding.clear();
+        this.scheduledUntil = -Infinity;
+        this.voiceBusyUntil = -Infinity;
+      }
     }
     this.mapping = slewMapping(this.mapping, audioMinusServerMs);
     const playback = this.plan?.playback;
@@ -475,7 +483,7 @@ export class CueAudioEngine {
         this.future.push({ output: this.click(context, when, "offbeat"), kind: "offbeat", beatAt: at, soundAt: at, audioAt: when });
       }
     }
-    this.stillSounding.clear();
+    for (const [key, beatAt] of this.stillSounding) if (beatAt < to) this.stillSounding.delete(key);
     this.scheduledUntil = to;
   }
 

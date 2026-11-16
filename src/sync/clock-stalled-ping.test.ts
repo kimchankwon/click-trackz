@@ -16,7 +16,7 @@ describe("estimateClockOffset with a stalled ping", () => {
 
     const estimate = estimateClockOffset([...beforeTheOutage, stalled]);
 
-    const wrongByMs = estimate === null ? 0 : Math.abs(estimate.offsetMs - OFFSET_MS);
-    expect(wrongByMs).toBeLessThan(1_000);
+    expect(estimate).not.toBeNull();
+    expect(Math.abs((estimate?.offsetMs ?? Infinity) - OFFSET_MS)).toBeLessThan(1);
   });
 });

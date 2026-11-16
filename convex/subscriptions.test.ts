@@ -59,7 +59,7 @@ describe("Refreshing my Plan", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ subscriber: { entitlements: { pro: { expires_date: null } } } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    for (let call = 0; call < 5; call++) await guest.action(api.subscriptions.refreshMine, {}).catch(() => undefined);
+    for (let call = 0; call < 5; call++) expect(await guest.action(api.subscriptions.refreshMine, {})).toBe("free");
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
