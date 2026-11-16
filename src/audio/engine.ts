@@ -333,9 +333,10 @@ export class CueAudioEngine {
     const timing = this.timing;
     if (context === null || timing === null) return;
     const soon = context.currentTime + RETIME_MARGIN_S;
-    const waiting = timing.beats.filter((beat) => beat.startsAt > soon);
-    timing.beats = timing.beats.filter((beat) => beat.startsAt <= soon);
-    for (const beat of waiting) {
+    const movedAt = (index: number) => timing.originAt + (index * timing.intervalMs) / 1000 - offsets.latencyNudgeMs / 1000;
+    const moving = timing.beats.filter((beat) => beat.startsAt > soon && movedAt(beat.index) >= context.currentTime);
+    timing.beats = timing.beats.filter((beat) => !moving.includes(beat));
+    for (const beat of moving) {
       silence(beat.outputs);
       this.scheduleTimingBeats(beat.index, 1, voiceKeyFor);
     }
