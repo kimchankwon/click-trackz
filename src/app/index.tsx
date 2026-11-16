@@ -299,7 +299,7 @@ function SignedInHome({ run, footer }: { run: Run; footer: ReactNode }) {
         pages={panes.map(([pane, content]) => ({
           key: pane,
           content: (
-            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
               <View role="tabpanel" id={panelId(pane, "home")} aria-labelledby={tabId(pane, "home")} style={styles.pane}>
                 {content}
               </View>

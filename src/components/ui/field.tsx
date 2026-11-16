@@ -1,7 +1,7 @@
 import { StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
-import { ControlHeight, Fonts, Spacing } from "@/constants/theme";
+import { ControlHeight, Fonts, MaxFontScale, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
 type Props = TextInputProps & { label?: string; containerStyle?: StyleProp<ViewStyle>; compact?: boolean; inset?: boolean };
@@ -11,6 +11,7 @@ export function Field({ label, containerStyle, compact, inset, style, ...input }
   const box = (
     <TextInput
       placeholderTextColor={theme.textTertiary}
+      maxFontSizeMultiplier={MaxFontScale}
       aria-label={label ?? input.placeholder}
       {...input}
       style={[

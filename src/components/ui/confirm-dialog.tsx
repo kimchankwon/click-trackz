@@ -6,6 +6,8 @@ import { ThemedText } from "@/components/themed-text";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
+const STACK_BEYOND_LETTERS = 22;
+
 export function ConfirmDialog({
   visible,
   title,
@@ -53,7 +55,7 @@ export function ConfirmDialog({
               {error}
             </ThemedText>
           ) : null}
-          <View style={styles.actions}>
+          <View style={confirmLabel.length + cancelLabel.length > STACK_BEYOND_LETTERS ? styles.stackedActions : styles.actions}>
             <ActionButton full label={cancelLabel} testID={testID ? `${testID}-cancel` : undefined} onPress={cancel} />
             <ActionButton
               full
@@ -76,4 +78,5 @@ const styles = StyleSheet.create({
   dialog: { width: "100%", maxWidth: MaxContentWidth * 0.7, maxHeight: "100%", gap: Spacing.three, padding: Spacing.four, borderRadius: Radius.lg },
   title: { fontSize: 22, lineHeight: 28 },
   actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
+  stackedActions: { flexDirection: "column-reverse", gap: Spacing.two, marginTop: Spacing.two },
 });

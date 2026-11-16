@@ -13,7 +13,7 @@ export default function JoinLinkScreen() {
     let cancelled = false;
     const joinCode = normalizeJoinCode(code);
     void (joinCode ? savePendingJoin(joinCode) : Promise.resolve()).then(() => {
-      if (!cancelled) router.replace("/");
+      if (!cancelled) router.dismissTo("/");
     });
     return () => {
       cancelled = true;

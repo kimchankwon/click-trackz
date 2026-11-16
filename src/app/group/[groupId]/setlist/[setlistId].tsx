@@ -189,7 +189,7 @@ function SetlistForm({
         <PinnedHeader scrolled={pinned.scrolled}>
           <ScreenHeader title="Edit Setlist" subtitle={live.name} onBack={toGroup} />
         </PinnedHeader>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets {...pinned.scrollProps}>
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
           {isCurrent ? (
             <View style={[styles.currentStatus, { backgroundColor: theme.accentTint }]} testID="current-setlist-status">

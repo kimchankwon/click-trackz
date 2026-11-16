@@ -97,6 +97,8 @@ import { deviceNow, useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
+const STOP_AFTER_START_MS = 700;
+
 type JumpMode = "endOfSection" | "nextBar";
 
 const sameCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
@@ -595,7 +597,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [playNow, playback, song]);
 
   const playingNow = useRef(playing);
+  const stopHeldUntil = useRef(0);
   useEffect(() => {
+    if (playing && !playingNow.current) stopHeldUntil.current = performance.now() + STOP_AFTER_START_MS;
     playingNow.current = playing;
     setPlayingHere(playing);
   }, [playing]);
@@ -795,6 +799,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const stopPlayback = () =>
     run(async () => {
+      if (performance.now() < stopHeldUntil.current) return;
       if (onDevice) return stopOnDevice();
       setStopPending(true);
       try {

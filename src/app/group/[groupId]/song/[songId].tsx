@@ -601,7 +601,7 @@ function SongForm({
         <PinnedHeader scrolled={pinned.scrolled}>
           <ScreenHeader title="Edit Song" subtitle={song.title} onBack={toGroup} />
         </PinnedHeader>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets {...pinned.scrollProps}>
           {song.tempoHint && sections.length === 0 ? (
             <View style={[styles.hint, { backgroundColor: theme.accentTint }]}>
               <Icon name="speed" size={20} color="accent" />
