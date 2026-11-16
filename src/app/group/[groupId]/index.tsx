@@ -152,7 +152,7 @@ const tempoText = (tempo: Tempo | null | undefined) => (tempo ? { time: timeSign
 
 const emptySong: Song = { countIn: false, sections: [] };
 
-const STAGE_HEAD_HEIGHT = 144;
+const STAGE_HEAD_HEIGHT = 156;
 
 const RECENT_BEATS_MS = 10_000;
 
@@ -594,6 +594,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     setPlayingHere(playing);
   }, [playing]);
 
+  if (playing && startPick !== null) setStartPick(null);
   const [followedStart, setFollowedStart] = useState<number | null>(null);
   if (playback !== null && playback.startsAt !== followedStart) {
     setFollowedStart(playback.startsAt);
@@ -681,9 +682,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const sideNextLabel = upcoming ? (lead?.barsLeft === 2 ? "In 2 bars" : "In 1 bar") : vamping ? "Vamping" : "Next";
   const upcomingIndex = upcoming ? (nextStart?.sectionIndex ?? null) : null;
   const nowIndex = playing ? (beat?.sectionIndex ?? null) : null;
-  const [seenSection, setSeenSection] = useState<{ now: number | null; previous: number | null }>({ now: null, previous: null });
-  if (seenSection.now !== nowIndex) setSeenSection({ now: nowIndex, previous: nowIndex === null ? null : (seenSection.now ?? seenSection.previous) });
+  const passKey = nowIndex === null || beat === null ? null : `${nowIndex}@${Math.round(beat.at - beat.msIntoPass)}`;
+  const [seenSection, setSeenSection] = useState<{ pass: string | null; now: number | null; previous: number | null }>({ pass: null, now: null, previous: null });
+  if (seenSection.pass !== passKey) setSeenSection({ pass: passKey, now: nowIndex, previous: nowIndex === null ? null : (seenSection.now ?? seenSection.previous) });
   const previousSection = seenSection.previous === null ? undefined : song.sections[seenSection.previous];
+  const listCurrent = playing ? (nowIndex ?? playback?.startSection ?? null) : steers && startBlocker === null ? startSection : null;
   useEffect(() => {
     if (Platform.OS === "ios" && nextAnnouncement) AccessibilityInfo.announceForAccessibilityWithOptions(nextAnnouncement, { queue: true });
   }, [nextAnnouncement]);
@@ -725,7 +728,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           setStartPending(false);
         }
       }
-      setStartPick(null);
     });
 
   const jumpOnDevice = (toSection: number) => {
@@ -1020,10 +1022,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             </View>
             <SectionCarousel
               previous={previousSection && seenSection.previous !== null ? { index: seenSection.previous, title: titleOf(previousSection) } : null}
-              current={{ index: nowIndex, title: currentSection }}
+              current={{ index: nowIndex, title: currentSection, pass: passKey }}
               next={nextLine ? { index: upcomingIndex ?? (vamping ? vampSection : (nextStart?.sectionIndex ?? null)), title: nextLine } : null}
               nextLabel={sideNextLabel}
               nextAccent={upcoming !== null || vamping}
+              nextFlashes={upcoming !== null}
             />
             {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
           </View>
@@ -1098,9 +1101,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                 accessibleName: playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section),
                 testID: `play-section-${index}`,
               }))}
-              current={playing ? (beat?.sectionIndex ?? null) : steers && startBlocker === null ? startSection : null}
+              current={listCurrent}
               upcoming={upcomingIndex}
               queued={playing ? queuedSections : []}
+              beat={beat}
+              playing={playing}
               onPress={tapSection}
             />
             {steers ? (
@@ -1595,7 +1600,7 @@ const styles = StyleSheet.create({
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 28, lineHeight: 34 },
-  titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center" },
+  titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center", marginBottom: Spacing.two },
   nextBlock: { alignItems: "center", gap: Spacing.one },
   miniTitle: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   soundPromptBlock: { width: "100%", gap: Spacing.two },
