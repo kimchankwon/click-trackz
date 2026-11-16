@@ -27,6 +27,7 @@ import { useDeviceSetting } from "@/settings/use-device-setting";
 const TEST_INTERVAL_MS = 1_000;
 const STRIP_RANGE_MS = TEST_INTERVAL_MS / 2;
 const TEST_VOLUMES = { click: 0.8, voice: 0 };
+const MEASURE_NUDGE_MS = 0;
 
 const SAME_OUTPUT_MS = 30;
 const BUILT_IN_MAX_REPORTED_MS = 60;
@@ -59,9 +60,9 @@ export default function LatencyScreen() {
   const reported = useReportedOutputLatency();
   const recommended = clampLatency(reported ?? 0);
   const test = useTimingTest();
-  const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
+  const testedNudge = mode === "check" ? (test.tested?.latencyNudgeMs ?? nudge) : nudge;
   const measuring = mode === "builtIn" || mode === "output";
-  const tapped: TapStep = { offsetsMs: offsets, nudgeMs: testedNudge, intervalMs: TEST_INTERVAL_MS };
+  const tapped: TapStep = { offsetsMs: offsets, nudgeMs: MEASURE_NUDGE_MS, intervalMs: TEST_INTERVAL_MS };
   const estimate = mode === "output" && builtIn ? nudgeFromSteps(builtIn, tapped, builtIn.reportedMs) : null;
   const lean = mode === "builtIn" ? steadyOffset(offsets, TEST_INTERVAL_MS) : null;
   const sameOutput = builtIn !== null && reported !== null && Math.abs(reported - builtIn.reportedMs) < SAME_OUTPUT_MS;
@@ -97,7 +98,7 @@ export default function LatencyScreen() {
     }
     if (next === "output") setOutputTaps([]);
     setMode(next);
-    test.start({ intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }).catch((error: unknown) => {
+    test.start({ intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: next === "check" ? nudge : MEASURE_NUDGE_MS, voiceOffsetMs: 0, volumes: TEST_VOLUMES }).catch((error: unknown) => {
       setMode(null);
       setMessage(errorText(error));
     });
@@ -242,7 +243,7 @@ export default function LatencyScreen() {
               Tap to measure
             </ThemedText>
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Removes how early or late you tend to tap. Tap the pad on every click in both steps.</ThemedText>
+              <ThemedText type="small">Removes how early or late you tend to tap. The clicks play with no nudge while you tap the pad on every click in both steps.</ThemedText>
               <TimingStrip
                 testID="tap-strip"
                 rangeMs={STRIP_RANGE_MS}
