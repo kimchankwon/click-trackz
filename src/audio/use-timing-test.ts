@@ -23,6 +23,7 @@ export function useTimingTest() {
   const frame = useRef<number | null>(null);
   const origin = useRef<{ firstBeatAt: number; intervalMs: number } | null>(null);
   const busy = useRef(false);
+  const attempt = useRef(0);
   const phase = useSharedValue(-1);
   const [running, setRunning] = useState(false);
   const [tested, setTested] = useState<{ latencyNudgeMs: number; voiceOffsetMs: number } | null>(null);
@@ -38,6 +39,7 @@ export function useTimingTest() {
   }, [phase]);
 
   const stop = useCallback(() => {
+    attempt.current += 1;
     halt();
     busy.current = false;
     setRunning(false);
@@ -57,6 +59,7 @@ export function useTimingTest() {
     async (options: TimingTestOptions) => {
       if (busy.current) return;
       busy.current = true;
+      const mine = ++attempt.current;
       setRunning(true);
       setTested({ latencyNudgeMs: options.latencyNudgeMs, voiceOffsetMs: options.voiceOffsetMs });
       try {
@@ -65,7 +68,7 @@ export function useTimingTest() {
         const sounding = current.enabled ? await current.wake() : await current.enable(noClock, options.voice?.speaker ?? null, options.voice?.voiceSpeed);
         if (!sounding) throw new Error("This device blocked sound. Check it is not on silent, then try again.");
         if (options.voice) await current.setSpeaker(options.voice.speaker, options.voice.voiceSpeed);
-        if (!busy.current) return;
+        if (attempt.current !== mine) return;
         current.setVolumes(options.volumes);
         if (options.sides) current.setSides(options.sides);
         current.setOffsets(options);
@@ -85,6 +88,7 @@ export function useTimingTest() {
         };
         frame.current = requestAnimationFrame(draw);
       } catch (error) {
+        if (attempt.current !== mine) return;
         halt();
         busy.current = false;
         setRunning(false);
