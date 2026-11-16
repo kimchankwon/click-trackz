@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Keyboard, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
@@ -96,6 +96,7 @@ export function SongsCard({
             onPress={() => {
               if (adding.current) return;
               adding.current = true;
+              Keyboard.dismiss();
               run(async () => {
                 try {
                   const songId = await createSong({ groupId, title });

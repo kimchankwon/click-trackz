@@ -81,6 +81,9 @@ export function Icon({
       size={size}
       tintColor={tint ?? theme[color]}
       style={style}
+      aria-hidden
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
     />
   );
 }

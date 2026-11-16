@@ -6,6 +6,8 @@ import { ThemedText } from "@/components/themed-text";
 import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
+const STACK_BEYOND_LETTERS = 22;
+
 export function ConfirmDialog({
   visible,
   title,
@@ -36,6 +38,11 @@ export function ConfirmDialog({
   const theme = useTheme();
   const cancel = () => onCancel();
   const dismiss = () => (onDismiss ?? onCancel)();
+  const stacked = confirmLabel.length + cancelLabel.length > STACK_BEYOND_LETTERS;
+  const cancelButton = <ActionButton full label={cancelLabel} testID={testID ? `${testID}-cancel` : undefined} onPress={cancel} />;
+  const confirmButton = (
+    <ActionButton full accent label={confirmLabel} testID={testID ? `${testID}-confirm` : undefined} pending={pending} onPress={onConfirm} />
+  );
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
       <View style={styles.layer}>
@@ -53,17 +60,17 @@ export function ConfirmDialog({
               {error}
             </ThemedText>
           ) : null}
-          <View style={styles.actions}>
-            <ActionButton full label={cancelLabel} testID={testID ? `${testID}-cancel` : undefined} onPress={cancel} />
-            <ActionButton
-              full
-              accent
-              label={confirmLabel}
-              testID={testID ? `${testID}-confirm` : undefined}
-              pending={pending}
-              onPress={onConfirm}
-            />
-          </View>
+          {stacked ? (
+            <View style={styles.stackedActions}>
+              {confirmButton}
+              {cancelButton}
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              {cancelButton}
+              {confirmButton}
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -76,4 +83,5 @@ const styles = StyleSheet.create({
   dialog: { width: "100%", maxWidth: MaxContentWidth * 0.7, maxHeight: "100%", gap: Spacing.three, padding: Spacing.four, borderRadius: Radius.lg },
   title: { fontSize: 22, lineHeight: 28 },
   actions: { flexDirection: "row", gap: Spacing.two, marginTop: Spacing.two },
+  stackedActions: { gap: Spacing.two, marginTop: Spacing.two },
 });

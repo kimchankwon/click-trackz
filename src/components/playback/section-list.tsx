@@ -4,7 +4,7 @@ import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, w
 
 import { useFlash, useLeadProgress } from "@/components/playback/cue-motion";
 import { ThemedText } from "@/components/themed-text";
-import { Fonts, Radius, Spacing } from "@/constants/theme";
+import { Fonts, MaxFontScale, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { centredScrollY, SECTION_ROW_GAP, SECTION_ROW_HEIGHT, sectionListHeight, VISIBLE_SECTION_ROWS } from "@/lib/section-list";
 import type { Beat } from "@/sync/timeline";
@@ -27,7 +27,7 @@ function NextTag({ lead }: { lead: SharedValue<number> }) {
   const words = useAnimatedStyle(() => ({ color: interpolateColor(lead.get(), [0, 1], [onAccent, onWarning]) }));
   return (
     <Animated.View style={[styles.tag, tag]} testID="section-next-tag">
-      <Animated.Text style={[styles.tagText, words]}>Next</Animated.Text>
+      <Animated.Text maxFontSizeMultiplier={MaxFontScale} style={[styles.tagText, words]}>Next</Animated.Text>
     </Animated.View>
   );
 }
@@ -43,11 +43,11 @@ function NextEdge({ lead }: { lead: SharedValue<number> }) {
 function RowLine({ row, tagged, title, plays, playsTestID }: { row: SectionListRow; tagged: boolean; title: string; plays: string; playsTestID?: string }) {
   return (
     <View style={[styles.line, tagged ? styles.tagged : null]}>
-      <Text numberOfLines={1} style={[styles.title, { color: title }]}>
+      <Text numberOfLines={1} maxFontSizeMultiplier={MaxFontScale} style={[styles.title, { color: title }]}>
         {row.title}
       </Text>
       {row.plays > 1 ? (
-        <Text testID={playsTestID} style={[styles.plays, { color: plays }]}>
+        <Text testID={playsTestID} maxFontSizeMultiplier={MaxFontScale} style={[styles.plays, { color: plays }]}>
           {`×${row.plays}`}
         </Text>
       ) : null}

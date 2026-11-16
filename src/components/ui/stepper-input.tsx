@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, TextInput, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Icon } from "@/components/ui/icon";
-import { Fonts } from "@/constants/theme";
+import { Fonts, MaxFontScale } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { digitsIn, settledNumber, steppedLetter, steppedNumber, typedLetter, typedNumber, type NumberRange } from "@/lib/stepper";
 
@@ -67,6 +67,7 @@ export function NumberStepper({
       onDown={() => step(-1)}
     >
       <TextInput
+        maxFontSizeMultiplier={MaxFontScale}
         aria-label={label}
         testID={testID}
         value={draft ?? (value === undefined ? "" : String(value))}
@@ -109,6 +110,7 @@ export function LetterStepper({ label, testID, style, value, disabled = false, o
       onDown={() => onChange(steppedLetter(value, -1))}
     >
       <TextInput
+        maxFontSizeMultiplier={MaxFontScale}
         aria-label={label}
         testID={testID}
         value={value ?? ""}

@@ -67,7 +67,7 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, t
     <Pressable
       role="button"
       testID={testID}
-      aria-label={accessibleName}
+      aria-label={accessibleName ?? label}
       aria-disabled={blocked}
       aria-busy={pending}
       disabled={blocked}
@@ -88,6 +88,8 @@ export function ActionButton({ label, onPress, testID, accent, variant, small, t
         type={small ? "smallBold" : "default"}
         themeColor={textColor}
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
         style={[
           styles.label,
           small || medium ? styles.smallLabel : null,
