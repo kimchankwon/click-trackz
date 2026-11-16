@@ -33,7 +33,9 @@ export const store = internalMutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     if (existing && existing.syncedAt > requestedAt) return "older than saved";
-    const row = { userId, plan: entitled?.plan ?? null, expiresAt: entitled?.expiresAt ?? null, store: entitled?.store, syncedAt: requestedAt };
+    const row = entitled
+      ? { userId, plan: entitled.plan, expiresAt: entitled.expiresAt, store: entitled.store, syncedAt: requestedAt }
+      : { userId, plan: null, expiresAt: existing?.expiresAt ?? null, store: undefined, syncedAt: requestedAt };
     if (existing) await ctx.db.replace(existing._id, row);
     else await ctx.db.insert("subscriptions", row);
     return "saved";
@@ -59,6 +61,7 @@ export const refreshMine = action({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new ConvexError("Sign in first");
+    if (await ctx.runQuery(internal.subscriptions.isGuest, { userId })) return "free";
     return (await syncUser(ctx, userId))?.plan ?? "free";
   },
 });
@@ -74,7 +77,7 @@ export const expiringSoon = internalQuery({
       .query("subscriptions")
       .withIndex("by_expires", (q) => q.gte("expiresAt", nowMs - RECHECK_AFTER_MS).lte("expiresAt", nowMs + RECHECK_BEFORE_MS))
       .paginate({ cursor, numItems: RECHECK_BATCH });
-    return { userIds: page.page.filter((row) => row.plan !== null).map((row) => row.userId), cursor: page.continueCursor, isDone: page.isDone };
+    return { userIds: page.page.map((row) => row.userId), cursor: page.continueCursor, isDone: page.isDone };
   },
 });
 
@@ -92,6 +95,11 @@ export const recheckExpiring = internalAction({
       cursor = page.cursor;
     }
   },
+});
+
+export const isGuest = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => (await ctx.db.get(userId))?.isAnonymous === true,
 });
 
 export const userIdFor = internalQuery({

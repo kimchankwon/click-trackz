@@ -90,7 +90,8 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
     throw new ConvexError(`${where}: The time signature must count halves, quarters, eighths or sixteenths`);
   }
   if (!validBpm(section.bpm)) throw new ConvexError(`${where}: BPM must be from 30 to 300`);
-  if (section.customLabel !== undefined && section.customLabel.trim().length > 20) {
+  const customLabel = section.customLabel?.trim();
+  if (customLabel !== undefined && customLabel.length > 20) {
     throw new ConvexError(`${where}: Custom label must be 20 characters or fewer`);
   }
   if (section.plays !== undefined && !wholeBetween(section.plays, 1, MAX_PLAYS)) {
@@ -98,9 +99,10 @@ function checkSection(section: Section, index: number, vocabulary: ReadonlyMap<s
   }
   const timeProblem = timeChangesProblem(section);
   if (timeProblem) throw new ConvexError(`${where}: ${timeProblem}`);
-  const { plays, timeChanges, ...rest } = section;
+  const { plays, timeChanges, customLabel: givenLabel, ...rest } = section;
   return {
     ...rest,
+    ...(customLabel ? { customLabel } : {}),
     ...(plays !== undefined && plays > 1 ? { plays } : {}),
     ...(timeChanges?.length ? { timeChanges: byBar(timeChanges) } : {}),
     sectionType,

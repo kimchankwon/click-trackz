@@ -40,6 +40,11 @@ async function deleteUserRows(ctx: MutationCtx, userId: Id<"users">) {
     .withIndex("by_guest", (q) => q.eq("guestId", userId))
     .collect();
   await Promise.all(handoffs.map((handoff) => ctx.db.delete(handoff._id)));
+  const subscriptions = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  await Promise.all(subscriptions.map((subscription) => ctx.db.delete(subscription._id)));
   await ctx.db.delete(userId);
 }
 

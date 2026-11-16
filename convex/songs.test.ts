@@ -249,4 +249,14 @@ describe("Songs", () => {
     await admin.mutation(api.songs.deleteSong, { songId });
     expect(await member.query(api.playback.current, { groupId })).toBeNull();
   });
+
+  it("stores a Custom label trimmed and refuses one over 20 characters after trimming", async () => {
+    const { admin, groupId } = await setupGroup();
+    const songId = await admin.mutation(api.songs.createSong, { groupId, title: "Pure" });
+    const padding = " ".repeat(10_000);
+    await admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, customLabel: `Hook${padding}` }, { ...verse, customLabel: padding }] });
+    const stored = await admin.query(api.songs.get, { songId });
+    expect(stored?.sections.map((section) => section.customLabel)).toEqual(["Hook", undefined]);
+    await expect(admin.mutation(api.songs.updateSong, { songId, sections: [{ ...verse, customLabel: "x".repeat(21) }] })).rejects.toThrow(/Custom label must be 20 characters or fewer/);
+  });
 });

@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query, type MutationCtx } from "./_generated/server";
@@ -292,7 +293,10 @@ export const leaveGroup = mutation({
 export const myGroups = query({
   args: {},
   handler: async (ctx) => {
-    const user = await requireUser(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new ConvexError("Sign in first");
+    const user = await ctx.db.get(userId);
+    if (user === null) return [];
     const memberships = await ctx.db
       .query("memberships")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
