@@ -6,7 +6,7 @@ type OutputLatencyModule = { outputLatencyMs(): number };
 const latencyModule = requireOptionalNativeModule<OutputLatencyModule>("OutputLatency");
 const REREAD_AFTER_MS = 1_000;
 
-let lastRead: { ms: number; at: number } | null = null;
+let lastRead: { ms: number | null; at: number } | null = null;
 
 const readNative = (): number | null => {
   try {
@@ -17,9 +17,11 @@ const readNative = (): number | null => {
   }
 };
 
-export function outputLatencyMs(_context: AudioContext): number {
-  if (latencyModule === null) return 0;
+export function watchOutput(_context: AudioContext) {}
+
+export function reportedOutputLatencyMs(): number | null {
+  if (latencyModule === null) return null;
   const now = performance.now();
-  if (lastRead === null || now - lastRead.at >= REREAD_AFTER_MS) lastRead = { ms: readNative() ?? lastRead?.ms ?? 0, at: now };
+  if (lastRead === null || now - lastRead.at >= REREAD_AFTER_MS) lastRead = { ms: readNative() ?? lastRead?.ms ?? null, at: now };
   return lastRead.ms;
 }

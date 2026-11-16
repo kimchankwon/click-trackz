@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useReportedOutputLatency } from "@/audio/use-reported-output-latency";
 import { useTimingTest } from "@/audio/use-timing-test";
 import { ActionButton } from "@/components/action-button";
 import { VolumeBar } from "@/components/playback/volume-bar";
@@ -18,7 +19,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromTaps } from "@/lib/timing-test";
-import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS, latencyPresets } from "@/settings/latency";
+import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
 const TEST_INTERVAL_MS = 1_000;
@@ -38,7 +39,8 @@ export default function LatencyScreen() {
   const [mode, setMode] = useState<Mode | null>(null);
   const [offsets, setOffsets] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [chosenPreset, setChosenPreset] = useState<string | null>(null);
+  const reported = useReportedOutputLatency();
+  const recommended = clampLatency(reported ?? 0);
   const test = useTimingTest();
   const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
   const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
@@ -83,7 +85,7 @@ export default function LatencyScreen() {
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
-            Lines up late Bluetooth audio with everyone else
+            Plays this device early to make up for the delay of its speaker or headphones
           </ThemedText>
 
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
@@ -148,43 +150,36 @@ export default function LatencyScreen() {
             </View>
           </View>
 
-          <View style={styles.group}>
-            <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
-              Quick presets
+          {reported === null ? null : reported > LATENCY_MAX_MS ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="reported-beyond-range">
+              {`This device reports a delay of ${reported} ms for the output it is playing through now, more than the ${LATENCY_MAX_MS} ms a Latency nudge can make up.`}
             </ThemedText>
-            <View style={styles.presets}>
-              {latencyPresets.map((preset) => {
-                const matching = latencyPresets.filter((p) => p.ms === nudge);
-                const selected =
-                  preset.ms === nudge && (matching.some((p) => p.label === chosenPreset) ? preset.label === chosenPreset : matching[0] === preset);
-                return (
-                  <Pressable
-                    key={preset.label}
-                    testID={`preset-${preset.label}`}
-                    role="radio"
-                    aria-checked={selected}
-                    onPress={() => {
-                      setChosenPreset(preset.label);
-                      setNudge(preset.ms);
-                    }}
-                    style={[
-                      styles.preset,
-                      { backgroundColor: selected ? theme.accentTint : theme.backgroundElement, borderColor: selected ? theme.accent : "transparent" },
-                    ]}
-                  >
-                    <View style={styles.presetTop}>
-                      <ThemedText type="smallBold" themeColor={selected ? "accent" : "text"} style={styles.grow}>
-                        {preset.label}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabular}>
-                      {preset.ms} ms
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
+          ) : (
+            <View style={styles.group}>
+              <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
+                Recommended
+              </ThemedText>
+              <Pressable
+                testID="preset-recommended"
+                role="button"
+                aria-pressed={nudge === recommended}
+                onPress={() => setNudge(recommended)}
+                style={[
+                  styles.preset,
+                  nudge === recommended
+                    ? { backgroundColor: theme.accentTint, borderColor: theme.accent }
+                    : { backgroundColor: theme.backgroundElement, borderColor: "transparent" },
+                ]}
+              >
+                <ThemedText type="smallBold" themeColor={nudge === recommended ? "accent" : "text"}>
+                  {`Use ${recommended} ms`}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  The delay this device reports for the output it is playing through now. It changes when you connect headphones or a speaker.
+                </ThemedText>
+              </Pressable>
             </View>
-          </View>
+          )}
 
           <View style={styles.group}>
             <ThemedText type="label" themeColor="textSecondary" role="heading" style={styles.groupLabel}>
@@ -272,14 +267,10 @@ const styles = StyleSheet.create({
   readout: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", gap: Spacing.two },
   readoutValue: { fontFamily: Fonts.condensed, fontSize: 72, lineHeight: 78, fontWeight: "700", fontVariant: ["tabular-nums"] },
   readoutUnit: { fontFamily: Fonts.display, fontSize: 24, lineHeight: 30, fontWeight: "700" },
-  presetTop: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   centered: { textAlign: "center" },
   steps: { flexDirection: "row", gap: Spacing.two },
   stepCell: { flex: 1, flexDirection: "row" },
-  presets: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
-  preset: { width: "48.5%", flexGrow: 1, gap: 2, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
-  tabular: { fontVariant: ["tabular-nums"] },
-  grow: { flex: 1, minWidth: 0 },
+  preset: { gap: Spacing.one, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
   buttons: { flexDirection: "row", gap: Spacing.two },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
