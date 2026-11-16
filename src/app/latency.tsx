@@ -1,5 +1,5 @@
 import { router, usePreventRemove } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -53,11 +53,17 @@ export default function LatencyScreen() {
   const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
   const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
 
-  const setNudge = (ms: number) => setDraft(clampLatency(ms));
+  const saveAttempt = useRef(0);
+  const setNudge = (ms: number) => {
+    saveAttempt.current += 1;
+    setDraft(clampLatency(ms));
+  };
   const saveAndLeave = async () => {
+    const mine = ++saveAttempt.current;
     test.stop();
     setMode(null);
     const kept = await setStored(String(nudge));
+    if (saveAttempt.current !== mine) return;
     if (kept) setLeaving(true);
     else setAskLeave(false);
   };
@@ -281,7 +287,10 @@ export default function LatencyScreen() {
           cancelLabel="Discard"
           onConfirm={() => void saveAndLeave()}
           onCancel={discardAndLeave}
-          onDismiss={() => setAskLeave(false)}
+          onDismiss={() => {
+            saveAttempt.current += 1;
+            setAskLeave(false);
+          }}
           testID="latency-leave-dialog"
         />
       </SafeAreaView>

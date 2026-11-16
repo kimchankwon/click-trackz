@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { onDeviceSetting } from "./device-setting-events";
+import { notifyDeviceSetting, onDeviceSetting } from "./device-setting-events";
 import { deviceStore } from "./device-store";
 
 export function useDeviceSetting<T extends string>(key: string, fallback: T, isValid: (value: string) => value is T) {
@@ -34,16 +34,18 @@ export function useDeviceSetting<T extends string>(key: string, fallback: T, isV
 
   const update = useCallback(
     (next: T) => {
+      const before = value;
       setSaveFailed(false);
       return deviceStore.set(key, next).then(
         () => true,
         () => {
+          notifyDeviceSetting(key, before);
           setSaveFailed(true);
           return false;
         },
       );
     },
-    [key],
+    [key, value],
   );
 
   return [value, update, saveFailed, loaded] as const;

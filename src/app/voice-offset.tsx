@@ -1,5 +1,5 @@
 import { router, usePreventRemove } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -49,10 +49,17 @@ export default function VoiceOffsetScreen() {
     if (leaving) router.back();
   }, [leaving]);
 
-  const move = (steps: number) => setDraft(stepVoiceOffset(offset, steps));
+  const saveAttempt = useRef(0);
+  const setOffsetDraft = (ms: number) => {
+    saveAttempt.current += 1;
+    setDraft(ms);
+  };
+  const move = (steps: number) => setOffsetDraft(stepVoiceOffset(offset, steps));
   const saveAndLeave = async () => {
+    const mine = ++saveAttempt.current;
     test.stop();
     const kept = await setStored(String(offset));
+    if (saveAttempt.current !== mine) return;
     if (kept) setLeaving(true);
     else setAskLeave(false);
   };
@@ -111,7 +118,7 @@ export default function VoiceOffsetScreen() {
               hideValue
               bare
               origin={-VOICE_OFFSET_MIN_MS / (VOICE_OFFSET_MAX_MS - VOICE_OFFSET_MIN_MS)}
-              onChange={(fraction) => setDraft(stepVoiceOffset(VOICE_OFFSET_MIN_MS + fraction * (VOICE_OFFSET_MAX_MS - VOICE_OFFSET_MIN_MS), 0))}
+              onChange={(fraction) => setOffsetDraft(stepVoiceOffset(VOICE_OFFSET_MIN_MS + fraction * (VOICE_OFFSET_MAX_MS - VOICE_OFFSET_MIN_MS), 0))}
             />
             <View style={styles.steps}>
               {[-5, -1, 1, 5].map((steps) => (
@@ -128,7 +135,7 @@ export default function VoiceOffsetScreen() {
                 </View>
               ))}
             </View>
-            <ActionButton icon="repeat" label="Reset to 0 ms" testID="voice-offset-reset" disabled={offset === 0} onPress={() => setDraft(0)} />
+            <ActionButton icon="repeat" label="Reset to 0 ms" testID="voice-offset-reset" disabled={offset === 0} onPress={() => setOffsetDraft(0)} />
           </View>
 
           <View style={styles.group}>
@@ -172,7 +179,10 @@ export default function VoiceOffsetScreen() {
           cancelLabel="Discard"
           onConfirm={() => void saveAndLeave()}
           onCancel={discardAndLeave}
-          onDismiss={() => setAskLeave(false)}
+          onDismiss={() => {
+            saveAttempt.current += 1;
+            setAskLeave(false);
+          }}
           testID="voice-offset-leave-dialog"
         />
       </SafeAreaView>
