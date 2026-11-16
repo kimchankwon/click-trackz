@@ -152,7 +152,7 @@ export function SoundSettings({
           <View style={styles.grow}>
             <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              For bluetooth audio
+              For this device's speaker or headphones
             </ThemedText>
           </View>
           <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
