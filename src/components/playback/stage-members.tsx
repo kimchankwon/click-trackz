@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentRef } from "react";
-import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   LayoutAnimationConfig,
@@ -14,6 +14,7 @@ import Animated, {
   ZoomOut,
 } from "react-native-reanimated";
 
+import type { OnlineListAnchor } from "@/components/group/online-members";
 import { DISC } from "@/components/playback/beat-pulse";
 import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
@@ -25,11 +26,7 @@ export type StageMember = { userId: string; name: string; position: number; ping
 
 export type StageBubble = { text: string; at: number };
 
-type Picked = { member: StageMember; x: number; y: number; width: number; height: number };
-
-const BUBBLE_WIDTH = 168;
-const BUBBLE_GAP = 8;
-const SCREEN_MARGIN = 12;
+type OpenList = (anchor: OnlineListAnchor) => void;
 
 function SaidBubble({ bubble }: { bubble: StageBubble }) {
   const theme = useTheme();
@@ -45,16 +42,17 @@ function SaidBubble({ bubble }: { bubble: StageBubble }) {
   );
 }
 
-function MemberAvatar({ member, said, pulse, onPick }: { member: StageMember; said?: StageBubble; pulse: ReturnType<typeof usePulse>; onPick: (picked: Picked) => void }) {
+function MemberAvatar({ member, said, pulse, onOpen }: { member: StageMember; said?: StageBubble; pulse: ReturnType<typeof usePulse>; onOpen: OpenList }) {
   const theme = useTheme();
   const anchor = useRef<ComponentRef<typeof View>>(null);
   return (
     <Pressable
       role="button"
-      aria-label={`${member.name}${member.isYou ? " (you)" : ""}, online${member.started ? ", started Playback" : ""}${member.pingMs !== null ? `, ${Math.round(member.pingMs)} ms` : ""}`}
+      aria-label={`${member.name}${member.isYou ? " (you)" : ""}, online${member.started ? ", started Playback" : ""}${member.pingMs !== null ? `, ${Math.round(member.pingMs)} ms` : ""}. Show who is online`}
+      aria-haspopup="dialog"
       testID={`stage-member-${member.name}`}
       hitSlop={6}
-      onPress={() => anchor.current?.measureInWindow((x, y, width, height) => onPick({ member, x, y, width, height }))}
+      onPress={() => anchor.current?.measureInWindow((x, y, width, height) => onOpen({ x, y, width, height, focus: member.userId }))}
     >
       <View ref={anchor} collapsable={false}>
         <Animated.View style={[styles.ring, { borderColor: member.started ? theme.accent : theme.switchOn }, pulse]} testID={member.started ? "stage-starter" : undefined}>
@@ -73,52 +71,6 @@ function MemberAvatar({ member, said, pulse, onPick }: { member: StageMember; sa
         {said ? <SaidBubble key={said.at} bubble={said} /> : null}
       </View>
     </Pressable>
-  );
-}
-
-function MemberBubble({ picked, onClose }: { picked: Picked | null; onClose: () => void }) {
-  const theme = useTheme();
-  const screen = useWindowDimensions();
-  if (picked === null) return null;
-  const { member } = picked;
-  const left = Math.min(Math.max(SCREEN_MARGIN, picked.x + picked.width / 2 - BUBBLE_WIDTH / 2), screen.width - BUBBLE_WIDTH - SCREEN_MARGIN);
-  const above = picked.y > 120;
-  return (
-    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.dismiss} onPress={onClose} testID="member-bubble-dismiss" aria-label="Close">
-        <View
-          role="tooltip"
-          testID="member-bubble"
-          style={[
-            styles.bubble,
-            { left, backgroundColor: theme.inverse },
-            above ? { bottom: screen.height - picked.y + BUBBLE_GAP } : { top: picked.y + picked.height + BUBBLE_GAP },
-          ]}
-        >
-          <ThemedText type="smallBold" themeColor="onInverse" numberOfLines={1}>
-            {member.name}
-            {member.isYou ? " (you)" : ""}
-          </ThemedText>
-          {member.started ? (
-            <ThemedText type="caption" themeColor="onInverse" style={styles.bubbleMuted}>
-              Started Playback
-            </ThemedText>
-          ) : null}
-          {member.pingMs !== null ? (
-            <View style={styles.bubblePing}>
-              <SignalBars roundTripMs={member.pingMs} size={11} />
-              <ThemedText type="caption" themeColor="onInverse" style={styles.bubblePingText}>
-                {Math.round(member.pingMs)} ms ping
-              </ThemedText>
-            </View>
-          ) : (
-            <ThemedText type="caption" themeColor="onInverse" style={styles.bubbleMuted}>
-              Online
-            </ThemedText>
-          )}
-        </View>
-      </Pressable>
-    </Modal>
   );
 }
 
@@ -153,14 +105,15 @@ function Column({
   members,
   bubbles,
   pulse,
-  onPick,
+  onOpen,
 }: {
   members: readonly StageMember[];
   bubbles: ReadonlyMap<string, StageBubble>;
   pulse: ReturnType<typeof usePulse>;
-  onPick: (picked: Picked) => void;
+  onOpen: OpenList;
 }) {
   const theme = useTheme();
+  const more = useRef<ComponentRef<typeof View>>(null);
   const shown = members.length > MAX_PER_SIDE ? members.slice(0, MAX_PER_SIDE - 1) : members;
   const extra = members.length - shown.length;
   return (
@@ -172,16 +125,27 @@ function Column({
           exiting={ZoomOut.duration(220)}
           layout={LinearTransition.duration(220)}
         >
-          <MemberAvatar member={member} said={bubbles.get(member.userId)} pulse={pulse} onPick={onPick} />
+          <MemberAvatar member={member} said={bubbles.get(member.userId)} pulse={pulse} onOpen={onOpen} />
         </Animated.View>
       ))}
       {extra > 0 ? (
         <Animated.View entering={ZoomIn.duration(260)} exiting={ZoomOut.duration(220)} layout={LinearTransition.duration(220)}>
-          <Animated.View style={[styles.ring, styles.more, { borderColor: theme.switchOn, backgroundColor: theme.backgroundElement }, pulse]}>
-            <ThemedText type="caption" themeColor="textSecondary" style={styles.moreText}>
-              +{extra}
-            </ThemedText>
-          </Animated.View>
+          <Pressable
+            role="button"
+            aria-label={`${extra} more online. Show who is online`}
+            aria-haspopup="dialog"
+            testID="stage-members-more"
+            hitSlop={6}
+            onPress={() => more.current?.measureInWindow((x, y, width, height) => onOpen({ x, y, width, height }))}
+          >
+            <View ref={more} collapsable={false}>
+              <Animated.View style={[styles.ring, styles.more, { borderColor: theme.switchOn, backgroundColor: theme.backgroundElement }, pulse]}>
+                <ThemedText type="caption" themeColor="textSecondary" style={styles.moreText}>
+                  +{extra}
+                </ThemedText>
+              </Animated.View>
+            </View>
+          </Pressable>
         </Animated.View>
       ) : null}
     </View>
@@ -210,30 +174,24 @@ export function StageMembers({
   playing,
   visible = true,
   bubbles = NO_BUBBLES,
+  onOpen,
 }: {
   members: readonly StageMember[];
   beat: Beat | null;
   playing: boolean;
   visible?: boolean;
   bubbles?: ReadonlyMap<string, StageBubble>;
+  onOpen: OpenList;
 }) {
   const pulse = usePulse(beat, playing);
   const onSide = useSides(members);
-  const [picked, setPicked] = useState<Picked | null>(null);
-  const [wasVisible, setWasVisible] = useState(visible);
-  if (wasVisible !== visible) {
-    setWasVisible(visible);
-    setPicked(null);
-  }
   if (!visible) return null;
-  const current = picked === null ? null : members.find((member) => member.userId === picked.member.userId);
   return (
     <LayoutAnimationConfig skipEntering skipExiting>
       <View pointerEvents="box-none" style={styles.overlay}>
-        <Column members={onSide("left")} bubbles={bubbles} pulse={pulse} onPick={setPicked} />
+        <Column members={onSide("left")} bubbles={bubbles} pulse={pulse} onOpen={onOpen} />
         <View pointerEvents="none" style={styles.discSpace} />
-        <Column members={onSide("right")} bubbles={bubbles} pulse={pulse} onPick={setPicked} />
-        <MemberBubble picked={picked && current ? { ...picked, member: current } : null} onClose={() => setPicked(null)} />
+        <Column members={onSide("right")} bubbles={bubbles} pulse={pulse} onOpen={onOpen} />
       </View>
     </LayoutAnimationConfig>
   );
@@ -247,7 +205,6 @@ const styles = StyleSheet.create({
   more: { width: SLOT, height: SLOT, alignItems: "center", justifyContent: "center" },
   moreText: { fontSize: 12, fontWeight: 700 },
   ping: { position: "absolute", right: -6, bottom: -4, paddingHorizontal: 3, paddingVertical: 2, borderRadius: 6 },
-  dismiss: { flex: 1 },
   saidFrame: { position: "absolute", bottom: "100%", left: "50%", width: SAID_WIDTH, marginLeft: -SAID_WIDTH / 2, marginBottom: 6, alignItems: "center", zIndex: 2 },
   said: { maxWidth: SAID_WIDTH, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8 },
   saidText: { fontSize: 10, lineHeight: 13, fontWeight: 600, textAlign: "center" },
@@ -263,20 +220,4 @@ const styles = StyleSheet.create({
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
   },
-  bubble: {
-    position: "absolute",
-    width: BUBBLE_WIDTH,
-    gap: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  bubblePing: { flexDirection: "row", alignItems: "center", gap: 6 },
-  bubblePingText: { fontVariant: ["tabular-nums"] },
-  bubbleMuted: { opacity: 0.8 },
 });

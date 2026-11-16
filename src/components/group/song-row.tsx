@@ -18,6 +18,7 @@ export function SongRow({
   opens,
   label,
   onSelect,
+  leading,
   trailing,
   testID,
   warningAsDot,
@@ -35,6 +36,7 @@ export function SongRow({
   opens?: boolean;
   label?: string;
   onSelect: () => void;
+  leading?: ReactNode;
   trailing?: ReactNode;
   testID?: string;
   warningAsDot?: boolean;
@@ -51,7 +53,8 @@ export function SongRow({
   const narratesMeta = describesMeta && Platform.OS === "web";
   return (
     <View style={[styles.row, selected ? { backgroundColor: theme.accentTint } : null]}>
-      {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: index !== undefined ? 54 : Spacing.two }]} /> : null}
+      {divider && !selected ? <View style={[styles.divider, { backgroundColor: theme.border, left: (index !== undefined ? 54 : Spacing.two) + (leading ? LEADING_WIDTH : 0) }]} /> : null}
+      {leading}
       <Pressable
         role={selectable ? (opens ? "button" : "radio") : undefined}
         aria-checked={selectable && !opens ? selected : undefined}
@@ -109,6 +112,8 @@ export function SongRow({
     </View>
   );
 }
+
+export const LEADING_WIDTH = 36;
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, paddingRight: Spacing.one },

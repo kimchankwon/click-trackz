@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { cancelAnimation, Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { carouselSlot, sideScaleFor } from "@/lib/section-carousel";
+import { useFlash } from "@/components/playback/cue-motion";
 
 const SIDE_WIDTH = 76;
 const LABEL_HEIGHT = 14;
 const HEIGHT = 60;
 const SLIDE_MS = 380;
 
-export type CarouselEntry = { index: number | null; title: string };
+export type CarouselEntry = { index: number | null; title: string; pass?: string | null };
 
 type Shown = {
   key: string;
@@ -21,22 +22,21 @@ type Shown = {
   next: CarouselEntry | null;
   outgoing: CarouselEntry | null;
   step: number;
-  swaps: number;
 };
 
-const keyOf = (entry: CarouselEntry | null) => (entry === null ? "none" : `${entry.index}:${entry.title}`);
+const keyOf = (entry: CarouselEntry | null) => (entry === null ? "none" : `${entry.index}:${entry.pass ?? ""}:${entry.title}`);
 
 function Title({
   entry,
   slot,
-  shift,
+  enter,
   width,
   colors,
   testID,
 }: {
   entry: CarouselEntry;
   slot: number;
-  shift: SharedValue<number>;
+  enter: number;
   width: number;
   colors: { previous: string; current: string; next: string };
   testID?: string;
@@ -44,6 +44,10 @@ function Title({
   const fontSize = entry.title.length > 9 ? 32 : 40;
   const sideScale = sideScaleFor(fontSize);
   const centreWidth = Math.max(0, width - 2 * (SIDE_WIDTH + Spacing.two));
+  const shift = useSharedValue(enter);
+  useEffect(() => {
+    if (shift.get() !== 0) shift.set(withTiming(0, { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) }));
+  }, [shift]);
   const style = useAnimatedStyle(() => {
     const place = carouselSlot(slot + shift.value, width, SIDE_WIDTH, sideScale);
     return {
@@ -71,34 +75,33 @@ export function SectionCarousel({
   next,
   nextLabel,
   nextAccent,
+  nextFlashes,
 }: {
   previous: CarouselEntry | null;
   current: CarouselEntry;
   next: CarouselEntry | null;
   nextLabel: string;
   nextAccent: boolean;
+  nextFlashes: boolean;
 }) {
   const theme = useTheme();
+  const glow = useFlash(nextFlashes);
+  const flash = useAnimatedStyle(() => ({ opacity: glow.get() }));
   const [width, setWidth] = useState(0);
-  const shift = useSharedValue(0);
   const key = keyOf(current);
-  const [shown, setShown] = useState<Shown>({ key, previous, current, next, outgoing: null, step: 0, swaps: 0 });
+  const [shown, setShown] = useState<Shown>({ key, previous, current, next, outgoing: null, step: 0 });
   if (shown.key !== key) {
     const forward = shown.next !== null && shown.next.index !== null && shown.next.index === current.index;
-    setShown({ key, previous, current, next, outgoing: forward ? shown.previous : null, step: forward ? shown.step + 1 : shown.step, swaps: forward ? shown.swaps : shown.swaps + 1 });
+    setShown({ key, previous, current, next, outgoing: forward ? shown.previous : null, step: forward ? shown.step + 1 : shown.step });
   } else if (keyOf(shown.previous) !== keyOf(previous) || keyOf(shown.next) !== keyOf(next) || shown.current.title !== current.title) {
     setShown({ ...shown, previous, current, next });
   }
+  const [settledStep, setSettledStep] = useState(0);
   useEffect(() => {
-    if (shown.step === 0) return;
-    shift.set(1);
-    shift.set(withTiming(0, { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) }));
-  }, [shown.step, shift]);
-  useEffect(() => {
-    if (shown.swaps === 0) return;
-    cancelAnimation(shift);
-    shift.set(0);
-  }, [shown.swaps, shift]);
+    const timer = setTimeout(() => setSettledStep(shown.step), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [shown.step]);
+  const enter = shown.step !== settledStep ? 1 : 0;
   const colors = { previous: theme.textSecondary, current: theme.text, next: nextAccent ? theme.accent : theme.textSecondary };
   return (
     <View style={styles.row} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
@@ -106,16 +109,18 @@ export function SectionCarousel({
         <ThemedText themeColor="textTertiary" style={styles.label}>
           {shown.previous ? "Previous" : " "}
         </ThemedText>
-        <ThemedText themeColor={nextAccent ? "accent" : "textTertiary"} style={[styles.label, styles.labelEnd]}>
-          {shown.next || nextAccent ? nextLabel : " "}
-        </ThemedText>
+        <Animated.View style={flash} testID="playback-next-label">
+          <ThemedText themeColor={nextAccent ? "accent" : "textTertiary"} style={[styles.label, styles.labelEnd]}>
+            {shown.next || nextAccent ? nextLabel : " "}
+          </ThemedText>
+        </Animated.View>
       </View>
       {width > 0 ? (
         <View style={styles.titles} aria-live="polite">
-          {shown.outgoing ? <Title key={`out-${keyOf(shown.outgoing)}-${shown.step}`} entry={shown.outgoing} slot={-2} shift={shift} width={width} colors={colors} /> : null}
-          {shown.previous ? <Title key={`prev-${keyOf(shown.previous)}`} entry={shown.previous} slot={-1} shift={shift} width={width} colors={colors} testID="previous-section" /> : null}
-          <Title key={`now-${key}`} entry={shown.current} slot={0} shift={shift} width={width} colors={colors} testID="current-section" />
-          {shown.next ? <Title key={`next-${keyOf(shown.next)}`} entry={shown.next} slot={1} shift={shift} width={width} colors={colors} testID="playback-next" /> : null}
+          {shown.outgoing ? <Title key={`out-${keyOf(shown.outgoing)}-${shown.step}`} entry={shown.outgoing} slot={-2} enter={enter} width={width} colors={colors} /> : null}
+          {shown.previous ? <Title key={`prev-${keyOf(shown.previous)}-${shown.step}`} entry={shown.previous} slot={-1} enter={enter} width={width} colors={colors} testID="previous-section" /> : null}
+          <Title key={`now-${key}`} entry={shown.current} slot={0} enter={enter} width={width} colors={colors} testID="current-section" />
+          {shown.next ? <Title key={`next-${keyOf(shown.next)}-${shown.step}`} entry={shown.next} slot={1} enter={enter} width={width} colors={colors} testID="playback-next" /> : null}
         </View>
       ) : null}
     </View>

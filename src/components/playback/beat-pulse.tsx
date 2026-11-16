@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { countFontSize, EM_PER_CHARACTER } from "@/components/playback/count-font";
+import { useLeadProgress } from "@/components/playback/cue-motion";
 import { ThemedText } from "@/components/themed-text";
 import { Fonts, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
@@ -33,7 +34,6 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
   const scale = useSharedValue(1);
   const discScale = useSharedValue(1);
   const ring = useSharedValue(0);
-  const ending = useSharedValue(0);
   const beatAt = playing ? beat?.at : undefined;
   const accent = beat?.accent ?? false;
   const level = beat ? accentLevelOf(beat) : "beat";
@@ -53,19 +53,7 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
   }, [beatAt, level, scale, discScale, ring]);
 
   const lead = playing ? (beat?.lead ?? null) : null;
-  const leading = lead !== null;
-  const endingFrom = lead ? (lead.beat - 1) / lead.beats : 0;
-  const endingTo = lead ? lead.beat / lead.beats : 0;
-  const beatMs = beat?.beatMs ?? 0;
-
-  useEffect(() => {
-    if (!leading) {
-      ending.value = 0;
-      return;
-    }
-    ending.value = endingFrom;
-    ending.value = withTiming(endingTo, { duration: beatMs, easing: Easing.linear });
-  }, [leading, endingFrom, endingTo, beatMs, beatAt, ending]);
+  const ending = useLeadProgress(beat, playing);
 
   const background = theme.backgroundElement;
   const endingBackground = theme.warningTint;

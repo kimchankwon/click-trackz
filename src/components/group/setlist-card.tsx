@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
 import { Chip } from "@/components/group/chip";
+import { ReorderList } from "@/components/group/reorder-list";
 import { SongRow } from "@/components/group/song-row";
 import { ActionButton } from "@/components/action-button";
 import { ThemedText } from "@/components/themed-text";
@@ -13,9 +14,15 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
+import { keysWithRepeats, moveItem } from "@/lib/reorder";
 import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+const TAP_AFTER_DROP_MS = 400;
+const CHANGED_ELSEWHERE = "Someone else changed this Setlist just now, so your move was not saved. This is the latest order.";
+
+type SetlistEntry = { songId: Id<"songs">; title: string; key: string | null; leader: string | null; needsStructure: boolean };
 
 export function SetlistCard({
   groupId,
@@ -23,6 +30,7 @@ export function SetlistCard({
   canPick,
   selectedSongId,
   onSelect,
+  onReordering,
   run,
 }: {
   groupId: Id<"groups">;
@@ -30,12 +38,16 @@ export function SetlistCard({
   canPick: boolean;
   selectedSongId: Id<"songs"> | null;
   onSelect: (songId: Id<"songs">, position: number, fromCurrentSetlist: boolean) => void;
+  onReordering: (reordering: boolean) => void;
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
   const setlists = liveOr(useQuery(api.setlists.list, { groupId }), () => stored?.setlists);
   const createSetlist = useMutation(api.setlists.createSetlist);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
+  const setCurrent = useMutation(api.setlists.setCurrent);
+  const [makingCurrent, setMakingCurrent] = useState<Id<"setlists"> | null>(null);
+  const [currentError, setCurrentError] = useState<{ setlistId: Id<"setlists">; message: string } | null>(null);
   const [deleting, setDeleting] = useState<{ setlistId: Id<"setlists">; name: string } | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const creating = useRef(false);
@@ -46,8 +58,33 @@ export function SetlistCard({
   const shown = setlists?.find((s) => s.setlistId === shownId) ?? current ?? setlists?.[0] ?? null;
   const liveSetlist = useQuery(api.setlists.get, shown ? { setlistId: shown.setlistId } : "skip");
   const setlist = liveOr(liveSetlist, () => (shown && stored ? stored.setlist(shown.setlistId) : undefined));
+  const saveSetlist = useMutation(api.setlists.save);
+  const [moved, setMoved] = useState<{ setlistId: Id<"setlists">; revision: number; entries: SetlistEntry[] } | null>(null);
+  const [moveNote, setMoveNote] = useState<{ setlistId: Id<"setlists">; text: string; tone: "info" | "error" } | null>(null);
+  const droppedAt = useRef(0);
   if (!setlists || (setlists.length === 0 && !canEdit)) return null;
-  const entries = setlist?.entries ?? [];
+  const savingMove = moved !== null && liveSetlist !== undefined && liveSetlist !== null && moved.setlistId === liveSetlist.setlistId && moved.revision === liveSetlist.revision;
+  const entries = savingMove ? moved.entries : (setlist?.entries ?? []);
+  const canReorder = canEdit && liveSetlist !== undefined && liveSetlist !== null && moved === null && entries.length > 1;
+  const reorder = (from: number, to: number) => {
+    if (!canReorder || !liveSetlist) return;
+    const next = moveItem(liveSetlist.entries, from, to);
+    const target = { setlistId: liveSetlist.setlistId, revision: liveSetlist.revision, entries: next };
+    setMoveNote(null);
+    setMoved(target);
+    saveSetlist({
+      setlistId: target.setlistId,
+      revision: target.revision,
+      name: liveSetlist.name,
+      entries: next.map((entry) => ({ songId: entry.songId, key: entry.key ?? undefined, leader: entry.leader ?? undefined })),
+    })
+      .catch((error: unknown) => {
+        const conflict = errorText(error).startsWith("Someone else changed this Setlist");
+        setMoveNote({ setlistId: target.setlistId, text: conflict ? CHANGED_ELSEWHERE : errorText(error), tone: conflict ? "info" : "error" });
+      })
+      .finally(() => setMoved((current) => (current === target ? null : current)));
+  };
+  const rowKeys = keysWithRepeats(entries.map((entry) => entry.songId));
   const allNeedSections = entries.length > 0 && entries.every((entry) => entry.needsStructure);
   const someNeedSections = entries.some((entry) => entry.needsStructure);
   const confirmDelete = async () => {
@@ -63,6 +100,18 @@ export function SetlistCard({
       setDeleteError(errorText(error));
     } finally {
       setDeletePending(false);
+    }
+  };
+  const makeCurrent = async (setlistId: Id<"setlists">) => {
+    if (makingCurrent !== null) return;
+    setCurrentError(null);
+    setMakingCurrent(setlistId);
+    try {
+      await setCurrent({ groupId, setlistId });
+    } catch (error) {
+      setCurrentError({ setlistId, message: errorText(error) });
+    } finally {
+      setMakingCurrent(null);
     }
   };
   const createAndOpen = () => {
@@ -139,6 +188,25 @@ export function SetlistCard({
           ))}
         </View>
       ) : null}
+      {canEdit && shown && !shown.isCurrent ? (
+        <View style={styles.makeCurrent}>
+          <ActionButton
+            small
+            variant="secondary"
+            icon="star"
+            label={makingCurrent === shown.setlistId ? "Making current…" : "Make current"}
+            accessibleName={`Make ${shown.name} the Current setlist`}
+            testID="setlist-make-current"
+            pending={makingCurrent === shown.setlistId}
+            onPress={() => void makeCurrent(shown.setlistId)}
+          />
+          {currentError?.setlistId === shown.setlistId ? (
+            <ThemedText type="caption" themeColor="danger" role="alert" testID="setlist-make-current-error">
+              {currentError.message}
+            </ThemedText>
+          ) : null}
+        </View>
+      ) : null}
       {setlists.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
           No Setlists yet.
@@ -157,22 +225,48 @@ export function SetlistCard({
               </ThemedText>
             </View>
           ) : null}
-          {entries.map((entry, index) => (
-            <SongRow
-              key={`${entry.songId}-${index}`}
-              index={index + 1}
-              title={entry.title}
-              meta={entry.leader ? `Led by ${entry.leader}` : null}
-              songKey={entry.key}
-              needsSections={!allNeedSections && entry.needsStructure}
-              warningAsDot
-              divider={index > 0}
-              selected={selectedSongId === entry.songId}
-              selectable={canPick}
-              onSelect={() => onSelect(entry.songId, index, shown?.isCurrent === true)}
-              testID={`setlist-entry-${index}`}
-            />
-          ))}
+          <ReorderList
+            items={entries.map((entry, index) => ({ ...entry, rowKey: rowKeys[index], name: entry.title }))}
+            canDrag={canReorder}
+            onMove={reorder}
+            onStale={() => {
+              if (shown) setMoveNote({ setlistId: shown.setlistId, text: CHANGED_ELSEWHERE, tone: "info" });
+            }}
+            onDragging={(dragging) => {
+              if (!dragging) droppedAt.current = Date.now();
+              onReordering(dragging);
+            }}
+            renderRow={(entry, index, handle) => (
+              <SongRow
+                index={index + 1}
+                title={entry.title}
+                meta={entry.leader ? `Led by ${entry.leader}` : null}
+                songKey={entry.key}
+                needsSections={!allNeedSections && entry.needsStructure}
+                warningAsDot
+                divider={index > 0}
+                selected={selectedSongId === entry.songId}
+                selectable={canPick}
+                leading={handle}
+                onSelect={() => {
+                  if (Date.now() - droppedAt.current < TAP_AFTER_DROP_MS) return;
+                  onSelect(entry.songId, index, shown?.isCurrent === true);
+                }}
+                testID={`setlist-entry-${index}`}
+              />
+            )}
+          />
+          {moveNote !== null && moveNote.setlistId === shown?.setlistId ? (
+            <ThemedText
+              type="caption"
+              themeColor={moveNote.tone === "error" ? "danger" : "textSecondary"}
+              role="alert"
+              testID="setlist-move-note"
+              style={styles.moveNote}
+            >
+              {moveNote.text}
+            </ThemedText>
+          ) : null}
         </View>
       )}
       <ConfirmDialog
@@ -193,9 +287,11 @@ export function SetlistCard({
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.one },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two, alignItems: "center" },
+  makeCurrent: { alignItems: "flex-start", gap: Spacing.one },
   list: { marginHorizontal: -Spacing.two, gap: 2 },
   banner: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: Spacing.three, paddingVertical: 12, borderRadius: 12, marginTop: Spacing.one },
   bannerText: { flex: 1, fontWeight: 500 },
+  moveNote: { paddingHorizontal: Spacing.two, paddingTop: Spacing.two },
   legend: { flexDirection: "row", alignItems: "center", gap: Spacing.two, paddingHorizontal: Spacing.two, paddingBottom: Spacing.one },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
 });
