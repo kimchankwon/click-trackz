@@ -35,7 +35,13 @@ export function useDeviceSetting<T extends string>(key: string, fallback: T, isV
   const update = useCallback(
     (next: T) => {
       setSaveFailed(false);
-      deviceStore.set(key, next).catch(() => setSaveFailed(true));
+      return deviceStore.set(key, next).then(
+        () => true,
+        () => {
+          setSaveFailed(true);
+          return false;
+        },
+      );
     },
     [key],
   );

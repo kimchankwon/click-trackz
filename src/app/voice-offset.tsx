@@ -50,10 +50,11 @@ export default function VoiceOffsetScreen() {
   }, [leaving]);
 
   const move = (steps: number) => setDraft(stepVoiceOffset(offset, steps));
-  const saveAndLeave = () => {
+  const saveAndLeave = async () => {
     test.stop();
-    setStored(String(offset));
-    setLeaving(true);
+    const kept = await setStored(String(offset));
+    if (kept) setLeaving(true);
+    else setAskLeave(false);
   };
   const discardAndLeave = () => {
     test.stop();
@@ -161,7 +162,7 @@ export default function VoiceOffsetScreen() {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Save" testID="voice-offset-save" disabled={!changed} onPress={saveAndLeave} />
+          <ActionButton large full accent icon="check" label="Save" testID="voice-offset-save" disabled={!changed} onPress={() => void saveAndLeave()} />
         </View>
         <ConfirmDialog
           visible={askLeave && !leaving}
@@ -169,7 +170,7 @@ export default function VoiceOffsetScreen() {
           message={`Your Voice cue offset (${voiceOffsetText(offset)}) is not saved.`}
           confirmLabel="Save"
           cancelLabel="Discard"
-          onConfirm={saveAndLeave}
+          onConfirm={() => void saveAndLeave()}
           onCancel={discardAndLeave}
           onDismiss={() => setAskLeave(false)}
           testID="voice-offset-leave-dialog"

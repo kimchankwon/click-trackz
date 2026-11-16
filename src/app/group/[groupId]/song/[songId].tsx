@@ -526,11 +526,17 @@ function SongForm({
     if (leavePending || problem) return;
     setLeaveError(null);
     setLeavePending(true);
+    const mine = beginAttempt();
     try {
       await updateSong({ songId, ...draft });
+      if (mine !== attempt.current) {
+        toast.show("Song saved");
+        return;
+      }
       setDeparture(() => () => router.back());
     } catch (error) {
-      setLeaveError(errorText(error));
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setLeaveError(errorText(error));
     } finally {
       setLeavePending(false);
     }
@@ -735,8 +741,11 @@ function SongForm({
           pending={leavePending}
           error={leaveError ?? problem}
           onConfirm={() => void saveAndLeave()}
-          onCancel={() => setDeparture(() => () => router.back())}
+          onCancel={() => {
+            if (!leavePending) setDeparture(() => () => router.back());
+          }}
           onDismiss={() => {
+            abandonAttempt();
             setLeaveError(null);
             setAskDiscard(false);
           }}

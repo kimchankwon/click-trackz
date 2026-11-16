@@ -54,10 +54,12 @@ export default function LatencyScreen() {
   const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
 
   const setNudge = (ms: number) => setDraft(clampLatency(ms));
-  const saveAndLeave = () => {
+  const saveAndLeave = async () => {
     test.stop();
-    setStored(String(nudge));
-    setLeaving(true);
+    setMode(null);
+    const kept = await setStored(String(nudge));
+    if (kept) setLeaving(true);
+    else setAskLeave(false);
   };
   const discardAndLeave = () => {
     test.stop();
@@ -81,10 +83,11 @@ export default function LatencyScreen() {
       else {
         const kept = clampLatency(measured);
         setNudge(kept);
+        const next = kept === saved ? "That is your saved nudge already." : "Press Save to keep it.";
         setMessage(
           kept === measured
-            ? `Measured ${measured} ms from ${offsets.length} taps. Press Save to keep it.`
-            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. Press Save to keep it.`,
+            ? `Measured ${measured} ms from ${offsets.length} taps. ${next}`
+            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. ${next}`,
         );
       }
     }
@@ -268,7 +271,7 @@ export default function LatencyScreen() {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!changed} onPress={saveAndLeave} />
+          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!changed} onPress={() => void saveAndLeave()} />
         </View>
         <ConfirmDialog
           visible={askLeave && !leaving}
@@ -276,7 +279,7 @@ export default function LatencyScreen() {
           message={`Your Latency nudge of ${nudge} ms is not saved.`}
           confirmLabel="Save"
           cancelLabel="Discard"
-          onConfirm={saveAndLeave}
+          onConfirm={() => void saveAndLeave()}
           onCancel={discardAndLeave}
           onDismiss={() => setAskLeave(false)}
           testID="latency-leave-dialog"
