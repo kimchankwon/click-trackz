@@ -108,8 +108,6 @@ describe("useSoundSettings before the profile has loaded", () => {
     rerender();
     await Promise.resolve();
 
-    for (const sound of harness.state.saved) {
-      expect(sound).toMatchObject({ speaker: "alice", voiceSpeed: "normal", clickVolume: 0.3, voiceVolume: 0.2 });
-    }
+    expect(harness.state.saved).toEqual([{ ...savedProfile, spokenCounts: false }]);
   });
 });

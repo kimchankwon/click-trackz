@@ -2,8 +2,8 @@ export type ClockMapping = {
   audioMinusServerMs: number;
 };
 
-export function audioTimeFor(beatServerMs: number, mapping: ClockMapping, outputLatencyMs: number): number {
-  return (beatServerMs + mapping.audioMinusServerMs - outputLatencyMs) / 1000;
+export function audioTimeFor(beatServerMs: number, mapping: ClockMapping, earlyByMs: number): number {
+  return (beatServerMs + mapping.audioMinusServerMs - earlyByMs) / 1000;
 }
 
 const SNAP_BEYOND_MS = 50;
@@ -20,11 +20,6 @@ export function slewMapping(current: ClockMapping | null, targetAudioMinusServer
   return { audioMinusServerMs: current.audioMinusServerMs + step };
 }
 
-export function scheduleTimeFor(
-  beatServerMs: number,
-  mapping: ClockMapping,
-  reportedLatencyMs: number,
-  latencyNudgeMs: number,
-): number {
-  return audioTimeFor(beatServerMs, mapping, reportedLatencyMs + latencyNudgeMs);
+export function scheduleTimeFor(beatServerMs: number, mapping: ClockMapping, latencyNudgeMs: number): number {
+  return audioTimeFor(beatServerMs, mapping, latencyNudgeMs);
 }

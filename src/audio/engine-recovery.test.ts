@@ -122,7 +122,7 @@ vi.mock("./builtin-voice-clips", () => ({
 }));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
 vi.mock("./hidden-lookahead", () => ({ HIDDEN_LOOKAHEAD_MS: 3_000 }));
-vi.mock("./output-latency", () => ({ outputLatencyMs: () => 0 }));
+vi.mock("./output-latency", () => ({ watchOutput: () => undefined, reportedOutputLatencyMs: () => null }));
 
 const { CueAudioEngine } = await import("./engine");
 
@@ -229,6 +229,64 @@ describe("re-planning with a long output delay", () => {
 
     expect(context.sources[0].disconnected).toBe(false);
     expect(context.voiceStarts).toHaveLength(1);
+    engine.dispose();
+  });
+});
+
+describe("a Click that has already started", () => {
+  const slow: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 8, beatsPerBar: 4, bpm: 60 }] };
+  const firstBeatClicks = (context: InstanceType<typeof fake.FakeAudioContext>) =>
+    context.oscillatorNodes.filter((oscillator) => oscillator.startedAt !== null && oscillator.startedAt > 0.5 && oscillator.startedAt < 1.2);
+
+  it("is not sounded again when the clock estimate steps back a little while its beat is still ahead", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine();
+    engine.latencyNudgeMs = 300;
+    await engine.enable(() => now, null);
+    const [context] = contexts();
+    engine.setPlan(slow, { startsAt: NOW + 1_000, startSection: 0 });
+    for (let step = 0; step < 30; step++) {
+      now += 25;
+      context.currentTime += 0.025;
+      await vi.advanceTimersByTimeAsync(25);
+    }
+    expect(firstBeatClicks(context)).toHaveLength(1);
+
+    now -= 100;
+    for (let step = 0; step < 8; step++) {
+      now += 25;
+      context.currentTime += 0.025;
+      await vi.advanceTimersByTimeAsync(25);
+    }
+
+    expect(firstBeatClicks(context)).toHaveLength(1);
+    engine.dispose();
+  });
+
+  it("is not sounded again when the Latency nudge is cut after a trim kept it", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine();
+    engine.latencyNudgeMs = 400;
+    await engine.enable(() => now, null);
+    const [context] = contexts();
+    engine.setPlan(slow, { startsAt: NOW + 1_000, startSection: 0 });
+    for (let step = 0; step < 25; step++) {
+      now += 25;
+      context.currentTime += 0.025;
+      await vi.advanceTimersByTimeAsync(25);
+    }
+    expect(firstBeatClicks(context)).toHaveLength(1);
+
+    engine.setHidden(true);
+    engine.setHidden(false);
+    engine.latencyNudgeMs = 0;
+    for (let step = 0; step < 20; step++) {
+      now += 25;
+      context.currentTime += 0.025;
+      await vi.advanceTimersByTimeAsync(25);
+    }
+
+    expect(firstBeatClicks(context)).toHaveLength(1);
     engine.dispose();
   });
 });

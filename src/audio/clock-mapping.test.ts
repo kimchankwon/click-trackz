@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { audioTimeFor, scheduleTimeFor, slewMapping } from "./clock-mapping";
 
 describe("audioTimeFor", () => {
-  it("converts a beat's server time to AudioContext seconds, early by the output latency", () => {
+  it("converts a beat's server time to AudioContext seconds, early by the amount given", () => {
     expect(audioTimeFor(10_000, { audioMinusServerMs: -9_000 }, 20)).toBeCloseTo(0.98, 6);
   });
 });
@@ -24,8 +24,9 @@ describe("slewMapping", () => {
 });
 
 describe("scheduleTimeFor", () => {
-  it("schedules early by the browser's reported latency plus the Member's Latency nudge", () => {
-    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 20, 180)).toBeCloseTo(0.8, 6);
-    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 20, -30)).toBeCloseTo(1.01, 6);
+  it("schedules early by the Member's Latency nudge and nothing else", () => {
+    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 0)).toBeCloseTo(1, 6);
+    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, 180)).toBeCloseTo(0.82, 6);
+    expect(scheduleTimeFor(10_000, { audioMinusServerMs: -9_000 }, -30)).toBeCloseTo(1.03, 6);
   });
 });

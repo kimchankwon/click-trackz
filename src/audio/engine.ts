@@ -10,7 +10,7 @@ import { mappingSnaps, scheduleTimeFor, slewMapping, type ClockMapping } from ".
 import { loadClip } from "./load-clip";
 import { CLICK_BOOST, LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
-import { outputLatencyMs } from "./output-latency";
+import { reportedOutputLatencyMs, watchOutput } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker, defaultVoiceSpeed } from "./voice-clips";
 import { MAX_VOICE_LEAD_MS, voiceLeadMs } from "./voice-onset";
@@ -20,6 +20,7 @@ import { takePrimedContext } from "./primed-context";
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
 const FUTURE_PRUNE_MS = 2_000;
+const SAME_SOUND_WITHIN_MS = 500;
 const CLICK_MS = 40;
 type ClickLevel = AccentLevel | "offbeat";
 type SoundKind = "click" | "offbeat" | "cue" | "count";
@@ -75,7 +76,7 @@ export class CueAudioEngine {
   private scheduledUntil = -Infinity;
   private hidden = false;
   private future: { output: AudioNode; kind: SoundKind; beatAt: number; soundAt: number; audioAt: number; voiceEndsAt?: number }[] = [];
-  private stillSounding = new Set<string>();
+  private stillSounding = new Map<string, number>();
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -137,6 +138,7 @@ export class CueAudioEngine {
     voiceBus.connect(voicePan);
     clickPan.connect(output);
     voicePan.connect(output);
+    watchOutput(context);
     this.context = context;
     this.clickBus = clickBus;
     this.voiceBus = voiceBus;
@@ -214,6 +216,7 @@ export class CueAudioEngine {
     const previous = this.context;
     if (!this.openContext()) return Promise.resolve(false);
     this.mapping = null;
+    this.stillSounding.clear();
     this.scheduledUntil = -Infinity;
     this.voiceBusyUntil = -Infinity;
     previous?.close().catch(() => undefined);
@@ -237,7 +240,7 @@ export class CueAudioEngine {
       state: context?.state ?? "none",
       currentTime: context?.currentTime ?? null,
       aheadMs: now === null || !Number.isFinite(this.scheduledUntil) ? null : Math.round(this.scheduledUntil - now),
-      latencyMs: context ? outputLatencyMs(context) : null,
+      latencyMs: context ? reportedOutputLatencyMs() : null,
       needsFreshContext: this.needsFreshContext,
       failure: this.failure,
       pan: this.panning,
@@ -284,7 +287,7 @@ export class CueAudioEngine {
     if (context === null) throw new Error("Enable sound first");
     this.stopTimingTest();
     tapTestOwner = this;
-    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    const aheadMs = this.latencyNudgeMs;
     const originAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
     this.timing = { originAt, intervalMs, outputs: [] };
     return performance.now() + (originAt - context.currentTime) * 1000;
@@ -294,7 +297,7 @@ export class CueAudioEngine {
     const context = this.context;
     const timing = this.timing;
     if (context === null || timing === null) return;
-    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    const aheadMs = this.latencyNudgeMs;
     for (let index = fromIndex; index < fromIndex + count; index++) {
       const when = timing.originAt + (index * timing.intervalMs) / 1000 - aheadMs / 1000;
       if (when < context.currentTime) continue;
@@ -354,6 +357,7 @@ export class CueAudioEngine {
     const now = this.serverNow();
     if (restarted || (changed && now === null)) {
       this.cancelAfter(restarted && now !== null ? now : -Infinity);
+      this.stillSounding.clear();
       this.scheduledUntil = -Infinity;
       this.voiceBusyUntil = -Infinity;
     } else if (changed && now !== null && this.scheduledUntil > now + LOOKAHEAD_MS) {
@@ -370,6 +374,7 @@ export class CueAudioEngine {
   silence() {
     this.silenced = true;
     this.cancelAfter(-Infinity);
+    this.stillSounding.clear();
     this.scheduledUntil = -Infinity;
     this.voiceBusyUntil = -Infinity;
     if (this.context?.state === "running") this.context.suspend().catch(() => undefined);
@@ -400,7 +405,7 @@ export class CueAudioEngine {
   private trimTo(until: number) {
     const audioNow = this.context?.currentTime ?? -Infinity;
     this.cancelWhere((entry) => entry.beatAt > until && entry.audioAt > audioNow);
-    this.stillSounding = new Set(this.future.filter((entry) => entry.beatAt > until).map((entry) => soundKey(entry.kind, entry.beatAt)));
+    this.stillSounding = new Map(this.future.filter((entry) => entry.beatAt > until).map((entry) => [soundKey(entry.kind, entry.beatAt), entry.beatAt]));
     this.scheduledUntil = until;
     this.voiceBusyUntil = this.latestVoiceEnd();
   }
@@ -449,33 +454,36 @@ export class CueAudioEngine {
     const now = this.serverNow();
     if (context === null || now === null || context.state !== "running" || this.silenced) return;
     const audioMinusServerMs = context.currentTime * 1000 - now;
-    if (mappingSnaps(this.mapping, audioMinusServerMs)) {
-      this.cancelAfter(-Infinity);
-      this.scheduledUntil = -Infinity;
-      this.voiceBusyUntil = -Infinity;
+    if (this.mapping !== null && mappingSnaps(this.mapping, audioMinusServerMs)) {
+      if (Math.abs(audioMinusServerMs - this.mapping.audioMinusServerMs) <= SAME_SOUND_WITHIN_MS) this.trimTo(-Infinity);
+      else {
+        this.cancelAfter(-Infinity);
+        this.stillSounding.clear();
+        this.scheduledUntil = -Infinity;
+        this.voiceBusyUntil = -Infinity;
+      }
     }
     this.mapping = slewMapping(this.mapping, audioMinusServerMs);
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
-    const latency = outputLatencyMs(context);
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? longestBeatMs(this.plan.song) : 0;
     const stopsAt = playback.stopsAt ?? Infinity;
     for (const beat of beatsBetween(this.plan.song, playback, from - lookback, to)) {
-      if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
+      if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, this.latencyNudgeMs));
       if (!this.mix.click) continue;
       for (const at of offbeatsOf(beat, subdivision)) {
         if (at < from || at >= to || at >= stopsAt) continue;
-        const when = scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs);
+        const when = scheduleTimeFor(at, this.mapping, this.latencyNudgeMs);
         if (when < context.currentTime || this.stillSounding.has(soundKey("offbeat", at))) continue;
         this.future.push({ output: this.click(context, when, "offbeat"), kind: "offbeat", beatAt: at, soundAt: at, audioAt: when });
       }
     }
-    this.stillSounding.clear();
+    for (const [key, beatAt] of this.stillSounding) if (beatAt < to) this.stillSounding.delete(key);
     this.scheduledUntil = to;
   }
 

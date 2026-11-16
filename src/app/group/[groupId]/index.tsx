@@ -298,7 +298,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
   const startBlocker: "noSong" | "needsSections" | "loading" | null =
     startSongId === null || startSong === null ? "noSong" : startSong === undefined ? "loading" : startSong.sections.length === 0 ? "needsSections" : null;
-  const startWaitsForConnection = !onDevice && !connected;
+  const startWaitsForClock = !onDevice && connected && estimate === null;
+  const startWaitsForConnection = !onDevice && (!connected || estimate === null);
   const start = useMutation(api.playback.start);
   const jump = useMutation(api.playback.jump);
   const stop = useMutation(api.playback.stop);
@@ -312,6 +313,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline || !seesLibrary ? "skip" : { groupId });
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [offeredCopyName, setOfferedCopyName] = useState<string | null>(null);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
@@ -592,7 +594,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     return () => clearTimeout(timer);
   }, [playNow, playback, song]);
 
+  const playingNow = useRef(playing);
   useEffect(() => {
+    playingNow.current = playing;
     setPlayingHere(playing);
   }, [playing]);
 
@@ -698,9 +702,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       ? "Pick a Song to start"
       : startBlocker === "needsSections"
         ? "Add Sections before this Song can start"
-        : startBlocker === null && startWaitsForConnection
-          ? "Waiting for a connection"
-          : null;
+        : startBlocker === null && startWaitsForClock
+          ? "Measuring the clock"
+          : startBlocker === null && startWaitsForConnection
+            ? "Waiting for a connection"
+            : null;
 
   const startPlayback = () =>
     run(async () => {
@@ -725,7 +731,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...position, pressedAt: serverNow() ?? undefined });
+          const pressedAt = serverNow();
+          if (pressedAt === null) throw new Error("This device is still measuring the clock. Try again in a moment.");
+          await start({ groupId, songId: startSongId, ...from, ...position, pressedAt });
         } finally {
           setStartPending(false);
         }
@@ -1252,7 +1260,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         return;
       }
       setConfirmingDuplicate(false);
-      if (playing) showToast(`${copy.name} is ready in Your Groups`);
+      if (playingNow.current) showToast(`${copy.name} is ready in Your Groups`);
       else setOpeningGroupId(copy.groupId);
     } catch (error) {
       if (mine !== attempt.current) showToast(errorText(error), "error");
@@ -1264,7 +1272,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const confirmDelete = async () => {
     if (deletePending) return;
-    if (!connected) {
+    const pressedAt = serverNow();
+    if (!connected || pressedAt === null) {
       setDeleteError("Deleting the Group needs a connection. Try again once this device is back online.");
       return;
     }
@@ -1273,7 +1282,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     setLeavingGroup(true);
     const mine = ++attempt.current;
     try {
-      await deleteGroup({ groupId, pressedAt: serverNow() ?? undefined });
+      await deleteGroup({ groupId, pressedAt });
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
@@ -1332,6 +1341,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             testID="duplicate-group"
             onPress={() => {
               setDuplicateError(null);
+              setOfferedCopyName(copyName);
               setConfirmingDuplicate(true);
             }}
           />
@@ -1541,7 +1551,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       <ConfirmDialog
         visible={confirmingDuplicate}
         title={`Duplicate ${group.name}?`}
-        message={`${copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
+        message={`${offeredCopyName ?? copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
         confirmLabel="Duplicate"
         pending={duplicatePending}
         error={duplicateError}
