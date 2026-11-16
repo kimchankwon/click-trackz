@@ -314,6 +314,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const duplicateGroup = useMutation(api.groups.duplicateGroup);
   const setlists = useQuery(api.setlists.list, offline || !seesLibrary ? "skip" : { groupId });
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [offeredCopyName, setOfferedCopyName] = useState<string | null>(null);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
@@ -1324,6 +1325,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             testID="duplicate-group"
             onPress={() => {
               setDuplicateError(null);
+              setOfferedCopyName(copyName);
               setConfirmingDuplicate(true);
             }}
           />
@@ -1531,7 +1533,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       <ConfirmDialog
         visible={confirmingDuplicate}
         title={`Duplicate ${group.name}?`}
-        message={`${copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
+        message={`${offeredCopyName ?? copyName} gets copies of ${countOf(library?.length ?? 0, "Song")} and ${countOf(setlists?.length ?? 0, "Setlist")}. You will be its only Member, as Admin, with a new join code.`}
         confirmLabel="Duplicate"
         pending={duplicatePending}
         error={duplicateError}
