@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { usePreventRemove } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -9,12 +9,14 @@ import { VolumeBar } from "@/components/playback/volume-bar";
 import { TimingStrip } from "@/components/sound/timing-strip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { Fonts, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromTaps } from "@/lib/timing-test";
@@ -34,7 +36,16 @@ export default function LatencyScreen() {
   const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
-  const nudge = Number(stored);
+  const saved = Number(stored);
+  const [draft, setDraft] = useState<number | null>(null);
+  const nudge = draft ?? saved;
+  const changed = draft !== null && draft !== saved;
+  const [askLeave, setAskLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  usePreventRemove(changed && !leaving, () => setAskLeave(true));
+  useEffect(() => {
+    if (leaving) backOr("/");
+  }, [leaving]);
   const [mode, setMode] = useState<Mode | null>(null);
   const [offsets, setOffsets] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -43,7 +54,24 @@ export default function LatencyScreen() {
   const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
   const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
 
-  const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
+  const saveAttempt = useRef(0);
+  const setNudge = (ms: number) => {
+    saveAttempt.current += 1;
+    setDraft(clampLatency(ms));
+  };
+  const saveAndLeave = async () => {
+    const mine = ++saveAttempt.current;
+    test.stop();
+    setMode(null);
+    const kept = await setStored(String(nudge));
+    if (saveAttempt.current !== mine) return;
+    if (kept) setLeaving(true);
+    else setAskLeave(false);
+  };
+  const discardAndLeave = () => {
+    test.stop();
+    setLeaving(true);
+  };
 
   const begin = (next: Mode) => {
     setMessage(null);
@@ -62,10 +90,11 @@ export default function LatencyScreen() {
       else {
         const kept = clampLatency(measured);
         setNudge(kept);
+        const next = kept === saved ? "That is your saved nudge already." : "Press Save to keep it.";
         setMessage(
           kept === measured
-            ? `Set to ${measured} ms from ${offsets.length} taps.`
-            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms.`,
+            ? `Measured ${measured} ms from ${offsets.length} taps. ${next}`
+            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. ${next}`,
         );
       }
     }
@@ -79,7 +108,7 @@ export default function LatencyScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => router.back()} backTestID="latency-back" />
+          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => backOr("/")} backTestID="latency-back" />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
@@ -115,6 +144,7 @@ export default function LatencyScreen() {
                 </View>
               ))}
             </View>
+            <ActionButton icon="repeat" label="Reset to 0 ms" testID="nudge-reset" disabled={nudge === 0} onPress={() => setNudge(0)} />
           </View>
 
           <View style={styles.group}>
@@ -248,8 +278,22 @@ export default function LatencyScreen() {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Done" testID="latency-done" onPress={() => router.back()} />
+          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!changed} onPress={() => void saveAndLeave()} />
         </View>
+        <ConfirmDialog
+          visible={askLeave && !leaving}
+          title="Save changes?"
+          message={`Your Latency nudge of ${nudge} ms is not saved.`}
+          confirmLabel="Save"
+          cancelLabel="Discard"
+          onConfirm={() => void saveAndLeave()}
+          onCancel={discardAndLeave}
+          onDismiss={() => {
+            saveAttempt.current += 1;
+            setAskLeave(false);
+          }}
+          testID="latency-leave-dialog"
+        />
       </SafeAreaView>
     </ThemedView>
   );
