@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { api } from "../../convex/_generated/api";
-import { clockSlept, estimateClockOffset, SAMPLE_WINDOW, type ClockEstimate, type ClockSample } from "./clock";
+import { answeredPromptly, clockSlept, estimateClockOffset, SAMPLE_WINDOW, type ClockEstimate, type ClockSample } from "./clock";
 import { pingDelayMs, type PingPace } from "./ping-schedule";
 
 const INITIAL_BURST = 8;
@@ -59,8 +59,9 @@ export function useServerClock({ onDevice = false, pace = "playback" }: { onDevi
       const epochAtSend = epochNow();
       const serverAt = await ping({});
       const receivedAt = clientNow();
-      if (cancelled || clockSlept(epochAtSend, epochNow())) return;
-      samples.push({ sentAt, serverAt, receivedAt });
+      const sample = { sentAt, serverAt, receivedAt };
+      if (cancelled || clockSlept(epochAtSend, epochNow()) || !answeredPromptly(sample)) return;
+      samples.push(sample);
       epochAtLastSample = epochNow();
       if (samples.length > SAMPLE_WINDOW) samples.shift();
       if (samples.length >= SAMPLES_BEFORE_READY) {
@@ -88,16 +89,17 @@ export function useServerClock({ onDevice = false, pace = "playback" }: { onDevi
     if (paceRef.current === "paused") schedule();
     else void burst(INITIAL_BURST);
     const forgetStaleSamples = () => {
-      if (!clockSlept(epochAtLastSample, epochNow())) return;
+      if (!clockSlept(epochAtLastSample, epochNow())) return false;
       samples.length = 0;
       hasEstimate = false;
       epochAtLastSample = epochNow();
       show(null);
+      return true;
     };
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        forgetStaleSamples();
-        if (paceRef.current === "paused") schedule();
+        const forgot = forgetStaleSamples();
+        if (paceRef.current === "paused" && !forgot) schedule();
         else void burst(WAKE_BURST);
       } else schedule();
     });

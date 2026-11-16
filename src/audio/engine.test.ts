@@ -205,6 +205,7 @@ describe("Subdivision", () => {
     const context = contexts().at(-1)!;
     expect(context.oscillators).toBe(15);
     now = NOW + 500;
+    context.currentTime = 0.5;
     engine.setPlan({ ...bar, subdivision: 4 }, null);
     expect(context.gains.filter((gain) => gain.disconnected)).toHaveLength(13);
     engine.dispose();

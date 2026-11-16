@@ -6,7 +6,7 @@ import { accentLevelOf, beatsBetween, longestBeatMs, offbeatsOf, subdivisionOf, 
 import { describeAudioError, describeAudioFailure } from "./audio-failure";
 import { preferPlaybackSession, probeAudioSession } from "./audio-session";
 import { builtinVoiceClips, type BuiltinClipKey, type SpeakerId, type VoiceSpeed } from "./builtin-voice-clips";
-import { scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
+import { mappingSnaps, scheduleTimeFor, slewMapping, type ClockMapping } from "./clock-mapping";
 import { loadClip } from "./load-clip";
 import { CLICK_BOOST, LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
@@ -22,6 +22,8 @@ const LOOKAHEAD_MS = 200;
 const FUTURE_PRUNE_MS = 2_000;
 const CLICK_MS = 40;
 type ClickLevel = AccentLevel | "offbeat";
+type SoundKind = "click" | "offbeat" | "cue" | "count";
+const soundKey = (kind: SoundKind, beatAt: number) => `${kind}:${beatAt}`;
 
 const CLICK_SOUND: Record<ClickLevel, { hz: number; gain: number }> = {
   bar: { hz: 1_760, gain: 0.9 },
@@ -72,7 +74,8 @@ export class CueAudioEngine {
   private mapping: ClockMapping | null = null;
   private scheduledUntil = -Infinity;
   private hidden = false;
-  private future: { output: AudioNode; beatAt: number; soundAt: number; voiceEndsAt?: number }[] = [];
+  private future: { output: AudioNode; kind: SoundKind; beatAt: number; soundAt: number; audioAt: number; voiceEndsAt?: number }[] = [];
+  private stillSounding = new Set<string>();
   private voiceBusyUntil = -Infinity;
   private onsets = new WeakMap<AudioBuffer, number>();
   private plan: Plan | null = null;
@@ -395,7 +398,9 @@ export class CueAudioEngine {
   }
 
   private trimTo(until: number) {
-    this.cancelAfter(until);
+    const audioNow = this.context?.currentTime ?? -Infinity;
+    this.cancelWhere((entry) => entry.beatAt > until && entry.audioAt > audioNow);
+    this.stillSounding = new Set(this.future.filter((entry) => entry.beatAt > until).map((entry) => soundKey(entry.kind, entry.beatAt)));
     this.scheduledUntil = until;
     this.voiceBusyUntil = this.latestVoiceEnd();
   }
@@ -443,7 +448,13 @@ export class CueAudioEngine {
     const context = this.context;
     const now = this.serverNow();
     if (context === null || now === null || context.state !== "running" || this.silenced) return;
-    this.mapping = slewMapping(this.mapping, context.currentTime * 1000 - now);
+    const audioMinusServerMs = context.currentTime * 1000 - now;
+    if (mappingSnaps(this.mapping, audioMinusServerMs)) {
+      this.cancelAfter(-Infinity);
+      this.scheduledUntil = -Infinity;
+      this.voiceBusyUntil = -Infinity;
+    }
+    this.mapping = slewMapping(this.mapping, audioMinusServerMs);
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     const latency = outputLatencyMs(context);
@@ -459,35 +470,38 @@ export class CueAudioEngine {
       if (!this.mix.click) continue;
       for (const at of offbeatsOf(beat, subdivision)) {
         if (at < from || at >= to || at >= stopsAt) continue;
-        const output = this.click(context, scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs), "offbeat");
-        this.future.push({ output, beatAt: at, soundAt: at });
+        const when = scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs);
+        if (when < context.currentTime || this.stillSounding.has(soundKey("offbeat", at))) continue;
+        this.future.push({ output: this.click(context, when, "offbeat"), kind: "offbeat", beatAt: at, soundAt: at, audioAt: when });
       }
     }
+    this.stillSounding.clear();
     this.scheduledUntil = to;
   }
 
   private schedule(context: AudioContext, beat: Beat, when: number) {
     const stopsAt = this.plan?.playback?.stopsAt ?? Infinity;
     const startsBeforeStop = (leadMs: number) => beat.at - leadMs < stopsAt;
-    const remember = (output: AudioNode | null, leadMs = 0, voiceEndsAt?: number) => {
-      if (output !== null) this.future.push({ output, beatAt: beat.at, soundAt: Math.max(beat.at, beat.at - leadMs), voiceEndsAt });
+    const fresh = (kind: SoundKind) => !this.stillSounding.has(soundKey(kind, beat.at));
+    const remember = (kind: SoundKind, output: AudioNode, leadMs = 0, voiceEndsAt?: number) => {
+      this.future.push({ output, kind, beatAt: beat.at, soundAt: Math.max(beat.at, beat.at - leadMs), audioAt: when - leadMs / 1000, voiceEndsAt });
     };
-    if (this.mix.click) remember(this.click(context, when, accentLevelOf(beat)));
-    if (this.mix.voiceCues && beat.voiceCue) {
+    if (this.mix.click && when >= context.currentTime && fresh("click")) remember("click", this.click(context, when, accentLevelOf(beat)));
+    if (this.mix.voiceCues && beat.voiceCue && fresh("cue")) {
       const key = chooseClip(beat.voiceCue, this.builtinKeys);
       const buffer = key ? this.clips.get(key as BuiltinClipKey) : undefined;
       if (buffer && startsBeforeStop(this.voiceLeadOf(buffer))) {
         const { leadMs, output } = this.playOnBeat(context, buffer, when);
         this.voiceBusyUntil = voiceEndsAt(beat.at, leadMs, buffer.duration * 1000);
-        remember(output, leadMs, this.voiceBusyUntil);
+        remember("cue", output, leadMs, this.voiceBusyUntil);
       }
     }
-    if (this.mix.spokenCounts && beat.spokenCount !== null) {
+    if (this.mix.spokenCounts && beat.spokenCount !== null && fresh("count")) {
       const key = clipKeyForSpokenCount(beat.spokenCount);
       const buffer = key ? this.clips.get(key) : undefined;
       const leadMs = buffer ? this.voiceLeadOf(buffer) : 0;
       if (buffer && startsBeforeStop(leadMs) && spokenCountFits(beat.at, leadMs, this.voiceBusyUntil)) {
-        remember(this.playOnBeat(context, buffer, when).output, leadMs);
+        remember("count", this.playOnBeat(context, buffer, when).output, leadMs);
       }
     }
   }
