@@ -62,6 +62,7 @@ import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES, seesSongLib
 import { useAppActive } from "@/lib/use-app-active";
 import { useIdleWithoutPlayback } from "@/lib/use-idle-without-playback";
 import { useConnected } from "@/lib/use-connected";
+import { pickedSongFor, rememberPickedSong } from "@/lib/picked-song";
 import { neighbourSong } from "@/lib/song-order";
 import { nextInSetlist, setlistPosition, startedFromSetlist } from "@/lib/setlist-next";
 import { DEFAULT_LOCK_SCREEN_SETTING, LOCK_SCREEN_SETTING_KEY, isLockScreenSetting, isSide, type LockScreenSetting, type Side } from "@/settings/output";
@@ -262,8 +263,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const groupPlayback = (playbackDoc ?? null) as ShownPlayback | null;
   const [devicePlayback, setDevicePlayback] = useState<DevicePlayback | null>(null);
   const playback: ShownPlayback | null = onDevice ? devicePlayback : groupPlayback;
-  const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(null);
-  const [pickedFromSetlist, setPickedFromSetlist] = useState(false);
+  const remembers = steersGroup || offline;
+  const [remembered] = useState(() => (remembers ? pickedSongFor<Id<"songs">>(groupId) : null));
+  const [selectedSongId, setSelectedSongId] = useState<Id<"songs"> | null>(remembered?.songId ?? null);
+  const [pickedFromSetlist, setPickedFromSetlist] = useState(remembered?.fromSetlist ?? false);
   const livePlayingSong = useQuery(api.songs.get, playback ? { songId: playback.songId } : "skip");
   const liveSelectedSong = useQuery(api.songs.get, selectedSongId ? { songId: selectedSongId } : "skip");
   const playingSong = liveOr(livePlayingSong, () => (playback && storedSongs ? storedSongs.song(playback.songId) : undefined));
@@ -295,7 +298,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const playableInSetlist = new Set(currentSetlist?.entries.filter((entry) => !entry.needsStructure).map((entry) => entry.songId) ?? []);
   const playingPosition = playback ? setlistPosition(setlistOrder, playback.songId, playback.setlistIndex) : null;
   const nextUp = playingPosition === null ? null : nextInSetlist(setlistOrder, playingPosition, (id) => playableInSetlist.has(id));
-  const [orderAt, setOrderAt] = useState<number | null>(null);
+  const [orderAt, setOrderAt] = useState<number | null>(remembered?.orderAt ?? null);
   const songOrder =
     setlistOrder.length > 0 && (startSongId === null || setlistOrder.includes(startSongId)) ? setlistOrder : (library ?? []).map((s) => s.songId);
   const startBlocker: "noSong" | "needsSections" | "loading" | null =
@@ -605,7 +608,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [playing]);
 
   if (playing && startPick !== null) setStartPick(null);
-  const [followedStart, setFollowedStart] = useState<number | null>(null);
+  const [followedStart, setFollowedStart] = useState<number | null>(remembered?.followedStart ?? null);
   if (playback !== null && playback.startsAt !== followedStart) {
     setFollowedStart(playback.startsAt);
     if (steers && startedFromSetlist(playback)) {
@@ -617,7 +620,15 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       }
     }
   }
-  const [linedUpAfter, setLinedUpAfter] = useState<number | null>(null);
+  const [linedUpAfter, setLinedUpAfter] = useState<number | null>(remembered?.linedUpAfter ?? null);
+  useEffect(() => {
+    if (!remembers) return;
+    const before = pickedSongFor<Id<"songs">>(groupId);
+    const groupMarkers = offlinePlay
+      ? { followedStart: before?.followedStart ?? null, linedUpAfter: before?.linedUpAfter ?? null }
+      : { followedStart, linedUpAfter };
+    rememberPickedSong(groupId, { songId: selectedSongId, fromSetlist: pickedFromSetlist, orderAt, ...groupMarkers });
+  }, [remembers, offlinePlay, groupId, selectedSongId, pickedFromSetlist, orderAt, followedStart, linedUpAfter]);
   if (finishedStart !== null && finishedStart !== linedUpAfter) {
     setLinedUpAfter(finishedStart);
     const endedOnItsOwn = playback !== null && playback.startsAt === finishedStart && playback.stopsAt === null;
