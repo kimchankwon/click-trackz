@@ -185,7 +185,7 @@ A device's choice to play every Voice cue and spoken count a little sooner or la
 _Avoid_: Voice delay, voice latency
 
 **Latency nudge**:
-A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite the delay of their own audio output, such as Bluetooth headphones.
+A per-device offset a Member sets so their Click and Voice cues line up with everyone else's despite the delay of their own audio output, such as Bluetooth headphones. It is the only thing that moves when a device's sound plays; the delay a device reports for its output is shown as a recommended value, and the Member chooses whether to use it.
 _Avoid_: Delay, offset, calibration
 
 ## Playback

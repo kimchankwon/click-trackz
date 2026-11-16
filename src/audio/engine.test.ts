@@ -135,7 +135,7 @@ vi.mock("./builtin-voice-clips", () => ({
 }));
 vi.mock("./load-clip", () => ({ loadClip: fake.loadClip }));
 vi.mock("./hidden-lookahead", () => ({ HIDDEN_LOOKAHEAD_MS: 15 * 60_000 }));
-vi.mock("./output-latency", () => ({ outputLatencyMs: () => 0 }));
+vi.mock("./output-latency", () => ({ watchOutput: () => undefined, reportedOutputLatencyMs: () => null }));
 
 const { CueAudioEngine } = await import("./engine");
 

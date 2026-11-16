@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AudioContext } from "react-native-audio-api";
-
 const native = vi.hoisted(() => ({ present: true, reads: 0, ms: 28.5 as number | (() => number) }));
 
 vi.mock("expo", () => ({
@@ -16,14 +14,12 @@ vi.mock("expo", () => ({
       : null,
 }));
 
-const context = {} as AudioContext;
-
 const load = async () => {
   vi.resetModules();
-  return (await import("./output-latency")).outputLatencyMs;
+  return (await import("./output-latency")).reportedOutputLatencyMs;
 };
 
-describe("outputLatencyMs on native", () => {
+describe("reportedOutputLatencyMs on native", () => {
   let clock = 0;
 
   beforeEach(() => {
@@ -39,48 +35,48 @@ describe("outputLatencyMs on native", () => {
   });
 
   it("reports the audio session latency", async () => {
-    const outputLatencyMs = await load();
-    expect(outputLatencyMs(context)).toBe(28.5);
+    const reported = await load();
+    expect(reported()).toBe(28.5);
   });
 
   it("reads the session at most once a second", async () => {
-    const outputLatencyMs = await load();
-    outputLatencyMs(context);
+    const reported = await load();
+    reported();
     clock = 999;
     native.ms = 160;
-    expect(outputLatencyMs(context)).toBe(28.5);
+    expect(reported()).toBe(28.5);
     clock = 1_000;
-    expect(outputLatencyMs(context)).toBe(160);
+    expect(reported()).toBe(160);
     expect(native.reads).toBe(2);
   });
 
-  it("falls back to none when the build has no module", async () => {
+  it("reports nothing when the build has no module", async () => {
     native.present = false;
-    const outputLatencyMs = await load();
-    expect(outputLatencyMs(context)).toBe(0);
+    const reported = await load();
+    expect(reported()).toBeNull();
   });
 
-  it("falls back to none when the first reading fails", async () => {
+  it("reports nothing when the first reading fails", async () => {
     native.ms = () => {
       throw new Error("session gone");
     };
-    const outputLatencyMs = await load();
-    expect(outputLatencyMs(context)).toBe(0);
+    const reported = await load();
+    expect(reported()).toBeNull();
   });
 
   it("keeps the last good reading through a failed or nonsense one", async () => {
-    const outputLatencyMs = await load();
-    expect(outputLatencyMs(context)).toBe(28.5);
+    const reported = await load();
+    expect(reported()).toBe(28.5);
     clock = 1_000;
     native.ms = () => {
       throw new Error("session gone");
     };
-    expect(outputLatencyMs(context)).toBe(28.5);
+    expect(reported()).toBe(28.5);
     clock = 2_000;
     native.ms = Number.NaN;
-    expect(outputLatencyMs(context)).toBe(28.5);
+    expect(reported()).toBe(28.5);
     clock = 3_000;
     native.ms = 160;
-    expect(outputLatencyMs(context)).toBe(160);
+    expect(reported()).toBe(160);
   });
 });

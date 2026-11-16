@@ -10,7 +10,7 @@ import { mappingSnaps, scheduleTimeFor, slewMapping, type ClockMapping } from ".
 import { loadClip } from "./load-clip";
 import { CLICK_BOOST, LIMITER_RANGE, limiterCurve, OUTPUT_BOOST } from "./output-level";
 import { HIDDEN_LOOKAHEAD_MS } from "./hidden-lookahead";
-import { outputLatencyMs } from "./output-latency";
+import { reportedOutputLatencyMs, watchOutput } from "./output-latency";
 import { chooseClip } from "./clip-choice";
 import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker, defaultVoiceSpeed } from "./voice-clips";
 import { MAX_VOICE_LEAD_MS, voiceLeadMs } from "./voice-onset";
@@ -138,6 +138,7 @@ export class CueAudioEngine {
     voiceBus.connect(voicePan);
     clickPan.connect(output);
     voicePan.connect(output);
+    watchOutput(context);
     this.context = context;
     this.clickBus = clickBus;
     this.voiceBus = voiceBus;
@@ -239,7 +240,7 @@ export class CueAudioEngine {
       state: context?.state ?? "none",
       currentTime: context?.currentTime ?? null,
       aheadMs: now === null || !Number.isFinite(this.scheduledUntil) ? null : Math.round(this.scheduledUntil - now),
-      latencyMs: context ? outputLatencyMs(context) : null,
+      latencyMs: context ? reportedOutputLatencyMs() : null,
       needsFreshContext: this.needsFreshContext,
       failure: this.failure,
       pan: this.panning,
@@ -286,7 +287,7 @@ export class CueAudioEngine {
     if (context === null) throw new Error("Enable sound first");
     this.stopTimingTest();
     tapTestOwner = this;
-    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    const aheadMs = this.latencyNudgeMs;
     const originAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
     this.timing = { originAt, intervalMs, outputs: [] };
     return performance.now() + (originAt - context.currentTime) * 1000;
@@ -296,7 +297,7 @@ export class CueAudioEngine {
     const context = this.context;
     const timing = this.timing;
     if (context === null || timing === null) return;
-    const aheadMs = outputLatencyMs(context) + this.latencyNudgeMs;
+    const aheadMs = this.latencyNudgeMs;
     for (let index = fromIndex; index < fromIndex + count; index++) {
       const when = timing.originAt + (index * timing.intervalMs) / 1000 - aheadMs / 1000;
       if (when < context.currentTime) continue;
@@ -465,20 +466,19 @@ export class CueAudioEngine {
     this.mapping = slewMapping(this.mapping, audioMinusServerMs);
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
-    const latency = outputLatencyMs(context);
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
     const from = Math.max(this.scheduledUntil, now);
-    const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, latency + this.latencyNudgeMs);
+    const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);
     const lookback = subdivision > 1 ? longestBeatMs(this.plan.song) : 0;
     const stopsAt = playback.stopsAt ?? Infinity;
     for (const beat of beatsBetween(this.plan.song, playback, from - lookback, to)) {
-      if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, latency, this.latencyNudgeMs));
+      if (beat.at >= from) this.schedule(context, beat, scheduleTimeFor(beat.at, this.mapping, this.latencyNudgeMs));
       if (!this.mix.click) continue;
       for (const at of offbeatsOf(beat, subdivision)) {
         if (at < from || at >= to || at >= stopsAt) continue;
-        const when = scheduleTimeFor(at, this.mapping, latency, this.latencyNudgeMs);
+        const when = scheduleTimeFor(at, this.mapping, this.latencyNudgeMs);
         if (when < context.currentTime || this.stillSounding.has(soundKey("offbeat", at))) continue;
         this.future.push({ output: this.click(context, when, "offbeat"), kind: "offbeat", beatAt: at, soundAt: at, audioAt: when });
       }
