@@ -293,18 +293,24 @@ describe("Voice cue offset", () => {
 });
 
 describe("Timing test", () => {
-  it("sends each Click early by the Latency nudge and says when each beat should be heard", async () => {
+  it("sends each Click early by the Latency nudge, beat after beat, until stopped", async () => {
     const engine = new CueAudioEngine();
     engine.latencyNudgeMs = 120;
     await engine.enable(serverNow, null);
     const context = contexts().at(-1)!;
-    const { beatTimesMs, lastBeatInMs } = engine.timingTest(4, 500);
+    const firstBeatAt = engine.startTimingTest(1_000);
+    engine.scheduleTimingBeats(0, 3);
+    engine.scheduleTimingBeats(3, 2);
     const sent = context.oscillatorNodes.map((node) => node.startedAt ?? 0);
-    expect(sent).toHaveLength(4);
+    expect(sent).toHaveLength(5);
     expect(sent[0]).toBeCloseTo(0.6);
-    expect(sent[1] - sent[0]).toBeCloseTo(0.5);
-    expect(beatTimesMs[1] - beatTimesMs[0]).toBeCloseTo(500);
-    expect(lastBeatInMs).toBeCloseTo(720 + 1_500);
+    expect(sent[4] - sent[0]).toBeCloseTo(4);
+    expect(firstBeatAt - performance.now()).toBeCloseTo(720, -1);
+    const queued = context.gains.slice(-5);
+    engine.stopTimingTest();
+    expect(queued.every((gain) => gain.disconnected)).toBe(true);
+    engine.scheduleTimingBeats(5, 1);
+    expect(context.oscillatorNodes).toHaveLength(5);
     engine.dispose();
   });
 
@@ -315,7 +321,8 @@ describe("Timing test", () => {
       await engine.enable(serverNow, null);
       await engine.setSpeaker("adam");
       const context = contexts().at(-1)!;
-      engine.timingTest(2, 500, () => "verse" as never);
+      engine.startTimingTest(500);
+      engine.scheduleTimingBeats(0, 2, () => "verse" as never);
       const starts = [...context.voiceStarts];
       engine.dispose();
       return starts;
