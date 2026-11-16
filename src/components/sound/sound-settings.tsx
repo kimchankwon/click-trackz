@@ -11,21 +11,16 @@ import { Icon } from "@/components/ui/icon";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
 import { Spacing } from "@/constants/theme";
-import { hapticsAvailable } from "@/audio/haptics";
 import { Segmented } from "@/components/ui/segmented";
 import { isLatencySetting } from "@/settings/latency";
 import { lockScreenAvailable } from "@/audio/now-playing";
 import {
   DEFAULT_LOCK_SCREEN_SETTING,
   LOCK_SCREEN_SETTING_KEY,
-  HAPTIC_BEATS,
-  hapticBeatLabels,
-  isHapticBeat,
   isLockScreenSetting,
   isSide,
   SIDES,
   sideLabels,
-  type HapticBeat,
   type LockScreenSetting,
   type Side,
 } from "@/settings/output";
@@ -60,7 +55,6 @@ export function SoundSettings({
   const offsetMs = Number(voiceOffset);
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
-  const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
   const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>(LOCK_SCREEN_SETTING_KEY, DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
   return (
@@ -98,6 +92,33 @@ export function SoundSettings({
           </View>
         </View>
       </Card>
+      <Card title="On this device">
+        <View style={styles.deviceRow}>
+          <ThemedText type="smallBold">Click in</ThemedText>
+          <Segmented label="Click in" testID="click-side" value={clickSide} onChange={setClickSide} options={sideOptions} />
+        </View>
+        <View style={styles.deviceRow}>
+          <ThemedText type="smallBold">Voice cues in</ThemedText>
+          <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={setVoiceSide} options={sideOptions} />
+        </View>
+        {lockScreenAvailable ? (
+          <>
+            <Divider />
+            <View style={styles.mixHead}>
+              <Icon name="phone" size={22} color="textSecondary" />
+              <View style={styles.grow}>
+                <Switch
+                  label="Lock screen controls"
+                  hint="Plays in background"
+                  testID="lock-screen-controls"
+                  value={lockScreen === "on"}
+                  onChange={(on) => setLockScreen(on ? "on" : "off")}
+                />
+              </View>
+            </View>
+          </>
+        ) : null}
+      </Card>
       <Card title="Speaker" plain>
         <SpeakerPicker
           value={sound.speaker}
@@ -123,51 +144,6 @@ export function SoundSettings({
           <ThemedText type="caption" themeColor="textSecondary" testID="speaker-preview-hint" style={styles.plainHint}>
             {speakerHint}
           </ThemedText>
-        ) : null}
-      </Card>
-      <Card title="On this device">
-        <View style={styles.deviceRow}>
-          <ThemedText type="smallBold">Click in</ThemedText>
-          <Segmented label="Click in" testID="click-side" value={clickSide} onChange={setClickSide} options={sideOptions} />
-        </View>
-        <View style={styles.deviceRow}>
-          <ThemedText type="smallBold">Voice cues in</ThemedText>
-          <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={setVoiceSide} options={sideOptions} />
-        </View>
-        {hapticsAvailable ? (
-          <>
-            <Divider />
-            <View style={styles.deviceRow}>
-              <View style={styles.mixHead}>
-                <Icon name="haptic" size={22} color="textSecondary" />
-                <ThemedText type="smallBold">Haptic beat</ThemedText>
-              </View>
-              <Segmented
-                label="Haptic beat"
-                testID="haptic-beat"
-                value={hapticBeat}
-                onChange={setHapticBeat}
-                options={HAPTIC_BEATS.map((setting) => ({ value: setting, label: hapticBeatLabels[setting] }))}
-              />
-            </View>
-          </>
-        ) : null}
-        {lockScreenAvailable ? (
-          <>
-            <Divider />
-            <View style={styles.mixHead}>
-              <Icon name="phone" size={22} color="textSecondary" />
-              <View style={styles.grow}>
-                <Switch
-                  label="Lock screen controls"
-                  hint="Plays in background"
-                  testID="lock-screen-controls"
-                  value={lockScreen === "on"}
-                  onChange={(on) => setLockScreen(on ? "on" : "off")}
-                />
-              </View>
-            </View>
-          </>
         ) : null}
       </Card>
       <Card title="Timing" tight>

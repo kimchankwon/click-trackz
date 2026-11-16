@@ -55,7 +55,6 @@ const symbols = {
   repeat: { ios: "repeat.1", material: "repeat_one" },
   vamp: { ios: "repeat", material: "repeat" },
   plays: { ios: "repeat", material: "repeat" },
-  haptic: { ios: "iphone.radiowaves.left.and.right", material: "vibration" },
 } as const satisfies Record<string, { ios: SFSymbol; material: AndroidSymbol }>;
 
 export type IconName = keyof typeof symbols;

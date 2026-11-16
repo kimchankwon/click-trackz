@@ -172,10 +172,6 @@ _Avoid_: Samples, voice, sound bank
 A per-device choice of which ear hears the Click and which hears the Voice cues: Left, Right or Both, for split in-ear monitors.
 _Avoid_: Panning, channel
 
-**Haptic beat**:
-A per-device choice to feel the downbeats, or every beat, as a tap on the phone while Play is open.
-_Avoid_: Vibration, buzz
-
 **Tap tempo**:
 Setting a Song tempo by tapping along with the beat in the Song editor.
 _Avoid_: Tap BPM
