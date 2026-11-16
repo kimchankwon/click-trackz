@@ -340,6 +340,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [nextStart, setNextStart] = useState<SectionStart | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
   const [tab, setTab] = useState<GroupTab>("play");
+  const [reordering, setReordering] = useState(false);
   const [groupTabOpened, setGroupTabOpened] = useState(false);
   if (tab === "group" && !groupTabOpened) setGroupTabOpened(true);
   const [dockHeight, setDockHeight] = useState(0);
@@ -1209,6 +1210,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       canPick={steers}
       selectedSongId={selectedSongId ?? playback?.songId ?? null}
       onSelect={playSetlistSong}
+      onReordering={setReordering}
       run={run}
     />
   );
@@ -1513,6 +1515,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               <ScrollView
                 keyboardShouldPersistTaps="handled"
                 automaticallyAdjustKeyboardInsets
+                scrollEnabled={!(reordering && pane === "setlist")}
                 contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
                 onScroll={(event) => pinnedScroll.onScroll(pane, event)}
                 scrollEventThrottle={16}

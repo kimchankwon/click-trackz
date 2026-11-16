@@ -16,6 +16,7 @@ const symbols = {
   expand: { ios: "chevron.down", material: "expand_more" },
   up: { ios: "arrow.up", material: "arrow_upward" },
   down: { ios: "arrow.down", material: "arrow_downward" },
+  grip: { ios: "line.3.horizontal", material: "drag_indicator" },
   trash: { ios: "trash", material: "delete" },
   add: { ios: "plus", material: "add" },
   minus: { ios: "minus", material: "remove" },
