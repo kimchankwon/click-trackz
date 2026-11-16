@@ -1,6 +1,6 @@
 import type { HapticStrength } from "@/settings/output";
 
-export const hapticsAvailable = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+export const hapticsAvailable = typeof navigator !== "undefined" && typeof navigator.vibrate === "function" && navigator.maxTouchPoints > 0;
 
 export function tapHaptic(strength: HapticStrength) {
   if (!hapticsAvailable) return;

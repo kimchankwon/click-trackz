@@ -38,6 +38,15 @@ describe("Group Playback", () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it("refuses a Start that waited through an outage, and takes one pressed just now", async () => {
+    const { admin, member, groupId, songId } = await setupGroup();
+    vi.setSystemTime(NOW);
+    await expect(admin.mutation(api.playback.start, { groupId, songId, pressedAt: NOW - 30_000 })).rejects.toThrow(/Start was pressed too long ago/);
+    expect(await member.query(api.playback.current, { groupId })).toBeNull();
+    await admin.mutation(api.playback.start, { groupId, songId, pressedAt: NOW - 400 });
+    expect(await member.query(api.playback.current, { groupId })).toMatchObject({ startsAt: NOW + LEAD_IN_MS });
+  });
+
   it("starts one Lead-in after the server receives an Admin's Start, for every Member to read", async () => {
     const { admin, member, groupId, songId } = await setupGroup();
     vi.setSystemTime(NOW);

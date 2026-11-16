@@ -108,6 +108,7 @@ export function TabPager<T extends string>({ pages, active, onChange }: { pages:
                 testID={`page-${page.key}`}
                 style={[styles.page, width > 0 ? { width } : null]}
                 aria-hidden={!shown}
+                {...(Platform.OS === "web" ? { inert: !shown } : null)}
                 importantForAccessibility={shown ? "auto" : "no-hide-descendants"}
               >
                 {page.content}

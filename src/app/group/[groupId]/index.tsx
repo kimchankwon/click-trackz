@@ -734,7 +734,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         if (startPending) return;
         setStartPending(true);
         try {
-          await start({ groupId, songId: startSongId, ...from, ...position });
+          await start({ groupId, songId: startSongId, ...from, ...position, pressedAt: serverNow() ?? undefined });
         } finally {
           setStartPending(false);
         }
@@ -1266,12 +1266,16 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const confirmDelete = async () => {
     if (deletePending) return;
+    if (!connected) {
+      setDeleteError("Deleting the Group needs a connection. Try again once this device is back online.");
+      return;
+    }
     setDeleteError(null);
     setDeletePending(true);
     setLeavingGroup(true);
     const mine = ++attempt.current;
     try {
-      await deleteGroup({ groupId });
+      await deleteGroup({ groupId, pressedAt: serverNow() ?? undefined });
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
