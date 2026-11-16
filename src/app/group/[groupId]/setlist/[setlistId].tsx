@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { router, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { useLocalSearchParams, usePreventRemove } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field } from "@/components/ui/field";
+import { GoneNotice } from "@/components/ui/gone-notice";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { ReorderControl } from "@/components/ui/reorder-control";
@@ -18,6 +19,7 @@ import { Toast, useToast } from "@/components/ui/toast";
 import { useDockInset } from "@/components/ui/use-dock-inset";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
@@ -46,6 +48,22 @@ export default function SetlistScreen() {
   const setlist = useQuery(api.setlists.get, { setlistId });
   const songs = useQuery(api.songs.list, { groupId });
   useGuestStaysWhileEditing(groupId);
+  const [deletingHere, setDeletingHere] = useState(false);
+  const gone = setlist === null;
+  useEffect(() => {
+    if (gone && deletingHere) backOr({ pathname: "/group/[groupId]", params: { groupId } });
+  }, [gone, deletingHere, groupId]);
+  if (gone && !deletingHere) {
+    return (
+      <GoneNotice
+        title="This Setlist is gone"
+        message="It was deleted from the Group, so there is nothing left to edit."
+        action="Back to the Group"
+        onPress={() => backOr({ pathname: "/group/[groupId]", params: { groupId } })}
+        testID="setlist-gone"
+      />
+    );
+  }
   if (!setlist || !songs) return <ThemedView style={styles.container} />;
   return (
     <SetlistForm
@@ -54,6 +72,7 @@ export default function SetlistScreen() {
       setlistId={setlistId}
       live={setlist}
       songs={songs}
+      onDeleting={setDeletingHere}
     />
   );
 }
@@ -63,12 +82,15 @@ function SetlistForm({
   setlistId,
   live,
   songs,
+  onDeleting,
 }: {
   groupId: Id<"groups">;
   setlistId: Id<"setlists">;
   live: LiveSetlist;
   songs: { songId: Id<"songs">; title: string; key: string | null }[];
+  onDeleting: (deleting: boolean) => void;
 }) {
+  const toGroup = () => backOr({ pathname: "/group/[groupId]", params: { groupId } });
   const save = useMutation(api.setlists.save);
   const setCurrent = useMutation(api.setlists.setCurrent);
   const isCurrent = useQuery(api.setlists.currentSetlistId, { groupId }) === setlistId;
@@ -107,12 +129,14 @@ function SetlistForm({
     setDeleteError(null);
     setDeletePending(true);
     const mine = ++attempt.current;
+    onDeleting(true);
     try {
       await deleteSetlist({ setlistId });
       if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      setDeparture(() => () => router.back());
+      setDeparture(() => toGroup);
     } catch (error) {
+      onDeleting(false);
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setDeleteError(errorText(error));
     } finally {
@@ -163,7 +187,7 @@ function SetlistForm({
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Edit Setlist" subtitle={live.name} onBack={() => router.back()} />
+          <ScreenHeader title="Edit Setlist" subtitle={live.name} onBack={toGroup} />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
           <Field label="Name" testID="setlist-name" value={name} onChangeText={setName} placeholder="Setlist name" />
@@ -346,7 +370,7 @@ function SetlistForm({
         title="Discard changes?"
         message={`Your edits to ${live.name} are not saved.`}
         confirmLabel="Discard"
-        onConfirm={() => setDeparture(() => () => router.back())}
+        onConfirm={() => setDeparture(() => toGroup)}
         onCancel={() => setAskDiscard(false)}
         testID="discard-setlist-dialog"
       />

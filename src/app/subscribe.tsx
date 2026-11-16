@@ -1,5 +1,4 @@
 import { useAction, useQuery } from "convex/react";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,6 +13,7 @@ import { ThemedView } from "@/components/themed-view";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { LAUNCH_LIMITS, PLAN_NAMES, usageSummary, type PaidPlan } from "@/lib/plans";
 import { api } from "../../convex/_generated/api";
@@ -98,7 +98,7 @@ export default function SubscribeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Plans" subtitle={usage ? `You are on ${PLAN_NAMES[usage.plan]}` : undefined} onBack={() => router.back()} backTestID="plans-back" />
+          <ScreenHeader title="Plans" subtitle={usage ? `You are on ${PLAN_NAMES[usage.plan]}` : undefined} onBack={() => backOr("/")} backTestID="plans-back" />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary">

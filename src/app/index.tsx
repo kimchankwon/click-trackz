@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, router, useIsFocused, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -65,7 +65,7 @@ function AboutLink() {
 
 function GroupsTab({ run, active }: { run: Run; active: boolean }) {
   const viewer = useQuery(api.users.viewer, {});
-  const liveGroups = useQuery(api.groups.myGroups, {});
+  const liveGroups = useQuery(api.groups.myGroups, viewer === null ? "skip" : {});
   const storedHome = useStoredHome();
   useKeepHomeOnDevice(liveGroups, viewer?.isAnonymous);
   const allGroups = liveGroups ?? storedHome?.groups;
@@ -154,12 +154,11 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
             label="Join"
             accent
             testID="join-group"
-            disabled={joinCode.trim().length === 0}
+            disabled={joinCode.trim().length === 0 || displayName.trim().length === 0}
             onPress={() => {
               primeAudio();
               run(async () => {
-                const groupId = await joinGroup({ joinCode, displayName });
-                void clearPendingJoin();
+                const groupId = await joinGroup({ joinCode, displayName }).finally(() => void clearPendingJoin());
                 setJoinCode("");
                 setDisplayName("");
                 router.push({ pathname: "/group/[groupId]", params: { groupId } });
@@ -238,6 +237,7 @@ function SoundTab({ active }: { active: boolean }) {
 }
 
 function SettingsTab({ run }: { run: Run }) {
+  const connected = useConnected();
   const viewer = useQuery(api.users.viewer, {});
   const storedHome = useStoredHome();
   const { signOut } = useAuthActions();
@@ -269,11 +269,11 @@ function SettingsTab({ run }: { run: Run }) {
         icon="logout"
         label="Sign out"
         testID="sign-out"
+        disabled={!connected}
         onPress={() =>
           run(async () => {
-            await Promise.all([forgetStoredLibrary(), forgetStoredHome(), forgetGuestHandoff()]);
             await signOut();
-            await forgetStoredHome();
+            await Promise.all([forgetStoredLibrary(), forgetStoredHome(), forgetGuestHandoff()]);
           })
         }
       />
@@ -334,12 +334,18 @@ export default function HomeScreen() {
   const { start } = useLocalSearchParams<{ start?: string }>();
   const [signingIn, setSigningIn] = useState(start === "1");
 
+  const running = useRef(false);
   const run = useCallback((action: () => Promise<unknown>) => {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     setError(null);
     action()
       .catch((e: unknown) => setError(errorText(e)))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        running.current = false;
+        setBusy(false);
+      });
   }, []);
 
   const retryGoogle = useCallback(() => run(() => signInWithGoogle({ retry: true })), [run, signInWithGoogle]);

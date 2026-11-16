@@ -10,6 +10,7 @@ import { Chip } from "@/components/group/chip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { GoneNotice } from "@/components/ui/gone-notice";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
@@ -23,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toast, useToast } from "@/components/ui/toast";
 import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { backOr } from "@/lib/back-or";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { canEditSongs } from "@/lib/roles";
@@ -237,7 +239,7 @@ function SectionRow({
             value={section.number}
             range={SECTION_NUMBER_RANGE}
             placeholder="–"
-            onChange={(number) => onChange(number === undefined ? { ...section, number: undefined, letter: undefined } : { ...section, number })}
+            onChange={(number) => onChange({ ...section, number })}
           />
         </LabeledField>
         <LabeledField label="Sub" width={LETTER_WIDTH}>
@@ -354,8 +356,24 @@ export default function SongEditorScreen() {
   const song = useQuery(api.songs.get, { songId });
   const vocabulary = useQuery(api.vocabulary.list, { groupId });
   useGuestStaysWhileEditing(groupId);
+  const [deletingHere, setDeletingHere] = useState(false);
+  const gone = song === null;
+  useEffect(() => {
+    if (gone && deletingHere) backOr({ pathname: "/group/[groupId]", params: { groupId } });
+  }, [gone, deletingHere, groupId]);
+  if (gone && !deletingHere) {
+    return (
+      <GoneNotice
+        title="This Song is gone"
+        message="It was deleted from the Group, so there is nothing left to edit."
+        action="Back to the Group"
+        onPress={() => backOr({ pathname: "/group/[groupId]", params: { groupId } })}
+        testID="song-gone"
+      />
+    );
+  }
   if (!song || !vocabulary) return <ThemedView style={styles.container} />;
-  return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} />;
+  return <SongForm key={songId} groupId={groupId} songId={songId} song={song} vocabulary={vocabulary} onDeleting={setDeletingHere} />;
 }
 
 function SongForm({
@@ -363,12 +381,15 @@ function SongForm({
   songId,
   song,
   vocabulary,
+  onDeleting,
 }: {
   groupId: Id<"groups">;
   songId: Id<"songs">;
   song: LoadedSong;
   vocabulary: readonly string[];
+  onDeleting: (deleting: boolean) => void;
 }) {
+  const toGroup = () => backOr({ pathname: "/group/[groupId]", params: { groupId } });
   const updateSong = useMutation(api.songs.updateSong);
   const deleteSong = useMutation(api.songs.deleteSong);
   const duplicateSong = useMutation(api.songs.duplicateSong);
@@ -399,7 +420,7 @@ function SongForm({
     markOwnTimes(markOwnTempos(song.sections, startingBpmOf(song)), startingSongTime(song)).map((section, id) => ({ id, section })),
   );
   const [nextRowId, setNextRowId] = useState(song.sections.length);
-  const sections = withSongTime(withSongTempo(rows.map((row) => row.section), songBpm), songTime);
+  const sections = withSongTime(withSongTempo(rows.map((row) => (row.section.number === undefined ? { ...row.section, letter: undefined } : row.section)), songBpm), songTime);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -408,6 +429,24 @@ function SongForm({
   const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, timeSignature: songTime, sections };
   const changed = !sameDraft(draft, savedDraftOf(song));
   const problem = draftProblem(draft);
+  const [loadedFrom, setLoadedFrom] = useState(song);
+  if (song !== loadedFrom) {
+    const loaded = savedDraftOf(loadedFrom);
+    if (!sameDraft(savedDraftOf(song), loaded) && sameDraft(draft, loaded)) {
+      const bpm = startingBpmOf(song);
+      const time = startingSongTime(song);
+      setTitle(song.title);
+      setSongKey(song.key ?? "");
+      setCountIn(song.countIn);
+      setSubdivision(song.subdivision);
+      setCueLeadBars(song.cueLeadBars);
+      setSongBpm(bpm);
+      setSongTime(time);
+      setRows(markOwnTimes(markOwnTempos(song.sections, bpm), time).map((section, at) => ({ id: nextRowId + at, section })));
+      setNextRowId(nextRowId + song.sections.length);
+    }
+    setLoadedFrom(song);
+  }
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
@@ -481,12 +520,14 @@ function SongForm({
     setDeleteError(null);
     setDeletePending(true);
     const mine = beginAttempt();
+    onDeleting(true);
     try {
       await deleteSong({ songId });
       if (mine !== attempt.current) return;
       setConfirmingDelete(false);
-      setDeparture(() => () => router.back());
+      setDeparture(() => toGroup);
     } catch (error) {
+      onDeleting(false);
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setDeleteError(errorText(error));
     } finally {
@@ -535,7 +576,7 @@ function SongForm({
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Edit Song" subtitle={song.title} onBack={() => router.back()} />
+          <ScreenHeader title="Edit Song" subtitle={song.title} onBack={toGroup} />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" {...pinned.scrollProps}>
           {song.tempoHint && sections.length === 0 ? (
@@ -715,7 +756,7 @@ function SongForm({
           title="Discard changes?"
           message={`Your edits to ${song.title} are not saved.`}
           confirmLabel="Discard"
-          onConfirm={() => setDeparture(() => () => router.back())}
+          onConfirm={() => setDeparture(() => toGroup)}
           onCancel={() => setAskDiscard(false)}
           testID="discard-song-dialog"
         />
