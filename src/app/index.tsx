@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Link, router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Keyboard, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useGoogleReturn, useGoogleSignIn } from "@/auth/use-google-sign-in";
@@ -157,6 +157,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
             disabled={joinCode.trim().length === 0 || displayName.trim().length === 0}
             onPress={() => {
               primeAudio();
+              Keyboard.dismiss();
               run(async () => {
                 const groupId = await joinGroup({ joinCode, displayName }).finally(() => void clearPendingJoin());
                 setJoinCode("");
@@ -203,6 +204,7 @@ function GroupsTab({ run, active }: { run: Run; active: boolean }) {
               disabled={groupName.trim().length === 0 || usage === undefined}
               onPress={() => {
                 primeAudio();
+                Keyboard.dismiss();
                 run(async () => {
                   const { groupId } = await createGroup({ name: groupName, displayName });
                   setGroupName("");
