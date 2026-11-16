@@ -1,24 +1,16 @@
 import { router } from "expo-router";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
-import { TimingStrip } from "@/components/sound/timing-strip";
-import { ActionButton } from "@/components/action-button";
-import { useTimingTest } from "@/audio/use-timing-test";
-import { clipKeyForSpokenCount } from "@/audio/voice-clips";
-import { errorText } from "@/lib/error-text";
-import { earlyLateText } from "@/lib/timing-strip";
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
-import { IconButton } from "@/components/ui/icon-button";
 import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
-import { Radius, Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
+import { Spacing } from "@/constants/theme";
 import { hapticsAvailable } from "@/audio/haptics";
 import { Segmented } from "@/components/ui/segmented";
 import { isLatencySetting } from "@/settings/latency";
@@ -38,11 +30,10 @@ import {
   type Side,
 } from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
-import { isVoiceOffsetSetting, stepVoiceOffset, VOICE_OFFSET_MAX_MS, VOICE_OFFSET_MIN_MS, VOICE_OFFSET_STEP_MS, voiceOffsetText } from "@/settings/voice-offset";
+import { isVoiceOffsetSetting, voiceOffsetText } from "@/settings/voice-offset";
 import type { Sound } from "@/settings/use-sound-settings";
 
 const MIX_TEXT_INSET = 38;
-const TEST_INTERVAL_MS = 1_000;
 
 const VOICE_SPEED_OPTIONS: readonly { value: VoiceSpeed; label: string }[] = [
   { value: "normal", label: "Normal" },
@@ -64,33 +55,11 @@ export function SoundSettings({
   speakerHint?: string | null;
   onSpeaker?: (speaker: SpeakerId, voiceSpeed: VoiceSpeed) => void;
 }) {
-  const theme = useTheme();
   const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
-  const [voiceOffset, setVoiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
+  const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const offsetMs = Number(voiceOffset);
-  const moveVoice = (steps: number) => setVoiceOffset(String(stepVoiceOffset(offsetMs, steps)));
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide, setVoiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
-  const test = useTimingTest();
-  const shownOffset = test.tested?.voiceOffsetMs ?? offsetMs;
-  const [testProblem, setTestProblem] = useState<string | null>(null);
-  const testVoice = () => {
-    setTestProblem(null);
-    if (test.running) {
-      test.stop();
-      return;
-    }
-    test
-      .start({
-        intervalMs: TEST_INTERVAL_MS,
-        latencyNudgeMs: Number(latencyNudge),
-        voiceOffsetMs: offsetMs,
-        volumes: { click: sound.clickVolume, voice: sound.voiceVolume },
-        sides: { click: clickSide, voice: voiceSide },
-        voice: { speaker: sound.speaker, voiceSpeed: sound.voiceSpeed, keyFor: (index: number) => clipKeyForSpokenCount((index % 4) + 1) },
-      })
-      .catch((error: unknown) => setTestProblem(errorText(error)));
-  };
   const [hapticBeat, setHapticBeat] = useDeviceSetting<HapticBeat>("hapticBeat", "off", isHapticBeat);
   const [lockScreen, setLockScreen] = useDeviceSetting<LockScreenSetting>(LOCK_SCREEN_SETTING_KEY, DEFAULT_LOCK_SCREEN_SETTING, isLockScreenSetting);
   const sideOptions = SIDES.map((side) => ({ value: side, label: sideLabels[side] }));
@@ -216,49 +185,19 @@ export function SoundSettings({
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
         <Divider />
-        <View style={styles.linkRow}>
+        <Pressable role="link" testID="open-voice-offset" onPress={() => router.push("/voice-offset")} style={styles.linkRow}>
           <Icon name="speaking" size={22} color="textSecondary" />
-          <ThemedText style={[styles.rowTitle, styles.grow]}>Voice cue offset</ThemedText>
-          <View style={[styles.stepper, { backgroundColor: theme.inputFill, borderColor: theme.inputBorder }]} aria-label="Voice cue offset">
-            <IconButton
-              icon="minus"
-              size={36}
-              label={`Voice cues ${VOICE_OFFSET_STEP_MS} ms sooner`}
-              testID="voice-offset-sooner"
-              disabled={offsetMs <= VOICE_OFFSET_MIN_MS}
-              onPress={() => moveVoice(-1)}
-            />
-            <ThemedText themeColor={offsetMs === 0 ? "textSecondary" : "text"} style={styles.stepperValue} testID="voice-offset-value">
-              {voiceOffsetText(offsetMs)}
+          <View style={styles.grow}>
+            <ThemedText style={styles.rowTitle}>Voice cue offset</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Against the Click
             </ThemedText>
-            <IconButton
-              icon="add"
-              size={36}
-              label={`Voice cues ${VOICE_OFFSET_STEP_MS} ms later`}
-              testID="voice-offset-later"
-              disabled={offsetMs >= VOICE_OFFSET_MAX_MS}
-              onPress={() => moveVoice(1)}
-            />
           </View>
-        </View>
-        <View style={[styles.testPanel, { backgroundColor: theme.background }]}>
-          <TimingStrip
-            testID="voice-offset-strip"
-            rangeMs={TEST_INTERVAL_MS / 2}
-            phase={test.phase}
-            lanes={[
-              { label: "Click", marks: [0], tone: "text" },
-              { label: "Voice", marks: [shownOffset], tone: "accent" },
-            ]}
-            summary={`The Voice plays ${earlyLateText(shownOffset, "before", "after", "with")} the Click`}
-          />
-          <View style={styles.testRow}>
-            <ThemedText type="caption" themeColor={testProblem ? "danger" : "textSecondary"} style={styles.grow}>
-              {testProblem ?? `Voice ${earlyLateText(shownOffset, "sooner than", "later than", "with")} the Click`}
-            </ThemedText>
-            <ActionButton small icon={test.running ? "stop" : "play"} label={test.running ? "Stop" : "Test"} testID="voice-offset-test" onPress={testVoice} />
-          </View>
-        </View>
+          <ThemedText themeColor="textSecondary" style={styles.latencyValue} testID="voice-offset-value">
+            {voiceOffsetText(offsetMs)}
+          </ThemedText>
+          <Icon name="forward" size={20} color="textTertiary" />
+        </Pressable>
       </Card>
       {saveError ? (
         <ThemedText type="caption" themeColor="danger" testID="sound-saved-caption" style={styles.caption}>
@@ -276,12 +215,8 @@ const styles = StyleSheet.create({
   mixHead: { flexDirection: "row", alignItems: "center", gap: Spacing.three },
   plainHint: { paddingHorizontal: Spacing.one },
   caption: { width: "100%", paddingHorizontal: Spacing.one },
-  testPanel: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.md, marginBottom: Spacing.two },
-  testRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.three },
   linkRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 64, paddingVertical: Spacing.one },
   rowTitle: { fontSize: 17, lineHeight: 22, fontWeight: 600 },
-  stepper: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 2, minHeight: 44 },
-  stepperValue: { minWidth: 88, textAlign: "center", fontSize: 15, fontWeight: 600, fontVariant: ["tabular-nums"] },
   latencyValue: { fontSize: 17, fontWeight: 600, fontVariant: ["tabular-nums"], marginRight: Spacing.two },
   deviceRow: { gap: Spacing.two },
 });

@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, usePreventRemove } from "expo-router";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -9,6 +9,7 @@ import { VolumeBar } from "@/components/playback/volume-bar";
 import { TimingStrip } from "@/components/sound/timing-strip";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { ScreenHeader } from "@/components/ui/screen-header";
@@ -34,7 +35,16 @@ export default function LatencyScreen() {
   const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
-  const nudge = Number(stored);
+  const saved = Number(stored);
+  const [draft, setDraft] = useState<number | null>(null);
+  const nudge = draft ?? saved;
+  const changed = draft !== null && draft !== saved;
+  const [askLeave, setAskLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  usePreventRemove(changed && !leaving, () => setAskLeave(true));
+  useEffect(() => {
+    if (leaving) router.back();
+  }, [leaving]);
   const [mode, setMode] = useState<Mode | null>(null);
   const [offsets, setOffsets] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -43,7 +53,16 @@ export default function LatencyScreen() {
   const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
   const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
 
-  const setNudge = (ms: number) => setStored(String(clampLatency(ms)));
+  const setNudge = (ms: number) => setDraft(clampLatency(ms));
+  const saveAndLeave = () => {
+    test.stop();
+    setStored(String(nudge));
+    setLeaving(true);
+  };
+  const discardAndLeave = () => {
+    test.stop();
+    setLeaving(true);
+  };
 
   const begin = (next: Mode) => {
     setMessage(null);
@@ -64,8 +83,8 @@ export default function LatencyScreen() {
         setNudge(kept);
         setMessage(
           kept === measured
-            ? `Set to ${measured} ms from ${offsets.length} taps.`
-            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms.`,
+            ? `Measured ${measured} ms from ${offsets.length} taps. Press Save to keep it.`
+            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. Press Save to keep it.`,
         );
       }
     }
@@ -115,6 +134,7 @@ export default function LatencyScreen() {
                 </View>
               ))}
             </View>
+            <ActionButton icon="repeat" label="Reset to 0 ms" testID="nudge-reset" disabled={nudge === 0} onPress={() => setNudge(0)} />
           </View>
 
           <View style={styles.group}>
@@ -248,8 +268,19 @@ export default function LatencyScreen() {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Done" testID="latency-done" onPress={() => router.back()} />
+          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!changed} onPress={saveAndLeave} />
         </View>
+        <ConfirmDialog
+          visible={askLeave && !leaving}
+          title="Save changes?"
+          message={`Your Latency nudge of ${nudge} ms is not saved.`}
+          confirmLabel="Save"
+          cancelLabel="Discard"
+          onConfirm={saveAndLeave}
+          onCancel={discardAndLeave}
+          onDismiss={() => setAskLeave(false)}
+          testID="latency-leave-dialog"
+        />
       </SafeAreaView>
     </ThemedView>
   );
