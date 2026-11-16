@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { router, useIsFocused, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, type AppStateStatus } from "react-native";
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,7 +19,8 @@ import { SectionCarousel } from "@/components/playback/section-carousel";
 import { SectionList } from "@/components/playback/section-list";
 import { SectionProgress } from "@/components/playback/section-progress";
 import { SongProgress } from "@/components/playback/song-progress";
-import { StageMembers, type StageMember } from "@/components/playback/stage-members";
+import { StageMembers } from "@/components/playback/stage-members";
+import { OnlineMembers, type OnlineListAnchor, type OnlineMember } from "@/components/group/online-members";
 import { TempoPanel } from "@/components/playback/tempo-panel";
 import { Card } from "@/components/group/card";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -829,11 +830,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const pickedTitle =
     pickedSection !== null && startSong ? `${titleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
 
-  const onlineMembers: StageMember[] = (offline ? [] : (members ?? []))
+  const onlineMembers: OnlineMember[] = (offline ? [] : (members ?? []))
     .map((member, position) => ({
       userId: member.userId,
       name: member.displayName,
       position,
+      roleName: !member.isGuest ? ROLE_NAMES[member.role] : member.role === "member" ? "Guest" : `Guest ${ROLE_NAMES[member.role]}`,
+      status: memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id),
       pingMs:
         member.userId === viewer?.id
           ? (estimate?.roundTripMs ?? null)
@@ -843,7 +846,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       isYou: member.userId === viewer?.id,
       started: playing && !onDevice && member.userId === playback?.startedBy,
     }))
-    .filter((member) => memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id) !== "offline");
+    .filter((member) => member.status !== "offline")
+    .map(({ status, ...member }) => ({ ...member, onPlay: status === "onPlay" }));
+  const onlineButton = useRef<ComponentRef<typeof Pressable>>(null);
+  const [onlineList, setOnlineList] = useState<OnlineListAnchor | null>(null);
   const startLabel = startHint ?? "Start";
   const songTempo = startSong ? (startSong.bpm ?? commonBpm(startSong.sections)) : null;
   const canChangeTempo = editsSongs && !playing && !unclocked && startBlocker === null && songTempo !== null;
@@ -935,9 +941,22 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
                 {!connected ? "Connecting…" : estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
               </ThemedText>
-              <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={[styles.pillText, styles.pillGap]}>
-                {onlineMembers.length} online
-              </ThemedText>
+              <Pressable
+                ref={onlineButton}
+                role="button"
+                aria-label={`${onlineMembers.length} online. Show who is online`}
+                aria-haspopup="dialog"
+                aria-expanded={onlineList !== null}
+                testID="open-online-list"
+                hitSlop={8}
+                onPress={() => onlineButton.current?.measureInWindow((x, y, width, height) => setOnlineList({ x, y, width, height }))}
+                style={({ pressed, hovered }) => [styles.onlineButton, hovered ? { backgroundColor: theme.backgroundSelected } : null, pressed ? styles.pressed : null]}
+              >
+                <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
+                  {onlineMembers.length} online
+                </ThemedText>
+                <Icon name="expand" size={12} color="textSecondary" />
+              </Pressable>
             </View>
           )}
         </View>
@@ -962,6 +981,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     </Animated.View>
   ));
 
+  const showTab = (next: GroupTab) => setTab(next);
+
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
@@ -972,12 +993,18 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </ThemedText>
       ) : null}
       {offlinePlay ? (
-        <View style={[styles.offlineBadge, { backgroundColor: theme.backgroundSelected }]} testID="offline-play-badge">
+        <Pressable
+          role="button"
+          aria-label={`Offline play, ${groupPlaying ? "only you hear this while the Group plays" : "only you hear this"}. Change it on the Group tab`}
+          testID="offline-play-badge"
+          onPress={() => showTab("group")}
+          style={({ pressed }) => [styles.offlineBadge, { backgroundColor: theme.backgroundSelected }, pressed ? styles.pressed : null]}
+        >
           <Icon name="person" size={14} color="textSecondary" />
           <ThemedText type="caption" themeColor="textSecondary">
-            Offline play
+            {groupPlaying ? "Offline play: only you hear this. The Group is playing" : "Offline play: only you hear this"}
           </ThemedText>
-        </View>
+        </Pressable>
       ) : null}
       {soundPromptFor("enable-sound")}
       <Animated.View layout={LinearTransition.duration(220)} style={styles.playColumn}>
@@ -1058,7 +1085,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
             idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
           />
-          <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} />
+          <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} onOpen={setOnlineList} />
           {offline || tab !== "play" ? null : <ReactionFloats reactions={chat.reactions} now={chat.now} />}
         </View>
         {tempoOpen && startSong && songTempo !== null && startSongId ? (
@@ -1156,32 +1183,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             ) : null}
           </Card>
         ) : null}
-        {offline || !seesLibrary ? null : (
-          <Card title="Play mode">
-            <Segmented
-              label="Play mode"
-              testID="play-mode"
-              value={offlinePlay ? "offline" : "group"}
-              disabled={playing && offlinePlay}
-              onChange={(next) => switchPlayMode(next === "offline")}
-              options={[
-                { value: "group", label: "With the Group" },
-                { value: "offline", label: "Offline" },
-              ]}
-            />
-            {offlinePlay ? (
-              <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
-                {groupPlaying ? "The Group is playing now" : "Only you hear this"}
-              </ThemedText>
-            ) : null}
-          </Card>
-        )}
         {offline ? null : <CommentsCard chat={chat} viewerId={viewer?.id} />}
       </Animated.View>
     </View>
   );
-
-  const showTab = (next: GroupTab) => setTab(next);
 
   const playSong = (songId: Id<"songs">) => {
     setSelectedSongId(songId);
@@ -1294,6 +1299,24 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const groupTab = (
     <>
+      {seesLibrary ? (
+        <Card title="Play mode">
+          <Segmented
+            label="Play mode"
+            testID="play-mode"
+            value={offlinePlay ? "offline" : "group"}
+            disabled={playing && offlinePlay}
+            onChange={(next) => switchPlayMode(next === "offline")}
+            options={[
+              { value: "group", label: "With the Group" },
+              { value: "offline", label: "Offline" },
+            ]}
+          />
+          <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
+            {offlinePlay ? (groupPlaying ? "Start plays only on this device. The Group is playing now" : "Start plays only on this device") : steersGroup ? "Start plays for everyone in the Group" : "You follow the Group's Playback"}
+          </ThemedText>
+        </Card>
+      ) : null}
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
       {managesGroup && group.joinRole ? <JoinRoleCard groupId={groupId} joinRole={group.joinRole} /> : null}
       {canSteerPlayback(group.role) ? <ActivityCard groupId={groupId} opened={groupTabOpened} /> : null}
@@ -1511,6 +1534,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </View>
       </SafeAreaView>
       <Toast message={toast.message} bottom={dockHeight + (floating ? floatHeight : 0) + Spacing.two} />
+      <OnlineMembers anchor={offline ? null : onlineList} members={onlineMembers} onClose={() => setOnlineList(null)} />
       <ConfirmDialog
         visible={confirmingDuplicate}
         title={`Duplicate ${group.name}?`}
@@ -1593,7 +1617,7 @@ const styles = StyleSheet.create({
   tempoRow: { flexDirection: "row", gap: Spacing.two },
   pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one, height: 24 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
-  pillGap: { marginLeft: Spacing.one },
+  onlineButton: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: Spacing.one, paddingHorizontal: Spacing.one, minHeight: 24, borderRadius: Radius.sm },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },

@@ -27,12 +27,13 @@ const SHOWN_OPTIONS: readonly { value: Shown; label: string }[] = [
   { value: "comment", label: "Comments" },
 ];
 
-const COLLAPSED_ROWS = 4;
+const FIRST_ROWS = 4;
+const MORE_ROWS = 10;
 
 export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opened: boolean }) {
   const theme = useTheme();
   const [shown, setShown] = useState<Shown>("all");
-  const [expanded, setExpanded] = useState(false);
+  const [rowsShown, setRowsShown] = useState(FIRST_ROWS);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -44,6 +45,13 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
     opened ? { groupId, kind: shown === "all" ? undefined : shown } : "skip",
     { initialNumItems: PAGE },
   );
+  const hasMore = results.length > rowsShown || status === "CanLoadMore" || status === "LoadingMore";
+  const waitingForMore = status === "LoadingMore" && results.length <= rowsShown;
+  const showMore = () => {
+    const wanted = rowsShown + MORE_ROWS;
+    setRowsShown(wanted);
+    if (wanted > results.length && status === "CanLoadMore") loadMore(Math.max(PAGE, wanted - results.length));
+  };
   const toggle = (activityId: string) =>
     setOpen((current) => {
       const next = new Set(current);
@@ -55,18 +63,17 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
     <Card title="Activity">
       <View style={styles.controls}>
         <View style={styles.grow}>
-          <Dropdown label="Show" testID="activity-shown" options={SHOWN_OPTIONS} value={shown} onChange={setShown} />
-        </View>
-        {expanded || results.length > COLLAPSED_ROWS || status === "CanLoadMore" ? (
-          <ActionButton
-            small
-            variant="secondary"
-            icon={expanded ? "collapse" : "expand"}
-            label={expanded ? "Collapse" : "Expand"}
-            testID="activity-expand"
-            onPress={() => setExpanded(!expanded)}
+          <Dropdown
+            label="Show"
+            testID="activity-shown"
+            options={SHOWN_OPTIONS}
+            value={shown}
+            onChange={(next) => {
+              setShown(next);
+              setRowsShown(FIRST_ROWS);
+            }}
           />
-        ) : null}
+        </View>
       </View>
       {status === "LoadingFirstPage" ? (
         <ThemedText type="small" themeColor="textSecondary" testID="activity-loading">
@@ -78,7 +85,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
         </ThemedText>
       ) : (
         <View style={styles.listContent} testID="activity-list">
-          {(expanded ? results : results.slice(0, COLLAPSED_ROWS)).map((row, index) => {
+          {results.slice(0, rowsShown).map((row, index) => {
             const expanded = open.has(row.activityId) || row.details.length <= SHOWN_DETAILS;
             return (
               <View key={row.activityId} style={styles.item} testID={`activity-${index}`}>
@@ -112,14 +119,15 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
               </View>
             );
           })}
-          {expanded && (status === "CanLoadMore" || status === "LoadingMore") ? (
+          {hasMore ? (
             <View style={styles.more}>
               <ActionButton
+                full
                 variant="secondary"
-                label={status === "LoadingMore" ? "Loading…" : "Show older"}
+                label={waitingForMore ? "Loading…" : "Load more"}
                 testID="activity-more"
-                disabled={status === "LoadingMore"}
-                onPress={() => loadMore(PAGE)}
+                disabled={waitingForMore}
+                onPress={showMore}
               />
             </View>
           ) : null}
