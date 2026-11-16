@@ -414,6 +414,8 @@ function SongForm({
   const toast = useToast();
   const [askDiscard, setAskDiscard] = useState(false);
   const [departure, setDeparture] = useState<(() => void) | null>(null);
+  const [leavePending, setLeavePending] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const attempt = useRef(0);
   const beginAttempt = () => ++attempt.current;
   const abandonAttempt = () => {
@@ -518,6 +520,26 @@ function SongForm({
     const next = [...rows];
     [next[index], next[target]] = [next[target], next[index]];
     setRows(next);
+  };
+
+  const saveAndLeave = async () => {
+    if (leavePending || problem) return;
+    setLeaveError(null);
+    setLeavePending(true);
+    const mine = beginAttempt();
+    try {
+      await updateSong({ songId, ...draft });
+      if (mine !== attempt.current) {
+        toast.show("Song saved");
+        return;
+      }
+      setDeparture(() => () => router.back());
+    } catch (error) {
+      if (mine !== attempt.current) toast.show(errorText(error), "error");
+      else setLeaveError(errorText(error));
+    } finally {
+      setLeavePending(false);
+    }
   };
 
   const save = () =>
@@ -712,11 +734,21 @@ function SongForm({
         </ConfirmDialog>
         <ConfirmDialog
           visible={askDiscard && departure === null}
-          title="Discard changes?"
+          title="Save changes?"
           message={`Your edits to ${song.title} are not saved.`}
-          confirmLabel="Discard"
-          onConfirm={() => setDeparture(() => () => router.back())}
-          onCancel={() => setAskDiscard(false)}
+          confirmLabel="Save"
+          cancelLabel="Discard"
+          pending={leavePending}
+          error={leaveError ?? problem}
+          onConfirm={() => void saveAndLeave()}
+          onCancel={() => {
+            if (!leavePending) setDeparture(() => () => router.back());
+          }}
+          onDismiss={() => {
+            abandonAttempt();
+            setLeaveError(null);
+            setAskDiscard(false);
+          }}
           testID="discard-song-dialog"
         />
         <ConfirmDialog
