@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
@@ -11,13 +12,19 @@ export type TimingLane = { label: string; marks: readonly number[]; tone: "accen
 
 const LABEL_WIDTH = 84;
 const LANE_HEIGHT = 28;
+const MARK_SLIDE_MS = 160;
 
 function Mark({ position, color, dot, phase }: { position: number; color: string; dot: boolean; phase: SharedValue<number> }) {
-  const grow = useAnimatedStyle(() => {
-    const amount = markGrowth(phase.get(), position);
-    return { transform: [{ scaleX: 1 + amount * 1.5 }, { scaleY: 1 + amount * 0.25 }] };
+  const at = useSharedValue(position);
+  useEffect(() => {
+    at.set(withTiming(position, { duration: MARK_SLIDE_MS, easing: Easing.out(Easing.cubic) }));
+  }, [at, position]);
+  const placed = useAnimatedStyle(() => {
+    const now = at.get();
+    const amount = dot ? 0 : markGrowth(phase.get(), now);
+    return { left: `${now * 100}%`, transform: [{ scaleX: 1 + amount * 1.5 }, { scaleY: 1 + amount * 0.25 }] };
   });
-  return <Animated.View style={[dot ? styles.dot : styles.mark, { left: `${position * 100}%`, backgroundColor: color }, dot ? styles.dotFade : null, dot ? null : grow]} />;
+  return <Animated.View style={[dot ? styles.dot : styles.mark, { backgroundColor: color }, dot ? styles.dotFade : null, placed]} />;
 }
 
 export function TimingStrip({
