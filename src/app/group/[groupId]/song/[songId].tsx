@@ -409,6 +409,7 @@ function SongForm({
   const changed = !sameDraft(draft, savedDraftOf(song));
   const problem = draftProblem(draft);
   const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
+  const [offeredCopyName, setOfferedCopyName] = useState<string | null>(null);
   const [duplicatePending, setDuplicatePending] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const toast = useToast();
@@ -615,6 +616,7 @@ function SongForm({
             testID="duplicate-song"
             onPress={() => {
               setDuplicateError(null);
+              setOfferedCopyName(copyName);
               setConfirmingDuplicate(true);
             }}
           />
@@ -665,8 +667,8 @@ function SongForm({
           title={`Duplicate ${song.title}?`}
           message={
             changed
-              ? `Your changes are saved to ${song.title} first. Then ${copyName ?? "a copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
-              : `${copyName ?? "A copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
+              ? `Your changes are saved to ${song.title} first. Then ${offeredCopyName ?? "a copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
+              : `${offeredCopyName ?? "A copy"} is added to the Song library ${SONG_COPY_DETAILS}.`
           }
           confirmLabel={changed ? "Save and duplicate" : "Duplicate"}
           pending={duplicatePending}
