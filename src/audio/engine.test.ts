@@ -369,6 +369,51 @@ describe("Timing test", () => {
   });
 });
 
+describe("Latency nudge during Playback", () => {
+  const bar: Song = { countIn: false, sections: [{ sectionType: "Verse", bars: 1, beatsPerBar: 4, bpm: 60 }] };
+  const clickStarts = (context: InstanceType<typeof fake.FakeAudioContext>, from: number) =>
+    context.oscillatorNodes.slice(from).map((oscillator) => Number(oscillator.startedAt?.toFixed(3)));
+
+  it("moves every queued Click to the new nudge at once", async () => {
+    const engine = new CueAudioEngine();
+    engine.setPlan(bar, { startsAt: NOW + 300, startSection: 0 });
+    await engine.enable(serverNow, null);
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(clickStarts(context, 0)).toEqual([0.3, 1.3, 2.3, 3.3]);
+    engine.setLatencyNudge(50);
+    expect(context.gains.slice(SETUP_GAINS, SETUP_GAINS + 4).every((gain) => gain.disconnected)).toBe(true);
+    expect(clickStarts(context, 4)).toEqual([0.25, 1.25, 2.25, 3.25]);
+    engine.dispose();
+  });
+
+  it("leaves a Click that already sounded, and plays none twice", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine();
+    engine.setPlan(bar, { startsAt: NOW + 300, startSection: 0 });
+    await engine.enable(() => now, null);
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    now = NOW + 800;
+    context.currentTime = 0.8;
+    engine.setLatencyNudge(-20);
+    expect(context.gains[SETUP_GAINS].disconnected).toBe(false);
+    expect(clickStarts(context, 4)).toEqual([1.32, 2.32, 3.32]);
+    engine.dispose();
+  });
+
+  it("does nothing when the nudge has not changed", async () => {
+    const engine = new CueAudioEngine();
+    engine.setPlan(bar, { startsAt: NOW + 300, startSection: 0 });
+    await engine.enable(serverNow, null);
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    engine.setLatencyNudge(0);
+    expect(context.oscillators).toBe(4);
+    engine.dispose();
+  });
+});
+
 describe("Stereo split", () => {
   it("pans the Click and the Voice cues to their own sides, set before or after sound is on", async () => {
     const engine = new CueAudioEngine();

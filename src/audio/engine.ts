@@ -290,6 +290,15 @@ export class CueAudioEngine {
     }
   }
 
+  setLatencyNudge(latencyNudgeMs: number) {
+    if (latencyNudgeMs === this.latencyNudgeMs) return;
+    this.latencyNudgeMs = latencyNudgeMs;
+    const now = this.serverNow();
+    if (now === null || !this.plan?.playback || this.timing !== null) return;
+    this.trimTo(now);
+    this.tick();
+  }
+
   setOffsets({ latencyNudgeMs, voiceOffsetMs }: { latencyNudgeMs: number; voiceOffsetMs: number }) {
     this.latencyNudgeMs = latencyNudgeMs;
     this.voiceOffsetMs = voiceOffsetMs;

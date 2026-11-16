@@ -7,6 +7,7 @@ The Admin now lines every device up from their own phone:
 - Each device sends a random device id, a short name ("iPhone 16 Pro", "Chrome on Mac") and its saved Latency nudge with its presence heartbeat, and sends a heartbeat at once when the nudge changes.
 - The Group tab shows the Admin a Line up speakers card listing every device with the Group open and its nudge, with the same 10 ms and 1 ms steps as the Latency nudge screen.
 - A step on another device stores a nudge request on that device's presence rows. The device saves it as its own Latency nudge, tells its Member who changed it, and clears the request. The nudge stays on the device, so nothing is applied that the device's own screens do not show.
+- A changed nudge moves the beats a device has already queued, so the next click of a Playback or Speaker check lands at the new time instead of up to half a second later. A sound that has already started keeps its time.
 - A Speaker check stores only a future start and stop instant. Every device builds a one-Section, 60 BPM, click-only plan from them and plays it through the same engine and nudge as a Playback, so what the Admin hears is what the band will hear. Listen limits the check to one device and the Admin's own, which makes a 10 ms gap easy to hear as a double click.
 
 ## Considered Options

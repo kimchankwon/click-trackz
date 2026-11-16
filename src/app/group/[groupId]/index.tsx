@@ -459,7 +459,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [clickSide, voiceSide, soundOn]);
 
   useEffect(() => {
-    if (engine.current) engine.current.latencyNudgeMs = Number(latencyNudge);
+    engine.current?.setLatencyNudge(Number(latencyNudge));
   }, [latencyNudge, soundOn]);
 
   useEffect(() => {
