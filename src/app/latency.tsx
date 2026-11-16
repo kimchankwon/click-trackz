@@ -20,7 +20,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
-import { MIN_TAPS, nudgeFromTaps } from "@/lib/timing-test";
+import { MIN_TAPS, nudgeFromSteps, steadyOffset, type TapStep } from "@/lib/timing-test";
 import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
@@ -28,7 +28,11 @@ const TEST_INTERVAL_MS = 1_000;
 const STRIP_RANGE_MS = TEST_INTERVAL_MS / 2;
 const TEST_VOLUMES = { click: 0.8, voice: 0 };
 
-type Mode = "check" | "measure";
+const SAME_OUTPUT_MS = 30;
+const BUILT_IN_MAX_REPORTED_MS = 60;
+
+type Mode = "check" | "builtIn" | "output";
+type BuiltInStep = TapStep & { reportedMs: number };
 
 const ignorePress = () => undefined;
 
@@ -49,12 +53,19 @@ export default function LatencyScreen() {
   }, [leaving]);
   const [mode, setMode] = useState<Mode | null>(null);
   const [offsets, setOffsets] = useState<number[]>([]);
+  const [builtIn, setBuiltIn] = useState<BuiltInStep | null>(null);
+  const [outputTaps, setOutputTaps] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const reported = useReportedOutputLatency();
   const recommended = clampLatency(reported ?? 0);
   const test = useTimingTest();
   const testedNudge = test.tested?.latencyNudgeMs ?? nudge;
-  const estimate = mode === "measure" ? nudgeFromTaps(testedNudge, offsets) : null;
+  const measuring = mode === "builtIn" || mode === "output";
+  const tapped: TapStep = { offsetsMs: offsets, nudgeMs: testedNudge, intervalMs: TEST_INTERVAL_MS };
+  const estimate = mode === "output" && builtIn ? nudgeFromSteps(builtIn, tapped, builtIn.reportedMs) : null;
+  const lean = mode === "builtIn" ? steadyOffset(offsets, TEST_INTERVAL_MS) : null;
+  const sameOutput = builtIn !== null && reported !== null && Math.abs(reported - builtIn.reportedMs) < SAME_OUTPUT_MS;
+  const notBuiltIn = builtIn === null && mode !== "output" && reported !== null && reported > BUILT_IN_MAX_REPORTED_MS;
 
   const saveAttempt = useRef(0);
   const setNudge = (ms: number) => {
@@ -80,6 +91,11 @@ export default function LatencyScreen() {
   const begin = (next: Mode) => {
     setMessage(null);
     setOffsets([]);
+    if (next === "builtIn") {
+      setBuiltIn(null);
+      setOutputTaps([]);
+    }
+    if (next === "output") setOutputTaps([]);
     setMode(next);
     test.start({ intervalMs: TEST_INTERVAL_MS, latencyNudgeMs: nudge, voiceOffsetMs: 0, volumes: TEST_VOLUMES }).catch((error: unknown) => {
       setMode(null);
@@ -88,16 +104,24 @@ export default function LatencyScreen() {
   };
 
   const end = () => {
-    if (mode === "measure") {
-      const measured = nudgeFromTaps(testedNudge, offsets);
-      if (measured === null) setMessage(`Tap along with at least ${MIN_TAPS} clicks, then press Stop.`);
+    if (mode === "builtIn") {
+      if (steadyOffset(offsets, TEST_INTERVAL_MS) === null) setMessage(`Tap steadily on at least ${MIN_TAPS} clicks, then stop step 1.`);
+      else {
+        setBuiltIn({ ...tapped, reportedMs: reported ?? 0 });
+        setMessage("Step 1 done. Connect your Bluetooth headphones or speaker, then start step 2.");
+      }
+    }
+    if (mode === "output" && builtIn) {
+      setOutputTaps(offsets);
+      const measured = nudgeFromSteps(builtIn, tapped, builtIn.reportedMs);
+      if (measured === null) setMessage(`Tap steadily on at least ${MIN_TAPS} clicks, then press Stop and set again.`);
       else {
         const kept = clampLatency(measured);
         setNudge(kept);
         const next = kept === saved ? "That is your saved nudge already." : "Press Save to keep it.";
         setMessage(
           kept === measured
-            ? `Measured ${measured} ms from ${offsets.length} taps. ${next}`
+            ? `Measured ${measured} ms with your tapping lean removed. ${next}`
             : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. ${next}`,
         );
       }
@@ -173,7 +197,7 @@ export default function LatencyScreen() {
                 icon={mode === "check" ? "stop" : "play"}
                 label={mode === "check" ? "Stop" : "Play test"}
                 testID="nudge-test"
-                disabled={mode === "measure"}
+                disabled={measuring}
                 onPress={() => toggle("check")}
               />
               <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
@@ -218,25 +242,58 @@ export default function LatencyScreen() {
               Tap to measure
             </ThemedText>
             <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="small">Play through the headphones or speakers you will use, tap the pad on every click, then press Stop.</ThemedText>
+              <ThemedText type="small">Removes how early or late you tend to tap. Tap the pad on every click in both steps.</ThemedText>
               <TimingStrip
                 testID="tap-strip"
                 rangeMs={STRIP_RANGE_MS}
                 phase={test.phase}
                 lanes={[
                   { label: "You hear", marks: [0], tone: "text" },
-                  { label: "Your taps", marks: offsets, tone: "accent", dots: true },
+                  { label: "Step 1", marks: builtIn ? builtIn.offsetsMs : offsets, tone: builtIn ? "muted" : "accent", dots: true },
+                  { label: "Step 2", marks: mode === "output" ? offsets : outputTaps, tone: "accent", dots: true },
                 ]}
-                summary={estimate === null ? "No taps measured yet" : `Your taps suggest a nudge of ${estimate} ms`}
+                summary={estimate === null ? "No nudge measured yet" : `Your taps suggest a nudge of ${estimate} ms`}
               />
-              <ActionButton
-                icon={mode === "measure" ? "stop" : "touch"}
-                label={mode === "measure" ? "Stop and set" : "Start tapping"}
-                accent={mode !== "measure"}
-                testID="measure-toggle"
-                disabled={mode === "check"}
-                onPress={() => toggle("measure")}
-              />
+              <View style={styles.step}>
+                <ThemedText type="smallBold">Step 1: built-in speaker</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Disconnect Bluetooth and headphones so this phone plays through its own speaker.
+                </ThemedText>
+                {notBuiltIn ? (
+                  <ThemedText type="small" themeColor="danger" testID="step-1-warning">
+                    {`This device reports a ${reported} ms delay right now, so it may still be playing through Bluetooth.`}
+                  </ThemedText>
+                ) : null}
+                <ActionButton
+                  icon={mode === "builtIn" ? "stop" : "touch"}
+                  label={mode === "builtIn" ? "Stop step 1" : builtIn ? "Redo step 1" : "Start step 1"}
+                  accent={builtIn === null && mode !== "builtIn"}
+                  testID="measure-step-1"
+                  disabled={mode === "check" || mode === "output"}
+                  onPress={() => toggle("builtIn")}
+                />
+              </View>
+              <View style={styles.step}>
+                <ThemedText type="smallBold" themeColor={builtIn ? "text" : "textTertiary"}>
+                  Step 2: Bluetooth
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Connect the headphones or speaker you will play through, then tap along again.
+                </ThemedText>
+                {sameOutput ? (
+                  <ThemedText type="small" themeColor="danger" testID="step-2-warning">
+                    This looks like the same output as step 1. Connect Bluetooth before you tap.
+                  </ThemedText>
+                ) : null}
+                <ActionButton
+                  icon={mode === "output" ? "stop" : "touch"}
+                  label={mode === "output" ? "Stop and set" : "Start step 2"}
+                  accent={builtIn !== null && mode !== "output"}
+                  testID="measure-step-2"
+                  disabled={builtIn === null || mode === "check" || mode === "builtIn"}
+                  onPress={() => toggle("output")}
+                />
+              </View>
               {message ? (
                 <ThemedText testID="latency-message" type="smallBold" role="status" aria-live="polite">
                   {message}
@@ -247,22 +304,30 @@ export default function LatencyScreen() {
                 testID="tap-pad"
                 onPress={ignorePress}
                 onPressIn={() => {
-                  if (mode !== "measure") return;
+                  if (!measuring) return;
                   const offset = test.tapOffset(performance.now());
                   if (offset !== null) setOffsets((shown) => [...shown, offset]);
                 }}
                 style={[
                   styles.pad,
-                  mode === "measure" ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: "transparent" },
+                  measuring ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.accentTint, borderColor: "transparent" },
                 ]}
               >
-                <Icon name="touch" size={32} color={mode === "measure" ? "onAccent" : "accent"} />
-                <ThemedText type="heading" themeColor={mode === "measure" ? "onAccent" : "text"}>
-                  {mode === "measure" ? `Tap on every click (${offsets.length})` : "Tap pad"}
+                <Icon name="touch" size={32} color={measuring ? "onAccent" : "accent"} />
+                <ThemedText type="heading" themeColor={measuring ? "onAccent" : "text"}>
+                  {measuring ? `Tap on every click (${offsets.length})` : "Tap pad"}
                 </ThemedText>
-                {mode === "measure" ? (
+                {measuring ? (
                   <ThemedText type="caption" themeColor="onAccent" testID="tap-estimate">
-                    {estimate === null ? `Keep tapping, ${Math.max(0, MIN_TAPS - offsets.length)} more to measure` : `Nudge so far: ${clampLatency(estimate)} ms`}
+                    {offsets.length < MIN_TAPS
+                      ? `Keep tapping, ${MIN_TAPS - offsets.length} more to measure`
+                      : mode === "builtIn"
+                        ? lean === null
+                          ? "Keep tapping, steadier"
+                          : `Your taps land ${earlyLateText(lean, "early", "late", "on the beat")}`
+                        : estimate === null
+                          ? "Keep tapping, steadier"
+                          : `Nudge so far: ${clampLatency(estimate)} ms`}
                   </ThemedText>
                 ) : null}
               </Pressable>
@@ -319,6 +384,7 @@ const styles = StyleSheet.create({
   preset: { gap: Spacing.one, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
   buttons: { flexDirection: "row", gap: Spacing.two },
+  step: { gap: Spacing.two },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
 });
