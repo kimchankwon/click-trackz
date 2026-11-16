@@ -28,8 +28,13 @@ describe("pingDelayMs", () => {
     expect(pingDelayMs({ ...settled, sinceOpenMs: 10_000, hidden: true })).toBeNull();
   });
 
-  it("stops pinging while paused, even before the first estimate", () => {
+  it("stops pinging while paused, once it has an estimate", () => {
     expect(pingDelayMs({ ...settled, pace: "paused" })).toBeNull();
-    expect(pingDelayMs({ ...settled, sinceOpenMs: 10_000, hasEstimate: false, pace: "paused" })).toBeNull();
+    expect(pingDelayMs({ ...settled, sinceOpenMs: 10_000, pace: "paused" })).toBeNull();
+  });
+
+  it("keeps measuring while paused until there is an estimate, so a Start can still reach the screen", () => {
+    expect(pingDelayMs({ ...settled, hasEstimate: false, pace: "paused" })).toBe(5_000);
+    expect(pingDelayMs({ ...settled, hasEstimate: false, pace: "paused", hidden: true })).toBeNull();
   });
 });
