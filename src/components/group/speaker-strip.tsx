@@ -22,8 +22,8 @@ export type SpeakerLane = {
 
 const LABEL_WIDTH = 84;
 const BEAT_POSITION = 0.5;
-const HEARD_FILL = "#FFFFFF";
-const HEARD_EDGE = "#000000";
+const HEARD_FILL = "#000000";
+const HEARD_EDGE = "#FFFFFF";
 const LANE_HEIGHT = 36;
 const CIRCLE = 24;
 
@@ -121,7 +121,7 @@ function HeardBeat({ phase, live }: { phase: SharedValue<number>; live: boolean 
       style={[styles.track, styles.heardTrack, { backgroundColor: theme.backgroundSelected }]}
     >
       <View pointerEvents="none" style={[styles.beatLine, { backgroundColor: theme.textTertiary }]} />
-      <Animated.View pointerEvents="none" style={[styles.circle, styles.heard, { left: `${BEAT_POSITION * 100}%`, backgroundColor: HEARD_FILL, borderColor: HEARD_EDGE }, grow]} />
+      <Animated.View pointerEvents="none" style={[styles.circle, { left: `${BEAT_POSITION * 100}%`, backgroundColor: HEARD_FILL, borderColor: HEARD_EDGE }, grow]} />
     </View>
   );
 }
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
   beatLine: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, marginLeft: -0.5 },
   circle: { position: "absolute", width: CIRCLE, height: CIRCLE, marginLeft: -CIRCLE / 2, borderRadius: CIRCLE / 2, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
   heardTrack: { borderColor: "transparent" },
-  heard: { borderWidth: 2.5, boxShadow: "none" },
   playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
   axis: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
   tabular: { fontVariant: ["tabular-nums"] },
