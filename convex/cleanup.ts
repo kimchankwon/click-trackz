@@ -9,6 +9,7 @@ export async function deleteGroupRows(ctx: MutationCtx, groupId: Id<"groups">) {
     ctx.db.query("setlists").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("playbacks").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("presence").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
+    ctx.db.query("speakerChecks").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("memberships").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
   ]);
   await Promise.all(rows.flat().map((row) => ctx.db.delete(row._id)));

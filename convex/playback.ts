@@ -5,6 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { refuseLatePress, requireMember, requireRole, requireRoleInUnlocked } from "./access";
 import { logActivity } from "./activity";
+import { endSpeakerCheck } from "./speakerCheck";
 import { sectionName } from "../src/activity/changes";
 import type { Jump } from "../src/sync/timeline";
 
@@ -88,6 +89,7 @@ export const start = mutation({
     };
     if (existing) await ctx.db.replace(existing._id, fields);
     else await ctx.db.insert("playbacks", fields);
+    await endSpeakerCheck(ctx, groupId);
     const from = fromSection !== undefined && fromSection > 0 ? song.sections[fromSection] : undefined;
     const fromWhere = from === undefined ? "" : ` from ${sectionName(from)}`;
     const atBar = fromBar !== undefined && fromBar > 1 ? `${fromWhere === "" ? " from" : ","} bar ${fromBar}` : "";
