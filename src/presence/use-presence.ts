@@ -95,6 +95,7 @@ export function useNudgesFromManagers(
   const request = useQuery(api.presence.myNudgeRequest, shared ? { groupId, screenId } : "skip");
   const applied = useMutation(api.presence.nudgeApplied);
   const handled = useRef<string | null>(null);
+  const latestApply = useRef(0);
   const announce = useEffectEvent(onNudged);
   const reportNotSaved = useEffectEvent(onNotSaved);
   const announceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,6 +113,7 @@ export function useNudgesFromManagers(
     const nudgeMs = clampLatency(request.ms);
     const { id, byName } = request;
     const before = deviceStore.getSync(LATENCY_NUDGE_KEY) ?? "0";
+    const apply = ++latestApply.current;
     void deviceStore.set(LATENCY_NUDGE_KEY, String(nudgeMs)).then(
       () => {
         if (announceTimer.current) clearTimeout(announceTimer.current);
@@ -122,6 +124,7 @@ export function useNudgesFromManagers(
       },
       () => {
         if (handled.current === id) handled.current = null;
+        if (apply !== latestApply.current) return;
         notifyDeviceSetting(LATENCY_NUDGE_KEY, before);
         reportNotSaved(byName);
       },

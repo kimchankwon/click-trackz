@@ -67,7 +67,7 @@ export function SpeakersCard({
   myName: string;
   myLabel: string;
   myNudgeMs: number;
-  setMyNudge: (nudgeMs: number) => void;
+  setMyNudge: (nudgeMs: number) => Promise<boolean>;
   check: ShownCheck | null;
   checkLive: boolean;
   groupPlaying: boolean;
@@ -127,8 +127,10 @@ export function SpeakersCard({
 
   const deliver = (deviceId: string, value: number) => {
     if (deviceId === myDeviceId) {
-      setMyNudge(value);
-      settle(deviceId, value);
+      void setMyNudge(value).then((saved) => {
+        settle(deviceId, value);
+        if (!saved) setProblem("This device could not save its Latency nudge, so it went back to the last saved value. Try again.");
+      });
       return;
     }
     nudgeDevice({ groupId, deviceId, nudgeMs: value }).then(
@@ -169,8 +171,13 @@ export function SpeakersCard({
 
   const toggleCheck = () => {
     setProblem(null);
+    const pressedAt = serverNow();
+    if (!checkLive && pressedAt === null) {
+      setProblem("This device is still measuring the clock. Try again in a moment.");
+      return;
+    }
     setCheckPending(true);
-    const action = checkLive ? stopCheck({ groupId }) : startCheck({ groupId, deviceId: myDeviceId, pressedAt: Date.now() });
+    const action = checkLive || pressedAt === null ? stopCheck({ groupId }) : startCheck({ groupId, deviceId: myDeviceId, pressedAt });
     action.then(
       () => setCheckPending(false),
       (error: unknown) => {

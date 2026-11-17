@@ -1401,7 +1401,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
           myLabel={myLabel}
           myNudgeMs={Number(latencyNudge)}
-          setMyNudge={(nudgeMs) => void setLatencyNudge(String(nudgeMs))}
+          setMyNudge={(nudgeMs) => setLatencyNudge(String(nudgeMs))}
           check={speakerCheck}
           checkLive={checkLive}
           groupPlaying={playing && !onDevice}
