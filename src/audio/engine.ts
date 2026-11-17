@@ -293,10 +293,17 @@ export class CueAudioEngine {
   setLatencyNudge(latencyNudgeMs: number) {
     if (latencyNudgeMs === this.latencyNudgeMs) return;
     this.latencyNudgeMs = latencyNudgeMs;
+    const context = this.context;
     const now = this.serverNow();
-    if (now === null || !this.plan?.playback || this.timing !== null) return;
-    this.trimTo(now);
-    this.tick();
+    if (context === null || now === null || !this.plan?.playback || this.timing !== null) return;
+    const audioNow = context.currentTime;
+    const waiting = this.future.filter((entry) => entry.audioAt > audioNow);
+    const since = Math.min(now, ...waiting.map((entry) => entry.beatAt));
+    this.cancelWhere((entry) => entry.audioAt > audioNow);
+    this.stillSounding = new Map(this.future.map((entry) => [soundKey(entry.kind, entry.beatAt), entry.beatAt]));
+    this.scheduledUntil = since;
+    this.voiceBusyUntil = this.latestVoiceEnd();
+    this.tick(since);
   }
 
   setOffsets({ latencyNudgeMs, voiceOffsetMs }: { latencyNudgeMs: number; voiceOffsetMs: number }) {
@@ -485,7 +492,7 @@ export class CueAudioEngine {
     this.voiceBus = null;
   }
 
-  private tick() {
+  private tick(since?: number) {
     const context = this.context;
     const now = this.serverNow();
     if (context === null || now === null || context.state !== "running" || this.silenced) return;
@@ -503,7 +510,7 @@ export class CueAudioEngine {
     const playback = this.plan?.playback;
     if (!this.plan || !playback || (tapTestOwner !== null && tapTestOwner !== this)) return;
     this.future = this.future.filter((entry) => entry.beatAt > now - FUTURE_PRUNE_MS);
-    const from = Math.max(this.scheduledUntil, now);
+    const from = Math.max(this.scheduledUntil, since ?? now);
     const to = now + (this.hidden ? this.hiddenLookaheadMs : LOOKAHEAD_MS) + MAX_VOICE_LEAD_MS + Math.max(0, -this.voiceOffsetMs) + Math.max(0, this.latencyNudgeMs);
     if (to <= from) return;
     const subdivision = subdivisionOf(this.plan.song);

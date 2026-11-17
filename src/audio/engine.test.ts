@@ -402,6 +402,23 @@ describe("Latency nudge during Playback", () => {
     engine.dispose();
   });
 
+  it("moves a late Click whose beat has passed but which has not sounded yet", async () => {
+    let now = NOW;
+    const engine = new CueAudioEngine();
+    engine.setLatencyNudge(-100);
+    engine.setPlan(bar, { startsAt: NOW + 300, startSection: 0 });
+    await engine.enable(() => now, null);
+    engine.setHidden(true);
+    const context = contexts().at(-1)!;
+    expect(clickStarts(context, 0)).toEqual([0.4, 1.4, 2.4, 3.4]);
+    now = NOW + 320;
+    context.currentTime = 0.32;
+    engine.setLatencyNudge(-80);
+    expect(context.gains.slice(SETUP_GAINS, SETUP_GAINS + 4).every((gain) => gain.disconnected)).toBe(true);
+    expect(clickStarts(context, 4)).toEqual([0.38, 1.38, 2.38, 3.38]);
+    engine.dispose();
+  });
+
   it("does nothing when the nudge has not changed", async () => {
     const engine = new CueAudioEngine();
     engine.setPlan(bar, { startsAt: NOW + 300, startSection: 0 });

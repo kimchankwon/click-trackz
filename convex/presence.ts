@@ -8,7 +8,7 @@ import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "
 import { forgetGuestIfGone } from "./cleanup";
 import { joinRoleValidator } from "./schema";
 import { isDeviceId, trimDeviceLabel } from "../src/lib/device-identity";
-import { canSteerPlayback, JOIN_ROLES } from "../src/lib/roles";
+import { canEditSongs, canSteerPlayback, JOIN_ROLES } from "../src/lib/roles";
 import { LATENCY_MAX_MS, LATENCY_MIN_MS } from "../src/settings/latency";
 
 const FORGET_AFTER_MS = 10 * 60_000;
@@ -129,7 +129,7 @@ export const devices = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
     const { membership } = await requireMember(ctx, groupId);
-    if (membership.role !== "admin") return null;
+    if (!canEditSongs(membership.role)) return null;
     const names = await displayNames(ctx, groupId);
     const latest = new Map<string, Doc<"presence">>();
     const withoutDevice = new Map<string, number>();
@@ -163,7 +163,7 @@ export const devices = query({
 export const nudgeDevice = mutation({
   args: { groupId: v.id("groups"), deviceId: v.string(), nudgeMs: v.number() },
   handler: async (ctx, { groupId, deviceId, nudgeMs }) => {
-    const { user } = await requireRole(ctx, groupId, "admin");
+    const { user } = await requireRole(ctx, groupId, "songManager");
     if (!isNudge(nudgeMs)) throw new ConvexError(`A Latency nudge is a whole number from ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms`);
     const rows = await onlineDevice(ctx, groupId, deviceId);
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -194,19 +194,10 @@ export const nudgeApplied = mutation({
     if ((await membershipOf(ctx, groupId, user._id)) === null) return;
     const screen = await screenPresence(ctx, groupId, user._id, screenId);
     if (screen === null) return;
-    const mine = await ctx.db
-      .query("presence")
-      .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", user._id))
-      .collect();
-    const sameDevice = screen.deviceId === undefined ? [screen] : mine.filter((row) => row.deviceId === screen.deviceId);
-    await Promise.all(
-      sameDevice.map((row) =>
-        ctx.db.patch(row._id, {
-          ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
-          ...(row.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
-        }),
-      ),
-    );
+    await ctx.db.patch(screen._id, {
+      ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
+      ...(screen.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
+    });
   },
 });
 

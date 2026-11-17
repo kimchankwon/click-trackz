@@ -43,7 +43,7 @@ export const current = query({
 export const start = mutation({
   args: { groupId: v.id("groups"), deviceId: v.string(), pressedAt: v.optional(v.number()) },
   handler: async (ctx, { groupId, deviceId, pressedAt }) => {
-    const { user, group } = await requireRoleInUnlocked(ctx, groupId, "admin");
+    const { user, group } = await requireRoleInUnlocked(ctx, groupId, "songManager");
     refuseLatePress(pressedAt, "Play check");
     if (group.offline === true) throw new ConvexError("My Library plays on this device only");
     if (!isDeviceId(deviceId)) throw new ConvexError("That device id is not one this app makes");
@@ -62,24 +62,25 @@ export const start = mutation({
 });
 
 export const listen = mutation({
-  args: { groupId: v.id("groups"), deviceId: v.union(v.string(), v.null()) },
-  handler: async (ctx, { groupId, deviceId }) => {
-    await requireRole(ctx, groupId, "admin");
+  args: { groupId: v.id("groups"), deviceId: v.union(v.string(), v.null()), fromDeviceId: v.string() },
+  handler: async (ctx, { groupId, deviceId, fromDeviceId }) => {
+    await requireRole(ctx, groupId, "songManager");
+    if (!isDeviceId(fromDeviceId)) throw new ConvexError("That device id is not one this app makes");
     const check = await liveCheck(ctx, groupId);
-    if (deviceId === null || deviceId === check.comparedWith) {
-      await ctx.db.patch(check._id, { listenTo: null, listenToName: undefined });
+    if (deviceId === null || deviceId === fromDeviceId) {
+      await ctx.db.patch(check._id, { listenTo: null, listenToName: undefined, comparedWith: fromDeviceId });
       return;
     }
     const [screen] = await onlineDevice(ctx, groupId, deviceId);
     const name = (await displayNames(ctx, groupId)).get(screen.userId) ?? "Member";
-    await ctx.db.patch(check._id, { listenTo: deviceId, listenToName: `${name} (${screen.deviceLabel ?? "Device"})` });
+    await ctx.db.patch(check._id, { listenTo: deviceId, listenToName: `${name} (${screen.deviceLabel ?? "Device"})`, comparedWith: fromDeviceId });
   },
 });
 
 export const stop = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    await requireRole(ctx, groupId, "admin");
+    await requireRole(ctx, groupId, "songManager");
     const check = await groupCheck(ctx, groupId);
     if (check === null) return;
     const stopsAt = Math.min(check.stopsAt, Date.now() + STOP_LEAD_MS);

@@ -36,7 +36,7 @@ async function setupGroup() {
 
 const beat = (deviceId: string, nudgeMs: number, screenId = deviceId) => ({ screenId, onPlay: true, deviceId, deviceLabel: `${deviceId} label`, nudgeMs });
 
-describe("Admins nudge other devices", () => {
+describe("Song Managers and above nudge other devices", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -86,6 +86,17 @@ describe("Admins nudge other devices", () => {
     expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 45, pendingMs: null }));
   });
 
+  it("keeps the nudge waiting for a second tab on the same device after the first tab saves it", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "tab-1") });
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "tab-2") });
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 30 });
+    const request = await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "tab-1" });
+    await member.client.mutation(api.presence.nudgeApplied, { groupId, screenId: "tab-1", id: request!.id, nudgeMs: 30 });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "tab-1" })).toBeNull();
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "tab-2" })).toEqual(expect.objectContaining({ ms: 30 }));
+  });
+
   it("keeps a newer nudge waiting when the device saves an older one", async () => {
     const { admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
@@ -96,11 +107,13 @@ describe("Admins nudge other devices", () => {
     expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toEqual(expect.objectContaining({ ms: 20 }));
   });
 
-  it("lets only the Admin nudge, within the Latency nudge range, and only devices still there", async () => {
+  it("lets Song Managers and above nudge, within the Latency nudge range, and only devices still there", async () => {
     const { admin, member, manager, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
-    await expect(manager.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 })).rejects.toThrow("Only the Admin can do that");
-    expect(await manager.client.query(api.presence.devices, { groupId })).toBeNull();
+    await expect(member.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 })).rejects.toThrow("Only Song Managers and above can do that");
+    expect(await member.client.query(api.presence.devices, { groupId })).toBeNull();
+    await manager.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toEqual(expect.objectContaining({ ms: 20, byName: "Pat" }));
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 401 })).rejects.toThrow(/from -100 to 400 ms/);
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 2.5 })).rejects.toThrow(/whole number/);
     await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
@@ -140,12 +153,20 @@ describe("Speaker check", () => {
     const { admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
     await admin.client.mutation(api.speakerCheck.start, { groupId, deviceId: ADMIN_PHONE });
-    await admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: MEMBER_PHONE });
+    await admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: MEMBER_PHONE, fromDeviceId: ADMIN_PHONE });
     expect(await member.client.query(api.speakerCheck.current, { groupId })).toEqual(
       expect.objectContaining({ listenTo: MEMBER_PHONE, listenToName: `Sam (${MEMBER_PHONE} label)` }),
     );
-    await admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: null });
+    await admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: null, fromDeviceId: ADMIN_PHONE });
     expect(await member.client.query(api.speakerCheck.current, { groupId })).toEqual(expect.objectContaining({ listenTo: null, listenToName: null }));
+  });
+
+  it("compares the listened device with the device of whoever pressed Listen", async () => {
+    const { admin, member, manager, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await admin.client.mutation(api.speakerCheck.start, { groupId, deviceId: ADMIN_PHONE });
+    await manager.client.mutation(api.speakerCheck.listen, { groupId, deviceId: MEMBER_PHONE, fromDeviceId: "managerphone" });
+    expect(await member.client.query(api.speakerCheck.current, { groupId })).toEqual(expect.objectContaining({ listenTo: MEMBER_PHONE, comparedWith: "managerphone" }));
   });
 
   it("stops a stop lead after the press", async () => {
@@ -157,12 +178,14 @@ describe("Speaker check", () => {
     expect(stopsAt - (NOW + 5_000 + STOP_LEAD_MS)).toBeGreaterThanOrEqual(0);
     expect(stopsAt - (NOW + 5_000 + STOP_LEAD_MS)).toBeLessThan(10);
     vi.setSystemTime(NOW + 10_000);
-    await expect(admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: null })).rejects.toThrow("Start a Speaker check first");
+    await expect(admin.client.mutation(api.speakerCheck.listen, { groupId, deviceId: null, fromDeviceId: ADMIN_PHONE })).rejects.toThrow("Start a Speaker check first");
   });
 
-  it("is for the Admin only", async () => {
-    const { manager, groupId } = await setupGroup();
-    await expect(manager.client.mutation(api.speakerCheck.start, { groupId, deviceId: ADMIN_PHONE })).rejects.toThrow("Only the Admin can do that");
+  it("is for Song Managers and above", async () => {
+    const { member, manager, groupId } = await setupGroup();
+    await expect(member.client.mutation(api.speakerCheck.start, { groupId, deviceId: MEMBER_PHONE })).rejects.toThrow("Only Song Managers and above can do that");
+    await manager.client.mutation(api.speakerCheck.start, { groupId, deviceId: "managerphone" });
+    expect(await member.client.query(api.speakerCheck.current, { groupId })).toEqual(expect.objectContaining({ comparedWith: "managerphone", startedByName: "Pat" }));
   });
 
   it("waits for a Playback to end, and a Playback start ends it", async () => {

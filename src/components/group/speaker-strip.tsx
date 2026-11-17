@@ -1,0 +1,169 @@
+import { useState } from "react";
+import { StyleSheet, View, type KeyDownEvent } from "react-native";
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
+
+import { ThemedText } from "@/components/themed-text";
+import { holdSwipe, releaseSwipe } from "@/components/ui/swipe-hold";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import { markGrowth } from "@/lib/timing-test";
+import { nudgeAtFraction, stripPosition } from "@/lib/timing-strip";
+import { clampLatency } from "@/settings/latency";
+
+export const SPEAKER_STRIP_RANGE_MS = 500;
+
+export type SpeakerLane = {
+  deviceId: string;
+  label: string;
+  nudgeMs: number;
+  playing: boolean;
+};
+
+const LABEL_WIDTH = 84;
+const LANE_HEIGHT = 36;
+const CIRCLE = 24;
+
+const keyStep: Record<string, number> = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: -1, ArrowUp: 1, PageUp: 10, PageDown: -10 };
+
+function Lane({
+  lane,
+  phase,
+  onNudge,
+  onRelease,
+}: {
+  lane: SpeakerLane;
+  phase: SharedValue<number>;
+  onNudge: (deviceId: string, nudgeMs: number) => void;
+  onRelease: (deviceId: string) => void;
+}) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const position = stripPosition(-lane.nudgeMs, SPEAKER_STRIP_RANGE_MS);
+  const setFromX = (x: number) => {
+    if (width > 0) onNudge(lane.deviceId, nudgeAtFraction(x / width, SPEAKER_STRIP_RANGE_MS));
+  };
+  const drag = usePanGesture({
+    minDistance: 0,
+    runOnJS: true,
+    onBegin: (event) => {
+      holdSwipe();
+      setFromX(event.x);
+    },
+    onUpdate: (event) => setFromX(event.x),
+    onFinalize: () => {
+      releaseSwipe();
+      onRelease(lane.deviceId);
+    },
+  });
+  const pulse = useAnimatedStyle(() => {
+    const amount = lane.playing ? markGrowth(phase.get(), position) : 0;
+    return { transform: [{ scale: 1 + amount * 0.45 }] };
+  });
+  const step = (by: number) => {
+    onNudge(lane.deviceId, clampLatency(lane.nudgeMs + by));
+    onRelease(lane.deviceId);
+  };
+  return (
+    <GestureDetector gesture={drag} touchAction="pan-y">
+      <View
+        testID={`lane-${lane.deviceId}`}
+        role="slider"
+        aria-label={`Latency nudge for ${lane.label}`}
+        aria-valuemin={-100}
+        aria-valuemax={400}
+        aria-valuenow={lane.nudgeMs}
+        aria-valuetext={`${lane.nudgeMs} ms`}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+        onAccessibilityAction={(event) => step(event.nativeEvent.actionName === "increment" ? 1 : -1)}
+        tabIndex={0}
+        onKeyDown={(event: KeyDownEvent) => {
+          const by = keyStep[event.nativeEvent.key];
+          if (by === undefined) return;
+          event.preventDefault();
+          step(by);
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+        style={[styles.track, { backgroundColor: theme.backgroundSelected, borderColor: focused ? theme.text : "transparent" }]}
+      >
+        <View pointerEvents="none" style={[styles.beatLine, { backgroundColor: theme.textTertiary }]} />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.circle,
+            { left: `${position * 100}%`, backgroundColor: lane.playing ? theme.accent : theme.textTertiary, borderColor: theme.background },
+            pulse,
+          ]}
+        />
+      </View>
+    </GestureDetector>
+  );
+}
+
+export function SpeakerStrip({
+  lanes,
+  phase,
+  onNudge,
+  onRelease,
+}: {
+  lanes: readonly SpeakerLane[];
+  phase: SharedValue<number>;
+  onNudge: (deviceId: string, nudgeMs: number) => void;
+  onRelease: (deviceId: string) => void;
+}) {
+  const theme = useTheme();
+  const playhead = useAnimatedStyle(() => {
+    const at = phase.get();
+    return { opacity: at < 0 ? 0 : 1, left: `${Math.max(0, at) * 100}%` };
+  });
+  return (
+    <View style={styles.strip} testID="speaker-strip">
+      <View style={styles.row}>
+        <View style={styles.labels}>
+          {lanes.map((lane) => (
+            <ThemedText key={lane.deviceId} type="caption" themeColor={lane.playing ? "text" : "textTertiary"} numberOfLines={1} style={styles.label}>
+              {lane.label}
+            </ThemedText>
+          ))}
+        </View>
+        <View style={styles.tracks}>
+          {lanes.map((lane) => (
+            <Lane key={lane.deviceId} lane={lane} phase={phase} onNudge={onNudge} onRelease={onRelease} />
+          ))}
+          <Animated.View pointerEvents="none" style={[styles.playhead, { backgroundColor: theme.accent }, playhead]} />
+        </View>
+      </View>
+      <View style={styles.row}>
+        <View style={styles.labels} />
+        <View style={styles.axis}>
+          <ThemedText type="caption" themeColor="textTertiary" style={styles.tabular}>
+            {`${SPEAKER_STRIP_RANGE_MS} ms early`}
+          </ThemedText>
+          <ThemedText type="caption" themeColor="textTertiary">
+            beat
+          </ThemedText>
+          <ThemedText type="caption" themeColor="textTertiary" style={styles.tabular}>
+            {`${SPEAKER_STRIP_RANGE_MS} ms late`}
+          </ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  strip: { gap: Spacing.two },
+  row: { flexDirection: "row", gap: Spacing.two },
+  labels: { width: LABEL_WIDTH, gap: Spacing.two },
+  label: { height: LANE_HEIGHT, lineHeight: LANE_HEIGHT },
+  tracks: { flex: 1, gap: Spacing.two },
+  track: { height: LANE_HEIGHT, borderRadius: Radius.sm, borderWidth: 2, justifyContent: "center" },
+  beatLine: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, marginLeft: -0.5 },
+  circle: { position: "absolute", width: CIRCLE, height: CIRCLE, marginLeft: -CIRCLE / 2, borderRadius: CIRCLE / 2, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
+  playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
+  axis: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
+  tabular: { fontVariant: ["tabular-nums"] },
+});

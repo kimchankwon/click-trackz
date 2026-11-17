@@ -26,8 +26,8 @@ type MemberAction =
 
 const ROLE_POWERS: Record<Role, string> = {
   admin: "do everything, including deleting the Group",
-  groupManager: "edit Songs and Setlists, run Playback, rename the Group and its Members, and make Song and Playback Managers",
-  songManager: "edit Songs and Setlists and run Playback",
+  groupManager: "edit Songs and Setlists, run Playback, line up everyone's speakers, rename the Group and its Members, and make Song and Playback Managers",
+  songManager: "edit Songs and Setlists, run Playback and line up everyone's speakers",
   playbackManager: "start, steer and stop Playback",
   member: "see the Songs and Setlists and follow Playback",
 };

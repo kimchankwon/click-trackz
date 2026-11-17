@@ -6,6 +6,7 @@ import { AppState } from "react-native";
 import { useAppActive } from "@/lib/use-app-active";
 import { deviceId } from "@/settings/device-id";
 import { deviceLabel } from "@/settings/device-label";
+import { notifyDeviceSetting } from "@/settings/device-setting-events";
 import { deviceStore } from "@/settings/device-store";
 import { clampLatency, LATENCY_NUDGE_KEY } from "@/settings/latency";
 import { api } from "../../convex/_generated/api";
@@ -13,6 +14,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
 
 const REFRESH_MS = 5_000;
+const ANNOUNCE_AFTER_MS = 600;
 const ROUND_TRIP_CHANGE_MS = 100;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -83,25 +85,47 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   return { screenId, deviceId: device.id };
 }
 
-export function useNudgesFromAdmin(groupId: Id<"groups">, screenId: string, shared: boolean, onNudged: (byName: string, nudgeMs: number) => void) {
+export function useNudgesFromManagers(
+  groupId: Id<"groups">,
+  screenId: string,
+  shared: boolean,
+  onNudged: (byName: string, nudgeMs: number) => void,
+  onNotSaved: (byName: string) => void,
+) {
   const request = useQuery(api.presence.myNudgeRequest, shared ? { groupId, screenId } : "skip");
   const applied = useMutation(api.presence.nudgeApplied);
   const handled = useRef<string | null>(null);
   const announce = useEffectEvent(onNudged);
+  const reportNotSaved = useEffectEvent(onNotSaved);
+  const announceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (announceTimer.current) clearTimeout(announceTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!request || handled.current === request.id) return;
     handled.current = request.id;
     const nudgeMs = clampLatency(request.ms);
-    const id = request.id;
-    announce(request.byName, nudgeMs);
-    void deviceStore
-      .set(LATENCY_NUDGE_KEY, String(nudgeMs))
-      .catch(() => undefined)
-      .then(() => applied({ groupId, screenId, id, nudgeMs }))
-      .catch(() => {
+    const { id, byName } = request;
+    const before = deviceStore.getSync(LATENCY_NUDGE_KEY) ?? "0";
+    void deviceStore.set(LATENCY_NUDGE_KEY, String(nudgeMs)).then(
+      () => {
+        if (announceTimer.current) clearTimeout(announceTimer.current);
+        announceTimer.current = setTimeout(() => announce(byName, nudgeMs), ANNOUNCE_AFTER_MS);
+        applied({ groupId, screenId, id, nudgeMs }).catch(() => {
+          if (handled.current === id) handled.current = null;
+        });
+      },
+      () => {
         if (handled.current === id) handled.current = null;
-      });
+        notifyDeviceSetting(LATENCY_NUDGE_KEY, before);
+        reportNotSaved(byName);
+      },
+    );
   }, [request, groupId, screenId, applied]);
 }
 

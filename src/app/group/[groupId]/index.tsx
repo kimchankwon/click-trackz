@@ -72,7 +72,7 @@ import { useLockScreen } from "@/audio/use-lock-screen";
 import { livePlayback, lockScreenActionFor, lockScreenControls, lockScreenInfo, type LockScreenCommand, type LockScreenState } from "@/lib/lock-screen";
 import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
-import { useHeartbeat, useNudgesFromAdmin, usePresence, useStillHere } from "@/presence/use-presence";
+import { useHeartbeat, useNudgesFromManagers, usePresence, useStillHere } from "@/presence/use-presence";
 import { deviceLabel } from "@/settings/device-label";
 import { isLatencySetting } from "@/settings/latency";
 import { playsInSpeakerCheck, speakerCheckLive, speakerCheckPlan } from "@/sync/speaker-check";
@@ -389,7 +389,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     if (openingGroupId !== null) router.replace({ pathname: "/group/[groupId]", params: { groupId: openingGroupId } });
   }, [openingGroupId]);
   const { screenId, deviceId: myDeviceId } = useHeartbeat(groupId, tab === "play", playing || checkLive, !offline && !idleWithoutPlayback, Number(latencyNudge));
-  useNudgesFromAdmin(groupId, screenId, !offline, (byName, nudgeMs) => showToast(`Latency nudge set to ${nudgeMs} ms by ${byName}`));
+  useNudgesFromManagers(
+    groupId,
+    screenId,
+    !offline,
+    (byName, nudgeMs) => showToast(`Latency nudge set to ${nudgeMs} ms by ${byName}`),
+    (byName) => showToast(`This device could not save the Latency nudge ${byName} sent. Ask them to send it again`, "error"),
+  );
   const [myLabel] = useState(deviceLabel);
   useStillHere(groupId, group.guest && !offline && idleWithoutPlayback);
   const presence = usePresence(groupId, serverNow, !offline);
@@ -442,13 +448,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const checkSoundsHere = checkLive && !onDevice && !playing && speakerCheck !== null && playsInSpeakerCheck(speakerCheck, myDeviceId);
 
   useEffect(() => {
-    if (checkSoundsHere && checkPlan) engine.current?.setPlan(checkPlan.song, checkPlan.playback);
-    else engine.current?.setPlan(song, song.sections.length > 0 && !mutedHere ? playback : null);
-  }, [song, playback, soundOn, mutedHere, checkSoundsHere, checkPlan]);
-
-  useEffect(() => {
-    if (engine.current) engine.current.mix = checkSoundsHere ? SPEAKER_CHECK_MIX : mix;
-  }, [mix, soundOn, checkSoundsHere]);
+    const current = engine.current;
+    if (!current) return;
+    const checking = checkSoundsHere && checkPlan !== null;
+    current.mix = checking ? SPEAKER_CHECK_MIX : mix;
+    if (checking) current.setPlan(checkPlan.song, checkPlan.playback);
+    else current.setPlan(song, song.sections.length > 0 && !mutedHere ? playback : null);
+  }, [song, playback, soundOn, mutedHere, checkSoundsHere, checkPlan, mix]);
 
   useEffect(() => {
     engine.current?.setVolumes({ click: clickVolume, voice: voiceVolume });
@@ -1386,10 +1392,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </Card>
       ) : null}
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
-      {isAdmin && !offline ? (
+      {canEditSongs(group.role) && !offline ? (
         <SpeakersCard
           groupId={groupId}
           nowMs={presence.nowMs}
+          serverNow={serverNow}
           myDeviceId={myDeviceId}
           myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
           myLabel={myLabel}
@@ -1398,6 +1405,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           check={speakerCheck}
           checkLive={checkLive}
           groupPlaying={playing && !onDevice}
+          playingOffline={offlinePlay}
           locked={locked}
         />
       ) : null}
@@ -1585,7 +1593,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   return (
     <ThemedView style={styles.container}>
-      {playing ? <KeepAwake /> : null}
+      {playing || checkSoundsHere ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinnedScroll.scrolled}>{header}</PinnedHeader>
         <TabPager
