@@ -227,7 +227,7 @@ export function SpeakersCard({
               : `Listening to ${check?.listenToName ?? "one device"}`}
         </ThemedText>
       ) : null}
-      <SpeakerStrip lanes={lanes} phase={phase} onNudge={queueNudge} onRelease={flushNudge} />
+      <SpeakerStrip lanes={lanes} phase={phase} live={checkLive} onNudge={queueNudge} onRelease={flushNudge} />
       {rows.map((row, index) => (
         <View key={row.deviceId} style={styles.device} testID={`device-${row.deviceId}`}>
           {index > 0 ? <Divider /> : null}
