@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, View, type KeyDownEvent } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
@@ -8,7 +8,7 @@ import { holdSwipe, releaseSwipe } from "@/components/ui/swipe-hold";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { markGrowth } from "@/lib/timing-test";
-import { nudgeAtFraction, stripPosition } from "@/lib/timing-strip";
+import { nudgeAfterDrag, stripPosition } from "@/lib/timing-strip";
 import { clampLatency } from "@/settings/latency";
 
 export const SPEAKER_STRIP_RANGE_MS = 500;
@@ -26,6 +26,8 @@ const HEARD_FILL = "#000000";
 const HEARD_EDGE = "#FFFFFF";
 const LANE_HEIGHT = 36;
 const CIRCLE = 24;
+const DRAG_STARTS_AFTER_PX = 8;
+const SCROLL_WINS_AFTER_PX = 12;
 
 const keyStep: Record<string, number> = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: -1, ArrowUp: 1, PageUp: 10, PageDown: -10 };
 
@@ -44,18 +46,22 @@ function Lane({
   const [width, setWidth] = useState(0);
   const [focused, setFocused] = useState(false);
   const position = stripPosition(-lane.nudgeMs, SPEAKER_STRIP_RANGE_MS);
-  const setFromX = (x: number) => {
-    if (width > 0) onNudge(lane.deviceId, nudgeAtFraction(x / width, SPEAKER_STRIP_RANGE_MS));
-  };
+  const dragFrom = useRef<{ nudgeMs: number; x: number } | null>(null);
   const drag = usePanGesture({
-    minDistance: 0,
     runOnJS: true,
-    onBegin: (event) => {
+    activeOffsetX: [-DRAG_STARTS_AFTER_PX, DRAG_STARTS_AFTER_PX],
+    failOffsetY: [-SCROLL_WINS_AFTER_PX, SCROLL_WINS_AFTER_PX],
+    onActivate: (event) => {
       holdSwipe();
-      setFromX(event.x);
+      dragFrom.current = { nudgeMs: lane.nudgeMs, x: event.translationX };
     },
-    onUpdate: (event) => setFromX(event.x),
+    onUpdate: (event) => {
+      const from = dragFrom.current;
+      if (from) onNudge(lane.deviceId, nudgeAfterDrag(from.nudgeMs, event.translationX - from.x, width, SPEAKER_STRIP_RANGE_MS));
+    },
     onFinalize: () => {
+      if (dragFrom.current === null) return;
+      dragFrom.current = null;
       releaseSwipe();
       onRelease(lane.deviceId);
     },

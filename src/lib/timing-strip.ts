@@ -8,5 +8,5 @@ export function earlyLateText(ms: number, early: string, late: string, same: str
   return `${Math.abs(rounded)} ms ${rounded < 0 ? early : late}`;
 }
 
-export const nudgeAtFraction = (fraction: number, rangeMs: number) =>
-  clampLatency(rangeMs - Math.min(1, Math.max(0, fraction)) * 2 * rangeMs);
+export const nudgeAfterDrag = (startMs: number, dragX: number, width: number, rangeMs: number) =>
+  width > 0 ? clampLatency(startMs - (dragX / width) * 2 * rangeMs) : clampLatency(startMs);

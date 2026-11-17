@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { earlyLateText, nudgeAtFraction, stripPosition } from "./timing-strip";
+import { earlyLateText, nudgeAfterDrag, stripPosition } from "./timing-strip";
 
 describe("timing strip", () => {
   it("places marks from early on the left to late on the right, inside the strip", () => {
@@ -16,12 +16,13 @@ describe("timing strip", () => {
     expect(earlyLateText(0.3, "early", "late", "on the beat")).toBe("on the beat");
   });
 
-  it("turns a dragged spot into the nudge that plays the device that early, within the nudge range", () => {
-    expect(nudgeAtFraction(0.5, 500)).toBe(0);
-    expect(nudgeAtFraction(0.3, 500)).toBe(200);
-    expect(nudgeAtFraction(0.6, 500)).toBe(-100);
-    expect(nudgeAtFraction(0, 500)).toBe(400);
-    expect(nudgeAtFraction(1.4, 500)).toBe(-100);
-    expect(stripPosition(-nudgeAtFraction(0.3, 500), 500)).toBeCloseTo(0.3);
+  it("moves a nudge by how far the circle is dragged, not to where the finger lands", () => {
+    expect(nudgeAfterDrag(250, 0, 300, 500)).toBe(250);
+    expect(nudgeAfterDrag(250, 30, 300, 500)).toBe(150);
+    expect(nudgeAfterDrag(250, -30, 300, 500)).toBe(350);
+    expect(nudgeAfterDrag(250, 300, 300, 500)).toBe(-100);
+    expect(nudgeAfterDrag(0, -300, 300, 500)).toBe(400);
+    expect(nudgeAfterDrag(250, 40, 0, 500)).toBe(250);
+    expect(stripPosition(-nudgeAfterDrag(250, 30, 300, 500), 500) - stripPosition(-250, 500)).toBeCloseTo(0.1);
   });
 });
