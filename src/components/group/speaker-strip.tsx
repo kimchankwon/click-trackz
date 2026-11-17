@@ -21,6 +21,9 @@ export type SpeakerLane = {
 };
 
 const LABEL_WIDTH = 84;
+const BEAT_POSITION = 0.5;
+const HEARD_FILL = "#000000";
+const HEARD_EDGE = "#FFFFFF";
 const LANE_HEIGHT = 36;
 const CIRCLE = 24;
 
@@ -103,14 +106,36 @@ function Lane({
   );
 }
 
+function HeardBeat({ phase, live }: { phase: SharedValue<number>; live: boolean }) {
+  const theme = useTheme();
+  const grow = useAnimatedStyle(() => {
+    const amount = live ? markGrowth(phase.get(), BEAT_POSITION) : 0;
+    return { transform: [{ scale: 1 + amount * 0.8 }] };
+  });
+  return (
+    <View
+      testID="heard-beat"
+      accessible
+      role="img"
+      aria-label="You hear each click on the beat"
+      style={[styles.track, styles.heardTrack, { backgroundColor: theme.backgroundSelected }]}
+    >
+      <View pointerEvents="none" style={[styles.beatLine, { backgroundColor: theme.textTertiary }]} />
+      <Animated.View pointerEvents="none" style={[styles.circle, { left: `${BEAT_POSITION * 100}%`, backgroundColor: HEARD_FILL, borderColor: HEARD_EDGE }, grow]} />
+    </View>
+  );
+}
+
 export function SpeakerStrip({
   lanes,
   phase,
+  live,
   onNudge,
   onRelease,
 }: {
   lanes: readonly SpeakerLane[];
   phase: SharedValue<number>;
+  live: boolean;
   onNudge: (deviceId: string, nudgeMs: number) => void;
   onRelease: (deviceId: string) => void;
 }) {
@@ -123,6 +148,9 @@ export function SpeakerStrip({
     <View style={styles.strip} testID="speaker-strip">
       <View style={styles.row}>
         <View style={styles.labels}>
+          <ThemedText type="caption" themeColor="text" numberOfLines={1} style={styles.label}>
+            You hear
+          </ThemedText>
           {lanes.map((lane) => (
             <ThemedText key={lane.deviceId} type="caption" themeColor={lane.playing ? "text" : "textTertiary"} numberOfLines={1} style={styles.label}>
               {lane.label}
@@ -130,6 +158,7 @@ export function SpeakerStrip({
           ))}
         </View>
         <View style={styles.tracks}>
+          <HeardBeat phase={phase} live={live} />
           {lanes.map((lane) => (
             <Lane key={lane.deviceId} lane={lane} phase={phase} onNudge={onNudge} onRelease={onRelease} />
           ))}
@@ -163,6 +192,7 @@ const styles = StyleSheet.create({
   track: { height: LANE_HEIGHT, borderRadius: Radius.sm, borderWidth: 2, justifyContent: "center" },
   beatLine: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, marginLeft: -0.5 },
   circle: { position: "absolute", width: CIRCLE, height: CIRCLE, marginLeft: -CIRCLE / 2, borderRadius: CIRCLE / 2, borderWidth: 3, boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)" },
+  heardTrack: { borderColor: "transparent" },
   playhead: { position: "absolute", top: -4, bottom: -4, width: 2, marginLeft: -1, borderRadius: 1 },
   axis: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
   tabular: { fontVariant: ["tabular-nums"] },
