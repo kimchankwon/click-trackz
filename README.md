@@ -113,7 +113,7 @@ It adds the 15 Songs with their keys, leaders and a suggested tempo (Sections st
 
 ## Voice cue recordings
 
-The built-in Voice cue clips are in `assets/voice/<speed>/<speaker>/`, one set per Voice speed: `faster` at 1.2x and `normal` at 1.0x. They come from [ElevenLabs](https://elevenlabs.io) text-to-speech, one word or phrase per request. There are ten Speakers. Josh Kim, Sijin Yang, Aodhan King and Brooke Ligertwood are instant voice clones made with their permission, and Josh's Normal set uses a second clone (`normalVoiceId`). Every script needs `ELEVENLABS_API_KEY` in `.env.tts.local` and stays within the plan's three concurrent requests.
+The built-in Voice cue clips are in `assets/voice/<speed>/<speaker>/`, one set per Voice speed: `faster` at 1.2x and `normal` at 1.0x. They come from [ElevenLabs](https://elevenlabs.io) text-to-speech, one word or phrase per request. There are nine Speakers. Josh Kim, Aodhan King and Brooke Ligertwood are instant voice clones made with their permission, and Josh's Normal set uses a second clone (`normalVoiceId`). Every script needs `ELEVENLABS_API_KEY` in `.env.tts.local` and stays within the plan's three concurrent requests.
 
 - `npm run voice-pack` generates only the clips that are missing, then rewrites `src/audio/builtin-voice-clips.ts`.
   - Pass a folder to write elsewhere, and `--replace` to regenerate clips that exist.
