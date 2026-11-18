@@ -11,8 +11,15 @@ describe("Latency nudge per audio output", () => {
 
   it("gives each output its own key that the device store accepts", () => {
     expect(latencyNudgeKeyFor("Speaker")).toBe("latencyNudgeMs.Speaker");
-    expect(latencyNudgeKeyFor("40:4E:36:12:AB:CD-tacl")).toBe("latencyNudgeMs.40_4E_36_12_AB_CD-tacl");
-    expect(latencyNudgeKeyFor("Wired Headphones")).toBe("latencyNudgeMs.Wired_Headphones");
+    expect(latencyNudgeKeyFor("40:4E:36:12:AB:CD-tacl")).toBe("latencyNudgeMs.40_3a_4E_3a_36_3a_12_3a_AB_3a_CD-tacl");
+    expect(latencyNudgeKeyFor("Wired Headphones")).toBe("latencyNudgeMs.Wired_20_Headphones");
+  });
+
+  it("gives outputs whose ids differ only in characters the store does not allow different keys", () => {
+    const ids = ["a:b", "a_b", "a b", "a_3a_b", "a🔊b"];
+    const keys = ids.map(latencyNudgeKeyFor);
+    expect(new Set(keys).size).toBe(ids.length);
+    keys.forEach((key) => expect(key).toMatch(/^[A-Za-z0-9._-]+$/));
   });
 
   it("uses the nudge saved for the output playing now", () => {

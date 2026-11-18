@@ -22,7 +22,8 @@ export function OtherOutputsCard() {
   const others = useMemo(() => remembered.filter((output) => output.id !== currentId), [remembered, currentId]);
   const nudges = useOutputNudges(others);
   const [targets, setTargets] = useState<Record<string, number>>({});
-  const latestTargets = useRef<Record<string, number>>({});
+  const latestTargets = useRef<Record<string, { nudgeMs: number; version: number }>>({});
+  const draftVersion = useRef(0);
   const [unsaved, setUnsaved] = useState<string | null>(null);
   const phase = useSharedValue(NOT_PLAYING);
 
@@ -32,22 +33,27 @@ export function OtherOutputsCard() {
 
   const draft = (outputId: string, nudgeMs: number) => {
     const value = clampLatency(nudgeMs);
-    latestTargets.current = { ...latestTargets.current, [outputId]: value };
-    setTargets(latestTargets.current);
+    draftVersion.current += 1;
+    latestTargets.current = { ...latestTargets.current, [outputId]: { nudgeMs: value, version: draftVersion.current } };
+    setTargets((current) => ({ ...current, [outputId]: value }));
   };
 
   const save = (outputId: string) => {
     const output = others.find((entry) => entry.id === outputId);
-    const value = latestTargets.current[outputId];
-    if (output === undefined || value === undefined) return;
+    const pending = latestTargets.current[outputId];
+    if (output === undefined || pending === undefined) return;
     setUnsaved(null);
-    void saveLatencyNudgeForOutput(value, output).then((saved) => {
+    void saveLatencyNudgeForOutput(pending.nudgeMs, output).then((saved) => {
       if (!saved) setUnsaved(output.name);
-      if (latestTargets.current[outputId] !== value) return;
+      if (latestTargets.current[outputId]?.version !== pending.version) return;
       const rest = { ...latestTargets.current };
       delete rest[outputId];
       latestTargets.current = rest;
-      setTargets(rest);
+      setTargets((current) => {
+        const shown = { ...current };
+        delete shown[outputId];
+        return shown;
+      });
     });
   };
 

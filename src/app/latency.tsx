@@ -71,6 +71,12 @@ export default function LatencyScreen() {
   const sameOutput = builtIn !== null && reported !== null && Math.abs(reported - builtIn.reportedMs) < SAME_OUTPUT_MS;
   const notBuiltIn = builtIn === null && mode !== "output" && reported !== null && reported > BUILT_IN_MAX_REPORTED_MS;
 
+  const retuneTest = test.retune;
+  const testNudgeMs = test.tested?.latencyNudgeMs;
+  useEffect(() => {
+    if (mode === "check" && testNudgeMs !== undefined && testNudgeMs !== nudge) retuneTest({ latencyNudgeMs: nudge, voiceOffsetMs: 0 });
+  }, [mode, nudge, testNudgeMs, retuneTest]);
+
   const saveAttempt = useRef(0);
   const setNudge = (ms: number) => {
     saveAttempt.current += 1;

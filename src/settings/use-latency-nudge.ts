@@ -11,10 +11,15 @@ const CLEARED = "";
 
 const sameOutput = (a: AudioOutput | null, b: AudioOutput | null) => a?.id === b?.id && a?.name === b?.name;
 
-function noteOutputUsed(output: AudioOutput | null) {
-  if (output === null) return;
-  const next = rememberOutput(parseRememberedOutputs(deviceStore.getSync(AUDIO_OUTPUTS_KEY)), output, Date.now());
-  if (next !== null) deviceStore.set(AUDIO_OUTPUTS_KEY, JSON.stringify(next)).catch(() => undefined);
+let rememberedOutputWrites: Promise<void> = Promise.resolve();
+
+export function noteOutputUsed(output: AudioOutput | null) {
+  if (output === null) return rememberedOutputWrites;
+  rememberedOutputWrites = rememberedOutputWrites.then(async () => {
+    const next = rememberOutput(parseRememberedOutputs(deviceStore.getSync(AUDIO_OUTPUTS_KEY)), output, Date.now());
+    if (next !== null) await deviceStore.set(AUDIO_OUTPUTS_KEY, JSON.stringify(next)).catch(() => undefined);
+  });
+  return rememberedOutputWrites;
 }
 
 export function useRememberedOutputs(): RememberedOutput[] {
@@ -40,7 +45,9 @@ export function useAudioOutput() {
       appState.remove();
     };
   }, []);
-  useEffect(() => noteOutputUsed(output), [output]);
+  useEffect(() => {
+    void noteOutputUsed(output);
+  }, [output]);
   return output;
 }
 

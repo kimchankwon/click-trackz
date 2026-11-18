@@ -3,6 +3,7 @@ import { useIsFocused } from "expo-router";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState } from "react-native";
 
+import { currentAudioOutput } from "@/audio/audio-output";
 import { useAppActive } from "@/lib/use-app-active";
 import { deviceId } from "@/settings/device-id";
 import { deviceLabel } from "@/settings/device-label";
@@ -115,11 +116,13 @@ export function useNudgesFromManagers(
     const nudgeMs = clampLatency(request.ms);
     const { id, byName } = request;
     const apply = ++latestApply.current;
-    void saveLatencyNudgeForOutput(nudgeMs).then((saved) => {
+    const output = currentAudioOutput();
+    void saveLatencyNudgeForOutput(nudgeMs, output).then((saved) => {
       if (saved) {
         if (announceTimer.current) clearTimeout(announceTimer.current);
         announceTimer.current = setTimeout(() => announce(byName, nudgeMs), ANNOUNCE_AFTER_MS);
-        applied({ groupId, screenId, id, nudgeMs }).catch(() => {
+        const stillPlayingThere = currentAudioOutput()?.id === output?.id;
+        applied({ groupId, screenId, id, ...(stillPlayingThere ? { nudgeMs } : {}) }).catch(() => {
           if (handled.current === id) handled.current = null;
         });
         return;

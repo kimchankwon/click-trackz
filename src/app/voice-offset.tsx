@@ -50,6 +50,12 @@ export default function VoiceOffsetScreen() {
     if (leaving) backOr("/");
   }, [leaving]);
 
+  const retuneTest = test.retune;
+  const testNudgeMs = test.tested?.latencyNudgeMs;
+  useEffect(() => {
+    if (testNudgeMs !== undefined && testNudgeMs !== latencyNudgeMs) retuneTest({ latencyNudgeMs, voiceOffsetMs: tested });
+  }, [latencyNudgeMs, testNudgeMs, tested, retuneTest]);
+
   const saveAttempt = useRef(0);
   const setOffsetDraft = (ms: number) => {
     saveAttempt.current += 1;

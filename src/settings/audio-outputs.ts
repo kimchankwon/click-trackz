@@ -25,7 +25,8 @@ export function parseRememberedOutputs(stored: string | null): RememberedOutput[
 export function rememberOutput(known: readonly RememberedOutput[], output: { id: string; name: string }, now: number): RememberedOutput[] | null {
   const name = trimDeviceLabel(output.name) || output.id;
   const seen = known.find((entry) => entry.id === output.id);
-  if (seen && seen.name === name && now - seen.lastUsedAt < REFRESH_LAST_USED_MS) return null;
+  const mostRecent = seen !== undefined && known.every((entry) => entry.lastUsedAt <= seen.lastUsedAt);
+  if (seen && mostRecent && seen.name === name && now - seen.lastUsedAt < REFRESH_LAST_USED_MS) return null;
   const rest = known.filter((entry) => entry.id !== output.id);
   return [{ id: output.id, name, lastUsedAt: now }, ...rest].sort((a, b) => b.lastUsedAt - a.lastUsedAt).slice(0, MAX_REMEMBERED_OUTPUTS);
 }

@@ -45,6 +45,15 @@ describe("Remembered audio outputs", () => {
     ]);
   });
 
+  it("keeps an output reconnected today when a new one pushes the list past the limit", () => {
+    const known = Array.from({ length: MAX_REMEMBERED_OUTPUTS }, (_, index) => ({ id: `out${index}`, name: `Out ${index}`, lastUsedAt: index }));
+    const reconnected = rememberOutput(known, { id: "out0", name: "Out 0" }, MAX_REMEMBERED_OUTPUTS);
+    expect(reconnected?.[0]).toEqual({ id: "out0", name: "Out 0", lastUsedAt: MAX_REMEMBERED_OUTPUTS });
+    const next = rememberOutput(reconnected ?? known, { id: "new", name: "New" }, MAX_REMEMBERED_OUTPUTS + 1);
+    expect(next?.map((entry) => entry.id).slice(0, 2)).toEqual(["new", "out0"]);
+    expect(next?.some((entry) => entry.id === "out1")).toBe(false);
+  });
+
   it("forgets the longest unused output past the limit", () => {
     const known = Array.from({ length: MAX_REMEMBERED_OUTPUTS }, (_, index) => ({
       id: `out${index}`,
