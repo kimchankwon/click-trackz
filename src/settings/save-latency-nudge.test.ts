@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { onDeviceSetting } from "./device-setting-events";
+import { LATENCY_NUDGE_KEY } from "./latency";
+import { saveLatencyNudgeForOutput } from "./use-latency-nudge";
+
 const store = vi.hoisted(() => ({
   values: new Map<string, string>(),
   writes: [] as { value: string; settle: (kept: boolean) => void }[],
@@ -24,10 +28,6 @@ vi.mock("expo-secure-store", () => ({
 vi.mock("react-native", () => ({ AppState: { addEventListener: () => ({ remove: () => undefined }) } }));
 
 vi.mock("@/audio/audio-output", () => ({ currentAudioOutput: () => null, onAudioOutputChange: () => () => undefined }));
-
-import { onDeviceSetting } from "./device-setting-events";
-import { LATENCY_NUDGE_KEY } from "./latency";
-import { saveLatencyNudgeForOutput } from "./use-latency-nudge";
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
