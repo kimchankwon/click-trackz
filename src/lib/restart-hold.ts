@@ -28,6 +28,13 @@ export function restartHeld() {
   return holds > 0;
 }
 
+export function restartWhenFree(restart: () => void) {
+  const timer = setTimeout(() => {
+    if (!restartHeld()) restart();
+  }, 0);
+  return () => clearTimeout(timer);
+}
+
 export function useHoldRestart(hold: boolean) {
   useEffect(() => (hold ? holdRestart() : undefined), [hold]);
 }

@@ -666,7 +666,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     if (playing && !playingNow.current) stopHeldUntil.current = performance.now() + STOP_AFTER_START_MS;
     playingNow.current = playing;
   }, [playing]);
-  useHoldRestart(playing);
+  useHoldRestart(playing || checkSoundsHere);
 
   if (playing && startPick !== null) setStartPick(null);
   const [followedStart, setFollowedStart] = useState<number | null>(remembered?.followedStart ?? null);
