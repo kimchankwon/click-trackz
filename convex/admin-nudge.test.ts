@@ -114,7 +114,7 @@ describe("Song Managers and above nudge other devices", () => {
     expect(await member.client.query(api.presence.devices, { groupId })).toBeNull();
     await manager.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 });
     expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toEqual(expect.objectContaining({ ms: 20, byName: "Pat" }));
-    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 401 })).rejects.toThrow(/from -100 to 400 ms/);
+    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 401 })).rejects.toThrow("from \u2212400 ms to +100 ms");
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 2.5 })).rejects.toThrow(/whole number/);
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: "neverseen01", nudgeMs: 20 })).rejects.toThrow("That device is no longer in this Group");
     await member.client.mutation(api.groups.leaveGroup, { groupId });

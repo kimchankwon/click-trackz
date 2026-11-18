@@ -21,7 +21,7 @@ import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromSteps, steadyOffset, type TapStep } from "@/lib/timing-test";
-import { clampLatency, isLatencySetting, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs } from "@/settings/latency";
+import { clampLatency, isLatencySetting, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs, signedNumber } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
 const TEST_INTERVAL_MS = 1_000;
@@ -147,7 +147,7 @@ export default function LatencyScreen() {
 
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.readout}>
-              <ThemedText style={[styles.readoutValue, { color: theme.text }]}>{shown > 0 ? `+${shown}` : shown < 0 ? `\u2212${-shown}` : "0"}</ThemedText>
+              <ThemedText style={[styles.readoutValue, { color: theme.text }]}>{signedNumber(shown)}</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.readoutUnit}>
                 ms
               </ThemedText>
@@ -170,7 +170,7 @@ export default function LatencyScreen() {
             <View style={styles.steps}>
               {[-10, -1, 1, 10].map((step) => (
                 <View key={step} style={styles.stepCell}>
-                  <ActionButton full medium compact label={step > 0 ? `+${step}` : `\u2212${-step}`} testID={`nudge-${step}`} onPress={() => setNudge(nudgeFromShown(shown + step))} />
+                  <ActionButton full medium compact label={signedNumber(step)} testID={`nudge-${step}`} onPress={() => setNudge(nudgeFromShown(shown + step))} />
                 </View>
               ))}
             </View>

@@ -9,7 +9,7 @@ import { forgetDevicesOf, forgetGuestIfGone } from "./cleanup";
 import { joinRoleValidator } from "./schema";
 import { isDeviceId, trimDeviceLabel } from "../src/lib/device-identity";
 import { canEditSongs, canSteerPlayback, JOIN_ROLES } from "../src/lib/roles";
-import { LATENCY_MAX_MS, LATENCY_MIN_MS } from "../src/settings/latency";
+import { LATENCY_MAX_MS, LATENCY_MIN_MS, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs } from "../src/settings/latency";
 
 const FORGET_AFTER_MS = 10 * 60_000;
 const FORGET_BATCH = 500;
@@ -222,7 +222,7 @@ export const nudgeDevice = mutation({
   args: { groupId: v.id("groups"), deviceId: v.string(), nudgeMs: v.number() },
   handler: async (ctx, { groupId, deviceId, nudgeMs }) => {
     const { user } = await requireRole(ctx, groupId, "songManager");
-    if (!isNudge(nudgeMs)) throw new ConvexError(`A Latency nudge is a whole number from ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms`);
+    if (!isNudge(nudgeMs)) throw new ConvexError(`A Latency nudge is a whole number from ${signedMs(SHOWN_NUDGE_MIN_MS)} to ${signedMs(SHOWN_NUDGE_MAX_MS)}`);
     const now = Date.now();
     const screens = (await groupScreens(ctx, groupId)).filter((row) => row.deviceId === deviceId && now - row.seenAt <= FORGET_AFTER_MS);
     const known = await rememberedDevice(ctx, groupId, deviceId);
