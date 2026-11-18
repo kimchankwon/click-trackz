@@ -27,6 +27,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
+import { useHoldRestart } from "@/lib/restart-hold";
 import { canEditSongs } from "@/lib/roles";
 import { draftProblem, MAX_BPM, MIN_BPM, sameDraft, type SongDraft } from "@/lib/song-draft";
 import { InsertSectionGap } from "@/components/song/insert-section-gap";
@@ -428,6 +429,7 @@ function SongForm({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const draft = { title, key: songKey, countIn, subdivision, cueLeadBars, bpm: songBpm, timeSignature: songTime, sections };
   const changed = !sameDraft(draft, savedDraftOf(song));
+  useHoldRestart(changed);
   const problem = draftProblem(draft);
   const [loadedFrom, setLoadedFrom] = useState(song);
   if (song !== loadedFrom) {
