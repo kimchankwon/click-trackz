@@ -10,7 +10,6 @@ export const speakers: Speaker[] = [
   { id: "adam", name: "Adam", voiceId: "pNInz6obpgDQGcFmaJgB", voice: "male" },
   { id: "george", name: "George", voiceId: "JBFqnCBsd6RMkjVDRZzb", voice: "male" },
   { id: "aodhan", name: "Aodhan King", voiceId: "PnUSoJmZiZ8lEKcre7RV", voice: "male", cloned: true },
-  { id: "sijin", name: "Sijin Yang", voiceId: "Ml6hRC8LLk4hmcUNRkgk", voice: "male", cloned: true },
 ];
 
 export const sectionTypes = [

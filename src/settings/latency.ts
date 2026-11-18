@@ -14,7 +14,11 @@ export const nudgeShown = (nudgeMs: number) => (nudgeMs === 0 ? 0 : -nudgeMs);
 
 export const nudgeFromShown = (shownMs: number) => clampLatency(shownMs === 0 ? 0 : -shownMs);
 
-export const signedMs = (ms: number) => (ms > 0 ? `+${ms} ms` : ms < 0 ? `−${-ms} ms` : "0 ms");
+export const MINUS = "\u2212";
+
+export const signedNumber = (value: number) => (value > 0 ? `+${value}` : value < 0 ? `${MINUS}${-value}` : "0");
+
+export const signedMs = (ms: number) => `${signedNumber(ms)} ms`;
 
 export const nudgeText = (nudgeMs: number) => signedMs(nudgeShown(nudgeMs));
 

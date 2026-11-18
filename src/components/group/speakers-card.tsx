@@ -9,7 +9,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { errorText } from "@/lib/error-text";
 import { ONLINE_WITHIN_MS } from "@/presence/online";
-import { clampLatency, nudgeFromShown, nudgeShown, nudgeText } from "@/settings/latency";
+import { clampLatency, nudgeFromShown, nudgeShown, nudgeText, signedNumber } from "@/settings/latency";
 import { playsInSpeakerCheck, SPEAKER_CHECK_BPM, type SpeakerCheck } from "@/sync/speaker-check";
 import { useServerBeatPhase } from "@/sync/use-server-beat-phase";
 import { api } from "../../../convex/_generated/api";
@@ -32,8 +32,6 @@ type DeviceRow = {
 };
 
 type Outgoing = { value: number; timer: ReturnType<typeof setTimeout> | null };
-
-const stepLabel = (step: number) => (step > 0 ? `+${step}` : `−${-step}`);
 
 const onOutput = (label: string, outputName: string | null) => (outputName ? `${label} on ${outputName}` : label);
 
@@ -264,8 +262,8 @@ export function SpeakersCard({
                   full
                   small
                   compact
-                  label={stepLabel(step)}
-                  accessibleName={`${stepLabel(step)} ms for ${labels[index]}, ${row.label}`}
+                  label={signedNumber(step)}
+                  accessibleName={`${signedNumber(step)} ms for ${labels[index]}, ${row.label}`}
                   testID={`device-${row.deviceId}-${step}`}
                   onPress={() => stepNudge(row, step)}
                 />
