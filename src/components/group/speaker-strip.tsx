@@ -8,7 +8,7 @@ import { holdSwipe, releaseSwipe } from "@/components/ui/swipe-hold";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { markGrowth } from "@/lib/timing-test";
-import { nudgeAfterDrag, stripPosition } from "@/lib/timing-strip";
+import { nudgeAfterDrag, stripKeySteps, stripPosition } from "@/lib/timing-strip";
 import { nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS } from "@/settings/latency";
 
 export const SPEAKER_STRIP_RANGE_MS = 500;
@@ -28,8 +28,6 @@ const LANE_HEIGHT = 36;
 const CIRCLE = 24;
 const DRAG_STARTS_AFTER_PX = 8;
 const SCROLL_WINS_AFTER_PX = 12;
-
-const keyStep: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1, PageUp: 10, PageDown: -10 };
 
 function Lane({
   lane,
@@ -88,7 +86,7 @@ function Lane({
         onAccessibilityAction={(event) => step(event.nativeEvent.actionName === "increment" ? 1 : -1)}
         tabIndex={0}
         onKeyDown={(event: KeyDownEvent) => {
-          const by = keyStep[event.nativeEvent.key];
+          const by = stripKeySteps[event.nativeEvent.key];
           if (by === undefined) return;
           event.preventDefault();
           step(by);

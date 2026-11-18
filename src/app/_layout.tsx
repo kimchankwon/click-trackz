@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { claimReturnedGoogleCode } from "@/auth/pending-google";
 import { ThemedText } from "@/components/themed-text";
-import { UpdateBanner } from "@/components/update-banner";
+import { AppUpdates } from "@/components/app-updates";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { authStorage, convex } from "@/lib/convex";
@@ -21,7 +21,7 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <AccentSync />
           <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: false }} />
-          <UpdateBanner />
+          <AppUpdates />
         </ThemeProvider>
       </ConvexAuthProvider>
     </GestureHandlerRootView>

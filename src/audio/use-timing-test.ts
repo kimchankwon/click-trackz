@@ -3,6 +3,7 @@ import { useSharedValue } from "react-native-reanimated";
 
 import type { BuiltinClipKey, SpeakerId, VoiceSpeed } from "./builtin-voice-clips";
 import { CueAudioEngine, type CueSides, type CueVolumes } from "./engine";
+import { useHoldRestart } from "@/lib/restart-hold";
 import { beatPhase, offsetFromBeat } from "@/lib/timing-test";
 
 const AHEAD_BEATS = 3;
@@ -29,6 +30,7 @@ export function useTimingTest() {
   const phase = useSharedValue(-1);
   const [running, setRunning] = useState(false);
   const [tested, setTested] = useState<TimingOffsets | null>(null);
+  useHoldRestart(running);
 
   const halt = useCallback(() => {
     if (scheduler.current) clearInterval(scheduler.current);
