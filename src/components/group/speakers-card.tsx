@@ -55,6 +55,7 @@ export function SpeakersCard({
   myLabel,
   myNudgeMs,
   myOutputName,
+  myOutputId,
   setMyNudge,
   check,
   checkLive,
@@ -70,6 +71,7 @@ export function SpeakersCard({
   myLabel: string;
   myNudgeMs: number;
   myOutputName: string | null;
+  myOutputId: string | null;
   setMyNudge: (nudgeMs: number) => Promise<boolean>;
   check: ShownCheck | null;
   checkLive: boolean;
@@ -93,12 +95,15 @@ export function SpeakersCard({
     return () => pending.forEach((slot) => (slot.timer ? clearTimeout(slot.timer) : undefined));
   }, []);
 
+  const myKey = `${myDeviceId}@${myOutputId ?? ""}`;
+  const keyOf = (deviceId: string) => (deviceId === myDeviceId ? myKey : deviceId);
+
   const others = (shown?.devices ?? [])
     .filter((device) => device.deviceId !== myDeviceId)
     .map((device) => ({ ...device, away: !device.onScreen || nowMs - device.seenAt > ONLINE_WITHIN_MS }))
     .sort((a, b) => Number(a.away) - Number(b.away) || a.displayName.localeCompare(b.displayName) || a.deviceLabel.localeCompare(b.deviceLabel));
   const rows: DeviceRow[] = [
-    { deviceId: myDeviceId, name: myName, label: `${onOutput(myLabel, myOutputName)}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true, away: false },
+    { deviceId: myDeviceId, name: myName, label: `${onOutput(myLabel, myOutputName)}, this device`, nudgeMs: targets[myKey] ?? myNudgeMs, sending: false, mine: true, away: false },
     ...others.map((device) => ({
       deviceId: device.deviceId,
       name: device.displayName,
@@ -121,20 +126,21 @@ export function SpeakersCard({
   const listenTo = checkLive ? (check?.listenTo ?? null) : null;
   const comparingHere = check?.comparedWith === myDeviceId;
 
-  const settle = (deviceId: string, value: number) => {
-    if (outgoing.current.get(deviceId)?.timer) return;
+  const settle = (key: string, value: number) => {
+    if (outgoing.current.get(key)?.timer) return;
     setTargets((current) => {
-      if (current[deviceId] !== value) return current;
+      if (current[key] !== value) return current;
       const rest = { ...current };
-      delete rest[deviceId];
+      delete rest[key];
       return rest;
     });
   };
 
   const deliver = (deviceId: string, value: number) => {
     if (deviceId === myDeviceId) {
+      const key = myKey;
       void setMyNudge(value).then((saved) => {
-        settle(deviceId, value);
+        settle(key, value);
         if (!saved) setProblem("This device could not save its Latency nudge, so it went back to the last saved value. Try again.");
       });
       return;
@@ -150,11 +156,12 @@ export function SpeakersCard({
 
   const queueNudge = (deviceId: string, value: number) => {
     const next = clampLatency(value);
+    const key = keyOf(deviceId);
     setProblem(null);
-    setTargets((current) => (current[deviceId] === next ? current : { ...current, [deviceId]: next }));
-    const slot = outgoing.current.get(deviceId) ?? { value: next, timer: null };
+    setTargets((current) => (current[key] === next ? current : { ...current, [key]: next }));
+    const slot = outgoing.current.get(key) ?? { value: next, timer: null };
     slot.value = next;
-    outgoing.current.set(deviceId, slot);
+    outgoing.current.set(key, slot);
     if (slot.timer) return;
     slot.timer = setTimeout(() => {
       slot.timer = null;
@@ -163,7 +170,7 @@ export function SpeakersCard({
   };
 
   const flushNudge = (deviceId: string) => {
-    const slot = outgoing.current.get(deviceId);
+    const slot = outgoing.current.get(keyOf(deviceId));
     if (!slot?.timer) return;
     clearTimeout(slot.timer);
     slot.timer = null;

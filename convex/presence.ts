@@ -274,20 +274,21 @@ export const myNudgeRequest = query({
 });
 
 export const nudgeApplied = mutation({
-  args: { groupId: v.id("groups"), screenId: v.string(), id: v.string(), nudgeMs: v.number() },
+  args: { groupId: v.id("groups"), screenId: v.string(), id: v.string(), nudgeMs: v.optional(v.number()) },
   handler: async (ctx, { groupId, screenId, id, nudgeMs }) => {
     const user = await requireUser(ctx);
     if ((await membershipOf(ctx, groupId, user._id)) === null) return;
     const screen = await screenPresence(ctx, groupId, user._id, screenId);
     if (screen === null) return;
+    const reported = nudgeMs !== undefined && isNudge(nudgeMs) ? { nudgeMs } : {};
     await ctx.db.patch(screen._id, {
-      ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
+      ...reported,
       ...(screen.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
     });
     const known = screen.deviceId === undefined ? null : await rememberedDevice(ctx, groupId, screen.deviceId);
     if (known === null) return;
     await ctx.db.patch(known._id, {
-      ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
+      ...reported,
       ...(known.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
     });
   },

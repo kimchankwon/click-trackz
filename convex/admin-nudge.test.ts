@@ -112,6 +112,17 @@ describe("Song Managers and above nudge other devices", () => {
     expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 45, pendingMs: null }));
   });
 
+  it("clears the request without changing the shown nudge when the device saved it for an output it no longer plays through", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 45 });
+    const request = await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE });
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 120), outputName: "Hall speaker" });
+    await member.client.mutation(api.presence.nudgeApplied, { groupId, screenId: MEMBER_PHONE, id: request!.id });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toBeNull();
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 120, pendingMs: null, outputName: "Hall speaker" }));
+  });
+
   it("keeps the nudge waiting for a second tab on the same device after the first tab saves it", async () => {
     const { admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "tab-1") });

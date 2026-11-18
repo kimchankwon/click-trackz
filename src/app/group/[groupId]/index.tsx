@@ -1408,6 +1408,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       myLabel={myLabel}
       myNudgeMs={latencyNudgeMs}
       myOutputName={audioOutput?.name ?? null}
+      myOutputId={audioOutput?.id ?? null}
       setMyNudge={setLatencyNudge}
       check={speakerCheck}
       checkLive={checkLive}

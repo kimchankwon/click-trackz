@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import type { SpeakerId, VoiceSpeed } from "@/audio/builtin-voice-clips";
 import { Card, Divider } from "@/components/group/card";
 import { VolumeBar } from "@/components/playback/volume-bar";
+import { OtherOutputsCard } from "@/components/sound/other-outputs-card";
 import { SpeakerPicker } from "@/components/sound/speaker-picker";
 import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
@@ -176,6 +177,7 @@ export function SoundSettings({
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
       </Card>
+      <OtherOutputsCard />
       {saveError ? (
         <ThemedText type="caption" themeColor="danger" testID="sound-saved-caption" style={styles.caption}>
           {saveError}

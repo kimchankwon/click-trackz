@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { lastNotifiedSetting, onDeviceSetting } from "./device-setting-events";
 import { LATENCY_NUDGE_KEY, latencyNudgeKeyFor } from "./latency";
-import { saveLatencyNudgeForOutput } from "./use-latency-nudge";
+import { AUDIO_OUTPUTS_KEY, parseRememberedOutputs } from "./audio-outputs";
+import { noteOutputUsed, saveLatencyNudgeForOutput } from "./use-latency-nudge";
 
 const store = vi.hoisted(() => ({
   values: new Map<string, string>(),
@@ -92,5 +93,30 @@ describe("saveLatencyNudgeForOutput", () => {
     expect(await save).toBe(false);
     expect(heard).toEqual(["40", "120"]);
     stop();
+  });
+
+  it("remembers two outputs connected in quick succession", async () => {
+    const first = noteOutputUsed({ id: "airpods", name: "AirPods" });
+    const second = noteOutputUsed({ id: "car", name: "Car" });
+    await settled();
+    expect(store.writes).toHaveLength(1);
+    store.writes[0].settle(true);
+    await first;
+    await settled();
+    store.writes[1].settle(true);
+    await second;
+    expect(parseRememberedOutputs(store.values.get(AUDIO_OUTPUTS_KEY) ?? null).map((output) => output.id).sort()).toEqual(["airpods", "car"]);
+  });
+
+  it("keeps remembering outputs after a write fails", async () => {
+    const failed = noteOutputUsed({ id: "airpods", name: "AirPods" });
+    await settled();
+    store.writes[0].settle(false);
+    await failed;
+    const next = noteOutputUsed({ id: "car", name: "Car" });
+    await settled();
+    store.writes[1].settle(true);
+    await next;
+    expect(parseRememberedOutputs(store.values.get(AUDIO_OUTPUTS_KEY) ?? null).map((output) => output.id)).toEqual(["car"]);
   });
 });

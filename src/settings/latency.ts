@@ -23,7 +23,7 @@ export const signedMs = (ms: number) => `${signedNumber(ms)} ms`;
 export const nudgeText = (nudgeMs: number) => signedMs(nudgeShown(nudgeMs));
 
 export const latencyNudgeKeyFor = (outputId: string | null) =>
-  outputId === null ? LATENCY_NUDGE_KEY : `${LATENCY_NUDGE_KEY}.${outputId.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+  outputId === null ? LATENCY_NUDGE_KEY : `${LATENCY_NUDGE_KEY}.${outputId.replace(/[^A-Za-z0-9.-]/gu, (char) => `_${char.codePointAt(0)!.toString(16)}_`)}`;
 
 export type OutputNudge = { nudgeMs: number; savedForOutput: boolean };
 
