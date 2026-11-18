@@ -195,6 +195,7 @@ export const devices = query({
             nudgeMs: row.nudgeMs ?? null,
             pendingMs: known?.nudgeRequest?.ms ?? row.nudgeRequest?.ms ?? null,
             onPlay: row.onPlay,
+            onScreen: true,
             seenAt: row.seenAt,
           };
         }),
@@ -206,6 +207,7 @@ export const devices = query({
           nudgeMs: row.nudgeMs ?? null,
           pendingMs: row.nudgeRequest?.ms ?? null,
           onPlay: false,
+          onScreen: false,
           seenAt: row.seenAt,
         })),
       ],
@@ -226,6 +228,7 @@ export const nudgeDevice = mutation({
     const known = await rememberedDevice(ctx, groupId, deviceId);
     const stillMember = known !== null && (await membershipOf(ctx, groupId, known.userId)) !== null;
     if (screens.length === 0 && !stillMember) throw new ConvexError("That device is no longer in this Group");
+    if (screens.length === 0 && known !== null && now - known.seenAt > AWAY_DEVICES_SHOWN_MS) throw new ConvexError("That device has not opened this Group in the last month");
     const nudgeRequest = { id: `${now.toString(36)}${Math.random().toString(36).slice(2, 10)}`, ms: nudgeMs, by: user._id };
     await Promise.all(screens.map((row) => ctx.db.patch(row._id, { nudgeRequest })));
     if (known !== null) await ctx.db.patch(known._id, { nudgeRequest });

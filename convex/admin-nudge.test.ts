@@ -126,7 +126,7 @@ describe("Song Managers and above nudge other devices", () => {
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 30) });
     await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
     const shown = await admin.client.query(api.presence.devices, { groupId });
-    expect(shown?.devices).toEqual([expect.objectContaining({ deviceId: MEMBER_PHONE, displayName: "Sam", deviceLabel: `${MEMBER_PHONE} label`, nudgeMs: 30, pendingMs: null, onPlay: false })]);
+    expect(shown?.devices).toEqual([expect.objectContaining({ deviceId: MEMBER_PHONE, displayName: "Sam", deviceLabel: `${MEMBER_PHONE} label`, nudgeMs: 30, pendingMs: null, onPlay: false, onScreen: false })]);
   });
 
   it("holds a nudge for a device that is away and hands it over when the device opens the Group again", async () => {
@@ -143,6 +143,26 @@ describe("Song Managers and above nudge other devices", () => {
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 60, "new-screen") });
     expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "new-screen" })).toBeNull();
     expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 60, pendingMs: null }));
+  });
+
+  it("marks a device on the Group screen as on screen, even right after it heartbeats", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ onScreen: true }));
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    const away = (await admin.client.query(api.presence.devices, { groupId }))?.devices[0];
+    expect(away?.onScreen).toBe(false);
+    expect(Date.now() - (away?.seenAt ?? 0)).toBeLessThan(1_000);
+  });
+
+  it("refuses a nudge for a device that has not opened the Group in the last month", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    vi.setSystemTime(NOW + 29 * 24 * 60 * 60_000);
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 });
+    vi.setSystemTime(NOW + 31 * 24 * 60 * 60_000);
+    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 30 })).rejects.toThrow("That device has not opened this Group in the last month");
   });
 
   it("drops a held nudge once its device has been away longer than the card lists it", async () => {

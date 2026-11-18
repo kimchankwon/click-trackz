@@ -93,7 +93,7 @@ export function SpeakersCard({
 
   const others = (shown?.devices ?? [])
     .filter((device) => device.deviceId !== myDeviceId)
-    .map((device) => ({ ...device, away: nowMs - device.seenAt > ONLINE_WITHIN_MS }))
+    .map((device) => ({ ...device, away: !device.onScreen || nowMs - device.seenAt > ONLINE_WITHIN_MS }))
     .sort((a, b) => Number(a.away) - Number(b.away) || a.displayName.localeCompare(b.displayName) || a.deviceLabel.localeCompare(b.deviceLabel));
   const rows: DeviceRow[] = [
     { deviceId: myDeviceId, name: myName, label: `${myLabel}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true, away: false },
@@ -267,7 +267,7 @@ export function SpeakersCard({
                 />
               </View>
             ))}
-            {checkLive && !row.mine && !row.away ? (
+            {checkLive && !row.mine && (!row.away || (listenTo === row.deviceId && comparingHere)) ? (
               <View style={styles.stepCell}>
                 <ActionButton
                   full
