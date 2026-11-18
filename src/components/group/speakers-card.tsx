@@ -28,6 +28,7 @@ type DeviceRow = {
   nudgeMs: number;
   sending: boolean;
   mine: boolean;
+  away: boolean;
 };
 
 type Outgoing = { value: number; timer: ReturnType<typeof setTimeout> | null };
@@ -90,20 +91,23 @@ export function SpeakersCard({
     return () => pending.forEach((slot) => (slot.timer ? clearTimeout(slot.timer) : undefined));
   }, []);
 
-  const online = (shown?.devices ?? []).filter((device) => device.deviceId !== myDeviceId && nowMs - device.seenAt <= ONLINE_WITHIN_MS);
+  const others = (shown?.devices ?? [])
+    .filter((device) => device.deviceId !== myDeviceId)
+    .map((device) => ({ ...device, away: nowMs - device.seenAt > ONLINE_WITHIN_MS }))
+    .sort((a, b) => Number(a.away) - Number(b.away) || a.displayName.localeCompare(b.displayName) || a.deviceLabel.localeCompare(b.deviceLabel));
   const rows: DeviceRow[] = [
-    { deviceId: myDeviceId, name: myName, label: `${myLabel}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true },
-    ...online
-      .sort((a, b) => a.displayName.localeCompare(b.displayName) || a.deviceLabel.localeCompare(b.deviceLabel))
-      .map((device) => ({
-        deviceId: device.deviceId,
-        name: device.displayName,
-        label: device.deviceLabel,
-        nudgeMs: targets[device.deviceId] ?? device.pendingMs ?? device.nudgeMs ?? 0,
-        sending: targets[device.deviceId] !== undefined || device.pendingMs !== null,
-        mine: false,
-      })),
+    { deviceId: myDeviceId, name: myName, label: `${myLabel}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true, away: false },
+    ...others.map((device) => ({
+      deviceId: device.deviceId,
+      name: device.displayName,
+      label: device.away ? `${device.deviceLabel}, not here now` : device.deviceLabel,
+      nudgeMs: targets[device.deviceId] ?? device.pendingMs ?? device.nudgeMs ?? 0,
+      sending: targets[device.deviceId] !== undefined || device.pendingMs !== null,
+      mine: false,
+      away: device.away,
+    })),
   ];
+  const anyAway = others.some((device) => device.away);
   const labels = laneLabels(rows);
   const lanes: SpeakerLane[] = rows.map((row, index) => ({
     deviceId: row.deviceId,
@@ -244,7 +248,7 @@ export function SpeakersCard({
               <ThemedText type="smallBold" testID={`device-nudge-${row.deviceId}`}>{nudgeText(row.nudgeMs)}</ThemedText>
               {row.sending ? (
                 <ThemedText type="caption" themeColor="textSecondary">
-                  Sending
+                  {row.away && targets[row.deviceId] === undefined ? "Waiting" : "Sending"}
                 </ThemedText>
               ) : null}
             </View>
@@ -263,7 +267,7 @@ export function SpeakersCard({
                 />
               </View>
             ))}
-            {checkLive && !row.mine ? (
+            {checkLive && !row.mine && !row.away ? (
               <View style={styles.stepCell}>
                 <ActionButton
                   full
@@ -281,9 +285,14 @@ export function SpeakersCard({
           </View>
         </View>
       ))}
-      {rows.length === 1 ? (
+      {others.every((device) => device.away) ? (
         <ThemedText type="caption" themeColor="textSecondary" testID="devices-alone">
           No other device has this Group open
+        </ThemedText>
+      ) : null}
+      {anyAway ? (
+        <ThemedText type="caption" themeColor="textSecondary" testID="devices-away">
+          A device that is not here now gets its nudge the next time it opens this Group
         </ThemedText>
       ) : null}
       {olderApps.length > 0 ? (

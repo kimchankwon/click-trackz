@@ -181,7 +181,7 @@ A device's choice to play every Voice cue and spoken count a little sooner or la
 _Avoid_: Voice delay, voice latency
 
 **Latency nudge**:
-A per-device offset that lines a device's Click and Voice cues up with everyone else's despite the delay of its own audio output, such as a Bluetooth speaker or headphones. The Member sets it on their device, or a Song Manager or above sets it for any device that has the Group open. It is shown with minus for sound played earlier and plus for sound played later, so a Bluetooth delay of 180 ms is made up by a nudge of −180 ms. It is the only thing that moves when a device's sound plays; the delay a device reports for its output is shown as a recommended value, and the Member chooses whether to use it.
+A per-device offset that lines a device's Click and Voice cues up with everyone else's despite the delay of its own audio output, such as a Bluetooth speaker or headphones. The Member sets it on their device, or a Song Manager or above sets it for any device that has opened the Group in the last month; a device that does not have the Group open gets it the next time it opens the Group. It is shown with minus for sound played earlier and plus for sound played later, so a Bluetooth delay of 180 ms is made up by a nudge of −180 ms. It is the only thing that moves when a device's sound plays; the delay a device reports for its output is shown as a recommended value, and the Member chooses whether to use it.
 _Avoid_: Delay, offset, calibration
 
 **Speaker check**:
