@@ -53,6 +53,11 @@ async function moveMembership(ctx: MutationCtx, guestMembership: Doc<"membership
     .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", guestMembership.userId))
     .collect();
   await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
+  const devices = await ctx.db
+    .query("groupDevices")
+    .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", guestMembership.userId))
+    .collect();
+  await Promise.all(devices.map((device) => ctx.db.patch(device._id, { userId })));
   await logActivity(ctx, { groupId, userId, displayName: guestMembership.displayName }, "group", "Signed in with Google, so is no longer a Guest", merged);
   const playbacks = await ctx.db
     .query("playbacks")

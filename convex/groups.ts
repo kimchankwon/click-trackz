@@ -5,7 +5,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { isGuest, membershipOf, refuseLatePress, requireMember, requireRole, requireUser } from "./access";
 import { logActivity } from "./activity";
-import { deleteGroupRows } from "./cleanup";
+import { deleteGroupRows, forgetDevicesOf } from "./cleanup";
 import { groupLocked, requireRoomForGroup, requireRoomForGroupCopy } from "./plans";
 import { joinRoleValidator, roleValidator } from "./schema";
 import { songCopyFields } from "./songs";
@@ -248,6 +248,7 @@ export const removeMember = mutation({
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
       .collect();
     await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
+    await forgetDevicesOf(ctx, groupId, userId);
   },
 });
 
@@ -288,6 +289,7 @@ export const leaveGroup = mutation({
       .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", membership.userId))
       .collect();
     await Promise.all(presence.map((row) => ctx.db.delete(row._id)));
+    await forgetDevicesOf(ctx, groupId, membership.userId);
   },
 });
 

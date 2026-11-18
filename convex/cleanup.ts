@@ -9,6 +9,7 @@ export async function deleteGroupRows(ctx: MutationCtx, groupId: Id<"groups">) {
     ctx.db.query("setlists").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("playbacks").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("presence").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
+    ctx.db.query("groupDevices").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("speakerChecks").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
     ctx.db.query("memberships").withIndex("by_group", (q) => q.eq("groupId", groupId)).collect(),
   ]);
@@ -16,6 +17,14 @@ export async function deleteGroupRows(ctx: MutationCtx, groupId: Id<"groups">) {
   await ctx.db.delete(groupId);
   await ctx.scheduler.runAfter(0, internal.activity.forgetGroup, { groupId });
   await ctx.scheduler.runAfter(0, internal.chat.forgetGroup, { groupId });
+}
+
+export async function forgetDevicesOf(ctx: MutationCtx, groupId: Id<"groups">, userId: Id<"users">) {
+  const devices = await ctx.db
+    .query("groupDevices")
+    .withIndex("by_group_user", (q) => q.eq("groupId", groupId).eq("userId", userId))
+    .collect();
+  await Promise.all(devices.map((row) => ctx.db.delete(row._id)));
 }
 
 async function deleteUserRows(ctx: MutationCtx, userId: Id<"users">) {

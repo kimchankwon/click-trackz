@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { isGuest, membershipOf, requireMember, requireRole, requireUser } from "./access";
-import { forgetGuestIfGone } from "./cleanup";
+import { forgetDevicesOf, forgetGuestIfGone } from "./cleanup";
 import { joinRoleValidator } from "./schema";
 import { isDeviceId, trimDeviceLabel } from "../src/lib/device-identity";
 import { canEditSongs, canSteerPlayback, JOIN_ROLES } from "../src/lib/roles";
@@ -16,6 +16,8 @@ const FORGET_BATCH = 500;
 const MAX_ROUND_TRIP_MS = 60_000;
 const LAST_SEEN_EVERY_MS = 20 * 60_000;
 export const GUEST_ABSENCE_MS = 60 * 60_000;
+export const AWAY_DEVICES_SHOWN_MS = 30 * 24 * 60 * 60_000;
+export const FORGET_DEVICES_AFTER_MS = 90 * 24 * 60 * 60_000;
 
 const checkScreenId = (screenId: string) => {
   if (screenId.length === 0 || screenId.length > 64) throw new ConvexError("Screen id must be 1 to 64 characters");
@@ -23,14 +25,41 @@ const checkScreenId = (screenId: string) => {
 
 const isNudge = (ms: number) => Number.isInteger(ms) && ms >= LATENCY_MIN_MS && ms <= LATENCY_MAX_MS;
 
-function deviceFields(deviceId: string | undefined, deviceLabel: string | undefined, nudgeMs: number | undefined) {
-  if (deviceId === undefined) return {};
+type DeviceFields = { deviceId: string; deviceLabel: string; nudgeMs?: number };
+
+function deviceFields(deviceId: string | undefined, deviceLabel: string | undefined, nudgeMs: number | undefined): DeviceFields | null {
+  if (deviceId === undefined) return null;
   if (!isDeviceId(deviceId)) throw new ConvexError("That device id is not one this app makes");
   return {
     deviceId,
     deviceLabel: trimDeviceLabel(deviceLabel ?? "") || "Device",
     ...(nudgeMs !== undefined && isNudge(nudgeMs) ? { nudgeMs } : {}),
   };
+}
+
+async function rememberedDevice(ctx: QueryCtx, groupId: Id<"groups">, deviceId: string) {
+  return ctx.db
+    .query("groupDevices")
+    .withIndex("by_group_device", (q) => q.eq("groupId", groupId).eq("deviceId", deviceId))
+    .unique();
+}
+
+async function rememberDevice(ctx: MutationCtx, groupId: Id<"groups">, userId: Id<"users">, device: DeviceFields, seenAt: number) {
+  const known = await rememberedDevice(ctx, groupId, device.deviceId);
+  const fields = { userId, deviceLabel: device.deviceLabel, seenAt, ...(device.nudgeMs !== undefined ? { nudgeMs: device.nudgeMs } : {}) };
+  if (known === null) {
+    await ctx.db.insert("groupDevices", { groupId, deviceId: device.deviceId, ...fields });
+    return null;
+  }
+  const heldTooLong = known.nudgeRequest !== undefined && seenAt - known.seenAt > AWAY_DEVICES_SHOWN_MS;
+  const changed =
+    heldTooLong ||
+    known.userId !== userId ||
+    known.deviceLabel !== device.deviceLabel ||
+    (device.nudgeMs !== undefined && known.nudgeMs !== device.nudgeMs) ||
+    seenAt - known.seenAt > LAST_SEEN_EVERY_MS;
+  if (changed) await ctx.db.patch(known._id, { ...fields, ...(heldTooLong ? { nudgeRequest: undefined } : {}) });
+  return heldTooLong ? null : known;
 }
 
 async function groupScreens(ctx: QueryCtx, groupId: Id<"groups">) {
@@ -87,8 +116,10 @@ export const heartbeat = mutation({
       .collect();
     await Promise.all(mine.filter((row) => seenAt - row.seenAt > FORGET_AFTER_MS).map((row) => ctx.db.delete(row._id)));
     const existing = mine.find((row) => row.screenId === screenId && seenAt - row.seenAt <= FORGET_AFTER_MS);
-    if (existing) await ctx.db.patch(existing._id, { onPlay, seenAt, roundTripMs: ping, ...device });
-    else await ctx.db.insert("presence", { groupId, userId: user._id, screenId, onPlay, seenAt, roundTripMs: ping, ...device });
+    const waiting = device === null ? undefined : (await rememberDevice(ctx, groupId, user._id, device, seenAt))?.nudgeRequest;
+    const handOver = waiting !== undefined && existing?.nudgeRequest?.id !== waiting.id ? { nudgeRequest: waiting } : {};
+    if (existing) await ctx.db.patch(existing._id, { onPlay, seenAt, roundTripMs: ping, ...device, ...handOver });
+    else await ctx.db.insert("presence", { groupId, userId: user._id, screenId, onPlay, seenAt, roundTripMs: ping, ...device, ...handOver });
   },
 });
 
@@ -142,17 +173,44 @@ export const devices = query({
       if (seen === undefined || seen.seenAt < row.seenAt) latest.set(row.deviceId, row);
     }
     const named = new Set([...latest.values()].map((row) => row.userId as string));
+    const now = Date.now();
+    const remembered = new Map(
+      (
+        await ctx.db
+          .query("groupDevices")
+          .withIndex("by_group", (q) => q.eq("groupId", groupId))
+          .collect()
+      ).map((row) => [row.deviceId, row]),
+    );
+    const away = [...remembered.values()].filter((row) => !latest.has(row.deviceId) && names.has(row.userId) && now - row.seenAt <= AWAY_DEVICES_SHOWN_MS);
     return {
-      devices: [...latest.values()].map((row) => ({
-        deviceId: row.deviceId as string,
-        deviceLabel: row.deviceLabel ?? "Device",
-        userId: row.userId,
-        displayName: names.get(row.userId) ?? "Member",
-        nudgeMs: row.nudgeMs ?? null,
-        pendingMs: row.nudgeRequest?.ms ?? null,
-        onPlay: row.onPlay,
-        seenAt: row.seenAt,
-      })),
+      devices: [
+        ...[...latest.values()].map((row) => {
+          const known = remembered.get(row.deviceId as string);
+          return {
+            deviceId: row.deviceId as string,
+            deviceLabel: row.deviceLabel ?? "Device",
+            userId: row.userId,
+            displayName: names.get(row.userId) ?? "Member",
+            nudgeMs: row.nudgeMs ?? null,
+            pendingMs: known?.nudgeRequest?.ms ?? row.nudgeRequest?.ms ?? null,
+            onPlay: row.onPlay,
+            onScreen: true,
+            seenAt: row.seenAt,
+          };
+        }),
+        ...away.map((row) => ({
+          deviceId: row.deviceId,
+          deviceLabel: row.deviceLabel,
+          userId: row.userId,
+          displayName: names.get(row.userId) ?? "Member",
+          nudgeMs: row.nudgeMs ?? null,
+          pendingMs: row.nudgeRequest?.ms ?? null,
+          onPlay: false,
+          onScreen: false,
+          seenAt: row.seenAt,
+        })),
+      ],
       olderApps: [...withoutDevice]
         .filter(([userId]) => !named.has(userId))
         .map(([userId, seenAt]) => ({ userId, displayName: names.get(userId) ?? "Member", seenAt })),
@@ -165,9 +223,15 @@ export const nudgeDevice = mutation({
   handler: async (ctx, { groupId, deviceId, nudgeMs }) => {
     const { user } = await requireRole(ctx, groupId, "songManager");
     if (!isNudge(nudgeMs)) throw new ConvexError(`A Latency nudge is a whole number from ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms`);
-    const rows = await onlineDevice(ctx, groupId, deviceId);
-    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
-    await Promise.all(rows.map((row) => ctx.db.patch(row._id, { nudgeRequest: { id, ms: nudgeMs, by: user._id } })));
+    const now = Date.now();
+    const screens = (await groupScreens(ctx, groupId)).filter((row) => row.deviceId === deviceId && now - row.seenAt <= FORGET_AFTER_MS);
+    const known = await rememberedDevice(ctx, groupId, deviceId);
+    const stillMember = known !== null && (await membershipOf(ctx, groupId, known.userId)) !== null;
+    if (screens.length === 0 && !stillMember) throw new ConvexError("That device is no longer in this Group");
+    if (screens.length === 0 && known !== null && now - known.seenAt > AWAY_DEVICES_SHOWN_MS) throw new ConvexError("That device has not opened this Group in the last month");
+    const nudgeRequest = { id: `${now.toString(36)}${Math.random().toString(36).slice(2, 10)}`, ms: nudgeMs, by: user._id };
+    await Promise.all(screens.map((row) => ctx.db.patch(row._id, { nudgeRequest })));
+    if (known !== null) await ctx.db.patch(known._id, { nudgeRequest });
   },
 });
 
@@ -198,6 +262,12 @@ export const nudgeApplied = mutation({
       ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
       ...(screen.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
     });
+    const known = screen.deviceId === undefined ? null : await rememberedDevice(ctx, groupId, screen.deviceId);
+    if (known === null) return;
+    await ctx.db.patch(known._id, {
+      ...(isNudge(nudgeMs) ? { nudgeMs } : {}),
+      ...(known.nudgeRequest?.id === id ? { nudgeRequest: undefined } : {}),
+    });
   },
 });
 
@@ -223,6 +293,7 @@ export const removeAbsentGuests = internalMutation({
       if (screens.some((screen) => screen.seenAt >= cutoff)) continue;
       await Promise.all(screens.map((screen) => ctx.db.delete(screen._id)));
       await ctx.db.delete(membership._id);
+      await forgetDevicesOf(ctx, membership.groupId, membership.userId);
       await forgetGuestIfGone(ctx, membership.userId);
     }
     const nextRole = JOIN_ROLES[JOIN_ROLES.indexOf(role) + 1];
@@ -287,5 +358,17 @@ export const forgetOldScreens = internalMutation({
       if (membership !== null && (membership.lastSeenAt ?? 0) < row.seenAt) await ctx.db.patch(membership._id, { lastSeenAt: row.seenAt });
       await ctx.db.delete(row._id);
     }
+  },
+});
+
+export const forgetOldDevices = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const old = await ctx.db
+      .query("groupDevices")
+      .withIndex("by_seen", (q) => q.lt("seenAt", Date.now() - FORGET_DEVICES_AFTER_MS))
+      .take(FORGET_BATCH);
+    await Promise.all(old.map((row) => ctx.db.delete(row._id)));
+    if (old.length === FORGET_BATCH) await ctx.scheduler.runAfter(0, internal.presence.forgetOldDevices, {});
   },
 });

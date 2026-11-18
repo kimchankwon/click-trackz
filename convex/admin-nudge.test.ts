@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LEAD_IN_MS, STOP_LEAD_MS } from "../src/sync/commands";
 import { demoSong } from "../src/sync/demo-song";
 import { SPEAKER_CHECK_MS } from "../src/sync/speaker-check";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -107,7 +107,7 @@ describe("Song Managers and above nudge other devices", () => {
     expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toEqual(expect.objectContaining({ ms: 20 }));
   });
 
-  it("lets Song Managers and above nudge, within the Latency nudge range, and only devices still there", async () => {
+  it("lets Song Managers and above nudge, within the Latency nudge range, and only devices still in the Group", async () => {
     const { admin, member, manager, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
     await expect(member.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 })).rejects.toThrow("Only Song Managers and above can do that");
@@ -116,8 +116,98 @@ describe("Song Managers and above nudge other devices", () => {
     expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: MEMBER_PHONE })).toEqual(expect.objectContaining({ ms: 20, byName: "Pat" }));
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 401 })).rejects.toThrow(/from -100 to 400 ms/);
     await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 2.5 })).rejects.toThrow(/whole number/);
+    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: "neverseen01", nudgeMs: 20 })).rejects.toThrow("That device is no longer in this Group");
+    await member.client.mutation(api.groups.leaveGroup, { groupId });
+    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 })).rejects.toThrow("That device is no longer in this Group");
+  });
+
+  it("keeps listing a device after it leaves the Group screen, with its last nudge", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 30) });
     await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
-    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 })).rejects.toThrow("That device has left the Group screen");
+    const shown = await admin.client.query(api.presence.devices, { groupId });
+    expect(shown?.devices).toEqual([expect.objectContaining({ deviceId: MEMBER_PHONE, displayName: "Sam", deviceLabel: `${MEMBER_PHONE} label`, nudgeMs: 30, pendingMs: null, onPlay: false, onScreen: false })]);
+  });
+
+  it("holds a nudge for a device that is away and hands it over when the device opens the Group again", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 60 });
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 0, pendingMs: 60 }));
+    vi.setSystemTime(NOW + 60 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "new-screen") });
+    const request = await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "new-screen" });
+    expect(request).toEqual({ id: expect.any(String), ms: 60, byName: "Admin" });
+    await member.client.mutation(api.presence.nudgeApplied, { groupId, screenId: "new-screen", id: request!.id, nudgeMs: 60 });
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 60, "new-screen") });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "new-screen" })).toBeNull();
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 60, pendingMs: null }));
+  });
+
+  it("marks a device on the Group screen as on screen, even right after it heartbeats", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ onScreen: true }));
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    const away = (await admin.client.query(api.presence.devices, { groupId }))?.devices[0];
+    expect(away?.onScreen).toBe(false);
+    expect(Date.now() - (away?.seenAt ?? 0)).toBeLessThan(1_000);
+  });
+
+  it("refuses a nudge for a device that has not opened the Group in the last month", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    vi.setSystemTime(NOW + 29 * 24 * 60 * 60_000);
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 20 });
+    vi.setSystemTime(NOW + 31 * 24 * 60 * 60_000);
+    await expect(admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 30 })).rejects.toThrow("That device has not opened this Group in the last month");
+  });
+
+  it("drops a held nudge once its device has been away longer than the card lists it", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 60 });
+    vi.setSystemTime(NOW + 31 * 24 * 60 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "late-screen") });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "late-screen" })).toBeNull();
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 0, pendingMs: null }));
+  });
+
+  it("forgets old devices in batches until none are left", async () => {
+    const { t, member, groupId } = await setupGroup();
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 501; index += 1) {
+        await ctx.db.insert("groupDevices", { groupId, deviceId: `olddevice${String(index).padStart(3, "0")}`, userId: member.userId, deviceLabel: "Old", seenAt: NOW });
+      }
+    });
+    vi.setSystemTime(NOW + 91 * 24 * 60 * 60_000);
+    await t.mutation(internal.presence.forgetOldDevices, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await t.run((ctx) => ctx.db.query("groupDevices").collect())).toEqual([]);
+  });
+
+  it("stops listing a device a month after it last opened the Group, and forgets it after three", async () => {
+    const { t, admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    vi.setSystemTime(NOW + 31 * 24 * 60 * 60_000);
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices).toEqual([]);
+    vi.setSystemTime(NOW + 91 * 24 * 60 * 60_000);
+    await t.mutation(internal.presence.forgetOldDevices, {});
+    expect(await t.run((ctx) => ctx.db.query("groupDevices").collect())).toEqual([]);
+  });
+
+  it("forgets a Member's devices when they are removed or the Group is deleted", async () => {
+    const { t, admin, member, manager, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await manager.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_LAPTOP, 0) });
+    await admin.client.mutation(api.groups.removeMember, { groupId, userId: member.userId });
+    expect((await t.run((ctx) => ctx.db.query("groupDevices").collect())).map((row) => row.deviceId)).toEqual([MEMBER_LAPTOP]);
+    await admin.client.mutation(api.groups.deleteGroup, { groupId, pressedAt: NOW });
+    expect(await t.run((ctx) => ctx.db.query("groupDevices").collect())).toEqual([]);
   });
 
   it("refuses a device id this app would not make", async () => {
