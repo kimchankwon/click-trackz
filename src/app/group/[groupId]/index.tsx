@@ -58,7 +58,7 @@ import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/the
 import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
-import { setPlayingHere } from "@/lib/playing-here";
+import { useHoldRestart } from "@/lib/restart-hold";
 import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES, seesSongLibrary } from "@/lib/roles";
 import { useAppActive } from "@/lib/use-app-active";
 import { useIdleWithoutPlayback } from "@/lib/use-idle-without-playback";
@@ -665,8 +665,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   useEffect(() => {
     if (playing && !playingNow.current) stopHeldUntil.current = performance.now() + STOP_AFTER_START_MS;
     playingNow.current = playing;
-    setPlayingHere(playing);
   }, [playing]);
+  useHoldRestart(playing);
 
   if (playing && startPick !== null) setStartPick(null);
   const [followedStart, setFollowedStart] = useState<number | null>(remembered?.followedStart ?? null);
@@ -701,8 +701,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       setStartPick(null);
     }
   }
-
-  useEffect(() => () => setPlayingHere(false), []);
 
   const run = useCallback(
     (action: () => Promise<unknown>) => {
