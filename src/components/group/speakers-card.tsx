@@ -9,7 +9,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { errorText } from "@/lib/error-text";
 import { ONLINE_WITHIN_MS } from "@/presence/online";
-import { clampLatency } from "@/settings/latency";
+import { clampLatency, nudgeFromShown, nudgeShown, nudgeText } from "@/settings/latency";
 import { playsInSpeakerCheck, SPEAKER_CHECK_BPM, type SpeakerCheck } from "@/sync/speaker-check";
 import { useServerBeatPhase } from "@/sync/use-server-beat-phase";
 import { api } from "../../../convex/_generated/api";
@@ -165,7 +165,7 @@ export function SpeakersCard({
   };
 
   const stepNudge = (row: DeviceRow, step: number) => {
-    queueNudge(row.deviceId, row.nudgeMs + step);
+    queueNudge(row.deviceId, nudgeFromShown(nudgeShown(row.nudgeMs) + step));
     flushNudge(row.deviceId);
   };
 
@@ -241,7 +241,7 @@ export function SpeakersCard({
               </ThemedText>
             </View>
             <View style={styles.value}>
-              <ThemedText type="smallBold" testID={`device-nudge-${row.deviceId}`}>{`${row.nudgeMs} ms`}</ThemedText>
+              <ThemedText type="smallBold" testID={`device-nudge-${row.deviceId}`}>{nudgeText(row.nudgeMs)}</ThemedText>
               {row.sending ? (
                 <ThemedText type="caption" themeColor="textSecondary">
                   Sending

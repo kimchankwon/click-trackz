@@ -21,7 +21,7 @@ import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromSteps, steadyOffset, type TapStep } from "@/lib/timing-test";
-import { clampLatency, isLatencySetting, LATENCY_MAX_MS, LATENCY_MIN_MS } from "@/settings/latency";
+import { clampLatency, isLatencySetting, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs } from "@/settings/latency";
 import { useDeviceSetting } from "@/settings/use-device-setting";
 
 const TEST_INTERVAL_MS = 1_000;
@@ -45,6 +45,7 @@ export default function LatencyScreen() {
   const saved = Number(stored);
   const [draft, setDraft] = useState<number | null>(null);
   const nudge = draft ?? saved;
+  const shown = nudgeShown(nudge);
   const changed = draft !== null && draft !== saved;
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -122,8 +123,8 @@ export default function LatencyScreen() {
         const next = kept === saved ? "That is your saved nudge already." : "Press Save to keep it.";
         setMessage(
           kept === measured
-            ? `Measured ${measured} ms with your tapping lean removed. ${next}`
-            : `Measured ${measured} ms, beyond the ${LATENCY_MIN_MS} to ${LATENCY_MAX_MS} ms range, so it is set to ${kept} ms. ${next}`,
+            ? `Measured ${nudgeText(measured)} with your tapping lean removed. ${next}`
+            : `Measured ${nudgeText(measured)}, beyond the ${signedMs(SHOWN_NUDGE_MIN_MS)} to ${signedMs(SHOWN_NUDGE_MAX_MS)} range, so it is set to ${nudgeText(kept)}. ${next}`,
         );
       }
     }
@@ -141,35 +142,35 @@ export default function LatencyScreen() {
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
-            Plays this device early to make up for the delay of its speaker or headphones
+            Minus plays this device earlier to make up for the delay of its speaker or headphones. Plus plays it later
           </ThemedText>
 
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.readout}>
-              <ThemedText style={[styles.readoutValue, { color: theme.text }]}>{nudge}</ThemedText>
+              <ThemedText style={[styles.readoutValue, { color: theme.text }]}>{shown > 0 ? `+${shown}` : shown < 0 ? `\u2212${-shown}` : "0"}</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.readoutUnit}>
                 ms
               </ThemedText>
             </View>
             <ThemedText type="caption" themeColor="textSecondary" style={styles.centered}>
-              {nudge === 0 ? "No nudge" : nudge > 0 ? "Sounds play this much earlier" : "Sounds play this much later"}
+              {shown === 0 ? "No nudge" : shown < 0 ? "Sounds play this much earlier" : "Sounds play this much later"}
             </ThemedText>
             <VolumeBar
               label="Nudge"
               testID="latency-bar"
               accessibleName="Latency nudge"
-              accessibleRange={{ min: LATENCY_MIN_MS, max: LATENCY_MAX_MS, now: nudge }}
-              value={(nudge - LATENCY_MIN_MS) / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
-              valueText={`${nudge} ms`}
+              accessibleRange={{ min: SHOWN_NUDGE_MIN_MS, max: SHOWN_NUDGE_MAX_MS, now: shown }}
+              value={(shown - SHOWN_NUDGE_MIN_MS) / (SHOWN_NUDGE_MAX_MS - SHOWN_NUDGE_MIN_MS)}
+              valueText={nudgeText(nudge)}
               hideValue
               bare
-              origin={-LATENCY_MIN_MS / (LATENCY_MAX_MS - LATENCY_MIN_MS)}
-              onChange={(fraction) => setNudge(LATENCY_MIN_MS + fraction * (LATENCY_MAX_MS - LATENCY_MIN_MS))}
+              origin={-SHOWN_NUDGE_MIN_MS / (SHOWN_NUDGE_MAX_MS - SHOWN_NUDGE_MIN_MS)}
+              onChange={(fraction) => setNudge(nudgeFromShown(SHOWN_NUDGE_MIN_MS + fraction * (SHOWN_NUDGE_MAX_MS - SHOWN_NUDGE_MIN_MS)))}
             />
             <View style={styles.steps}>
               {[-10, -1, 1, 10].map((step) => (
                 <View key={step} style={styles.stepCell}>
-                  <ActionButton full medium compact label={step > 0 ? `+${step}` : `\u2212${-step}`} testID={`nudge-${step}`} onPress={() => setNudge(nudge + step)} />
+                  <ActionButton full medium compact label={step > 0 ? `+${step}` : `\u2212${-step}`} testID={`nudge-${step}`} onPress={() => setNudge(nudgeFromShown(shown + step))} />
                 </View>
               ))}
             </View>
@@ -229,7 +230,7 @@ export default function LatencyScreen() {
                 ]}
               >
                 <ThemedText type="smallBold" themeColor={nudge === recommended ? "accent" : "text"}>
-                  {`Use ${recommended} ms`}
+                  {`Use ${nudgeText(recommended)}`}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   The delay this device reports for the output it is playing through now. It changes when you connect headphones or a speaker.
@@ -253,7 +254,7 @@ export default function LatencyScreen() {
                   { label: "Step 1", marks: builtIn ? builtIn.offsetsMs : offsets, tone: builtIn ? "muted" : "accent", dots: true },
                   { label: "Step 2", marks: mode === "output" ? offsets : outputTaps, tone: "accent", dots: true },
                 ]}
-                summary={estimate === null ? "No nudge measured yet" : `Your taps suggest a nudge of ${estimate} ms`}
+                summary={estimate === null ? "No nudge measured yet" : `Your taps suggest a nudge of ${nudgeText(estimate)}`}
               />
               <View style={styles.step}>
                 <ThemedText type="smallBold">Step 1: built-in speaker</ThemedText>
@@ -328,7 +329,7 @@ export default function LatencyScreen() {
                           : `Your taps land ${earlyLateText(lean, "early", "late", "on the beat")}`
                         : estimate === null
                           ? "Keep tapping, steadier"
-                          : `Nudge so far: ${clampLatency(estimate)} ms`}
+                          : `Nudge so far: ${nudgeText(clampLatency(estimate))}`}
                   </ThemedText>
                 ) : null}
               </Pressable>
@@ -346,7 +347,7 @@ export default function LatencyScreen() {
         <ConfirmDialog
           visible={askLeave && !leaving}
           title="Save changes?"
-          message={`Your Latency nudge of ${nudge} ms is not saved.`}
+          message={`Your Latency nudge of ${nudgeText(nudge)} is not saved.`}
           confirmLabel="Save"
           cancelLabel="Discard"
           onConfirm={() => void saveAndLeave()}

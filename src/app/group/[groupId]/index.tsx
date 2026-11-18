@@ -74,7 +74,7 @@ import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, useNudgesFromManagers, usePresence, useStillHere } from "@/presence/use-presence";
 import { deviceLabel } from "@/settings/device-label";
-import { isLatencySetting } from "@/settings/latency";
+import { isLatencySetting, nudgeText } from "@/settings/latency";
 import { playsInSpeakerCheck, speakerCheckLive, speakerCheckPlan } from "@/sync/speaker-check";
 import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
@@ -417,7 +417,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     groupId,
     screenId,
     !offline,
-    (byName, nudgeMs) => showToast(`Latency nudge set to ${nudgeMs} ms by ${byName}`),
+    (byName, nudgeMs) => showToast(`Latency nudge set to ${nudgeText(nudgeMs)} by ${byName}`),
     (byName) => showToast(`This device could not save the Latency nudge ${byName} sent. Ask them to send it again`, "error"),
   );
   const [myLabel] = useState(deviceLabel);

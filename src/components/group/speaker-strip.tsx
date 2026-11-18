@@ -9,7 +9,7 @@ import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { markGrowth } from "@/lib/timing-test";
 import { nudgeAfterDrag, stripPosition } from "@/lib/timing-strip";
-import { clampLatency } from "@/settings/latency";
+import { nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS } from "@/settings/latency";
 
 export const SPEAKER_STRIP_RANGE_MS = 500;
 
@@ -29,7 +29,7 @@ const CIRCLE = 24;
 const DRAG_STARTS_AFTER_PX = 8;
 const SCROLL_WINS_AFTER_PX = 12;
 
-const keyStep: Record<string, number> = { ArrowLeft: 1, ArrowRight: -1, ArrowDown: -1, ArrowUp: 1, PageUp: 10, PageDown: -10 };
+const keyStep: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1, PageUp: 10, PageDown: -10 };
 
 function Lane({
   lane,
@@ -71,7 +71,7 @@ function Lane({
     return { transform: [{ scale: 1 + amount * 0.45 }] };
   });
   const step = (by: number) => {
-    onNudge(lane.deviceId, clampLatency(lane.nudgeMs + by));
+    onNudge(lane.deviceId, nudgeFromShown(nudgeShown(lane.nudgeMs) + by));
     onRelease(lane.deviceId);
   };
   return (
@@ -80,10 +80,10 @@ function Lane({
         testID={`lane-${lane.deviceId}`}
         role="slider"
         aria-label={`Latency nudge for ${lane.label}`}
-        aria-valuemin={-100}
-        aria-valuemax={400}
-        aria-valuenow={lane.nudgeMs}
-        aria-valuetext={`${lane.nudgeMs} ms`}
+        aria-valuemin={SHOWN_NUDGE_MIN_MS}
+        aria-valuemax={SHOWN_NUDGE_MAX_MS}
+        aria-valuenow={nudgeShown(lane.nudgeMs)}
+        aria-valuetext={nudgeText(lane.nudgeMs)}
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(event) => step(event.nativeEvent.actionName === "increment" ? 1 : -1)}
         tabIndex={0}
