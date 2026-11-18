@@ -74,10 +74,11 @@ import { onInterruptionEnded, setOwnsNowPlaying } from "@/audio/audio-session";
 import { memberPresence, otherMemberPing } from "@/presence/online";
 import { useHeartbeat, useNudgesFromManagers, usePresence, useStillHere } from "@/presence/use-presence";
 import { deviceLabel } from "@/settings/device-label";
-import { isLatencySetting, nudgeText } from "@/settings/latency";
+import { nudgeText } from "@/settings/latency";
 import { playsInSpeakerCheck, speakerCheckLive, speakerCheckPlan } from "@/sync/speaker-check";
 import { isVoiceOffsetSetting } from "@/settings/voice-offset";
 import { useDeviceSetting } from "@/settings/use-device-setting";
+import { useLatencyNudge } from "@/settings/use-latency-nudge";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import {
   endVampJumps,
@@ -347,7 +348,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const { sound, update: updateSound, saveError: soundSaveError } = useSoundSettings();
   const { speaker, voiceSpeed, clickVolume, voiceVolume } = sound;
   const mix = useMemo<CueMix>(() => ({ click: sound.click, voiceCues: sound.voiceCues, spokenCounts: sound.spokenCounts }), [sound.click, sound.voiceCues, sound.spokenCounts]);
-  const [latencyNudge, setLatencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const { nudgeMs: latencyNudgeMs, output: audioOutput, setNudge: setLatencyNudge } = useLatencyNudge();
   const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
   const [beat, setBeat] = useState<Beat | null>(null);
@@ -412,7 +413,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   useEffect(() => {
     if (openingGroupId !== null) router.replace({ pathname: "/group/[groupId]", params: { groupId: openingGroupId } });
   }, [openingGroupId]);
-  const { screenId, deviceId: myDeviceId } = useHeartbeat(groupId, tab === "play", playing || checkLive, !offline && !idleWithoutPlayback, Number(latencyNudge));
+  const { screenId, deviceId: myDeviceId } = useHeartbeat(groupId, tab === "play", playing || checkLive, !offline && !idleWithoutPlayback, latencyNudgeMs, audioOutput?.name ?? null);
   useNudgesFromManagers(
     groupId,
     screenId,
@@ -489,8 +490,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [clickSide, voiceSide, soundOn]);
 
   useEffect(() => {
-    engine.current?.setLatencyNudge(Number(latencyNudge));
-  }, [latencyNudge, soundOn]);
+    engine.current?.setLatencyNudge(latencyNudgeMs);
+  }, [latencyNudgeMs, soundOn]);
 
   useEffect(() => {
     if (engine.current) engine.current.voiceOffsetMs = Number(voiceOffset);
@@ -1405,8 +1406,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       myDeviceId={myDeviceId}
       myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
       myLabel={myLabel}
-      myNudgeMs={Number(latencyNudge)}
-      setMyNudge={(nudgeMs) => setLatencyNudge(String(nudgeMs))}
+      myNudgeMs={latencyNudgeMs}
+      myOutputName={audioOutput?.name ?? null}
+      setMyNudge={setLatencyNudge}
       check={speakerCheck}
       checkLive={checkLive}
       groupPlaying={playing && !onDevice}

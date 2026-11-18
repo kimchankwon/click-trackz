@@ -12,7 +12,7 @@ import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
 import { Spacing } from "@/constants/theme";
 import { Segmented } from "@/components/ui/segmented";
-import { isLatencySetting, nudgeText } from "@/settings/latency";
+import { nudgeText } from "@/settings/latency";
 import { lockScreenAvailable } from "@/audio/now-playing";
 import {
   DEFAULT_LOCK_SCREEN_SETTING,
@@ -25,6 +25,7 @@ import {
   type Side,
 } from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
+import { useLatencyNudge } from "@/settings/use-latency-nudge";
 import { isVoiceOffsetSetting, voiceOffsetText } from "@/settings/voice-offset";
 import type { Sound } from "@/settings/use-sound-settings";
 
@@ -50,7 +51,7 @@ export function SoundSettings({
   speakerHint?: string | null;
   onSpeaker?: (speaker: SpeakerId, voiceSpeed: VoiceSpeed) => void;
 }) {
-  const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const { nudgeMs: latencyNudgeMs, output: audioOutput } = useLatencyNudge();
   const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const offsetMs = Number(voiceOffset);
   const [clickSide, setClickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
@@ -151,12 +152,12 @@ export function SoundSettings({
           <Icon name="headphones" size={22} color="textSecondary" />
           <View style={styles.grow}>
             <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Align what you hear
+            <ThemedText type="small" themeColor="textSecondary" testID="latency-output">
+              {audioOutput ? `For ${audioOutput.name}` : "Align what you hear"}
             </ThemedText>
           </View>
           <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
-            {nudgeText(Number(latencyNudge))}
+            {nudgeText(latencyNudgeMs)}
           </ThemedText>
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
