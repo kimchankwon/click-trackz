@@ -4,11 +4,24 @@ import { AppState } from "react-native";
 import { currentAudioOutput, onAudioOutputChange, type AudioOutput } from "@/audio/audio-output";
 import { notifyDeviceSetting, onDeviceSetting } from "./device-setting-events";
 import { deviceStore } from "./device-store";
-import { isLatencySetting, LATENCY_NUDGE_KEY, latencyNudgeKeyFor, outputNudge } from "./latency";
+import { AUDIO_OUTPUTS_KEY, parseRememberedOutputs, rememberOutput, type RememberedOutput } from "./audio-outputs";
+import { isLatencySetting, LATENCY_NUDGE_KEY, latencyNudgeKeyFor, outputNudge, type OutputNudge } from "./latency";
 
 const CLEARED = "";
 
 const sameOutput = (a: AudioOutput | null, b: AudioOutput | null) => a?.id === b?.id && a?.name === b?.name;
+
+function noteOutputUsed(output: AudioOutput | null) {
+  if (output === null) return;
+  const next = rememberOutput(parseRememberedOutputs(deviceStore.getSync(AUDIO_OUTPUTS_KEY)), output, Date.now());
+  if (next !== null) deviceStore.set(AUDIO_OUTPUTS_KEY, JSON.stringify(next)).catch(() => undefined);
+}
+
+export function useRememberedOutputs(): RememberedOutput[] {
+  const [stored, setStored] = useState(() => deviceStore.getSync(AUDIO_OUTPUTS_KEY));
+  useEffect(() => onDeviceSetting(AUDIO_OUTPUTS_KEY, setStored), []);
+  return useMemo(() => parseRememberedOutputs(stored), [stored]);
+}
 
 export function useAudioOutput() {
   const [output, setOutput] = useState(currentAudioOutput);
@@ -27,6 +40,7 @@ export function useAudioOutput() {
       appState.remove();
     };
   }, []);
+  useEffect(() => noteOutputUsed(output), [output]);
   return output;
 }
 
@@ -42,25 +56,30 @@ export async function saveLatencyNudgeForOutput(nudgeMs: number, output: AudioOu
   }
 }
 
+function useHeardNudges(keys: readonly string[]) {
+  const [heard, setHeard] = useState<Record<string, string | null>>({});
+  const watchedKeys = keys.join("\n");
+  useEffect(() => {
+    const stops = watchedKeys
+      .split("\n")
+      .map((watched) => onDeviceSetting(watched, (value) => setHeard((shown) => ({ ...shown, [watched]: isLatencySetting(value) ? value : null }))));
+    return () => stops.forEach((stop) => stop());
+  }, [watchedKeys]);
+  return useCallback((key: string) => (key in heard ? heard[key] : deviceStore.getSync(key)), [heard]);
+}
+
+export function useOutputNudges(outputs: readonly AudioOutput[]): Record<string, OutputNudge> {
+  const read = useHeardNudges([LATENCY_NUDGE_KEY, ...outputs.map((output) => latencyNudgeKeyFor(output.id))]);
+  return useMemo(() => Object.fromEntries(outputs.map((output) => [output.id, outputNudge(output.id, read)])), [outputs, read]);
+}
+
 export function useLatencyNudge() {
   const output = useAudioOutput();
   const outputId = output?.id ?? null;
   const key = latencyNudgeKeyFor(outputId);
-  const [heard, setHeard] = useState<Record<string, string | null>>({});
   const [saveFailed, setSaveFailed] = useState(false);
-
-  useEffect(() => {
-    const keys = key === LATENCY_NUDGE_KEY ? [key] : [key, LATENCY_NUDGE_KEY];
-    const stops = keys.map((watched) =>
-      onDeviceSetting(watched, (value) => setHeard((shown) => ({ ...shown, [watched]: isLatencySetting(value) ? value : null }))),
-    );
-    return () => stops.forEach((stop) => stop());
-  }, [key]);
-
-  const { nudgeMs, savedForOutput } = useMemo(
-    () => outputNudge(outputId, (read) => (read in heard ? heard[read] : deviceStore.getSync(read))),
-    [outputId, heard],
-  );
+  const read = useHeardNudges(key === LATENCY_NUDGE_KEY ? [key] : [key, LATENCY_NUDGE_KEY]);
+  const { nudgeMs, savedForOutput } = useMemo(() => outputNudge(outputId, read), [outputId, read]);
 
   const setNudge = useCallback(
     (next: number) => {
