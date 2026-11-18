@@ -12,7 +12,7 @@ import { MetronomeIcon } from "@/components/ui/metronome-icon";
 import { Switch } from "@/components/ui/switch";
 import { Spacing } from "@/constants/theme";
 import { Segmented } from "@/components/ui/segmented";
-import { isLatencySetting } from "@/settings/latency";
+import { isLatencySetting, nudgeText } from "@/settings/latency";
 import { lockScreenAvailable } from "@/audio/now-playing";
 import {
   DEFAULT_LOCK_SCREEN_SETTING,
@@ -156,7 +156,7 @@ export function SoundSettings({
             </ThemedText>
           </View>
           <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
-            {latencyNudge} ms
+            {nudgeText(Number(latencyNudge))}
           </ThemedText>
           <Icon name="forward" size={20} color="textTertiary" />
         </Pressable>
