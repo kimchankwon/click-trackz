@@ -5,7 +5,11 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-export type GroupTab = "play" | "setlist" | "songs" | "sound" | "group";
+export type GroupTab = "play" | "songs" | "sound" | "settings";
+
+export type SongsView = "setlist" | "songs";
+
+export type SettingsView = "group" | "sync" | "activity";
 
 export type TabItem<T extends string> = { id: T; label: string; icon: IconName };
 
@@ -14,10 +18,9 @@ export const panelId = (tab: string, scope = "group") => `${scope}-panel-${tab}`
 
 export const groupTabs: readonly TabItem<GroupTab>[] = [
   { id: "play", label: "Play", icon: "playCircle" },
-  { id: "setlist", label: "Setlist", icon: "songs" },
   { id: "songs", label: "Songs", icon: "library" },
   { id: "sound", label: "Sound", icon: "sound" },
-  { id: "group", label: "Group", icon: "group" },
+  { id: "settings", label: "Settings", icon: "settings" },
 ];
 
 export function TabBar<T extends string>({

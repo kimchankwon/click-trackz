@@ -37,7 +37,7 @@ import { SongsCard } from "@/components/group/songs-card";
 import { LockedNotice } from "@/components/group/locked-notice";
 import { liveOr, StoredLibraryContext, useKeepLibraryOnDevice, useStoredLibrary, useStoredLibraryFor } from "@/library/use-my-library";
 import { storedLibraryGroup, type LibrarySnapshot } from "@/library/snapshot";
-import { groupTabs, panelId, TabBar, tabId, type GroupTab } from "@/components/group/tab-bar";
+import { groupTabs, panelId, TabBar, tabId, type GroupTab, type SettingsView, type SongsView } from "@/components/group/tab-bar";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Icon } from "@/components/ui/icon";
@@ -355,8 +355,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const [queuedKey, setQueuedKey] = useState("");
   const [tab, setTab] = useState<GroupTab>("play");
   const [reordering, setReordering] = useState(false);
-  const [groupTabOpened, setGroupTabOpened] = useState(false);
-  if (tab === "group" && !groupTabOpened) setGroupTabOpened(true);
+  const [songsView, setSongsView] = useState<SongsView>("setlist");
+  const [settingsView, setSettingsView] = useState<SettingsView>("group");
+  const [activityOpened, setActivityOpened] = useState(false);
+  if (tab === "settings" && settingsView === "activity" && !activityOpened) setActivityOpened(true);
   const [dockHeight, setDockHeight] = useState(0);
   const [floatHeight, setFloatHeight] = useState(0);
   const pinnedScroll = usePagedPinnedHeader(tab);
@@ -378,10 +380,32 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     return () => parent?.setOptions({ gestureEnabled: true });
   }, [navigation, holdsBack]);
   const tabs = useMemo(
-    () => groupTabs.filter((item) => (item.id === "group" ? !offline : item.id === "songs" || item.id === "setlist" ? seesLibrary : true)),
+    () => groupTabs.filter((item) => (item.id === "settings" ? !offline : item.id === "songs" ? seesLibrary : true)),
     [offline, seesLibrary],
   );
   if (!tabs.some((item) => item.id === tab)) setTab("play");
+  const shownSetlists = liveOr(setlists, () => storedSongs?.setlists);
+  const songsViews = useMemo(
+    () =>
+      [
+        { value: "setlist" as const, label: "Setlist", shown: editsSongs || shownSetlists === undefined || shownSetlists.length > 0 },
+        { value: "songs" as const, label: "Songs", shown: true },
+      ].filter((view) => view.shown),
+    [editsSongs, shownSetlists],
+  );
+  if (!songsViews.some((view) => view.value === songsView)) setSongsView("songs");
+  const syncsAudio = canEditSongs(group.role) && !offline;
+  const seesActivity = canSteerPlayback(group.role);
+  const settingsViews = useMemo(
+    () =>
+      [
+        { value: "group" as const, label: "Group", shown: true },
+        { value: "sync" as const, label: "Sync Audio", shown: syncsAudio },
+        { value: "activity" as const, label: "Activity", shown: seesActivity },
+      ].filter((view) => view.shown),
+    [syncsAudio, seesActivity],
+  );
+  if (!settingsViews.some((view) => view.value === settingsView)) setSettingsView("group");
   useEffect(() => {
     if (leaving) router.dismissTo("/");
   }, [leaving]);
@@ -1067,9 +1091,12 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       {offlinePlay ? (
         <Pressable
           role="button"
-          aria-label={`Offline play, ${groupPlaying ? "only you hear this while the Group plays" : "only you hear this"}. Change it on the Group tab`}
+          aria-label={`Offline play, ${groupPlaying ? "only you hear this while the Group plays" : "only you hear this"}. Change it in Settings`}
           testID="offline-play-badge"
-          onPress={() => showTab("group")}
+          onPress={() => {
+            setSettingsView("group");
+            showTab("settings");
+          }}
           style={({ pressed }) => [styles.offlineBadge, { backgroundColor: theme.backgroundSelected }, pressed ? styles.pressed : null]}
         >
           <Icon name="person" size={14} color="textSecondary" />
@@ -1274,7 +1301,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     showTab("play");
   };
 
-  const setlistTab = (
+  const setlistView = (
     <SetlistCard
       groupId={groupId}
       canEdit={editsSongs}
@@ -1286,8 +1313,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     />
   );
 
-  const songsTab = (
-    <>
+  const songsTab =
+    songsView === "setlist" ? (
+      setlistView
+    ) : (
       <SongsCard
         groupId={groupId}
         canEdit={editsSongs}
@@ -1296,8 +1325,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         onPlay={playSong}
         run={run}
       />
-    </>
-  );
+    );
 
   const soundTab = (
     <SoundSettings
@@ -1371,7 +1399,27 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     }
   };
 
-  const groupTab = (
+  const syncView = (
+    <SpeakersCard
+      groupId={groupId}
+      nowMs={presence.nowMs}
+      serverNow={serverNow}
+      myDeviceId={myDeviceId}
+      myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
+      myLabel={myLabel}
+      myNudgeMs={Number(latencyNudge)}
+      setMyNudge={(nudgeMs) => setLatencyNudge(String(nudgeMs))}
+      check={speakerCheck}
+      checkLive={checkLive}
+      groupPlaying={playing && !onDevice}
+      playingOffline={offlinePlay}
+      locked={locked}
+    />
+  );
+
+  const activityView = <ActivityCard groupId={groupId} opened={activityOpened} />;
+
+  const groupView = (
     <>
       {seesLibrary ? (
         <Card title="Play mode">
@@ -1392,25 +1440,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         </Card>
       ) : null}
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
-      {canEditSongs(group.role) && !offline ? (
-        <SpeakersCard
-          groupId={groupId}
-          nowMs={presence.nowMs}
-          serverNow={serverNow}
-          myDeviceId={myDeviceId}
-          myName={members?.find((member) => member.userId === viewer?.id)?.displayName ?? "You"}
-          myLabel={myLabel}
-          myNudgeMs={Number(latencyNudge)}
-          setMyNudge={(nudgeMs) => setLatencyNudge(String(nudgeMs))}
-          check={speakerCheck}
-          checkLive={checkLive}
-          groupPlaying={playing && !onDevice}
-          playingOffline={offlinePlay}
-          locked={locked}
-        />
-      ) : null}
       {managesGroup && group.joinRole ? <JoinRoleCard groupId={groupId} joinRole={group.joinRole} /> : null}
-      {canSteerPlayback(group.role) ? <ActivityCard groupId={groupId} opened={groupTabOpened} /> : null}
       <View style={styles.leave}>
         {managesGroup ? <RenameGroup groupId={groupId} name={group.name} /> : null}
         {managesGroup ? (
@@ -1589,31 +1619,44 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     ) : null;
 
   const floating = playCard ?? miniCard;
-  const paneContent: Record<GroupTab, ReactNode> = { play: playTab, setlist: setlistTab, songs: songsTab, sound: soundTab, group: offline ? null : groupTab };
+  const settingsTab = settingsView === "sync" ? syncView : settingsView === "activity" ? activityView : groupView;
+  const paneContent: Record<GroupTab, ReactNode> = { play: playTab, songs: songsTab, sound: soundTab, settings: offline ? null : settingsTab };
+  const topBars: Partial<Record<GroupTab, ReactNode>> = {
+    songs: songsViews.length > 1 ? <Segmented label="Songs view" testID="songs-view" value={songsView} onChange={setSongsView} options={songsViews} /> : null,
+    settings: settingsViews.length > 1 ? <Segmented label="Settings view" testID="settings-view" value={settingsView} onChange={setSettingsView} options={settingsViews} /> : null,
+  };
+  const topBarShown = Boolean(topBars[tab]);
 
   return (
     <ThemedView style={styles.container}>
       {playing || checkSoundsHere ? <KeepAwake /> : null}
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-        <PinnedHeader scrolled={pinnedScroll.scrolled}>{header}</PinnedHeader>
+        <PinnedHeader scrolled={pinnedScroll.scrolled && !topBarShown}>{header}</PinnedHeader>
         <TabPager
           active={tab}
           onChange={showTab}
           pages={tabs.map(({ id: pane }) => ({
             key: pane,
             content: (
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets
-                scrollEnabled={!(reordering && pane === "setlist")}
-                contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
-                onScroll={(event) => pinnedScroll.onScroll(pane, event)}
-                scrollEventThrottle={16}
-              >
-                <View role="tabpanel" id={panelId(pane)} aria-labelledby={tabId(pane)} style={styles.tabPane}>
-                  {paneContent[pane]}
-                </View>
-              </ScrollView>
+              <View style={styles.page}>
+                {topBars[pane] ? (
+                  <View style={[styles.topBar, { backgroundColor: theme.background, borderBottomColor: pane === tab && pinnedScroll.scrolled ? theme.border : "transparent" }]}>
+                    <View style={styles.topBarInner}>{topBars[pane]}</View>
+                  </View>
+                ) : null}
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  automaticallyAdjustKeyboardInsets
+                  scrollEnabled={!(reordering && pane === "songs" && songsView === "setlist")}
+                  contentContainerStyle={[styles.content, { paddingBottom: Spacing.five + (floating ? floatHeight : 0) }]}
+                  onScroll={(event) => pinnedScroll.onScroll(pane, event)}
+                  scrollEventThrottle={16}
+                >
+                  <View role="tabpanel" id={panelId(pane)} aria-labelledby={tabId(pane)} style={styles.tabPane}>
+                    {paneContent[pane]}
+                  </View>
+                </ScrollView>
+              </View>
             ),
           }))}
         />
@@ -1716,6 +1759,9 @@ const styles = StyleSheet.create({
   checkBadge: { alignSelf: "stretch", paddingVertical: Spacing.one },
   offlineBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.one, paddingHorizontal: Spacing.two + 2, minHeight: 26, borderRadius: Radius.pill },
   tabPane: { width: "100%", alignItems: "center", gap: Spacing.four },
+  page: { flex: 1 },
+  topBar: { paddingBottom: Spacing.two, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 1 },
+  topBarInner: { maxWidth: MaxContentWidth, paddingHorizontal: Spacing.four, alignSelf: "center", width: "100%" },
   playingSong: { fontSize: 15, lineHeight: 20, fontWeight: 600 },
   idleTitle: { fontSize: 28, lineHeight: 34 },
   titleBlock: { height: STAGE_HEAD_HEIGHT, justifyContent: "center", marginBottom: Spacing.two },

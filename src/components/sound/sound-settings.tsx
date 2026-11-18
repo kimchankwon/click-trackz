@@ -152,7 +152,7 @@ export function SoundSettings({
           <View style={styles.grow}>
             <ThemedText style={styles.rowTitle}>Latency nudge</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              For this device, whatever it plays through
+              Align what you hear
             </ThemedText>
           </View>
           <ThemedText themeColor="textSecondary" style={styles.latencyValue}>
