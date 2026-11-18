@@ -72,6 +72,18 @@ describe("Song Managers and above nudge other devices", () => {
     expect(away?.devices.find((device) => device.deviceId === MEMBER_PHONE)).toEqual(expect.objectContaining({ onScreen: false, outputName: "Sam's AirPods Pro", nudgeMs: 180 }));
   });
 
+  it("forgets the audio output once the device reports none, and keeps it when an older app leaves it out", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    const memberOutput = async () => (await admin.client.query(api.presence.devices, { groupId }))?.devices.find((device) => device.deviceId === MEMBER_PHONE)?.outputName;
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 180), outputName: "Sam's AirPods Pro" });
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 180) });
+    expect(await memberOutput()).toBe("Sam's AirPods Pro");
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0), outputName: "" });
+    expect(await memberOutput()).toBeNull();
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    expect(await memberOutput()).toBeNull();
+  });
+
   it("lists Members whose app does not report a device yet", async () => {
     const { admin, manager, groupId } = await setupGroup();
     await manager.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-app", onPlay: true });
