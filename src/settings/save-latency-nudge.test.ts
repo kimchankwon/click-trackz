@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { onDeviceSetting } from "./device-setting-events";
-import { LATENCY_NUDGE_KEY } from "./latency";
+import { lastNotifiedSetting, onDeviceSetting } from "./device-setting-events";
+import { LATENCY_NUDGE_KEY, latencyNudgeKeyFor } from "./latency";
 import { saveLatencyNudgeForOutput } from "./use-latency-nudge";
 
 const store = vi.hoisted(() => ({
@@ -55,9 +55,32 @@ describe("saveLatencyNudgeForOutput", () => {
     store.writes[1].settle(true);
     expect(await first).toBe(false);
     expect(await second).toBe(true);
-    expect(heard).toEqual(["40", "", "80"]);
+    expect(heard).toEqual(["40", "", "80", "80"]);
     expect(store.values.get(LATENCY_NUDGE_KEY)).toBe("80");
     stop();
+  });
+
+  it("reports the stored nudge once a save lands, for a screen that started watching mid-write", async () => {
+    store.values.set(LATENCY_NUDGE_KEY, "120");
+    const save = saveLatencyNudgeForOutput(40, null);
+    await settled();
+    const { heard, stop } = heardValues();
+    store.writes[0].settle(true);
+    expect(await save).toBe(true);
+    expect(heard).toEqual(["40"]);
+    stop();
+  });
+
+  it("remembers the rolled back nudge for an output no screen is watching", async () => {
+    const output = { id: "airpods", name: "AirPods" };
+    const key = latencyNudgeKeyFor(output.id);
+    store.values.set(key, "150");
+    const save = saveLatencyNudgeForOutput(60, output);
+    await settled();
+    expect(lastNotifiedSetting(key)).toBe("60");
+    store.writes[0].settle(false);
+    expect(await save).toBe(false);
+    expect(lastNotifiedSetting(key)).toBe("150");
   });
 
   it("rolls a failed save back to the nudge the device still has", async () => {
