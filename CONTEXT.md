@@ -45,7 +45,7 @@ A person's own space for practising alone: it has Songs and Setlists like a Grou
 _Avoid_: Offline, solo, practice mode, personal Group
 
 **Activity**:
-A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp and Stop, every change to a Song or Setlist and what it changed, every Comment, and Members joining, leaving, being renamed or given a Role. Playback Managers and above can read it on the Group tab. My Library keeps none.
+A Group's record of who did what, newest first: every Start, Jump, Repeat, Vamp and Stop, every change to a Song or Setlist and what it changed, every Comment, and Members joining, leaving, being renamed or given a Role. Playback Managers and above can read it under Activity on the Settings tab. My Library keeps none.
 _Avoid_: Audit log, history, log
 
 **Comment**:
@@ -235,7 +235,7 @@ The Member who pressed Start for the current Playback, shown to everyone on Play
 _Avoid_: Leader, host, owner
 
 **Offline play**:
-A Member's choice, under Play mode on a Group's Group tab, to play the Group's Songs only on their own device, on the device's own clock. Play shows that it is on. Any Member can Start, Jump and Stop it, and the Group's Playback carries on for everyone else. It ends when they switch back to the Group or leave the Group's screen.
+A Member's choice, under Play mode on a Group's Settings tab, to play the Group's Songs only on their own device, on the device's own clock. Play shows that it is on. Any Member can Start, Jump and Stop it, and the Group's Playback carries on for everyone else. It ends when they switch back to the Group or leave the Group's screen.
 _Avoid_: Solo, practice mode, personal Playback
 
 **Stop**:

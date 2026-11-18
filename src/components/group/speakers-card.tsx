@@ -194,7 +194,7 @@ export function SpeakersCard({
   };
 
   return (
-    <Card title="Line up speakers">
+    <Card title="Align across devices">
       <ThemedText type="small" themeColor="textSecondary">
         Play a click on every device in the Group, then drag or nudge each one until its click lands with this device.
       </ThemedText>
