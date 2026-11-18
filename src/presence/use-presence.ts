@@ -50,7 +50,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
           deviceId: device.id,
           deviceLabel: device.label,
           nudgeMs: nudgeRef.current ?? undefined,
-          outputName: outputRef.current ?? undefined,
+          outputName: outputRef.current ?? "",
         }).then(
           () => {
             const measured = performance.now() - sentAt;

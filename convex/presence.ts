@@ -25,17 +25,26 @@ const checkScreenId = (screenId: string) => {
 
 const isNudge = (ms: number) => Number.isInteger(ms) && ms >= LATENCY_MIN_MS && ms <= LATENCY_MAX_MS;
 
-type DeviceFields = { deviceId: string; deviceLabel: string; nudgeMs?: number; outputName?: string };
+type DeviceFields = { deviceId: string; deviceLabel: string; nudgeMs?: number; outputName?: string | null };
+
+const outputPatch = (device: DeviceFields) => (device.outputName === undefined ? {} : { outputName: device.outputName ?? undefined });
+
+const storedDevice = (device: DeviceFields) => ({
+  deviceId: device.deviceId,
+  deviceLabel: device.deviceLabel,
+  ...(device.nudgeMs !== undefined ? { nudgeMs: device.nudgeMs } : {}),
+  ...outputPatch(device),
+});
 
 function deviceFields(deviceId: string | undefined, deviceLabel: string | undefined, nudgeMs: number | undefined, outputName: string | undefined): DeviceFields | null {
   if (deviceId === undefined) return null;
   if (!isDeviceId(deviceId)) throw new ConvexError("That device id is not one this app makes");
-  const output = trimDeviceLabel(outputName ?? "");
+  const output = outputName === undefined ? undefined : trimDeviceLabel(outputName) || null;
   return {
     deviceId,
     deviceLabel: trimDeviceLabel(deviceLabel ?? "") || "Device",
     ...(nudgeMs !== undefined && isNudge(nudgeMs) ? { nudgeMs } : {}),
-    ...(output ? { outputName: output } : {}),
+    ...(output !== undefined ? { outputName: output } : {}),
   };
 }
 
@@ -53,7 +62,7 @@ async function rememberDevice(ctx: MutationCtx, groupId: Id<"groups">, userId: I
     deviceLabel: device.deviceLabel,
     seenAt,
     ...(device.nudgeMs !== undefined ? { nudgeMs: device.nudgeMs } : {}),
-    ...(device.outputName !== undefined ? { outputName: device.outputName } : {}),
+    ...outputPatch(device),
   };
   if (known === null) {
     await ctx.db.insert("groupDevices", { groupId, deviceId: device.deviceId, ...fields });
@@ -65,7 +74,7 @@ async function rememberDevice(ctx: MutationCtx, groupId: Id<"groups">, userId: I
     known.userId !== userId ||
     known.deviceLabel !== device.deviceLabel ||
     (device.nudgeMs !== undefined && known.nudgeMs !== device.nudgeMs) ||
-    (device.outputName !== undefined && known.outputName !== device.outputName) ||
+    (device.outputName !== undefined && (known.outputName ?? null) !== device.outputName) ||
     seenAt - known.seenAt > LAST_SEEN_EVERY_MS;
   if (changed) await ctx.db.patch(known._id, { ...fields, ...(heldTooLong ? { nudgeRequest: undefined } : {}) });
   return heldTooLong ? null : known;
@@ -127,9 +136,10 @@ export const heartbeat = mutation({
     await Promise.all(mine.filter((row) => seenAt - row.seenAt > FORGET_AFTER_MS).map((row) => ctx.db.delete(row._id)));
     const existing = mine.find((row) => row.screenId === screenId && seenAt - row.seenAt <= FORGET_AFTER_MS);
     const waiting = device === null ? undefined : (await rememberDevice(ctx, groupId, user._id, device, seenAt))?.nudgeRequest;
+    const shown = device === null ? {} : storedDevice(device);
     const handOver = waiting !== undefined && existing?.nudgeRequest?.id !== waiting.id ? { nudgeRequest: waiting } : {};
-    if (existing) await ctx.db.patch(existing._id, { onPlay, seenAt, roundTripMs: ping, ...device, ...handOver });
-    else await ctx.db.insert("presence", { groupId, userId: user._id, screenId, onPlay, seenAt, roundTripMs: ping, ...device, ...handOver });
+    if (existing) await ctx.db.patch(existing._id, { onPlay, seenAt, roundTripMs: ping, ...shown, ...handOver });
+    else await ctx.db.insert("presence", { groupId, userId: user._id, screenId, onPlay, seenAt, roundTripMs: ping, ...shown, ...handOver });
   },
 });
 

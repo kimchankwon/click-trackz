@@ -44,28 +44,47 @@ export function useAudioOutput() {
   return output;
 }
 
-export async function saveLatencyNudgeForOutput(nudgeMs: number, output: AudioOutput | null = currentAudioOutput()) {
+const savesInFlight = new Map<string, Promise<boolean>>();
+
+export function saveLatencyNudgeForOutput(nudgeMs: number, output: AudioOutput | null = currentAudioOutput()) {
   const key = latencyNudgeKeyFor(output?.id ?? null);
-  const before = deviceStore.getSync(key);
-  try {
-    await deviceStore.set(key, String(nudgeMs));
-    return true;
-  } catch {
-    notifyDeviceSetting(key, before ?? CLEARED);
-    return false;
-  }
+  const save = (savesInFlight.get(key) ?? Promise.resolve(true)).then(async () => {
+    try {
+      await deviceStore.set(key, String(nudgeMs));
+      return true;
+    } catch {
+      notifyDeviceSetting(key, deviceStore.getSync(key) ?? CLEARED);
+      return false;
+    }
+  });
+  savesInFlight.set(key, save);
+  void save.then(() => {
+    if (savesInFlight.get(key) === save) savesInFlight.delete(key);
+  });
+  return save;
 }
 
 function useHeardNudges(keys: readonly string[]) {
-  const [heard, setHeard] = useState<Record<string, string | null>>({});
   const watchedKeys = keys.join("\n");
+  const [heard, setHeard] = useState<{ forKeys: string; values: Record<string, string | null> }>({ forKeys: watchedKeys, values: {} });
   useEffect(() => {
-    const stops = watchedKeys
-      .split("\n")
-      .map((watched) => onDeviceSetting(watched, (value) => setHeard((shown) => ({ ...shown, [watched]: isLatencySetting(value) ? value : null }))));
+    const stops = watchedKeys.split("\n").map((watched) =>
+      onDeviceSetting(watched, (value) =>
+        setHeard((shown) => ({
+          forKeys: watchedKeys,
+          values: { ...(shown.forKeys === watchedKeys ? shown.values : {}), [watched]: isLatencySetting(value) ? value : null },
+        })),
+      ),
+    );
     return () => stops.forEach((stop) => stop());
   }, [watchedKeys]);
-  return useCallback((key: string) => (key in heard ? heard[key] : deviceStore.getSync(key)), [heard]);
+  return useCallback(
+    (key: string) => {
+      const values = heard.forKeys === watchedKeys ? heard.values : {};
+      return key in values ? values[key] : deviceStore.getSync(key);
+    },
+    [heard, watchedKeys],
+  );
 }
 
 export function useOutputNudges(outputs: readonly AudioOutput[]): Record<string, OutputNudge> {

@@ -42,7 +42,9 @@ export default function LatencyScreen() {
   const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const { nudgeMs: saved, savedForOutput, output, setNudge: setStored, saveFailed: nudgeUnsaved } = useLatencyNudge();
-  const [draft, setDraft] = useState<number | null>(null);
+  const outputId = output?.id ?? null;
+  const [edited, setEdited] = useState<{ outputId: string | null; nudgeMs: number } | null>(null);
+  const draft = edited !== null && edited.outputId === outputId ? edited.nudgeMs : null;
   const nudge = draft ?? saved;
   const shown = nudgeShown(nudge);
   const changed = draft !== null && draft !== saved;
@@ -73,7 +75,7 @@ export default function LatencyScreen() {
   const setNudge = (ms: number) => {
     saveAttempt.current += 1;
     const next = clampLatency(ms);
-    setDraft(next);
+    setEdited({ outputId, nudgeMs: next });
     if (mode === "check") test.retune({ latencyNudgeMs: next, voiceOffsetMs: 0 });
   };
   const saveAndLeave = async () => {
