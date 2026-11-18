@@ -145,6 +145,30 @@ describe("Song Managers and above nudge other devices", () => {
     expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 60, pendingMs: null }));
   });
 
+  it("drops a held nudge once its device has been away longer than the card lists it", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    await admin.client.mutation(api.presence.nudgeDevice, { groupId, deviceId: MEMBER_PHONE, nudgeMs: 60 });
+    vi.setSystemTime(NOW + 31 * 24 * 60 * 60_000);
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0, "late-screen") });
+    expect(await member.client.query(api.presence.myNudgeRequest, { groupId, screenId: "late-screen" })).toBeNull();
+    expect((await admin.client.query(api.presence.devices, { groupId }))?.devices[0]).toEqual(expect.objectContaining({ nudgeMs: 0, pendingMs: null }));
+  });
+
+  it("forgets old devices in batches until none are left", async () => {
+    const { t, member, groupId } = await setupGroup();
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 501; index += 1) {
+        await ctx.db.insert("groupDevices", { groupId, deviceId: `olddevice${String(index).padStart(3, "0")}`, userId: member.userId, deviceLabel: "Old", seenAt: NOW });
+      }
+    });
+    vi.setSystemTime(NOW + 91 * 24 * 60 * 60_000);
+    await t.mutation(internal.presence.forgetOldDevices, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await t.run((ctx) => ctx.db.query("groupDevices").collect())).toEqual([]);
+  });
+
   it("stops listing a device a month after it last opened the Group, and forgets it after three", async () => {
     const { t, admin, member, groupId } = await setupGroup();
     await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 0) });

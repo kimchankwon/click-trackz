@@ -51,10 +51,15 @@ async function rememberDevice(ctx: MutationCtx, groupId: Id<"groups">, userId: I
     await ctx.db.insert("groupDevices", { groupId, deviceId: device.deviceId, ...fields });
     return null;
   }
+  const heldTooLong = known.nudgeRequest !== undefined && seenAt - known.seenAt > AWAY_DEVICES_SHOWN_MS;
   const changed =
-    known.userId !== userId || known.deviceLabel !== device.deviceLabel || (device.nudgeMs !== undefined && known.nudgeMs !== device.nudgeMs) || seenAt - known.seenAt > LAST_SEEN_EVERY_MS;
-  if (changed) await ctx.db.patch(known._id, fields);
-  return known;
+    heldTooLong ||
+    known.userId !== userId ||
+    known.deviceLabel !== device.deviceLabel ||
+    (device.nudgeMs !== undefined && known.nudgeMs !== device.nudgeMs) ||
+    seenAt - known.seenAt > LAST_SEEN_EVERY_MS;
+  if (changed) await ctx.db.patch(known._id, { ...fields, ...(heldTooLong ? { nudgeRequest: undefined } : {}) });
+  return heldTooLong ? null : known;
 }
 
 async function groupScreens(ctx: QueryCtx, groupId: Id<"groups">) {
@@ -361,5 +366,6 @@ export const forgetOldDevices = internalMutation({
       .withIndex("by_seen", (q) => q.lt("seenAt", Date.now() - FORGET_DEVICES_AFTER_MS))
       .take(FORGET_BATCH);
     await Promise.all(old.map((row) => ctx.db.delete(row._id)));
+    if (old.length === FORGET_BATCH) await ctx.scheduler.runAfter(0, internal.presence.forgetOldDevices, {});
   },
 });

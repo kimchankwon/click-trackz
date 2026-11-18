@@ -113,7 +113,7 @@ export function SpeakersCard({
     deviceId: row.deviceId,
     label: labels[index],
     nudgeMs: row.nudgeMs,
-    playing: checkLive && check !== null && playsInSpeakerCheck(check, row.deviceId),
+    playing: !row.away && checkLive && check !== null && playsInSpeakerCheck(check, row.deviceId),
   }));
   const olderApps = (shown?.olderApps ?? []).filter((member) => nowMs - member.seenAt <= ONLINE_WITHIN_MS).map((member) => member.displayName);
   const listenTo = checkLive ? (check?.listenTo ?? null) : null;

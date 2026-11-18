@@ -12,5 +12,6 @@ Each Group now remembers the devices that have opened it:
 
 - Supersedes the ADR 0007 consequence that a device must have the Group open to be nudged.
 - A held nudge overwrites whatever the device's own Member set in the meantime, as soon as the device opens the Group, and the Member is told who set it.
+- A held nudge is dropped, not applied, when its device comes back after more than a month away, since the card stopped listing that device and no Song Manager could see or change the nudge.
 - Leaving or being removed from the Group, a Guest being swept, and deleting the Group all forget the Member's devices; a Guest who signs in with Google keeps them. A daily cron forgets devices not seen for 90 days.
 - The device list query reads one more indexed table per Group.
