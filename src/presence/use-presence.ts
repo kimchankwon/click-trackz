@@ -6,9 +6,8 @@ import { AppState } from "react-native";
 import { useAppActive } from "@/lib/use-app-active";
 import { deviceId } from "@/settings/device-id";
 import { deviceLabel } from "@/settings/device-label";
-import { notifyDeviceSetting } from "@/settings/device-setting-events";
-import { deviceStore } from "@/settings/device-store";
-import { clampLatency, LATENCY_NUDGE_KEY } from "@/settings/latency";
+import { clampLatency } from "@/settings/latency";
+import { saveLatencyNudgeForOutput } from "@/settings/use-latency-nudge";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
@@ -19,12 +18,13 @@ const ROUND_TRIP_CHANGE_MS = 100;
 
 const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false, shared = true, nudgeMs: number | null = null) {
+export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false, shared = true, nudgeMs: number | null = null, outputName: string | null = null) {
   const heartbeat = useMutation(api.presence.heartbeat);
   const leave = useMutation(api.presence.leave);
   const [screenId] = useState(newScreenId);
   const [device] = useState(() => ({ id: deviceId(), label: deviceLabel() }));
   const nudgeRef = useRef(nudgeMs);
+  const outputRef = useRef(outputName);
   const focused = useIsFocused();
   const [active, setActive] = useState(AppState.currentState === "active");
   const visible = shared && focused && (active || playing);
@@ -50,6 +50,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
           deviceId: device.id,
           deviceLabel: device.label,
           nudgeMs: nudgeRef.current ?? undefined,
+          outputName: outputRef.current ?? undefined,
         }).then(
           () => {
             const measured = performance.now() - sentAt;
@@ -69,8 +70,9 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
     visibleRef.current = visible;
     onPlayRef.current = onPlay;
     nudgeRef.current = nudgeMs;
+    outputRef.current = outputName;
     if (visible) beat(onPlay);
-  }, [onPlay, visible, beat, nudgeMs]);
+  }, [onPlay, visible, beat, nudgeMs, outputName]);
 
   useEffect(() => {
     if (!visible) return;
@@ -112,23 +114,19 @@ export function useNudgesFromManagers(
     handled.current = request.id;
     const nudgeMs = clampLatency(request.ms);
     const { id, byName } = request;
-    const before = deviceStore.getSync(LATENCY_NUDGE_KEY) ?? "0";
     const apply = ++latestApply.current;
-    void deviceStore.set(LATENCY_NUDGE_KEY, String(nudgeMs)).then(
-      () => {
+    void saveLatencyNudgeForOutput(nudgeMs).then((saved) => {
+      if (saved) {
         if (announceTimer.current) clearTimeout(announceTimer.current);
         announceTimer.current = setTimeout(() => announce(byName, nudgeMs), ANNOUNCE_AFTER_MS);
         applied({ groupId, screenId, id, nudgeMs }).catch(() => {
           if (handled.current === id) handled.current = null;
         });
-      },
-      () => {
-        if (handled.current === id) handled.current = null;
-        if (apply !== latestApply.current) return;
-        notifyDeviceSetting(LATENCY_NUDGE_KEY, before);
-        reportNotSaved(byName);
-      },
-    );
+        return;
+      }
+      if (handled.current === id) handled.current = null;
+      if (apply === latestApply.current) reportNotSaved(byName);
+    });
   }, [request, groupId, screenId, applied]);
 }
 

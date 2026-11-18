@@ -21,8 +21,8 @@ import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromSteps, steadyOffset, type TapStep } from "@/lib/timing-test";
-import { clampLatency, isLatencySetting, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs } from "@/settings/latency";
-import { useDeviceSetting } from "@/settings/use-device-setting";
+import { clampLatency, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs } from "@/settings/latency";
+import { useLatencyNudge } from "@/settings/use-latency-nudge";
 
 const TEST_INTERVAL_MS = 1_000;
 const STRIP_RANGE_MS = TEST_INTERVAL_MS / 2;
@@ -41,12 +41,12 @@ export default function LatencyScreen() {
   const theme = useTheme();
   const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
-  const [stored, setStored, nudgeUnsaved] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
-  const saved = Number(stored);
+  const { nudgeMs: saved, savedForOutput, output, setNudge: setStored, saveFailed: nudgeUnsaved } = useLatencyNudge();
   const [draft, setDraft] = useState<number | null>(null);
   const nudge = draft ?? saved;
   const shown = nudgeShown(nudge);
   const changed = draft !== null && draft !== saved;
+  const canSave = changed || (output !== null && !savedForOutput);
   const [askLeave, setAskLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   usePreventRemove(changed && !leaving, () => setAskLeave(true));
@@ -80,7 +80,7 @@ export default function LatencyScreen() {
     const mine = ++saveAttempt.current;
     test.stop();
     setMode(null);
-    const kept = await setStored(String(nudge));
+    const kept = await setStored(nudge);
     if (saveAttempt.current !== mine) return;
     if (kept) setLeaving(true);
     else setAskLeave(false);
@@ -138,12 +138,19 @@ export default function LatencyScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <PinnedHeader scrolled={pinned.scrolled}>
-          <ScreenHeader title="Latency nudge" subtitle="This device only" onBack={() => backOr("/")} backTestID="latency-back" />
+          <ScreenHeader title="Latency nudge" subtitle={output ? `This device on ${output.name}` : "This device only"} onBack={() => backOr("/")} backTestID="latency-back" />
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
             Minus plays this device earlier to make up for the delay of its speaker or headphones. Plus plays it later
           </ThemedText>
+          {output ? (
+            <ThemedText type="small" themeColor="textSecondary" testID="latency-output-note">
+              {savedForOutput
+                ? `Saved for ${output.name}. Each speaker or pair of headphones keeps its own nudge, used whenever this device plays through it.`
+                : `No nudge saved for ${output.name} yet, so it uses ${nudgeText(saved)}. Save to keep one for it.`}
+            </ThemedText>
+          ) : null}
 
           <View style={[styles.panel, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.readout}>
@@ -342,7 +349,7 @@ export default function LatencyScreen() {
           ) : null}
         </ScrollView>
         <View style={[styles.dock, { backgroundColor: theme.background, borderTopColor: theme.border, paddingBottom: dockInset }]}>
-          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!changed} onPress={() => void saveAndLeave()} />
+          <ActionButton large full accent icon="check" label="Save" testID="latency-done" disabled={!canSave} onPress={() => void saveAndLeave()} />
         </View>
         <ConfirmDialog
           visible={askLeave && !leaving}

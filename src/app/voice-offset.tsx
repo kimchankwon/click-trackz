@@ -19,9 +19,9 @@ import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
 import { earlyLateText } from "@/lib/timing-strip";
-import { isLatencySetting } from "@/settings/latency";
 import { isSide, type Side } from "@/settings/output";
 import { useDeviceSetting } from "@/settings/use-device-setting";
+import { useLatencyNudge } from "@/settings/use-latency-nudge";
 import { useSoundSettings } from "@/settings/use-sound-settings";
 import { isVoiceOffsetSetting, stepVoiceOffset, VOICE_OFFSET_MAX_MS, VOICE_OFFSET_MIN_MS, VOICE_OFFSET_STEP_MS, voiceOffsetText } from "@/settings/voice-offset";
 
@@ -32,7 +32,7 @@ export default function VoiceOffsetScreen() {
   const pinned = usePinnedHeader();
   const dockInset = useDockInset(Spacing.three);
   const [stored, setStored, offsetUnsaved] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
-  const [latencyNudge] = useDeviceSetting("latencyNudgeMs", "0", isLatencySetting);
+  const { nudgeMs: latencyNudgeMs } = useLatencyNudge();
   const [clickSide] = useDeviceSetting<Side>("clickSide", "both", isSide);
   const [voiceSide] = useDeviceSetting<Side>("voiceSide", "both", isSide);
   const { sound } = useSoundSettings();
@@ -54,7 +54,7 @@ export default function VoiceOffsetScreen() {
   const setOffsetDraft = (ms: number) => {
     saveAttempt.current += 1;
     setDraft(ms);
-    test.retune({ latencyNudgeMs: Number(latencyNudge), voiceOffsetMs: ms });
+    test.retune({ latencyNudgeMs: latencyNudgeMs, voiceOffsetMs: ms });
   };
   const move = (steps: number) => setOffsetDraft(stepVoiceOffset(offset, steps));
   const saveAndLeave = async () => {
@@ -78,7 +78,7 @@ export default function VoiceOffsetScreen() {
     test
       .start({
         intervalMs: TEST_INTERVAL_MS,
-        latencyNudgeMs: Number(latencyNudge),
+        latencyNudgeMs: latencyNudgeMs,
         voiceOffsetMs: offset,
         volumes: { click: sound.clickVolume, voice: sound.voiceVolume },
         sides: { click: clickSide, voice: voiceSide },

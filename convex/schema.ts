@@ -165,6 +165,7 @@ export default defineSchema({
     deviceId: v.optional(v.string()),
     deviceLabel: v.optional(v.string()),
     nudgeMs: v.optional(v.number()),
+    outputName: v.optional(v.string()),
     nudgeRequest: v.optional(v.object({ id: v.string(), ms: v.number(), by: v.id("users") })),
   })
     .index("by_group", ["groupId"])
@@ -179,6 +180,7 @@ export default defineSchema({
     deviceLabel: v.string(),
     seenAt: v.number(),
     nudgeMs: v.optional(v.number()),
+    outputName: v.optional(v.string()),
     nudgeRequest: v.optional(v.object({ id: v.string(), ms: v.number(), by: v.id("users") })),
   })
     .index("by_group", ["groupId"])

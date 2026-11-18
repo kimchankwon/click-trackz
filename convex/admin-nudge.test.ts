@@ -58,6 +58,20 @@ describe("Song Managers and above nudge other devices", () => {
     expect(shown?.olderApps).toEqual([]);
   });
 
+  it("shows the audio output each device plays through, and keeps it once the device is away", async () => {
+    const { admin, member, groupId } = await setupGroup();
+    await admin.client.mutation(api.presence.heartbeat, { groupId, ...beat(ADMIN_PHONE, 0) });
+    await member.client.mutation(api.presence.heartbeat, { groupId, ...beat(MEMBER_PHONE, 180), outputName: "  Sam's AirPods Pro  " });
+    const here = await admin.client.query(api.presence.devices, { groupId });
+    expect(here?.devices.map(({ deviceId, outputName }) => ({ deviceId, outputName }))).toEqual([
+      { deviceId: ADMIN_PHONE, outputName: null },
+      { deviceId: MEMBER_PHONE, outputName: "Sam's AirPods Pro" },
+    ]);
+    await member.client.mutation(api.presence.leave, { groupId, screenId: MEMBER_PHONE });
+    const away = await admin.client.query(api.presence.devices, { groupId });
+    expect(away?.devices.find((device) => device.deviceId === MEMBER_PHONE)).toEqual(expect.objectContaining({ onScreen: false, outputName: "Sam's AirPods Pro", nudgeMs: 180 }));
+  });
+
   it("lists Members whose app does not report a device yet", async () => {
     const { admin, manager, groupId } = await setupGroup();
     await manager.client.mutation(api.presence.heartbeat, { groupId, screenId: "old-app", onPlay: true });

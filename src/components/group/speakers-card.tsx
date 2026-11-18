@@ -35,6 +35,8 @@ type Outgoing = { value: number; timer: ReturnType<typeof setTimeout> | null };
 
 const stepLabel = (step: number) => (step > 0 ? `+${step}` : `−${-step}`);
 
+const onOutput = (label: string, outputName: string | null) => (outputName ? `${label} on ${outputName}` : label);
+
 const joinNames = (names: readonly string[]) => (names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 function laneLabels(rows: readonly DeviceRow[]) {
@@ -54,6 +56,7 @@ export function SpeakersCard({
   myName,
   myLabel,
   myNudgeMs,
+  myOutputName,
   setMyNudge,
   check,
   checkLive,
@@ -68,6 +71,7 @@ export function SpeakersCard({
   myName: string;
   myLabel: string;
   myNudgeMs: number;
+  myOutputName: string | null;
   setMyNudge: (nudgeMs: number) => Promise<boolean>;
   check: ShownCheck | null;
   checkLive: boolean;
@@ -96,11 +100,11 @@ export function SpeakersCard({
     .map((device) => ({ ...device, away: !device.onScreen || nowMs - device.seenAt > ONLINE_WITHIN_MS }))
     .sort((a, b) => Number(a.away) - Number(b.away) || a.displayName.localeCompare(b.displayName) || a.deviceLabel.localeCompare(b.deviceLabel));
   const rows: DeviceRow[] = [
-    { deviceId: myDeviceId, name: myName, label: `${myLabel}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true, away: false },
+    { deviceId: myDeviceId, name: myName, label: `${onOutput(myLabel, myOutputName)}, this device`, nudgeMs: targets[myDeviceId] ?? myNudgeMs, sending: false, mine: true, away: false },
     ...others.map((device) => ({
       deviceId: device.deviceId,
       name: device.displayName,
-      label: device.away ? `${device.deviceLabel}, not here now` : device.deviceLabel,
+      label: device.away ? `${onOutput(device.deviceLabel, device.outputName)}, not here now` : onOutput(device.deviceLabel, device.outputName),
       nudgeMs: targets[device.deviceId] ?? device.pendingMs ?? device.nudgeMs ?? 0,
       sending: targets[device.deviceId] !== undefined || device.pendingMs !== null,
       mine: false,

@@ -17,3 +17,18 @@ export const nudgeFromShown = (shownMs: number) => clampLatency(shownMs === 0 ? 
 export const signedMs = (ms: number) => (ms > 0 ? `+${ms} ms` : ms < 0 ? `−${-ms} ms` : "0 ms");
 
 export const nudgeText = (nudgeMs: number) => signedMs(nudgeShown(nudgeMs));
+
+export const latencyNudgeKeyFor = (outputId: string | null) =>
+  outputId === null ? LATENCY_NUDGE_KEY : `${LATENCY_NUDGE_KEY}.${outputId.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+
+export type OutputNudge = { nudgeMs: number; savedForOutput: boolean };
+
+export function outputNudge(outputId: string | null, read: (key: string) => string | null): OutputNudge {
+  const valid = (key: string) => {
+    const stored = read(key);
+    return stored !== null && isLatencySetting(stored) ? Number(stored) : null;
+  };
+  const own = valid(latencyNudgeKeyFor(outputId));
+  if (own !== null) return { nudgeMs: own, savedForOutput: outputId !== null };
+  return { nudgeMs: outputId === null ? 0 : (valid(LATENCY_NUDGE_KEY) ?? 0), savedForOutput: false };
+}

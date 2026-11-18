@@ -181,8 +181,12 @@ A device's choice to play every Voice cue and spoken count a little sooner or la
 _Avoid_: Voice delay, voice latency
 
 **Latency nudge**:
-A per-device offset that lines a device's Click and Voice cues up with everyone else's despite the delay of its own audio output, such as a Bluetooth speaker or headphones. The Member sets it on their device, or a Song Manager or above sets it for any device that has opened the Group in the last month; a device that does not have the Group open gets it the next time it opens the Group. It is shown with minus for sound played earlier and plus for sound played later, so a Bluetooth delay of 180 ms is made up by a nudge of −180 ms. It is the only thing that moves when a device's sound plays; the delay a device reports for its output is shown as a recommended value, and the Member chooses whether to use it.
+A per-device offset that lines a device's Click and Voice cues up with everyone else's despite the delay of its own audio output, such as a Bluetooth speaker or headphones. The Member sets it on their device, or a Song Manager or above sets it for any device that has opened the Group in the last month; a device that does not have the Group open gets it the next time it opens the Group. It is shown with minus for sound played earlier and plus for sound played later, so a Bluetooth delay of 180 ms is made up by a nudge of −180 ms. It is the only thing that moves when a device's sound plays; the delay a device reports for its output is shown as a recommended value, and the Member chooses whether to use it. On a phone each Audio output keeps its own nudge, so connecting the Bluetooth speaker brings back the nudge set for it; an Audio output with none saved yet uses the device's earlier nudge. A Song Manager's nudge is saved for the Audio output the device is playing through when it arrives.
 _Avoid_: Delay, offset, calibration
+
+**Audio output**:
+Where a device is playing its sound right now: its own speaker, wired headphones, a Bluetooth speaker or headphones, or AirPlay. A phone tells them apart by the output's own name and id; the web cannot, so on the web every output shares one Latency nudge.
+_Avoid_: Route, port, sink
 
 **Speaker check**:
 A click once a second, with no Voice cues or spoken counts, that a Song Manager or above plays on every device with the Group open, including their own, so they can nudge each device by ear until all the clicks land together. It never runs during a Playback, and a Start ends it.
