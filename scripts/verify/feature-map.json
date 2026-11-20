@@ -21,7 +21,9 @@
     "LICENSE",
     "design-refs/**",
     ".claude/**",
-    "vercel.json"
+    "vercel.json",
+    "lint/**",
+    "scripts/pr-shepherd.mjs"
   ],
   "core": [
     { "rule": "Navigation", "globs": ["src/app/_layout.tsx", "src/app/**/_layout.tsx", "src/lib/back-or.ts"] },

@@ -1,0 +1,13 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: launch-signed-out.yaml
+- tapOn:
+    id: "about-get-started"
+- tapOn: "About Click Trackz"
+- extendedWaitUntil:
+    visible: "Multiple devices, one beat"
+    timeout: 15000
+- scroll
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}

@@ -1,0 +1,10 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: launch-signed-out.yaml
+- tapOn:
+    id: "about-get-started"
+- extendedWaitUntil:
+    visible: "Continue as guest"
+    timeout: 15000
+- assertVisible: "Sign in with Google"
+- takeScreenshot: ${SHOT}

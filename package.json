@@ -62,7 +62,8 @@
     "voice-pack": "node --env-file=.env.tts.local scripts/generate-voice-pack.mts",
     "deploy:web:dev": "node scripts/deploy-web-dev.mjs",
     "update:production": "node scripts/eas-update.mjs production",
-    "update:preview": "node scripts/eas-update.mjs preview"
+    "update:preview": "node scripts/eas-update.mjs preview",
+    "verify": "node scripts/verify/verify.mts"
   },
   "private": true
 }
