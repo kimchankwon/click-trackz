@@ -1,8 +1,7 @@
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, useColorScheme, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initialsOf } from "@/lib/initials";
 
 const palette = [
