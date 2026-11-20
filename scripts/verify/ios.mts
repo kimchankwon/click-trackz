@@ -104,7 +104,7 @@ export async function ensureBuild({ env, logsDir, log }: { env: NodeJS.ProcessEn
   const workspace = readdirSync(iosDir).find((entry) => entry.endsWith(".xcworkspace"));
   if (!workspace) throw new Error("expo prebuild did not create an .xcworkspace in ios/");
   const scheme = workspace.replace(/\.xcworkspace$/, "");
-  const derivedData = path.join(cacheDir, "ios", "DerivedData");
+  const derivedData = path.join(stateDir, "DerivedData");
   const xcodebuild = await run(
     "xcodebuild",
     "xcodebuild",
