@@ -59,7 +59,7 @@ function codeRabbitActivity(pr) {
   const ours = reviews.filter((r) => isCodeRabbit(r.user?.login));
   const passedRuns = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/commits/${head}/check-runs`]))
     .flatMap((page) => page.check_runs)
-    .filter((run) => run.app?.slug === "coderabbitai" && run.conclusion === "success");
+    .filter((run) => run.app?.slug === "coderabbitai" && run.conclusion === "success" && new RegExp(`/pull/${pr}(\\?|$)`).test(run.details_url ?? ""));
   const reviewedHead = passedRuns.length > 0 || ours.some((r) => r.commit_id === head);
   const draftSkipped = !reviewedHead && comments.some((c) => isCodeRabbit(c.user?.login) && /Draft PR not reviewed/i.test(c.body));
   const finishedAt = [...ours.map((r) => Date.parse(r.submitted_at)), ...passedRuns.map((run) => Date.parse(run.completed_at))];
