@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -212,7 +212,6 @@ export async function runMaestroFlow({
 }) {
   const flow = path.join(import.meta.dirname, "maestro", `${id}.yaml`);
   const outputDir = path.join(stateDir, "maestro", id);
-  rmSync(outputDir, { recursive: true, force: true });
   const args = [
     "--device",
     udid,
@@ -224,5 +223,20 @@ export async function runMaestroFlow({
     `SHOT=${shot}`,
     ...Object.entries(vars).flatMap(([name, value]) => ["-e", `${name}=${value}`]),
   ];
-  return run(`maestro-${id}`, "maestro", args, { logFile, env: maestroEnv(env), timeoutMs: 8 * 60_000 });
+  const attempt = () => {
+    rmSync(outputDir, { recursive: true, force: true });
+    const from = existsSync(logFile) ? statSync(logFile).size : 0;
+    const driverCrashed = () => existsSync(logFile) && DRIVER_CRASH.test(readFileSync(logFile, "utf8").slice(from));
+    return run(`maestro-${id}`, "maestro", args, { logFile, env: maestroEnv(env), timeoutMs: 8 * 60_000, abortWhen: driverCrashed }).then((code) => ({
+      code,
+      driverCrashed: code !== 0 && driverCrashed(),
+    }));
+  };
+  const first = await attempt();
+  if (!first.driverCrashed) return { code: first.code, retried: false };
+  appendFileSync(logFile, "\nverify: Maestro's iOS driver crashed, so the flow runs once more\n");
+  const second = await attempt();
+  return { code: second.code, retried: true };
 }
+
+const DRIVER_CRASH = /Exception in thread "main"[^\n]*(UnknownFailure|XCTestDriver)/;
