@@ -92,8 +92,13 @@ const routeOnlyScreen = {
       Program(program) {
         const exportDefault = program.body.find((node) => node.type === "ExportDefaultDeclaration");
         const screen = exportDefault?.declaration.type === "Identifier" ? exportDefault.declaration.name : null;
+        const listed = new Set(
+          program.body
+            .filter((node) => node.type === "ExportNamedDeclaration" && !node.declaration && !node.source)
+            .flatMap((node) => node.specifiers.filter((specifier) => specifier.exported.name === specifier.local.name).map((specifier) => specifier.local.name)),
+        );
         const report = (id, exported) => {
-          if (id.name === screen || (exported && ROUTE_EXPORTS.has(id.name))) return;
+          if (id.name === screen || ((exported || listed.has(id.name)) && ROUTE_EXPORTS.has(id.name))) return;
           context.report({ node: id, messageId: "extra", data: { name: id.name } });
         };
         for (const statement of program.body) {
