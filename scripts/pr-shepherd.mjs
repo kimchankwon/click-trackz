@@ -87,6 +87,7 @@ function rateLimit(comments, finishedAt) {
 }
 
 function status(pr) {
+  const codeRabbit = codeRabbitActivity(pr);
   const open = reviewThreads(pr)
     .filter((t) => !t.isResolved && isCodeRabbit(t.comments.nodes[0]?.author?.login))
     .map((t) => {
@@ -103,7 +104,7 @@ function status(pr) {
       };
     });
   const checks = JSON.parse(gh(["pr", "checks", String(pr), "--json", "name,state,link"]).trim() || "[]");
-  return { pr, checks, unresolvedCodeRabbitThreads: open, codeRabbit: codeRabbitActivity(pr) };
+  return { pr, checks, unresolvedCodeRabbitThreads: open, codeRabbit };
 }
 
 function resolve(threadId) {

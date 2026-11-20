@@ -2,7 +2,7 @@ const MAX_LENGTH = 240;
 
 type NativeErrorInfo = { nativeDomain: string; nativeCode: number; nativeDesc: string };
 
-export type AudioFailureFacts = {
+type AudioFailureFacts = {
   state: string;
   waitedMs: number;
   timedOut: boolean;
