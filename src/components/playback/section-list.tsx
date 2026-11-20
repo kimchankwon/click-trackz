@@ -9,7 +9,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { centredScrollY, SECTION_ROW_GAP, SECTION_ROW_HEIGHT, sectionListHeight, VISIBLE_SECTION_ROWS } from "@/lib/section-list";
 import type { Beat } from "@/sync/timeline";
 
-export type SectionListRow = { title: string; plays: number; accessibleName: string; testID: string };
+type SectionListRow = { title: string; plays: number; accessibleName: string; testID: string };
 
 const SLIDE_MS = 380;
 const STEP = SECTION_ROW_HEIGHT + SECTION_ROW_GAP;

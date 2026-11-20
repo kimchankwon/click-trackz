@@ -33,7 +33,7 @@ export function newTimeChange(section: ChangeableSection): TimeChange | null {
   return bar === undefined ? null : { bar, bars: 1, beatsPerBar: section.beatsPerBar === 2 ? 3 : 2, beatUnit: section.beatUnit ?? 4 };
 }
 
-export type MeterRun = { bars: number; beatsPerBar: number; beatUnit?: number };
+type MeterRun = { bars: number; beatsPerBar: number; beatUnit?: number };
 
 export function meterRunsOf(section: ChangeableSection): MeterRun[] {
   const changes = section.timeChanges ?? [];

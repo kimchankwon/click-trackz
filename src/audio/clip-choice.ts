@@ -1,4 +1,4 @@
-import type { VoiceCue } from "@/sync/timeline";
+import type { VoiceCue } from "../sync/timeline";
 
 export const wordKey = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 

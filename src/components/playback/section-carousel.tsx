@@ -13,7 +13,7 @@ const LABEL_HEIGHT = 14;
 const HEIGHT = 60;
 const SLIDE_MS = 380;
 
-export type CarouselEntry = { index: number | null; title: string; pass?: string | null };
+type CarouselEntry = { index: number | null; title: string; pass?: string | null };
 
 type Shown = {
   key: string;

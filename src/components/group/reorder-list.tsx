@@ -9,7 +9,7 @@ import { Radius } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { dropSlot, slotsWhileDragging } from "@/lib/reorder";
 
-export type ReorderItem = { rowKey: string; name: string };
+type ReorderItem = { rowKey: string; name: string };
 
 const ROW_GAP = 2;
 const DEFAULT_ROW_HEIGHT = 56;

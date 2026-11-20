@@ -22,9 +22,9 @@ import { SignalBars } from "@/components/ui/signal-bars";
 import { useTheme } from "@/hooks/use-theme";
 import { accentLevelOf, type AccentLevel, type Beat } from "@/sync/timeline";
 
-export type StageMember = { userId: string; name: string; position: number; pingMs: number | null; isYou?: boolean; started?: boolean };
+type StageMember = { userId: string; name: string; position: number; pingMs: number | null; isYou?: boolean; started?: boolean };
 
-export type StageBubble = { text: string; at: number };
+type StageBubble = { text: string; at: number };
 
 type OpenList = (anchor: OnlineListAnchor) => void;
 

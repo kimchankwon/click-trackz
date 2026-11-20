@@ -1,6 +1,7 @@
 import type { FunctionReturnType } from "convex/server";
 
 import type { api } from "../../convex/_generated/api";
+import { isRecord } from "@/lib/is-record";
 
 export const HOME_FORMAT = 1;
 
@@ -8,7 +9,6 @@ export type MyGroups = FunctionReturnType<typeof api.groups.myGroups>;
 
 export type StoredHome = { format: typeof HOME_FORMAT; isAnonymous: boolean; groups: MyGroups };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isGroup = (value: unknown) =>
   isRecord(value) &&

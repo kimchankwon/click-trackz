@@ -1,10 +1,10 @@
-export type StoredHandoff = { token: string };
+import { isRecord } from "@/lib/is-record";
 
-export function parseHandoff(json: string | null): StoredHandoff | null {
+export function parseHandoff(json: string | null): { token: string } | null {
   if (json === null) return null;
   try {
     const value: unknown = JSON.parse(json);
-    return typeof value === "object" && value !== null && typeof (value as StoredHandoff).token === "string" ? { token: (value as StoredHandoff).token } : null;
+    return isRecord(value) && typeof value.token === "string" ? { token: value.token } : null;
   } catch {
     return null;
   }
