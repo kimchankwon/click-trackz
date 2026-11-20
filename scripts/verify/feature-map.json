@@ -161,6 +161,6 @@
       "note": "No flow covers /sync-check or the not-found screen yet, so they get typecheck, lint and unit tests only."
     },
     { "area": "Backend only", "globs": ["convex/*.ts"], "flows": [] },
-    { "area": "Scripts", "globs": ["scripts/*.mts", "scripts/*.mjs"], "flows": [] }
+    { "area": "Scripts", "globs": ["scripts/*.mts", "scripts/*.mjs", "scripts/tsconfig.json"], "flows": [] }
   ]
 }
