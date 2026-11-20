@@ -1,4 +1,3 @@
-const DIRECTIVE = /^\s*(eslint(-disable|-enable)?(-next-line|-line)?|global|globals|exported)\b/;
 const PRAGMA = /^\s*(@ts-(expect-error|ignore|nocheck|check)|@vitest-environment|prettier-ignore|@license|@preserve|istanbul ignore|c8 ignore|#__PURE__|@__PURE__)/;
 const TRIPLE_SLASH = /^\/\s*<(reference|amd-module)\b/;
 const DISABLE = /^\s*eslint-disable/;
@@ -16,11 +15,12 @@ const noComments = {
   create(context) {
     return {
       Program() {
+        const directives = new Set(context.sourceCode.getInlineConfigNodes());
         for (const comment of context.sourceCode.getAllComments()) {
           const text = comment.value;
           if (comment.type === "Line" && TRIPLE_SLASH.test(text)) continue;
           if (comment.type === "Shebang") continue;
-          if (DIRECTIVE.test(text)) {
+          if (directives.has(comment)) {
             if (DISABLE.test(text) && !/\s--\s+\S/.test(text)) context.report({ loc: comment.loc, messageId: "unjustified" });
             continue;
           }
@@ -58,7 +58,7 @@ const glossaryTerms = {
       const parent = node.parent;
       if (!parent) return false;
       if (parent.type === "JSXAttribute") return parent.name.name !== "testID" && parent.name.name !== "key";
-      if (parent.type === "JSXExpressionContainer") return isPeopleFacing(parent);
+      if (parent.type === "JSXExpressionContainer") return parent.parent.type === "JSXElement" || parent.parent.type === "JSXFragment" || isPeopleFacing(parent);
       if (parent.type === "NewExpression" && parent.callee.name === "ConvexError") return true;
       if (parent.type === "CallExpression" && parent.callee.type === "Identifier" && /^(showToast|toast)$/.test(parent.callee.name)) return true;
       if (parent.type === "TemplateLiteral" || parent.type === "ConditionalExpression" || parent.type === "LogicalExpression") return isPeopleFacing(parent);

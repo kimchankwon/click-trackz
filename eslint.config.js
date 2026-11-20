@@ -63,13 +63,18 @@ module.exports = defineConfig([
     },
   },
   {
-    files: ["src/app/**/*.tsx"],
+    files: ["src/app/**/*.ts", "src/app/**/*.tsx"],
     ignores: routeFilesWithExtraComponents,
     rules: {
       "no-restricted-syntax": [
         "error",
         {
-          selector: "Program > FunctionDeclaration[id.name=/^[A-Z]/], Program > ExportNamedDeclaration > FunctionDeclaration[id.name=/^[A-Z]/][id.name!='ErrorBoundary']",
+          selector: [
+            "Program > FunctionDeclaration[id.name=/^[A-Z]/]",
+            "Program > ExportNamedDeclaration > FunctionDeclaration[id.name=/^[A-Z]/][id.name!='ErrorBoundary']",
+            "Program > VariableDeclaration > VariableDeclarator[id.name=/^[A-Z]/][init.type=/^(ArrowFunctionExpression|FunctionExpression)$/]",
+            "Program > ExportNamedDeclaration > VariableDeclaration > VariableDeclarator[id.name=/^[A-Z]/][init.type=/^(ArrowFunctionExpression|FunctionExpression)$/]",
+          ].join(", "),
           message: "A route file holds only its screen (AGENTS.md). Move this component to src/components.",
         },
       ],
