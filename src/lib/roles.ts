@@ -22,8 +22,6 @@ export const canEditSongs = (role: Role) => atLeast(role, "songManager");
 
 export const canManageGroup = (role: Role) => atLeast(role, "groupManager");
 
-export const canDeleteGroup = (role: Role) => role === "admin";
-
 export const JOIN_ROLES = ["member", "playbackManager", "songManager"] as const satisfies readonly Role[];
 
 export type JoinRole = (typeof JOIN_ROLES)[number];

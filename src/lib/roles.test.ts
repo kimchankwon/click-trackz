@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assignableRoles, canAssignRole, canDeleteGroup, canEditSongs, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES } from "./roles";
+import { assignableRoles, canAssignRole, canEditSongs, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES } from "./roles";
 
 describe("roles", () => {
   it("ranks Admin over Group Manager over Song Manager over Playback Manager over Member", () => {
@@ -25,12 +25,10 @@ describe("roles", () => {
     expect(canEditSongs("groupManager")).toBe(true);
   });
 
-  it("lets Group Managers and up manage the Group, and only the Admin delete it", () => {
+  it("lets Group Managers and up manage the Group", () => {
     expect(canManageGroup("songManager")).toBe(false);
     expect(canManageGroup("groupManager")).toBe(true);
     expect(canManageGroup("admin")).toBe(true);
-    expect(canDeleteGroup("groupManager")).toBe(false);
-    expect(canDeleteGroup("admin")).toBe(true);
   });
 
   it("lets the Admin hand out every Role below Admin, and a Group Manager only Song Manager and below", () => {
