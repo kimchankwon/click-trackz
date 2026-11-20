@@ -10,7 +10,7 @@ const REFRESH_MS = 200;
 
 const ignore = () => undefined;
 
-export type LockScreenReading = { info: LockScreenInfo; controls: Record<LockScreenCommand, boolean> };
+type LockScreenReading = { info: LockScreenInfo; controls: Record<LockScreenCommand, boolean> };
 
 const controlsKeyOf = (controls: Record<LockScreenCommand, boolean>) => LOCK_SCREEN_COMMANDS.filter((command) => controls[command]).join(",");
 

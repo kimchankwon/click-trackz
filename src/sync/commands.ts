@@ -5,7 +5,7 @@ export const OFFLINE_LEAD_IN_MS = 500;
 const MIN_COMMAND_LEAD_MS = 1_000;
 export const STOP_LEAD_MS = 1_000;
 
-export type StartFrom = { fromSection?: number; fromBar?: number };
+type StartFrom = { fromSection?: number; fromBar?: number };
 
 export type StartedPlayback<S extends Song = Song> = {
   song: { countIn: boolean; subdivision?: number; cueLeadBars?: number; sections: S["sections"] };

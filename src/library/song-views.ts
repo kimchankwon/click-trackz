@@ -2,7 +2,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { mainBpm, mainTimeSignature } from "../sync/song-summary";
 import { cueLeadBarsOf, subdivisionOf } from "../sync/timeline";
 
-export type StoredSong = Pick<Doc<"songs">, "_id" | "title" | "key" | "tempoHint" | "bpm" | "timeSignature" | "countIn" | "subdivision" | "cueLeadBars" | "copyBase" | "sections">;
+type StoredSong = Pick<Doc<"songs">, "_id" | "title" | "key" | "tempoHint" | "bpm" | "timeSignature" | "countIn" | "subdivision" | "cueLeadBars" | "copyBase" | "sections">;
 
 export const songView = (song: StoredSong) => ({
   songId: song._id,

@@ -844,7 +844,6 @@ const styles = StyleSheet.create({
   detailsCard: { gap: Spacing.three, padding: Spacing.three, borderRadius: Radius.lg },
   fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: 600 },
   centeredLabel: { textAlign: "center" },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   sectionCard: { gap: Spacing.two, paddingHorizontal: 12, paddingVertical: Spacing.one + 2, borderRadius: Radius.lg },
   sectionTop: { flexDirection: "row", alignItems: "flex-end", gap: 6 },

@@ -8,7 +8,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { markGrowth } from "@/lib/timing-test";
 import { stripPosition } from "@/lib/timing-strip";
 
-export type TimingLane = { label: string; marks: readonly number[]; tone: "accent" | "text" | "muted"; dots?: boolean };
+type TimingLane = { label: string; marks: readonly number[]; tone: "accent" | "text" | "muted"; dots?: boolean };
 
 const LABEL_WIDTH = 84;
 const LANE_HEIGHT = 28;
