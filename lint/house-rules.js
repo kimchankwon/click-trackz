@@ -32,4 +32,44 @@ const noComments = {
   },
 };
 
-module.exports = { meta: { name: "house" }, rules: { "no-comments": noComments } };
+const AVOIDED_WORDS = [
+  [/\bbands?\b/i, "Group"],
+  [/\b(users?|musicians?)\b/i, "Member"],
+  [/\bplaylists?\b/i, "Setlist"],
+  [/\b(metronome|beeps?)\b/i, "Click"],
+  [/\bpre-?roll\b/i, "Count-in or Cue lead"],
+];
+
+const glossaryTerms = {
+  meta: {
+    type: "suggestion",
+    docs: { description: "CONTEXT.md: people-facing text uses the glossary terms, not the words it says to avoid." },
+    schema: [],
+    messages: { avoid: "CONTEXT.md says to avoid \"{{word}}\" here. Say {{term}}." },
+  },
+  create(context) {
+    const check = (node, text) => {
+      for (const [pattern, term] of AVOIDED_WORDS) {
+        const match = pattern.exec(text);
+        if (match) context.report({ node, messageId: "avoid", data: { word: match[0], term } });
+      }
+    };
+    const isPeopleFacing = (node) => {
+      const parent = node.parent;
+      if (!parent) return false;
+      if (parent.type === "JSXAttribute") return parent.name.name !== "testID" && parent.name.name !== "key";
+      if (parent.type === "JSXExpressionContainer") return isPeopleFacing(parent);
+      if (parent.type === "NewExpression" && parent.callee.name === "ConvexError") return true;
+      if (parent.type === "CallExpression" && parent.callee.type === "Identifier" && /^(showToast|toast)$/.test(parent.callee.name)) return true;
+      if (parent.type === "TemplateLiteral" || parent.type === "ConditionalExpression" || parent.type === "LogicalExpression") return isPeopleFacing(parent);
+      return false;
+    };
+    return {
+      JSXText: (node) => check(node, node.value),
+      Literal: (node) => typeof node.value === "string" && isPeopleFacing(node) && check(node, node.value),
+      TemplateElement: (node) => isPeopleFacing(node.parent) && check(node, node.value.cooked ?? ""),
+    };
+  },
+};
+
+module.exports = { meta: { name: "house" }, rules: { "no-comments": noComments, "glossary-terms": glossaryTerms } };

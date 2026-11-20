@@ -40,6 +40,11 @@ module.exports = defineConfig([
     },
   },
   {
+    files: ["src/**/*.tsx", "convex/**/*.ts"],
+    ignores: [...testFiles, "src/components/about/**"],
+    rules: { "house/glossary-terms": "error" },
+  },
+  {
     files: ["src/**/*.ts", "src/**/*.tsx"],
     ignores: [...testFiles, "src/sync/**", "src/lib/device-clock.ts", "src/lib/use-server-now.ts"],
     rules: {

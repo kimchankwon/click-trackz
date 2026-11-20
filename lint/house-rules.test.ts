@@ -35,6 +35,15 @@ describe("house/no-comments", () => {
   });
 });
 
+describe("house/glossary-terms", () => {
+  it("flags avoided words people read, not ids", async () => {
+    expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text>Invite the band</Text>;\n")).toContain("house/glossary-terms");
+    expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text accessibilityLabel={`Remove user ${1}`} />;\n")).toContain("house/glossary-terms");
+    expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text testID=\"user-row\">Members</Text>;\n")).not.toContain("house/glossary-terms");
+    expect(await rulesHit("convex/probe.ts", "import { ConvexError } from \"convex/values\";\nexport const f = () => { throw new ConvexError(\"Only musicians can join\"); };\n")).toContain("house/glossary-terms");
+  });
+});
+
 describe("client clock reads", () => {
   it("sends bare reads in app code to the server clock or the device clock helpers", async () => {
     expect(await rulesHit("src/components/probe.tsx", "export const at = Date.now();\n")).toContain("no-restricted-properties");
