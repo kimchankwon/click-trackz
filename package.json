@@ -55,7 +55,7 @@
     "ios": "expo start --ios",
     "backend": "convex dev",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p scripts",
     "test": "vitest run",
     "clock-check": "node --env-file=.env.local scripts/clock-check.mts",
     "voice-pack": "node --env-file=.env.tts.local scripts/generate-voice-pack.mts",
