@@ -9,7 +9,7 @@ export type AccentTokens = {
   accentTint: string;
 };
 
-export type AccentPalette = {
+type AccentPalette = {
   label: string;
   light: AccentTokens;
   dark: AccentTokens;
