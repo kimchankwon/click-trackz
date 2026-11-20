@@ -5,13 +5,14 @@ import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
 import { useTheme } from "@/hooks/use-theme";
 import { addTap, tappedBpm } from "@/lib/tap-tempo";
+import { monotonicNow } from "@/lib/device-clock";
 
 export function TapTempoButton({ onTempo, testID }: { onTempo: (bpm: number) => void; testID?: string }) {
   const theme = useTheme();
   const taps = useRef<number[]>([]);
   const [shown, setShown] = useState<number | null>(null);
   const tap = () => {
-    taps.current = addTap(taps.current, performance.now());
+    taps.current = addTap(taps.current, monotonicNow());
     const bpm = tappedBpm(taps.current);
     setShown(bpm);
     if (bpm !== null) onTempo(bpm);

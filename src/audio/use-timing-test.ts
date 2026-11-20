@@ -5,6 +5,7 @@ import type { BuiltinClipKey, SpeakerId, VoiceSpeed } from "./builtin-voice-clip
 import { CueAudioEngine, type CueSides, type CueVolumes } from "./engine";
 import { useHoldRestart } from "@/lib/restart-hold";
 import { beatPhase, offsetFromBeat } from "@/lib/timing-test";
+import { monotonicNow } from "@/lib/device-clock";
 
 const AHEAD_BEATS = 3;
 const noClock = () => null;
@@ -83,13 +84,13 @@ export function useTimingTest() {
         current.scheduleTimingBeats(0, AHEAD_BEATS, options.voice?.keyFor);
         let next = AHEAD_BEATS;
         scheduler.current = setInterval(() => {
-          const reached = Math.floor((performance.now() - firstBeatAt) / options.intervalMs) + AHEAD_BEATS;
+          const reached = Math.floor((monotonicNow() - firstBeatAt) / options.intervalMs) + AHEAD_BEATS;
           if (reached < next) return;
           current.scheduleTimingBeats(next, reached - next + 1, options.voice?.keyFor);
           next = reached + 1;
         }, options.intervalMs / 2);
         const draw = () => {
-          phase.set(beatPhase(performance.now(), firstBeatAt, options.intervalMs));
+          phase.set(beatPhase(monotonicNow(), firstBeatAt, options.intervalMs));
           frame.current = requestAnimationFrame(draw);
         };
         frame.current = requestAnimationFrame(draw);

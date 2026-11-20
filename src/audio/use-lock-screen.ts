@@ -4,6 +4,7 @@ import { infoKeyOf, LOCK_SCREEN_COMMANDS, needsReshow, type LockScreenCommand, t
 
 import { setOwnsNowPlaying } from "./audio-session";
 import { clearLockScreen, onLockScreenCommand, setLockScreenControls, showOnLockScreen } from "./now-playing";
+import { monotonicNow } from "@/lib/device-clock";
 
 const REFRESH_MS = 200;
 
@@ -32,7 +33,7 @@ export function useLockScreen({
 
   const refresh = useEffectEvent(() => {
     const reading = readNow();
-    const atMs = performance.now();
+    const atMs = monotonicNow();
     const controlsKey = controlsKeyOf(reading.controls);
     const controlsChanged = shown.current.controls !== controlsKey;
     if (controlsChanged) {

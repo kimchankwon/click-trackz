@@ -101,6 +101,7 @@ import { WEAK_PING_MS } from "@/sync/ping-quality";
 import { deviceNow, useServerClock } from "@/sync/use-server-clock";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { monotonicNow } from "@/lib/device-clock";
 
 const STOP_AFTER_START_MS = 700;
 
@@ -533,7 +534,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enables the engine once the lock screen setting loads; the speaker effect above applies later changes
   }, [lockScreenLoaded]);
 
   const wakeEngine = useCallback(() => {
@@ -664,7 +665,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const playingNow = useRef(playing);
   const stopHeldUntil = useRef(0);
   useEffect(() => {
-    if (playing && !playingNow.current) stopHeldUntil.current = performance.now() + STOP_AFTER_START_MS;
+    if (playing && !playingNow.current) stopHeldUntil.current = monotonicNow() + STOP_AFTER_START_MS;
     playingNow.current = playing;
   }, [playing]);
   useHoldRestart(playing || checkSoundsHere);
@@ -860,7 +861,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const stopPlayback = () =>
     run(async () => {
-      if (performance.now() < stopHeldUntil.current) return;
+      if (monotonicNow() < stopHeldUntil.current) return;
       if (onDevice) return stopOnDevice();
       setStopPending(true);
       try {

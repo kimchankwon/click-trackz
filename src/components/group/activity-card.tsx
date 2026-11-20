@@ -11,6 +11,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { activityWhen } from "@/lib/activity-when";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { wallClockNow } from "@/lib/device-clock";
 
 const PAGE = 20;
 const SHOWN_DETAILS = 2;
@@ -35,9 +36,9 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
   const [shown, setShown] = useState<Shown>("all");
   const [rowsShown, setRowsShown] = useState(FIRST_ROWS);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => wallClockNow());
   useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), CLOCK_MS);
+    const timer = setInterval(() => setNowMs(wallClockNow()), CLOCK_MS);
     return () => clearInterval(timer);
   }, []);
   const { results, status, loadMore } = usePaginatedQuery(

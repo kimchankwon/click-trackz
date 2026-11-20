@@ -97,11 +97,11 @@ export function SoundSettings({
       <Card title="On this device">
         <View style={styles.deviceRow}>
           <ThemedText type="smallBold">Click in</ThemedText>
-          <Segmented label="Click in" testID="click-side" value={clickSide} onChange={setClickSide} options={sideOptions} />
+          <Segmented label="Click in" testID="click-side" value={clickSide} onChange={(side) => void setClickSide(side)} options={sideOptions} />
         </View>
         <View style={styles.deviceRow}>
           <ThemedText type="smallBold">Voice cues in</ThemedText>
-          <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={setVoiceSide} options={sideOptions} />
+          <Segmented label="Voice cues in" testID="voice-side" value={voiceSide} onChange={(side) => void setVoiceSide(side)} options={sideOptions} />
         </View>
         {lockScreenAvailable ? (
           <>
@@ -114,7 +114,7 @@ export function SoundSettings({
                   hint="Plays in background"
                   testID="lock-screen-controls"
                   value={lockScreen === "on"}
-                  onChange={(on) => setLockScreen(on ? "on" : "off")}
+                  onChange={(on) => void setLockScreen(on ? "on" : "off")}
                 />
               </View>
             </View>

@@ -14,6 +14,7 @@ import type { GroupChat } from "@/chat/use-group-chat";
 import { activityWhen } from "@/lib/activity-when";
 import { cleanComment, MAX_COMMENT_LENGTH, REACTIONS } from "@/lib/chat";
 import { errorText } from "@/lib/error-text";
+import { wallClockNow } from "@/lib/device-clock";
 
 const LIST_HEIGHT = 240;
 const CLOCK_MS = 30_000;
@@ -24,13 +25,13 @@ export function CommentsCard({ chat, viewerId }: { chat: GroupChat; viewerId: st
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => wallClockNow());
   const newest = chat.comments.at(-1)?.chatId;
   const scrolledTo = useRef<string | undefined>(undefined);
   const contentHeight = useRef(0);
   const offset = useRef(0);
   useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), CLOCK_MS);
+    const timer = setInterval(() => setNowMs(wallClockNow()), CLOCK_MS);
     return () => clearInterval(timer);
   }, []);
 
