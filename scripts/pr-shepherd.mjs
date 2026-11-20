@@ -93,7 +93,8 @@ function status(pr) {
         line: t.line,
         outdated: t.isOutdated,
         url: first.url,
-        summary: first.body.split("\n").find((l) => l.trim() && !l.startsWith("_") && !l.startsWith("<")) ?? "",
+        severity: /<\/picture>\s*([A-Za-z]+)\*\*/.exec(first.body)?.[1] ?? null,
+        summary: first.body.split("\n").find((l) => l.trim() && !/^(_|<|\*\*<picture>)/.test(l)) ?? "",
         replies: replies.map((r) => `${r.author?.login}: ${r.body.slice(0, 200)}`),
       };
     });
