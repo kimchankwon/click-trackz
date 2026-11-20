@@ -17,6 +17,10 @@ Never merge, never deploy, never run EAS builds or submits, never push to Convex
 
 Push the branch, then `gh pr create --draft --base main` with a body that holds the change report below. Dependency upgrades and `.github/` workflow changes go in their own PRs.
 
+CodeRabbit skips a PR with more than 100 changed files. Check `git diff --name-only <base>...HEAD | wc -l` before opening. Over 100, split the branch into stacked PRs, each under the limit, the lower one based on `main` and each next one based on the branch below it. CodeRabbit reviews any base branch here.
+
+CodeRabbit also skips drafts (`drafts: false` in `.coderabbit.yaml`). After opening, comment `@coderabbitai review` once.
+
 ## The change report
 
 Every PR description has these sections, in plain language, no em dash characters:
@@ -32,11 +36,11 @@ Every PR description has these sections, in plain language, no em dash character
 Repeat until the three conditions hold. Each round ends with the verification gate.
 
 1. **CI.** `gh pr checks <pr> --watch`. On a failure, `gh run view <run-id> --log-failed`, reproduce it locally, fix the root cause, commit, push. Do not retry a red check without a change.
-2. **CodeRabbit.** `node scripts/pr-shepherd.mjs status <pr>` lists checks, every unresolved CodeRabbit thread (id, path, line, first line, replies) and any rate-limit notice. For each thread:
+2. **CodeRabbit.** `node scripts/pr-shepherd.mjs status <pr>` lists checks, every unresolved CodeRabbit thread (id, path, line, first line, replies) and `codeRabbit`: whether it reviewed the head commit (`reviewedHead`), a `fileLimit` skip and a `rateLimit` notice. `fileLimit` means split the PR (see above); waiting does not help. `reviewedHead: false` with neither notice means it has not been asked: comment `@coderabbitai review`. For each thread:
    - Valid: fix it, push, then `node scripts/pr-shepherd.mjs resolve <threadId>`.
    - Not valid or out of scope: `node scripts/pr-shepherd.mjs reply <threadId> "<one-sentence reason>"`, then resolve it. Read CodeRabbit skeptically. It finds real bugs and also files nitpicks; decline noise with a concrete reason instead of churning code. Its house-rule checks (no comments, no em dash, server clock, domain terms) are always valid.
    - Also read the review bodies (`gh pr view <pr> --json reviews`), since CodeRabbit puts "outside diff range" and nitpick items there, not in threads.
-3. **Rate limit.** If `status` reports `rateLimit`, CodeRabbit has not reviewed the latest push. Wait for real until `rateLimit.readyAt` (the script reads the wait from the notice, 60 minutes when it names none): one `sleep` or one scheduled wakeup, not a polling loop. Then comment `@coderabbitai review` on the PR and go back to step 2 once its review lands.
+3. **Rate limit.** If `status` reports `codeRabbit.rateLimit`, CodeRabbit has not reviewed the latest push. Wait for real until `rateLimit.readyAt` (the script reads the wait from the notice, 60 minutes when it names none): one `sleep` or one scheduled wakeup, not a polling loop. Then comment `@coderabbitai review` on the PR and go back to step 2 once its review lands.
 4. **Verification gate.** After every round of fixes: `npm run verify` (it scopes itself to the diff and prints the tier and the flows it runs), which includes typecheck, lint and vitest. Refresh the after screenshots if a screen changed.
 
 When all three conditions hold, update the description (`gh pr edit <pr> --body-file <file>`) so every section matches the final head, then `gh pr ready <pr>`.
