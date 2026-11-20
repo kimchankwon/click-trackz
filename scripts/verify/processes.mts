@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type SpawnOptions } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -89,16 +89,59 @@ export async function reconcile(log: (line: string) => void) {
   }
 }
 
+type Lock = { pid: number; started: string };
+
+const lockText = () => {
+  try {
+    return readFileSync(lockFile, "utf8");
+  } catch {
+    return "";
+  }
+};
+
+const parseLock = (text: string): Lock | null => {
+  try {
+    return JSON.parse(text) as Lock;
+  } catch {
+    return null;
+  }
+};
+
+const claimLock = () => {
+  try {
+    writeFileSync(lockFile, JSON.stringify({ pid: process.pid, started: startedAt(process.pid) }), { flag: "wx" });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+    throw error;
+  }
+};
+
 export function takeLock() {
   mkdirSync(stateDir, { recursive: true });
-  if (existsSync(lockFile)) {
-    const held = JSON.parse(readFileSync(lockFile, "utf8")) as { pid: number; started: string };
-    if (held.pid !== process.pid && isSameProcess(held)) throw new Error(`Another verify run is active (pid ${held.pid}). Stop it first.`);
+  if (claimLock()) return;
+  const heldText = lockText();
+  const held = parseLock(heldText);
+  if (held && isSameProcess(held)) throw new Error(`Another verify run is active (pid ${held.pid}). Stop it first.`);
+  const stale = `${lockFile}.stale-${process.pid}`;
+  try {
+    renameSync(lockFile, stale);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  writeFileSync(lockFile, JSON.stringify({ pid: process.pid, started: startedAt(process.pid) }));
+  if (existsSync(stale)) {
+    if (readFileSync(stale, "utf8") !== heldText) {
+      renameSync(stale, lockFile);
+      throw new Error("Another verify run took the lock at the same moment. Stop it first.");
+    }
+    rmSync(stale, { force: true });
+  }
+  if (!claimLock()) throw new Error("Another verify run took the lock at the same moment. Stop it first.");
 }
 
-export const releaseLock = () => rmSync(lockFile, { force: true });
+export const releaseLock = () => {
+  if (parseLock(lockText())?.pid === process.pid) rmSync(lockFile, { force: true });
+};
 
 export function listener(port: number) {
   try {
@@ -133,18 +176,19 @@ export function start(name: string, command: string, args: string[], options: { 
   const out = openSync(options.logFile, "a");
   const spawnOptions: SpawnOptions = { cwd: options.cwd ?? root, env: options.env ?? process.env, detached: true, stdio: ["ignore", out, out] };
   const child = spawn(command, args, spawnOptions);
-  if (child.pid === undefined) throw new Error(`Could not start ${name}: ${command}`);
-  const pid = child.pid;
-  writeFileSync(pidFile(name), JSON.stringify({ name, pid, started: startedAt(pid), command: [command, ...args].join(" ") }));
   const exited = new Promise<number>((resolve) => {
     child.on("error", () => resolve(127));
     child.on("exit", (code, signal) => {
-      void reapGroup(pid).finally(() => {
+      const reaped = child.pid === undefined ? Promise.resolve() : reapGroup(child.pid);
+      void reaped.finally(() => {
         rmSync(pidFile(name), { force: true });
         resolve(code ?? (signal ? 128 : 1));
       });
     });
   });
+  if (child.pid === undefined) throw new Error(`Could not start ${name}: ${command}`);
+  const pid = child.pid;
+  writeFileSync(pidFile(name), JSON.stringify({ name, pid, started: startedAt(pid), command: [command, ...args].join(" ") }));
   return { name, pid, exited };
 }
 

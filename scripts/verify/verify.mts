@@ -69,13 +69,16 @@ function parseCli() {
   });
   const platforms: Platform[] = values.platform === "both" ? ["ios", "web"] : values.platform === "ios" || values.platform === "web" ? [values.platform] : [];
   if (platforms.length === 0) throw new UsageError(`--platform must be ios, web or both, not ${values.platform}`);
-  if (!/^[\w.-]+$/.test(values.label)) throw new UsageError("--label may only use letters, digits, dot, dash and underscore");
+  if (!/^[\w.-]+$/.test(values.label) || /^\.+$/.test(values.label))
+    throw new UsageError("--label may only use letters, digits, dot, dash and underscore, and cannot be only dots");
   const only = [...values.only];
   let full = values.full;
   for (const target of positionals) {
     if (target === "all") full = true;
     else only.push(map.flows.find((flow) => flow.screen === target || flow.screen.slice(3) === target)?.id ?? target);
   }
+  const unknown = only.find((id) => !map.flows.some((flow) => flow.id === id));
+  if (unknown) throw new UsageError(`Unknown flow "${unknown}". Flows: ${map.flows.map((flow) => flow.id).join(", ")}`);
   return { platforms, label: values.label, full, only, dryRun: values["dry-run"], unattended: values.unattended || Boolean(process.env.CI), base: values.base };
 }
 
@@ -255,6 +258,11 @@ async function runWeb({ plan, outDir, logsDir, steps }: Run, backend: Backend) {
       say(`  > web ${flow.id}`);
       say(`    ${ok ? "pass" : "FAIL"} ${Math.round(durationMs / 1000)}s${ok ? "" : `  (log: ${relative(log)})`}`);
     }
+    const webFlowsPassed = steps.filter((step) => step.platform === "web" && step.kind === "flow").every((step) => step.ok);
+    if (code !== 0 && webFlowsPassed) {
+      steps.push({ id: "playwright", kind: "setup", platform: "web", ok: false, durationMs: 0, log: relative(log), error: `playwright exited ${code} although every flow passed` });
+      say(`  > web playwright\n    FAIL exited ${code}  (log: ${relative(log)})`);
+    }
   }
   await stop("metro-web");
 }
@@ -378,8 +386,8 @@ async function main() {
 
   try {
     say("setup");
-    if (restoreAfterPrebuild()) say("  restored package.json and package-lock.json saved before an interrupted prebuild");
     await reconcile((line) => say(`  ${line}`));
+    if (restoreAfterPrebuild()) say("  restored package.json and package-lock.json saved before an interrupted prebuild");
     rmSync(outDir, { recursive: true, force: true });
     mkdirSync(context.logsDir, { recursive: true });
     await runChecks(context);
