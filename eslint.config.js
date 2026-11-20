@@ -12,7 +12,6 @@ const routeFilesWithExtraComponents = [
   "src/app/index.tsx",
   "src/app/group/[[]groupId]/index.tsx",
   "src/app/group/[[]groupId]/song/[[]songId].tsx",
-  "src/app/group/[[]groupId]/setlist/[[]setlistId].tsx",
 ];
 
 const gitIgnored = () => {
