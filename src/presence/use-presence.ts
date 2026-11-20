@@ -12,12 +12,13 @@ import { saveLatencyNudgeForOutput } from "@/settings/use-latency-nudge";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { HEARTBEAT_MS, type PresenceRow } from "./online";
+import { monotonicNow, wallClockNow } from "@/lib/device-clock";
 
 const REFRESH_MS = 5_000;
 const ANNOUNCE_AFTER_MS = 600;
 const ROUND_TRIP_CHANGE_MS = 100;
 
-const newScreenId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+const newScreenId = () => `${wallClockNow().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
 export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = false, shared = true, nudgeMs: number | null = null, outputName: string | null = null) {
   const heartbeat = useMutation(api.presence.heartbeat);
@@ -41,7 +42,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
   const beat = useCallback(
     (onPlayNow: boolean) => {
       const send = (onPlaySent: boolean, followUp: boolean) => {
-        const sentAt = performance.now();
+        const sentAt = monotonicNow();
         const reported = pingRef.current;
         void heartbeat({
           groupId,
@@ -54,7 +55,7 @@ export function useHeartbeat(groupId: Id<"groups">, onPlay: boolean, playing = f
           outputName: outputRef.current ?? "",
         }).then(
           () => {
-            const measured = performance.now() - sentAt;
+            const measured = monotonicNow() - sentAt;
             pingRef.current = measured;
             const changed = reported === null || Math.abs(measured - reported) >= ROUND_TRIP_CHANGE_MS;
             if (!followUp && changed && visibleRef.current) send(onPlayRef.current, true);
@@ -163,10 +164,10 @@ export function useGuestStaysWhileEditing(groupId: Id<"groups">) {
 
 export function usePresence(groupId: Id<"groups">, serverNow: () => number | null, shared = true) {
   const rows = useQuery(api.presence.list, shared ? { groupId } : "skip");
-  const [nowMs, setNowMs] = useState(() => serverNow() ?? Date.now());
+  const [nowMs, setNowMs] = useState(() => serverNow() ?? wallClockNow());
 
   useEffect(() => {
-    const refresh = () => setNowMs(serverNow() ?? Date.now());
+    const refresh = () => setNowMs(serverNow() ?? wallClockNow());
     refresh();
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);

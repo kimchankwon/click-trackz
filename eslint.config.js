@@ -5,6 +5,10 @@ const tsParser = require("@typescript-eslint/parser");
 const house = require("./lint/house-rules");
 
 const typedFiles = ["**/*.ts", "**/*.tsx", "scripts/**/*.mts"];
+const testFiles = ["**/*.test.ts", "**/*.test.tsx"];
+
+const clockMessage =
+  "Beat timing comes from the Convex server clock (AGENTS.md). Use serverNow or useServerNow for anything compared with server time; for device-local timing call wallClockNow or monotonicNow from @/lib/device-clock.";
 
 module.exports = defineConfig([
   expoConfig,
@@ -33,6 +37,17 @@ module.exports = defineConfig([
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/no-unused-vars": ["error", { args: "after-used", argsIgnorePattern: "^_", ignoreRestSiblings: true, caughtErrors: "all" }],
       "import/no-duplicates": "error",
+    },
+  },
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: [...testFiles, "src/sync/**", "src/lib/device-clock.ts", "src/lib/use-server-now.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        { object: "Date", property: "now", message: clockMessage },
+        { object: "performance", property: "now", message: clockMessage },
+      ],
     },
   },
   {

@@ -16,6 +16,7 @@ import { allClipKeys, clipKeyForSpokenCount, defaultSpeaker, defaultVoiceSpeed }
 import { MAX_VOICE_LEAD_MS, voiceLeadMs } from "./voice-onset";
 import { spokenCountFits, voiceEndsAt } from "./voice-overlap";
 import { takePrimedContext } from "./primed-context";
+import { monotonicNow } from "@/lib/device-clock";
 
 const TICK_MS = 25;
 const LOOKAHEAD_MS = 200;
@@ -184,7 +185,7 @@ export class CueAudioEngine {
     }
     preferPlaybackSession();
     let resumeError: string | null = null;
-    const startedAt = performance.now();
+    const startedAt = monotonicNow();
     const resumed = context.resume().then(
       () => "resumed" as const,
       (error: unknown) => {
@@ -205,7 +206,7 @@ export class CueAudioEngine {
     this.needsFreshContext = true;
     this.failure = describeAudioFailure({
       state: context.state,
-      waitedMs: Math.round(performance.now() - startedAt),
+      waitedMs: Math.round(monotonicNow() - startedAt),
       timedOut: outcome === "timeout",
       resumeError,
       sessionError,
@@ -319,7 +320,7 @@ export class CueAudioEngine {
     const aheadMs = this.latencyNudgeMs;
     const originAt = context.currentTime + TIMING_TEST_START_S + Math.max(0, aheadMs) / 1000;
     this.timing = { originAt, intervalMs, beats: [] };
-    return performance.now() + (originAt - context.currentTime) * 1000;
+    return monotonicNow() + (originAt - context.currentTime) * 1000;
   }
 
   scheduleTimingBeats(fromIndex: number, count: number, voiceKeyFor: (index: number) => BuiltinClipKey | null = () => null) {

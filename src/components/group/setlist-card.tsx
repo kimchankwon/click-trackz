@@ -18,6 +18,7 @@ import { keysWithRepeats, moveItem } from "@/lib/reorder";
 import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { wallClockNow } from "@/lib/device-clock";
 
 const TAP_AFTER_DROP_MS = 400;
 const CHANGED_ELSEWHERE = "Someone else changed this Setlist just now, so your move was not saved. This is the latest order.";
@@ -233,7 +234,7 @@ export function SetlistCard({
               if (shown) setMoveNote({ setlistId: shown.setlistId, text: CHANGED_ELSEWHERE, tone: "info" });
             }}
             onDragging={(dragging) => {
-              if (!dragging) droppedAt.current = Date.now();
+              if (!dragging) droppedAt.current = wallClockNow();
               onReordering(dragging);
             }}
             renderRow={(entry, index, handle) => (
@@ -249,7 +250,7 @@ export function SetlistCard({
                 selectable={canPick}
                 leading={handle}
                 onSelect={() => {
-                  if (Date.now() - droppedAt.current < TAP_AFTER_DROP_MS) return;
+                  if (wallClockNow() - droppedAt.current < TAP_AFTER_DROP_MS) return;
                   onSelect(entry.songId, index, shown?.isCurrent === true);
                 }}
                 testID={`setlist-entry-${index}`}

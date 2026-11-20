@@ -11,6 +11,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { demoSong } from "@/sync/demo-song";
 import { beatsBetween, type Beat } from "@/sync/timeline";
 import { useServerClock } from "@/sync/use-server-clock";
+import { wallClockNow } from "@/lib/device-clock";
 
 const voiceText = (beat: Beat) =>
   beat.voiceCue
@@ -44,7 +45,7 @@ export default function SyncCheckScreen() {
       if (now !== null) {
         const startsAt = Math.floor(now / songMs) * songMs;
         const beats = beatsBetween(demoSong, { startsAt, startSection: 0 }, startsAt, now + 1);
-        setFrame({ beat: beats.at(-1) ?? null, deviceOffset: now - Date.now() });
+        setFrame({ beat: beats.at(-1) ?? null, deviceOffset: now - wallClockNow() });
       }
       handle = requestAnimationFrame(tick);
     };

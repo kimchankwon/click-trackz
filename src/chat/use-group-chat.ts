@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { bubblesAt, nextBubbleChangeIn, type Reaction } from "@/lib/chat";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { wallClockNow } from "@/lib/device-clock";
 
 const FIRST_PAGE = 30;
 const MORE = 30;
@@ -17,17 +18,17 @@ export function useGroupChat(groupId: Id<"groups">, enabled: boolean, serverNow:
   const reactions = useQuery(api.chat.reactions, enabled ? { groupId } : "skip");
   const sendComment = useMutation(api.chat.comment);
   const sendReaction = useMutation(api.chat.react);
-  const now = useCallback(() => serverNow() ?? Date.now(), [serverNow]);
-  const [nowMs, setNowMs] = useState(() => serverNow() ?? Date.now());
+  const now = useCallback(() => serverNow() ?? wallClockNow(), [serverNow]);
+  const [nowMs, setNowMs] = useState(() => serverNow() ?? wallClockNow());
   const comments: ChatEntry[] = useMemo(() => [...results].reverse(), [results]);
   useEffect(() => {
-    const timer = setTimeout(() => setNowMs(serverNow() ?? Date.now()), 0);
+    const timer = setTimeout(() => setNowMs(serverNow() ?? wallClockNow()), 0);
     return () => clearTimeout(timer);
   }, [results, reactions, serverNow]);
   useEffect(() => {
     const wait = nextBubbleChangeIn(comments, nowMs);
     if (wait === null) return;
-    const timer = setTimeout(() => setNowMs(serverNow() ?? Date.now()), wait + 20);
+    const timer = setTimeout(() => setNowMs(serverNow() ?? wallClockNow()), wait + 20);
     return () => clearTimeout(timer);
   }, [comments, nowMs, serverNow]);
   return {

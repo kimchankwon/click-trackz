@@ -6,6 +6,7 @@ import { lastNotifiedSetting, notifyDeviceSetting, onDeviceSetting } from "./dev
 import { deviceStore } from "./device-store";
 import { AUDIO_OUTPUTS_KEY, parseRememberedOutputs, rememberOutput, type RememberedOutput } from "./audio-outputs";
 import { LATENCY_NUDGE_KEY, latencyNudgeKeyFor, outputNudge, type OutputNudge } from "./latency";
+import { wallClockNow } from "@/lib/device-clock";
 
 const CLEARED = "";
 
@@ -16,7 +17,7 @@ let rememberedOutputWrites: Promise<void> = Promise.resolve();
 export function noteOutputUsed(output: AudioOutput | null) {
   if (output === null) return rememberedOutputWrites;
   rememberedOutputWrites = rememberedOutputWrites.then(async () => {
-    const next = rememberOutput(parseRememberedOutputs(deviceStore.getSync(AUDIO_OUTPUTS_KEY)), output, Date.now());
+    const next = rememberOutput(parseRememberedOutputs(deviceStore.getSync(AUDIO_OUTPUTS_KEY)), output, wallClockNow());
     if (next !== null) await deviceStore.set(AUDIO_OUTPUTS_KEY, JSON.stringify(next)).catch(() => undefined);
   });
   return rememberedOutputWrites;

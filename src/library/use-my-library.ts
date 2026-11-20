@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { deviceValue } from "@/lib/device-value";
 import { librarySetlist, librarySetlists, librarySong, librarySongs, parseSnapshot, SNAPSHOT_FORMAT, type LibrarySnapshot } from "./snapshot";
+import { wallClockNow } from "@/lib/device-clock";
 
 const library = deviceValue("my-library", parseSnapshot);
 
@@ -25,7 +26,7 @@ export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) 
     convex.query(api.library.snapshot, { groupId }).then(
       (fresh) => {
         if (cancelled) return;
-        const snapshot: LibrarySnapshot = { ...fresh, savedAt: Date.now(), format: SNAPSHOT_FORMAT };
+        const snapshot: LibrarySnapshot = { ...fresh, savedAt: wallClockNow(), format: SNAPSHOT_FORMAT };
         void library.save(snapshot);
       },
       () => undefined,

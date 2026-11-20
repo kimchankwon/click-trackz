@@ -23,6 +23,7 @@ import { earlyLateText } from "@/lib/timing-strip";
 import { MIN_TAPS, nudgeFromSteps, steadyOffset, type TapStep } from "@/lib/timing-test";
 import { clampLatency, LATENCY_MAX_MS, nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS, signedMs, signedNumber } from "@/settings/latency";
 import { useLatencyNudge } from "@/settings/use-latency-nudge";
+import { monotonicNow } from "@/lib/device-clock";
 
 const TEST_INTERVAL_MS = 1_000;
 const STRIP_RANGE_MS = TEST_INTERVAL_MS / 2;
@@ -322,7 +323,7 @@ export default function LatencyScreen() {
                 onPress={ignorePress}
                 onPressIn={() => {
                   if (!measuring) return;
-                  const offset = test.tapOffset(performance.now());
+                  const offset = test.tapOffset(monotonicNow());
                   if (offset !== null) setOffsets((shown) => [...shown, offset]);
                 }}
                 style={[

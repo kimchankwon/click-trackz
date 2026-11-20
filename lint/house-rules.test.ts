@@ -35,3 +35,12 @@ describe("house/no-comments", () => {
   });
 });
 
+describe("client clock reads", () => {
+  it("sends bare reads in app code to the server clock or the device clock helpers", async () => {
+    expect(await rulesHit("src/components/probe.tsx", "export const at = Date.now();\n")).toContain("no-restricted-properties");
+    expect(await rulesHit("src/audio/probe.ts", "export const at = performance.now();\n")).toContain("no-restricted-properties");
+    expect(await rulesHit("src/sync/probe.ts", "export const at = performance.now();\n")).toEqual([]);
+    expect(await rulesHit("convex/probe.ts", "export const at = Date.now();\n")).toEqual([]);
+  });
+});
+

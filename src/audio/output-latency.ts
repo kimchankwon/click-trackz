@@ -1,5 +1,6 @@
 import { requireOptionalNativeModule } from "expo";
 import type { AudioContext } from "react-native-audio-api";
+import { monotonicNow } from "@/lib/device-clock";
 
 type OutputLatencyModule = { outputLatencyMs(): number };
 
@@ -21,7 +22,7 @@ export function watchOutput(_context: AudioContext) {}
 
 export function reportedOutputLatencyMs(): number | null {
   if (latencyModule === null) return null;
-  const now = performance.now();
+  const now = monotonicNow();
   if (lastRead === null || now - lastRead.at >= REREAD_AFTER_MS) lastRead = { ms: readNative() ?? lastRead?.ms ?? null, at: now };
   return lastRead.ms;
 }

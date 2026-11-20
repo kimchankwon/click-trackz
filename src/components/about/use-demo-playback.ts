@@ -5,9 +5,10 @@ import type { LockScreenCommand } from "@/lib/lock-screen";
 import { LEAD_IN_MS } from "@/sync/commands";
 
 import { DEMO_BAR_MS, demoClockStartedAt } from "./use-demo-beat";
+import { monotonicNow } from "@/lib/device-clock";
 
 const listeners = new Set<() => void>();
-const now = () => performance.now();
+const now = () => monotonicNow();
 let state: DemoState = DEMO_START;
 let frame: DemoFrame = demoFrameAt(state, now());
 let timer: ReturnType<typeof setTimeout> | null = null;
