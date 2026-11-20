@@ -2,10 +2,10 @@
   "flows": [
     { "id": "smoke", "screen": "01-signed-out-home" },
     { "id": "home-signed-out", "screen": "02-sign-in-choices" },
-    { "id": "about", "screen": "03-about" },
+    { "id": "about", "screen": "03-about", "iosCrop": { "text": "Every device starts on the same timing", "top": -30, "height": 245 } },
     { "id": "dev-login", "screen": "04-dev-login" },
     { "id": "home-signed-in", "screen": "05-home-signed-in" },
-    { "id": "group", "screen": "06-group" },
+    { "id": "group", "screen": "06-group", "mask": [{ "testId": "copy-join-code", "width": 110 }, { "testId": "clock-status", "x": -180, "width": 180 }, "stage-member-Admin"], "iosMaskRegions": [{ "x": 101, "y": 6, "width": 200, "height": 48 }] },
     { "id": "song", "screen": "07-song" },
     { "id": "sound-settings", "screen": "08-sound-settings" }
   ],

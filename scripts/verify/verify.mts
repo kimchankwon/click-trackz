@@ -8,6 +8,7 @@ import {
   bootDevice,
   clearStatusBar,
   ensureBuild,
+  finishScreenshot,
   installFresh,
   resolveDevice,
   pinStatusBar,
@@ -302,6 +303,8 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
       if (code === 124) throw new Error(`maestro timed out after 8 minutes; log: ${relative(log)}`);
       if (code !== 0) throw new Error(`maestro exited ${code}; log: ${relative(log)}`);
       if (!existsSync(`${shot}.png`)) throw new Error(`flow passed but wrote no screenshot at ${relative(shot)}.png`);
+      if (flow.mask?.length || flow.iosMaskRegions?.length || flow.iosCrop)
+        await finishScreenshot({ udid, png: `${shot}.png`, mask: flow.mask ?? [], regions: flow.iosMaskRegions ?? [], crop: flow.iosCrop, env, logFile: log });
     });
     if (existsSync(`${shot}.png`)) steps[steps.length - 1].screenshot = relative(`${shot}.png`);
   }
