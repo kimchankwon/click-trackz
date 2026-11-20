@@ -100,11 +100,13 @@ The smoke flow runs whenever a tier launches the app.
 
 ## Crashes and reruns
 
-Every process the script starts is recorded in `.verify/pids/<name>.json` with its start time, and runs in its own process group. Teardown on exit, SIGINT, SIGTERM or SIGHUP stops those groups. A rerun after `kill -9` first stops whatever the pid files still name, but only when the process start time matches, so a reused pid is never killed. A lock in `.verify/verify.lock` stops two runs in one worktree from overlapping.
+Every process the script starts is recorded in `.verify/pids/<name>.json` with its start time, and runs in its own process group. Teardown on exit, SIGINT, SIGTERM or SIGHUP stops those groups. A rerun after `kill -9` first stops whatever the pid files still name, but only when the process start time matches, so a reused pid is never killed. A lock in `.verify/verify.lock`, created with an exclusive write, stops two runs in one worktree from overlapping. A stale lock from a dead run is replaced, and a run only removes a lock that names it. Xcode's DerivedData lives in `.verify/DerivedData/`, so runs in two worktrees never share build products.
 
 ## Screenshots in a PR
 
-Run `after` on the PR head and `before` with the same flows in a worktree at the base commit, copy the base worktree's `artifacts/verify/before/` across, then run `scripts/verify/publish-screenshots.sh <folder> before after`. It commits the PNGs to the `pr-screenshots` branch through a temporary index, without checking that branch out anywhere, pushes, and prints a markdown table per platform. `--dry-run` builds the commit locally and prints the table without pushing.
+Run `after` on the PR head and `before` with the same flows in a worktree at the base commit, copy the base worktree's `artifacts/verify/before/` across, then run `scripts/verify/publish-screenshots.sh <folder> before after`.
+
+If the base commit has no `scripts/verify/`, give the base worktree the harness without touching its app code. Run `git -C <base-worktree> checkout <head> -- scripts/verify package.json package-lock.json .gitignore`, then `npm ci` in that worktree. Its `package.json` now comes from the head, so a PR that changes dependencies compares the base app under the head's dependencies; say so in the report. It commits the PNGs to the `pr-screenshots` branch through a temporary index, without checking that branch out anywhere, pushes, and prints a markdown table per platform. `--dry-run` builds the commit locally and prints the table without pushing.
 
 ## Known limits
 

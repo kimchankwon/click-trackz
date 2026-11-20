@@ -46,7 +46,7 @@ Look at the screenshots of the screens you changed before calling the change don
 ## Before and after screenshots for a PR
 
 1. `after`: on the PR head, `npm run verify -- --label after`.
-2. `before`: in a worktree at the base commit, run the same flows with `npm run verify -- --only <flow> ... --label before`, then copy that worktree's `artifacts/verify/before/` into this one.
+2. `before`: in a worktree at the base commit, run the same flows with `npm run verify -- --only <flow> ... --label before`, then copy that worktree's `artifacts/verify/before/` into this one. If the base has no `scripts/verify/`, first run `git -C <base-worktree> checkout <head> -- scripts/verify package.json package-lock.json .gitignore` and `npm ci` there. That brings in the harness and keeps the base app code.
 3. `scripts/verify/publish-screenshots.sh --dry-run <folder> before after` shows what it would push. Without `--dry-run` it commits the PNGs to the `pr-screenshots` branch through a temporary index (it never checks the branch out), pushes, and prints a markdown table of `raw.githubusercontent.com` images per platform. Paste the table into the PR description.
 
 ## What it touches
