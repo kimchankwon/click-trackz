@@ -7,7 +7,9 @@
     { "id": "home-signed-in", "screen": "05-home-signed-in" },
     { "id": "group", "screen": "06-group" },
     { "id": "song", "screen": "07-song" },
-    { "id": "sound-settings", "screen": "08-sound-settings" }
+    { "id": "sound-settings", "screen": "08-sound-settings" },
+    { "id": "setlist", "screen": "09-setlist" },
+    { "id": "join", "screen": "10-join" }
   ],
   "smoke": "smoke",
   "static": [
@@ -130,7 +132,7 @@
       ],
       "flows": ["song"]
     },
-    { "area": "Setlist", "globs": ["src/app/group/*/setlist/**", "src/lib/setlist-next*.ts", "convex/setlists.ts"], "flows": ["group"] },
+    { "area": "Setlist", "globs": ["src/app/group/*/setlist/**", "src/lib/setlist-next*.ts", "convex/setlists.ts"], "flows": ["setlist"] },
     {
       "area": "Sound settings",
       "globs": [
@@ -147,7 +149,7 @@
       ],
       "flows": ["sound-settings"]
     },
-    { "area": "Join", "globs": ["src/app/join/**", "src/lib/pending-join*.ts", "convex/guestHandoff.ts"], "flows": ["home-signed-in"] },
+    { "area": "Join", "globs": ["src/app/join/**", "src/lib/pending-join*.ts", "convex/guestHandoff.ts"], "flows": ["join"] },
     {
       "area": "Plans",
       "globs": ["src/app/subscribe.tsx", "src/billing/**", "src/lib/plans*.ts", "convex/plans.ts", "convex/subscriptions.ts", "convex/revenuecat.ts"],

@@ -59,9 +59,9 @@ Globs use Node's `path.matchesGlob`. `*` and `**` do not match dot files, so dot
 | My Library | `src/library/**` | home-signed-in, group |
 | Group | the Group route, `src/components/group/**`, presence, chat, activity, roles, invite and the Group-only helpers in `src/lib`, `convex/groups.ts`, `convex/presence.ts`, `convex/chat.ts`, `convex/activity.ts` | group |
 | Song and playback | the Song route, `src/components/song/**`, `src/components/playback/**`, song and section helpers, `src/sync/**` except the core files, `convex/songs.ts`, `convex/playback.ts` | song |
-| Setlist | the Setlist route, `src/lib/setlist-next*.ts`, `convex/setlists.ts` | group |
+| Setlist | the Setlist route, `src/lib/setlist-next*.ts`, `convex/setlists.ts` | setlist |
 | Sound settings | `src/components/sound/**`, `src/settings/**`, `src/app/latency.tsx`, `src/app/voice-offset.tsx`, `src/audio/**` except the core file, timing helpers, `convex/sound.ts`, `convex/speakerCheck.ts` | sound-settings |
-| Join | `src/app/join/**`, `src/lib/pending-join*.ts`, `convex/guestHandoff.ts` | home-signed-in |
+| Join | `src/app/join/**`, `src/lib/pending-join*.ts`, `convex/guestHandoff.ts` | join |
 | Plans | `src/app/subscribe.tsx`, `src/billing/**`, `src/lib/plans*.ts`, `convex/plans.ts`, `convex/subscriptions.ts`, `convex/revenuecat.ts` | none: unit tests only for now. RevenueCat purchases cannot run against a local backend, and the plan output says so plainly |
 | Screens without a flow | `src/app/+not-found.tsx`, `src/app/sync-check.tsx` | none, and the plan says so |
 | Backend only | `convex/*.ts` without a screen above | none |
@@ -81,10 +81,10 @@ Every tracked file in the repo matches a rule today, so a dry run on a clean `ma
 | group | `06-group` | The Group opens on Play |
 | song | `07-song` | Songs, then the library row, opens the Song editor with its Sections |
 | sound-settings | `08-sound-settings` | The Sound tab shows the Mix and Speaker settings |
+| setlist | `09-setlist` | Songs, then Edit on the Setlist, opens the seeded First Setlist as the Current setlist |
+| join | `10-join` | The seeded Group's join link shows the invite to a signed-out person, who joins as a Guest with the code filled in and lands on Play |
 
 Each flow starts from a clean app (Maestro `clearState` and `clearKeychain`, a fresh Playwright browser context) and signs in itself when it needs to, so any subset runs on its own. Tier b and tier c run every selected flow on iOS (Maestro, `scripts/verify/maestro/`) and web (Playwright, `scripts/verify/web.spec.ts`). `--platform` narrows a manual run. There is no Android verification, ever, unless someone asks for it.
-
-Proposed and not built yet: setlist, join.
 
 The smoke flow runs whenever a tier launches the app.
 
