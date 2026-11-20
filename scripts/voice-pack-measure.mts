@@ -58,8 +58,6 @@ export function endingSemitones(pcm: Int16Array): number | null {
   return 12 * Math.log2(median(pitches.slice(-third)) / median(pitches.slice(0, third)));
 }
 
-export const medianPitch = (pcm: Int16Array) => median(pitchTrack(pcm));
-
 export function activeRmsDb(pcm: Int16Array): number {
   const floor = peakOf(pcm) * ACTIVE_SHARE_OF_PEAK;
   let sum = 0;

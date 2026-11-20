@@ -1,6 +1,6 @@
-export const WARM_UP_BEATS = 2;
+const WARM_UP_BEATS = 2;
 export const MIN_TAPS = 6;
-export const MARK_HOLD = 0.25;
+const MARK_HOLD = 0.25;
 
 export function beatPhase(nowMs: number, firstBeatAt: number, intervalMs: number): number {
   const fromStart = (nowMs - firstBeatAt) / intervalMs + 0.5;
@@ -41,7 +41,7 @@ export function steadyOffset(offsetsMs: readonly number[], intervalMs: number): 
   return steady.length < MIN_STEADY_TAPS ? null : median(steady);
 }
 
-export function heardAfterSending(step: TapStep): number | null {
+function heardAfterSending(step: TapStep): number | null {
   const offset = steadyOffset(step.offsetsMs, step.intervalMs);
   return offset === null ? null : offset + step.nudgeMs;
 }

@@ -11,7 +11,7 @@ import { markGrowth } from "@/lib/timing-test";
 import { nudgeAfterDrag, stripKeySteps, stripPosition } from "@/lib/timing-strip";
 import { nudgeFromShown, nudgeShown, nudgeText, SHOWN_NUDGE_MAX_MS, SHOWN_NUDGE_MIN_MS } from "@/settings/latency";
 
-export const SPEAKER_STRIP_RANGE_MS = 500;
+const SPEAKER_STRIP_RANGE_MS = 500;
 
 export type SpeakerLane = {
   deviceId: string;

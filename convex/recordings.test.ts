@@ -12,7 +12,7 @@ describe("Queries older installed apps still call", () => {
     const t = convexTest(schema, modules);
     const adminId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("users", { email: "admin@example.com" });
-      if (true) await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
+      await ctx.db.insert("subscriptions", { userId: id, plan: "pro", expiresAt: null, syncedAt: 0 });
       return id;
     });
     const strangerId = await t.run((ctx) => ctx.db.insert("users", { isAnonymous: true }));

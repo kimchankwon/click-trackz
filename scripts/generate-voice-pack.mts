@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { inParallel, MAX_CONCURRENT_REQUESTS, readClip, SAMPLE_RATE, synthesize, transcribe, wav, writeClip } from "./voice-pack-audio.mts";
-import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
+import { clips, comparable, deliveryOf, speakers, voiceIdFor, type VoiceSpeedId, voiceSpeeds } from "./voice-pack-clips.mts";
 import { cleanedTake, endingSemitones, finishedFor, takeScore } from "./voice-pack-measure.mts";
 
 const args = process.argv.slice(2);
@@ -22,13 +22,6 @@ const MOST_SLOWED_BY = 0.1;
 const RISING_RETAKE_SEMITONES = 3;
 
 const exists = (file: string) => access(file).then(() => true, () => false);
-const digits = Object.fromEntries(numberWords.map((word, n) => [String(n), word]));
-const comparable = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/\d+/g, (n) => digits[n] ?? n)
-    .replace(/[^a-z]/g, "");
-
 const scratch = await mkdtemp(path.join(os.tmpdir(), "voice-pack-"));
 const chosen = speakers.filter((speaker) => only === undefined || only.includes(speaker.id));
 const jobs = chosenSpeeds.flatMap((voiceSpeed) => chosen.flatMap((speaker) => clips.map((clip) => ({ voiceSpeed, speaker, clip }))));

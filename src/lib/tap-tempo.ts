@@ -1,7 +1,7 @@
-export const TAP_RESET_MS = 2_000;
+const TAP_RESET_MS = 2_000;
 export const MAX_TAPS = 8;
-export const TAP_MIN_BPM = 30;
-export const TAP_MAX_BPM = 300;
+const TAP_MIN_BPM = 30;
+const TAP_MAX_BPM = 300;
 
 export function addTap(taps: readonly number[], at: number): number[] {
   const last = taps.at(-1);

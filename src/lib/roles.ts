@@ -1,4 +1,4 @@
-export const ROLES_LOW_TO_HIGH = ["member", "playbackManager", "songManager", "groupManager", "admin"] as const;
+const ROLES_LOW_TO_HIGH = ["member", "playbackManager", "songManager", "groupManager", "admin"] as const;
 
 export type Role = (typeof ROLES_LOW_TO_HIGH)[number];
 
@@ -22,8 +22,6 @@ export const canEditSongs = (role: Role) => atLeast(role, "songManager");
 
 export const canManageGroup = (role: Role) => atLeast(role, "groupManager");
 
-export const canDeleteGroup = (role: Role) => role === "admin";
-
 export const JOIN_ROLES = ["member", "playbackManager", "songManager"] as const satisfies readonly Role[];
 
 export type JoinRole = (typeof JOIN_ROLES)[number];
@@ -41,5 +39,3 @@ export function assignableRoles(caller: Role): Role[] {
 }
 
 export const canAssignRole = (caller: Role, current: Role, next: Role) => outranks(caller, current) && assignableRoles(caller).includes(next);
-
-export const isRole = (value: unknown): value is Role => typeof value === "string" && (ROLES_LOW_TO_HIGH as readonly string[]).includes(value);

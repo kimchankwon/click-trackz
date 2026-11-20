@@ -5,7 +5,7 @@ import { nowPlayingArtwork } from "@/audio/now-playing-artwork";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Fonts } from "@/constants/theme";
 import type { LockScreenCommand } from "@/lib/lock-screen";
-import { letterAfterNumber, type Section } from "@/sync/timeline";
+import { sectionTitleOf } from "@/sync/timeline";
 
 import { demoActions, useDemoPlayback } from "./use-demo-playback";
 
@@ -18,8 +18,6 @@ const clockOf = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
-
-const titleOf = (section: Section) => `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
 function Control({ icon, label, command, size }: { icon: IconName; label: string; command: LockScreenCommand; size: number }) {
   return (
@@ -51,7 +49,7 @@ export function ControlCenterMock() {
             {frame.song.title}
           </Text>
           <Text numberOfLines={1} style={styles.subtitle}>
-            {live && current ? titleOf(current) : "Ready to start"}
+            {live && current ? sectionTitleOf(current) : "Ready to start"}
           </Text>
         </View>
       </View>

@@ -3,19 +3,12 @@ import path from "node:path";
 
 import { readClip, SAMPLE_RATE, synthesize, transcribe, wav, writeClip } from "./voice-pack-audio.mts";
 import { cleanedTake, finishedFor } from "./voice-pack-measure.mts";
-import { clips, deliveryOf, voiceIdFor, numberWords, speakers, voiceSpeeds, type VoiceSpeedId } from "./voice-pack-clips.mts";
+import { clips, comparable, deliveryOf, speakers, voiceIdFor, type VoiceSpeedId, voiceSpeeds } from "./voice-pack-clips.mts";
 
 const [dirArg, takesArg, ...targets] = process.argv.slice(2);
 if (!dirArg || targets.length === 0) throw new Error("Usage: shorten-voice-clips.mts <dir> <takes> <speed/speaker/key>...");
 const dir = path.resolve(dirArg);
 const takes = Number(takesArg);
-
-const digits = Object.fromEntries(numberWords.map((word, n) => [String(n), word]));
-const comparable = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/\d+/g, (n) => digits[n] ?? n)
-    .replace(/[^a-z]/g, "");
 
 for (const target of targets) {
   const [speedId, speakerId, key] = target.split("/");

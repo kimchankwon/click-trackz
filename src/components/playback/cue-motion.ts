@@ -3,7 +3,7 @@ import { cancelAnimation, Easing, useSharedValue, withRepeat, withTiming } from 
 
 import type { Beat } from "@/sync/timeline";
 
-export const FLASH_LOW = 0.35;
+const FLASH_LOW = 0.35;
 const FLASH_MS = 450;
 
 export function useLeadProgress(beat: Beat | null, playing: boolean) {

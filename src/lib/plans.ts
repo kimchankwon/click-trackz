@@ -1,4 +1,4 @@
-export const PLANS_LOW_TO_HIGH = ["free", "plus", "pro"] as const;
+const PLANS_LOW_TO_HIGH = ["free", "plus", "pro"] as const;
 
 export type Plan = (typeof PLANS_LOW_TO_HIGH)[number];
 
@@ -47,5 +47,3 @@ export const usageSummary = ({ groups, songs, librarySongs, limits, enforced }: 
     counted(songs, "Group Song", "Group Songs", limits.songs, enforced),
     counted(librarySongs, "My Library Song", "My Library Songs", limits.librarySongs, enforced),
   ].join(" · ");
-
-export const isPaidPlan = (value: unknown): value is PaidPlan => value === "plus" || value === "pro";

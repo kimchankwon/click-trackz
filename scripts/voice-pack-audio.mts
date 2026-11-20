@@ -128,7 +128,7 @@ export async function transcribe(file: string): Promise<string> {
   const form = new FormData();
   form.append("model_id", "scribe_v2");
   form.append("language_code", "en");
-  form.append("file", new Blob([wav(padded(await readClip(file)))], { type: "audio/wav" }), `${path.parse(file).name}.wav`);
+  form.append("file", new Blob([new Uint8Array(wav(padded(await readClip(file))))], { type: "audio/wav" }), `${path.parse(file).name}.wav`);
   const response = await withRetry(file, () => fetch("https://api.elevenlabs.io/v1/speech-to-text", { method: "POST", headers: { "xi-api-key": apiKey() }, body: form }));
   return ((await response.json()) as { text: string }).text.trim();
 }

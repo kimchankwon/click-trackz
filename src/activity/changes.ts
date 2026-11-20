@@ -1,6 +1,6 @@
 import { commonBpm, markOwnTempos } from "../sync/song-tempo";
 import { commonTime } from "../sync/song-time";
-import { cueLeadBarsOf, playsOf, subdivisionOf, type Section } from "../sync/timeline";
+import { cueLeadBarsOf, playsOf, subdivisionOf, timeSignatureOf, type Section } from "../sync/timeline";
 
 export type ChangedSection = Section & { customLabel?: string; ownTempo?: boolean };
 
@@ -15,7 +15,7 @@ export type ChangedSong = {
   sections: readonly ChangedSection[];
 };
 
-export type SetlistEntry = { songId: string; key?: string; leader?: string };
+type SetlistEntry = { songId: string; key?: string; leader?: string };
 
 export type ChangedSetlist = { name: string; entries: readonly SetlistEntry[] };
 
@@ -25,13 +25,12 @@ const onOff = (on: boolean) => (on ? "on" : "off");
 const orNone = (value: string | undefined) => value?.trim() || "none";
 const barsText = (bars: number) => (bars === 1 ? "1 bar" : `${bars} bars`);
 
-export const sectionTypeName = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
+const sectionTypeName = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
   section.number === undefined ? section.sectionType : `${section.sectionType} ${section.number}${section.letter ?? ""}`;
 
 export const sectionName = (section: Pick<ChangedSection, "sectionType" | "number" | "customLabel">) =>
   section.customLabel?.trim() || sectionTypeName(section);
 
-const meterOf = (section: Section) => `${section.beatsPerBar}/${section.beatUnit ?? 4}`;
 const tempoOf = (section: ChangedSection) => (section.ownTempo === true ? `${section.bpm} BPM` : "Song tempo");
 const timeChangesOf = (section: Section) =>
   (section.timeChanges ?? [])
@@ -45,7 +44,7 @@ function sectionEdits(before: ChangedSection, after: ChangedSection): string[] {
     ...change("Section type", sectionTypeName(before), sectionTypeName(after)),
     ...change("Custom label", orNone(before.customLabel), orNone(after.customLabel)),
     ...change("Bars", String(before.bars), String(after.bars)),
-    ...change("Time signature", meterOf(before), meterOf(after)),
+    ...change("Time signature", timeSignatureOf(before), timeSignatureOf(after)),
     ...change("Tempo", tempoOf(before), tempoOf(after)),
     ...change("Voice cue", onOff(before.voiceCueEnabled !== false), onOff(after.voiceCueEnabled !== false)),
     ...change("Plays", String(playsOf(before)), String(playsOf(after))),

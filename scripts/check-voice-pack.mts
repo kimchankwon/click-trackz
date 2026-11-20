@@ -2,17 +2,10 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { inParallel, MAX_CONCURRENT_REQUESTS, transcribe } from "./voice-pack-audio.mts";
-import { clips, numberWords, speakers, voiceSpeeds } from "./voice-pack-clips.mts";
+import { clips, comparable, speakers, voiceSpeeds } from "./voice-pack-clips.mts";
 
 const dir = path.resolve(process.argv[2] ?? "assets/voice");
 const reportFile = process.argv[3];
-
-const digits = Object.fromEntries(numberWords.map((word, n) => [String(n), word]));
-export const comparable = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/\d+/g, (n) => digits[n] ?? n)
-    .replace(/[^a-z]/g, "");
 
 const jobs = voiceSpeeds.flatMap(({ id: voiceSpeed }) => speakers.flatMap((speaker) => clips.map((clip) => ({ voiceSpeed, speaker: speaker.id, clip }))));
 const results: { voiceSpeed: string; speaker: string; key: string; expected: string; heard: string; match: boolean }[] = [];

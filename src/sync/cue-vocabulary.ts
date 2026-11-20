@@ -16,5 +16,3 @@ export const builtinSectionTypes = [
   "Outro",
   "Ending",
 ] as const;
-
-export const isBuiltinSectionType = (value: string) => (builtinSectionTypes as readonly string[]).includes(value);

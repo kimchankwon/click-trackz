@@ -1,4 +1,4 @@
-export const MAX_DEVICE_LABEL = 40;
+const MAX_DEVICE_LABEL = 40;
 
 const DEVICE_ID = /^[a-z0-9]{8,40}$/;
 

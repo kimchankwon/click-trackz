@@ -14,7 +14,7 @@ import { songSummary, songView } from "../src/library/song-views";
 import { sectionFields, songTimeSignature } from "./schema";
 import { commonBpm, markOwnTempos, withSongTempo } from "../src/sync/song-tempo";
 import { markOwnTimes, startingSongTime, withSongTime } from "../src/sync/song-time";
-import { byBar, timeChangesProblem } from "../src/sync/time-changes";
+import { byBar, timeChangesProblem, wholeBetween } from "../src/sync/time-changes";
 import { copyBaseOf, copyTitle, MAX_SONG_TITLE } from "../src/lib/copy-title";
 
 const cleanTitle = (title: string) => {
@@ -72,8 +72,6 @@ export function songCopyFields(song: Doc<"songs">): Omit<Doc<"songs">, "_id" | "
     sections: song.sections,
   };
 }
-
-const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
 const validBpm = (bpm: number) => bpm >= 30 && bpm <= 300;
 const validTime = (time: { beatsPerBar: number; beatUnit: number }) => wholeBetween(time.beatsPerBar, 1, 12) && BEAT_UNITS.some((unit) => unit === time.beatUnit);

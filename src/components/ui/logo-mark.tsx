@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import type { ImageStyle, StyleProp } from "react-native";
 
-export const LOGO_CORAL = "#FF6A4D";
+const LOGO_CORAL = "#FF6A4D";
 
 const BAR_HEIGHTS = [62, 38, 38, 38] as const;
 const BAR_WIDTH = 10;

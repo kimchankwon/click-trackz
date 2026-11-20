@@ -6,7 +6,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { ControlHeight, Fonts, Radius, Spacing, type ThemeColor } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
-export type ButtonVariant =
+type ButtonVariant =
   | "primary"
   | "secondary"
   | "inverse"

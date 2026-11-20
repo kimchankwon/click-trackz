@@ -15,7 +15,7 @@ export const purchasesAvailable = () => Boolean(apiKey);
 
 export const canRestore = Platform.OS !== "web";
 
-export async function identify(userId: string) {
+async function identify(userId: string) {
   if (!apiKey) throw new Error("Subscriptions are not available in this build");
   if (identifiedAs === userId) return;
   if (identifiedAs === null) Purchases.configure({ apiKey, appUserID: userId });

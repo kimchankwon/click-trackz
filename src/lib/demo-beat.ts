@@ -1,7 +1,7 @@
 export const DEMO_BEAT_MS = 500;
 export const DEMO_BEATS_PER_BAR = 4;
-export const DEMO_BARS = 4;
-export const DEMO_SECTION = "CHORUS1";
+const DEMO_BARS = 4;
+const DEMO_SECTION = "CHORUS1";
 
 export type DemoBeat = { index: number; bar: number; beatInBar: number; count: string };
 
