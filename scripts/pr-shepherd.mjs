@@ -1,0 +1,114 @@
+import { execFileSync } from "node:child_process";
+
+const CODERABBIT = "coderabbitai";
+const DEFAULT_WAIT_SECONDS = 60 * 60;
+
+function gh(args) {
+  return execFileSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+}
+
+function repoParts() {
+  const [owner, name] = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).trim().split("/");
+  return { owner, name };
+}
+
+const THREADS_QUERY = `query($owner: String!, $name: String!, $pr: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $pr) {
+      reviewThreads(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id isResolved isOutdated path line
+          comments(first: 50) { nodes { author { login } body url createdAt } }
+        }
+      }
+    }
+  }
+}`;
+
+function reviewThreads(pr) {
+  const { owner, name } = repoParts();
+  const threads = [];
+  let after = null;
+  for (;;) {
+    const args = ["api", "graphql", "-f", `query=${THREADS_QUERY}`, "-F", `owner=${owner}`, "-F", `name=${name}`, "-F", `pr=${pr}`];
+    if (after) args.push("-F", `after=${after}`);
+    const page = JSON.parse(gh(args)).data.repository.pullRequest.reviewThreads;
+    threads.push(...page.nodes);
+    if (!page.pageInfo.hasNextPage) return threads;
+    after = page.pageInfo.endCursor;
+  }
+}
+
+function isCodeRabbit(login) {
+  return typeof login === "string" && login.startsWith(CODERABBIT);
+}
+
+function parseWaitSeconds(body) {
+  const minutes = /(\d+)\s*minutes?/i.exec(body);
+  const seconds = /(\d+)\s*seconds?/i.exec(body);
+  if (!minutes && !seconds) return DEFAULT_WAIT_SECONDS;
+  return (minutes ? Number(minutes[1]) * 60 : 0) + (seconds ? Number(seconds[1]) : 0);
+}
+
+function rateLimit(pr) {
+  const { owner, name } = repoParts();
+  const comments = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/issues/${pr}/comments`])).flat();
+  const reviews = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/pulls/${pr}/reviews`])).flat();
+  const notices = comments
+    .filter((c) => isCodeRabbit(c.user?.login) && /rate limit|review limit/i.test(c.body))
+    .map((c) => ({ at: Date.parse(c.updated_at), body: c.body, url: c.html_url }));
+  if (notices.length === 0) return null;
+  const latest = notices.reduce((a, b) => (b.at > a.at ? b : a));
+  const reviewedSince = reviews.some((r) => isCodeRabbit(r.user?.login) && Date.parse(r.submitted_at) > latest.at);
+  if (reviewedSince) return null;
+  const readyAt = latest.at + parseWaitSeconds(latest.body) * 1000;
+  return { url: latest.url, readyAt: new Date(readyAt).toISOString(), waitSeconds: Math.max(0, Math.ceil((readyAt - Date.now()) / 1000)) };
+}
+
+function status(pr) {
+  const open = reviewThreads(pr)
+    .filter((t) => !t.isResolved && isCodeRabbit(t.comments.nodes[0]?.author?.login))
+    .map((t) => {
+      const [first, ...replies] = t.comments.nodes;
+      return {
+        id: t.id,
+        path: t.path,
+        line: t.line,
+        outdated: t.isOutdated,
+        url: first.url,
+        summary: first.body.split("\n").find((l) => l.trim() && !l.startsWith("_") && !l.startsWith("<")) ?? "",
+        replies: replies.map((r) => `${r.author?.login}: ${r.body.slice(0, 200)}`),
+      };
+    });
+  const checks = JSON.parse(gh(["pr", "checks", String(pr), "--json", "name,state,link"]).trim() || "[]");
+  return { pr, checks, unresolvedCodeRabbitThreads: open, rateLimit: rateLimit(pr) };
+}
+
+function resolve(threadId) {
+  const mutation = "mutation($id: ID!) { resolveReviewThread(input: { threadId: $id }) { thread { id isResolved } } }";
+  return JSON.parse(gh(["api", "graphql", "-f", `query=${mutation}`, "-F", `id=${threadId}`])).data.resolveReviewThread.thread;
+}
+
+function reply(threadId, body) {
+  const mutation = "mutation($id: ID!, $body: String!) { addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $id, body: $body }) { comment { url } } }";
+  return JSON.parse(gh(["api", "graphql", "-f", `query=${mutation}`, "-F", `id=${threadId}`, "-f", `body=${body}`])).data.addPullRequestReviewThreadReply.comment;
+}
+
+const [command, ...rest] = process.argv.slice(2);
+const usage = "usage: node scripts/pr-shepherd.mjs status <pr> | resolve <threadId> | reply <threadId> <body>";
+
+switch (command) {
+  case "status":
+    console.log(JSON.stringify(status(Number(rest[0])), null, 2));
+    break;
+  case "resolve":
+    console.log(JSON.stringify(resolve(rest[0])));
+    break;
+  case "reply":
+    console.log(JSON.stringify(reply(rest[0], rest.slice(1).join(" "))));
+    break;
+  default:
+    console.error(usage);
+    process.exit(2);
+}
