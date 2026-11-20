@@ -2,6 +2,7 @@ const { defineConfig } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
 const tsPlugin = require("@typescript-eslint/eslint-plugin");
 const tsParser = require("@typescript-eslint/parser");
+const house = require("./lint/house-rules");
 
 const typedFiles = ["**/*.ts", "**/*.tsx", "scripts/**/*.mts"];
 
@@ -14,6 +15,13 @@ module.exports = defineConfig([
     rules: {
       "no-undef": "off",
       "no-unused-vars": "off",
+    },
+  },
+  {
+    plugins: { house },
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+    rules: {
+      "house/no-comments": "error",
     },
   },
   {

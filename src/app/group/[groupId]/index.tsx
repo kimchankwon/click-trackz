@@ -530,7 +530,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enables the engine once the lock screen setting loads; the speaker effect above applies later changes
   }, [lockScreenLoaded]);
 
   const wakeEngine = useCallback(() => {

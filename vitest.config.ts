@@ -12,6 +12,7 @@ export default defineConfig({
     projects: [
       { extends: true, test: { name: "app", include: ["src/**/*.test.ts"], environment: "node" } },
       { extends: true, test: { name: "convex", include: ["convex/**/*.test.ts"], environment: "edge-runtime" } },
+      { extends: true, test: { name: "lint", include: ["lint/**/*.test.ts"], environment: "node", testTimeout: 30_000 } },
     ],
   },
 });
