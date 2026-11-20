@@ -1,9 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import featureMap from "./feature-map.json";
 import { planFor, type FeatureMap } from "./plan.mts";
 
-const map: FeatureMap = featureMap;
+const map = JSON.parse(readFileSync(path.join(import.meta.dirname, "feature-map.json"), "utf8")) as FeatureMap;
 const allFlows = map.flows.map((flow) => flow.id);
 const plan = (changed: string[], options: Partial<{ full: boolean; only: string[]; unattended: boolean }> = {}) =>
   planFor({ changed, map, full: false, only: [], unattended: false, ...options });

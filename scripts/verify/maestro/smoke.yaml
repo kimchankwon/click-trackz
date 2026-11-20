@@ -1,0 +1,5 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: launch-signed-out.yaml
+- assertVisible: "Get started"
+- takeScreenshot: ${SHOT}

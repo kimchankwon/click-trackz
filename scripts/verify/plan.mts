@@ -8,8 +8,7 @@ export type FeatureMap = { flows: FlowEntry[]; smoke: string; static: string[]; 
 export type Tier = "static" | "localized" | "full";
 export type Reason = { file: string; rule: string };
 export type Plan =
-  | { kind: "unmapped"; unmapped: string[] }
-  | { kind: "run"; tier: Tier; reasons: Reason[]; flows: string[]; notes: string[]; unmapped: string[] };
+  { kind: "unmapped"; unmapped: string[] } | { kind: "run"; tier: Tier; reasons: Reason[]; flows: string[]; notes: string[]; unmapped: string[] };
 
 export type PlanInput = { changed: string[]; map: FeatureMap; full: boolean; only: string[]; unattended: boolean };
 
@@ -34,7 +33,14 @@ export function planFor({ changed, map, full, only, unattended }: PlanInput): Pl
   const unknownFlow = only.find((id) => !map.flows.some((flow) => flow.id === id));
   if (unknownFlow) throw new Error(`Unknown flow "${unknownFlow}". Flows: ${map.flows.map((flow) => flow.id).join(", ")}`);
   if (only.length > 0) {
-    return { kind: "run", tier: "localized", reasons: [{ file: "(none)", rule: `--only ${only.join(" ")}` }], flows: inCatalogOrder(map, withSmoke(map, new Set(only))), notes: [], unmapped: [] };
+    return {
+      kind: "run",
+      tier: "localized",
+      reasons: [{ file: "(none)", rule: `--only ${only.join(" ")}` }],
+      flows: inCatalogOrder(map, withSmoke(map, new Set(only))),
+      notes: [],
+      unmapped: [],
+    };
   }
 
   const reasons: Reason[] = [];
