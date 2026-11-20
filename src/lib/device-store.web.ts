@@ -1,9 +1,13 @@
-export async function readDeviceValue(name: string): Promise<string | null> {
+export function readLocalValue(name: string): string | null {
   try {
     return window.localStorage.getItem(name);
   } catch {
     return null;
   }
+}
+
+export async function readDeviceValue(name: string): Promise<string | null> {
+  return readLocalValue(name);
 }
 
 export async function writeDeviceValue(name: string, json: string): Promise<void> {

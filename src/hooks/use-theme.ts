@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorScheme } from 'react-native';
 import { useAccent } from '@/theme/accent-store';
 import { accentPalettes } from '@/theme/accents';
 
