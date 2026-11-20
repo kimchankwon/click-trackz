@@ -18,7 +18,11 @@ module.exports = defineConfig([
   },
   {
     files: typedFiles,
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: __dirname } },
     rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/no-unused-vars": ["error", { args: "after-used", argsIgnorePattern: "^_", ignoreRestSiblings: true, caughtErrors: "all" }],
       "import/no-duplicates": "error",
     },

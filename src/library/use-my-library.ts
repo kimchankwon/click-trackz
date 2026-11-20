@@ -26,7 +26,7 @@ export function useKeepLibraryOnDevice(groupId: Id<"groups">, enabled: boolean) 
       (fresh) => {
         if (cancelled) return;
         const snapshot: LibrarySnapshot = { ...fresh, savedAt: Date.now(), format: SNAPSHOT_FORMAT };
-        library.save(snapshot);
+        void library.save(snapshot);
       },
       () => undefined,
     );
