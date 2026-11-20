@@ -85,7 +85,7 @@
     { "rule": "Verify harness", "globs": ["scripts/verify/**"] }
   ],
   "areas": [
-    { "area": "Signed-out home", "globs": ["src/app/index.tsx", "src/home/**", "src/components/group/group-list.tsx", "src/lib/use-server-now.ts"], "flows": ["home-signed-out", "home-signed-in"] },
+    { "area": "Signed-out home", "globs": ["src/app/index.tsx", "src/home/**", "src/components/home/**", "src/components/group/group-list.tsx", "src/lib/use-server-now.ts"], "flows": ["home-signed-out", "home-signed-in"] },
     { "area": "About", "globs": ["src/app/about.tsx", "src/components/about/**", "src/lib/demo-*.ts"], "flows": ["about"] },
     { "area": "Sign in", "globs": ["src/app/dev-login.tsx"], "flows": ["dev-login", "home-signed-in"] },
     { "area": "My Library", "globs": ["src/library/**"], "flows": ["home-signed-in", "group"] },
@@ -132,7 +132,7 @@
       ],
       "flows": ["song"]
     },
-    { "area": "Setlist", "globs": ["src/app/group/*/setlist/**", "src/lib/setlist-next*.ts", "convex/setlists.ts"], "flows": ["setlist"] },
+    { "area": "Setlist", "globs": ["src/app/group/*/setlist/**", "src/components/setlist/**", "src/lib/setlist-next*.ts", "convex/setlists.ts"], "flows": ["setlist"] },
     {
       "area": "Sound settings",
       "globs": [

@@ -53,13 +53,13 @@ Globs use Node's `path.matchesGlob`. `*` and `**` do not match dot files, so dot
 
 | Area | Files | Flows |
 | --- | --- | --- |
-| Signed-out home | `src/app/index.tsx`, `src/home/**`, `src/components/group/group-list.tsx`, `src/lib/use-server-now.ts` | home-signed-out, home-signed-in |
+| Signed-out home | `src/app/index.tsx`, `src/home/**`, `src/components/home/**`, `src/components/group/group-list.tsx`, `src/lib/use-server-now.ts` | home-signed-out, home-signed-in |
 | About | `src/app/about.tsx`, `src/components/about/**`, `src/lib/demo-*.ts` | about |
 | Sign in | `src/app/dev-login.tsx` | dev-login, home-signed-in |
 | My Library | `src/library/**` | home-signed-in, group |
 | Group | the Group route, `src/components/group/**`, presence, chat, activity, roles, invite and the Group-only helpers in `src/lib`, `convex/groups.ts`, `convex/presence.ts`, `convex/chat.ts`, `convex/activity.ts` | group |
 | Song and playback | the Song route, `src/components/song/**`, `src/components/playback/**`, song and section helpers, `src/sync/**` except the core files, `convex/songs.ts`, `convex/playback.ts` | song |
-| Setlist | the Setlist route, `src/lib/setlist-next*.ts`, `convex/setlists.ts` | setlist |
+| Setlist | the Setlist route, `src/components/setlist/**`, `src/lib/setlist-next*.ts`, `convex/setlists.ts` | setlist |
 | Sound settings | `src/components/sound/**`, `src/settings/**`, `src/app/latency.tsx`, `src/app/voice-offset.tsx`, `src/audio/**` except the core file, timing helpers, `convex/sound.ts`, `convex/speakerCheck.ts` | sound-settings |
 | Join | `src/app/join/**`, `src/lib/pending-join*.ts`, `convex/guestHandoff.ts` | join |
 | Plans | `src/app/subscribe.tsx`, `src/billing/**`, `src/lib/plans*.ts`, `convex/plans.ts`, `convex/subscriptions.ts`, `convex/revenuecat.ts` | none: unit tests only for now. RevenueCat purchases cannot run against a local backend, and the plan output says so plainly |

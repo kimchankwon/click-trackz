@@ -34,6 +34,8 @@ describe("planFor", () => {
   it("runs the setlist and join flows for their routes", () => {
     expect(plan(["src/app/group/[groupId]/setlist/[setlistId].tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "setlist"] });
     expect(plan(["src/app/join/[code].tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "join"] });
+    expect(plan(["src/components/setlist/setlist-form.tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "setlist"] });
+    expect(plan(["src/components/home/groups-tab.tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "home-signed-out", "home-signed-in"] });
   });
 
   it("escalates to every flow when a core file changes, and names the rule", () => {
