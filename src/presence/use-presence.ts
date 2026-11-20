@@ -133,7 +133,7 @@ export function useNudgesFromManagers(
   }, [request, groupId, screenId, applied]);
 }
 
-export const STILL_HERE_MS = 20 * 60_000;
+const STILL_HERE_MS = 20 * 60_000;
 
 export function useStillHere(groupId: Id<"groups">, enabled: boolean) {
   const stillHere = useMutation(api.presence.stillHere);

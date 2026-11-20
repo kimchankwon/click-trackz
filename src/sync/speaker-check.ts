@@ -1,7 +1,7 @@
 import { MAX_BARS, type Playback, type Song } from "./timeline";
 
 export const SPEAKER_CHECK_BPM = 60;
-export const SPEAKER_CHECK_BEATS_PER_BAR = 4;
+const SPEAKER_CHECK_BEATS_PER_BAR = 4;
 export const SPEAKER_CHECK_MS = 5 * 60_000;
 
 const BAR_MS = (SPEAKER_CHECK_BEATS_PER_BAR * 60_000) / SPEAKER_CHECK_BPM;

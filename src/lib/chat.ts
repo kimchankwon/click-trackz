@@ -5,7 +5,7 @@ export type Reaction = (typeof REACTIONS)[number];
 export const isReaction = (value: string): value is Reaction => REACTIONS.some((reaction) => reaction === value);
 
 export const MAX_COMMENT_LENGTH = 200;
-export const COMMENT_BUBBLE_MS = 10_000;
+const COMMENT_BUBBLE_MS = 10_000;
 export const REACTION_FLOAT_MS = 3_000;
 export const COMMENT_GAP_MS = 1_000;
 export const REACTION_GAP_MS = 250;

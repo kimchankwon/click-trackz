@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useAppActive } from "./use-app-active";
 
-export const IDLE_AFTER_MS = 10 * 60_000;
+const IDLE_AFTER_MS = 10 * 60_000;
 
 export function useIdleWithoutPlayback(playing: boolean, idleAfterMs = IDLE_AFTER_MS): boolean {
   const appActive = useAppActive();

@@ -31,7 +31,7 @@ export type DemoState = { songIndex: number; playback: StartedPlayback | null };
 
 export const DEMO_START: DemoState = { songIndex: 0, playback: null };
 
-export type DemoStatus = "idle" | "starting" | "playing" | "stopping";
+type DemoStatus = "idle" | "starting" | "playing" | "stopping";
 
 export type DemoFrame = {
   status: DemoStatus;

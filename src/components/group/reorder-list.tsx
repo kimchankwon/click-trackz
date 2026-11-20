@@ -16,7 +16,7 @@ const DEFAULT_ROW_HEIGHT = 56;
 const LONG_PRESS_MS = 350;
 const SETTLE = { duration: 220, easing: Easing.out(Easing.cubic) };
 const LIFT_SCALE = 1.03;
-export const HANDLE_WIDTH = 36;
+const HANDLE_WIDTH = 36;
 
 type Drag = { key: string; from: number; to: number; order: string };
 

@@ -1,6 +1,6 @@
-export const FAST_PING_MS = 5_000;
-export const STEADY_PING_MS = 10_000;
-export const STANDBY_PING_MS = 30_000;
+const FAST_PING_MS = 5_000;
+const STEADY_PING_MS = 10_000;
+const STANDBY_PING_MS = 30_000;
 const WARM_UP_MS = 15_000;
 
 export type PingPace = "playback" | "standby" | "paused";

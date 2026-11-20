@@ -86,7 +86,7 @@ export const letterAfterNumber = (section: Pick<Section, "number" | "letter">) =
 export const sectionTitleOf = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
   `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
-export type Lead = {
+type Lead = {
   cue: VoiceCue | null;
   barsLeft: number;
   beat: number;
@@ -165,7 +165,7 @@ const changedMeterOf = (section: Section, change: TimeChange): Meter => ({
 
 const changeAt = (section: Section, barNumber: number) => section.timeChanges?.find((change) => barNumber >= change.bar && barNumber < change.bar + change.bars);
 
-export function meterOf(section: Section, barNumber: number): Meter {
+function meterOf(section: Section, barNumber: number): Meter {
   const change = changeAt(section, barNumber);
   return change ? changedMeterOf(section, change) : mainMeterOf(section);
 }
@@ -189,7 +189,7 @@ const longestOf = (song: Song, measure: (section: Section) => number) => song.se
 export const longestBeatMs = (song: Song) =>
   longestOf(song, (section) => Math.max(beatMsOf(section), ...(section.timeChanges ?? []).map((change) => changedMeterOf(section, change).beatMs)));
 
-export const LOOKAHEAD_BARS = 3;
+const LOOKAHEAD_BARS = 3;
 
 const VAMP_PASSES_KEPT_BEHIND = 2;
 

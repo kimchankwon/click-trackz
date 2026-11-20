@@ -5,7 +5,7 @@ export type SongTimeSignature = { beatsPerBar: number; beatUnit: number };
 
 type Timed = TimeSignature & { ownTime?: boolean };
 
-export const DEFAULT_TIME: SongTimeSignature = { beatsPerBar: 4, beatUnit: 4 };
+const DEFAULT_TIME: SongTimeSignature = { beatsPerBar: 4, beatUnit: 4 };
 
 export const sameTime = (a: TimeSignature, b: TimeSignature) => a.beatsPerBar === b.beatsPerBar && (a.beatUnit ?? 4) === (b.beatUnit ?? 4);
 

@@ -1,5 +1,5 @@
-export const SIDE_FONT = 14;
-export const SIDE_DROP = -4;
+const SIDE_FONT = 14;
+const SIDE_DROP = -4;
 
 export const sideScaleFor = (fontSize: number) => SIDE_FONT / fontSize;
 

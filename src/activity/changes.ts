@@ -15,7 +15,7 @@ export type ChangedSong = {
   sections: readonly ChangedSection[];
 };
 
-export type SetlistEntry = { songId: string; key?: string; leader?: string };
+type SetlistEntry = { songId: string; key?: string; leader?: string };
 
 export type ChangedSetlist = { name: string; entries: readonly SetlistEntry[] };
 
@@ -25,7 +25,7 @@ const onOff = (on: boolean) => (on ? "on" : "off");
 const orNone = (value: string | undefined) => value?.trim() || "none";
 const barsText = (bars: number) => (bars === 1 ? "1 bar" : `${bars} bars`);
 
-export const sectionTypeName = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
+const sectionTypeName = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
   section.number === undefined ? section.sectionType : `${section.sectionType} ${section.number}${section.letter ?? ""}`;
 
 export const sectionName = (section: Pick<ChangedSection, "sectionType" | "number" | "customLabel">) =>

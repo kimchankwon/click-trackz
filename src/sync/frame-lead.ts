@@ -1,4 +1,4 @@
-export const FRAMES_AHEAD = 1.5;
+const FRAMES_AHEAD = 1.5;
 export const FRAMES_PER_MEASURE = 15;
 
 const ASSUMED_FRAME_MS = 1000 / 60;

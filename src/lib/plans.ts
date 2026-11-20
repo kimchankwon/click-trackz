@@ -1,4 +1,4 @@
-export const PLANS_LOW_TO_HIGH = ["free", "plus", "pro"] as const;
+const PLANS_LOW_TO_HIGH = ["free", "plus", "pro"] as const;
 
 export type Plan = (typeof PLANS_LOW_TO_HIGH)[number];
 

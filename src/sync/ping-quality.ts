@@ -1,5 +1,5 @@
 export const WEAK_PING_MS = 80;
-export const BAD_PING_MS = 150;
+const BAD_PING_MS = 150;
 
 export type PingQuality = "good" | "weak" | "bad";
 

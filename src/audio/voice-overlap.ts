@@ -1,4 +1,4 @@
-export const SPOKEN_COUNT_OVERLAP_MS = 100;
+const SPOKEN_COUNT_OVERLAP_MS = 100;
 
 export const voiceEndsAt = (beatAt: number, leadMs: number, clipMs: number) => beatAt - leadMs + clipMs;
 

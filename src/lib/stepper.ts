@@ -22,7 +22,7 @@ export function steppedNumber(value: number | undefined, by: 1 | -1, range: Numb
   return clamp(next, range);
 }
 
-export const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 export function typedLetter(text: string): string | undefined {
   const letters = text.toUpperCase().replace(/[^A-Z]/g, "");

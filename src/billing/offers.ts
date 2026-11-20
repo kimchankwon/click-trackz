@@ -1,6 +1,6 @@
 import type { PaidPlan } from "@/lib/plans";
 
-export type Billing = "monthly" | "annual";
+type Billing = "monthly" | "annual";
 
 type PackageLike = { identifier: string; product: { priceString: string } };
 

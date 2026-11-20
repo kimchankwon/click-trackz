@@ -113,7 +113,7 @@ export function SongRow({
   );
 }
 
-export const LEADING_WIDTH = 36;
+const LEADING_WIDTH = 36;
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", borderRadius: Radius.md, paddingRight: Spacing.one },

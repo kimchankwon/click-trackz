@@ -37,8 +37,8 @@ const shapeOf = (draft: SongDraft) =>
 
 export const sameDraft = (a: SongDraft, b: SongDraft) => shapeOf(a) === shapeOf(b);
 
-export const MAX_SECTIONS = 64;
-export const MAX_KEY = 8;
+const MAX_SECTIONS = 64;
+const MAX_KEY = 8;
 export const MIN_BPM = 30;
 export const MAX_BPM = 300;
 

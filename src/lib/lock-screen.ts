@@ -109,7 +109,7 @@ export function lockScreenInfo({
 
 export const infoKeyOf = ({ title, artist, album, duration, speed }: LockScreenInfo) => [title, artist, album, duration, speed].join("|");
 
-export const RESHOW_DRIFT_S = 0.25;
+const RESHOW_DRIFT_S = 0.25;
 
 export type ShownInfo = { key: string; elapsedTime: number; speed: number; atMs: number };
 

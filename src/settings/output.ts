@@ -8,7 +8,7 @@ export const panOf = (side: Side) => (side === "left" ? -1 : side === "right" ? 
 
 export const sideLabels: Record<Side, string> = { left: "Left", both: "Both", right: "Right" };
 
-export const LOCK_SCREEN_SETTINGS = ["off", "on"] as const;
+const LOCK_SCREEN_SETTINGS = ["off", "on"] as const;
 
 export type LockScreenSetting = (typeof LOCK_SCREEN_SETTINGS)[number];
 

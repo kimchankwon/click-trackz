@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 
 const handoff = deviceValue("guest-handoff", parseHandoff);
 
-export const saveGuestHandoff = (token: string) => handoff.save({ token });
+const saveGuestHandoff = (token: string) => handoff.save({ token });
 
 export const forgetGuestHandoff = handoff.forget;
 

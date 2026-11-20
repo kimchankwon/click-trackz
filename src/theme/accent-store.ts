@@ -14,7 +14,7 @@ function readInitial(): AccentId {
 let current: AccentId = readInitial();
 const listeners = new Set<() => void>();
 
-export const getAccent = () => current;
+const getAccent = () => current;
 
 export function setAccent(next: AccentId) {
   if (next === current) return;

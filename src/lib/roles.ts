@@ -1,4 +1,4 @@
-export const ROLES_LOW_TO_HIGH = ["member", "playbackManager", "songManager", "groupManager", "admin"] as const;
+const ROLES_LOW_TO_HIGH = ["member", "playbackManager", "songManager", "groupManager", "admin"] as const;
 
 export type Role = (typeof ROLES_LOW_TO_HIGH)[number];
 

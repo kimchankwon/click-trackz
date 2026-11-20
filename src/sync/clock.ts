@@ -13,14 +13,14 @@ export type ClockEstimate = {
 const roundTripOf = (sample: ClockSample) => sample.receivedAt - sample.sentAt;
 const offsetOf = (sample: ClockSample) => sample.serverAt - (sample.sentAt + sample.receivedAt) / 2;
 
-export const SLEEP_TOLERANCE_MS = 100;
+const SLEEP_TOLERANCE_MS = 100;
 
 export const clockSlept = (epochBefore: number, epochNow: number, toleranceMs = SLEEP_TOLERANCE_MS) => Math.abs(epochNow - epochBefore) > toleranceMs;
 
 export const SAMPLE_WINDOW = 24;
-export const MAX_SAMPLE_AGE_MS = 2 * 60_000;
-export const NEAR_BEST_ROUND_TRIP_MS = 5;
-export const MAX_ROUND_TRIP_MS = 5_000;
+const MAX_SAMPLE_AGE_MS = 2 * 60_000;
+const NEAR_BEST_ROUND_TRIP_MS = 5;
+const MAX_ROUND_TRIP_MS = 5_000;
 
 export const answeredPromptly = (sample: ClockSample) => roundTripOf(sample) >= 0 && roundTripOf(sample) <= MAX_ROUND_TRIP_MS;
 

@@ -2,7 +2,7 @@ import { commandBoundary, cueLeadBarsOf, playbackEndsAt, sectionPassBefore, subd
 
 export const LEAD_IN_MS = 1_000;
 export const OFFLINE_LEAD_IN_MS = 500;
-export const MIN_COMMAND_LEAD_MS = 1_000;
+const MIN_COMMAND_LEAD_MS = 1_000;
 export const STOP_LEAD_MS = 1_000;
 
 export type StartFrom = { fromSection?: number; fromBar?: number };
