@@ -9,6 +9,7 @@ import { Platform } from "react-native";
 import { useStartGuestHandoff } from "./guest-handoff";
 import { googleReturnAction } from "./google-return";
 import { readPendingGoogleSignIn, writePendingGoogleSignIn } from "./pending-google";
+import { wallClockNow } from "@/lib/device-clock";
 
 maybeCompleteAuthSession();
 
@@ -20,7 +21,7 @@ export function useGoogleSignIn() {
   return async (options?: { retry?: boolean }) => {
     await startHandoff();
     const redirectTo = Platform.OS === "web" ? window.location.origin : Linking.createURL("/");
-    if (Platform.OS === "web") writePendingGoogleSignIn({ startedAt: Date.now(), retried: options?.retry === true });
+    if (Platform.OS === "web") writePendingGoogleSignIn({ startedAt: wallClockNow(), retried: options?.retry === true });
     const { redirect } = await signIn("google", { redirectTo });
     if (Platform.OS === "web" || !redirect) return;
     const result = await openAuthSessionAsync(redirect.toString(), redirectTo);
@@ -46,7 +47,7 @@ export function useGoogleReturn({
     if (!settled || returnChecked) return;
     returnChecked = true;
     if (Platform.OS === "web" && new URLSearchParams(window.location.search).has("code")) navigation.setParams({ code: undefined });
-    const action = googleReturnAction({ pending: readPendingGoogleSignIn(), now: Date.now(), isAuthenticated: signedInWithGoogle });
+    const action = googleReturnAction({ pending: readPendingGoogleSignIn(), now: wallClockNow(), isAuthenticated: signedInWithGoogle });
     if (action === "clear") writePendingGoogleSignIn(null);
     if (action === "retry") onRetry();
     if (action === "explain") {

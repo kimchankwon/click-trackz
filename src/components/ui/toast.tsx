@@ -6,6 +6,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Icon } from "@/components/ui/icon";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { wallClockNow } from "@/lib/device-clock";
 
 const SHOWN_MS = 2_400;
 
@@ -23,7 +24,7 @@ export function useToast() {
 
   const show = useCallback((text: string, tone: ToastTone = "success") => {
     if (timer.current) clearTimeout(timer.current);
-    setMessage({ text, id: Date.now(), tone });
+    setMessage({ text, id: wallClockNow(), tone });
     if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibilityWithOptions(text, { queue: true });
     timer.current = setTimeout(() => setMessage(null), SHOWN_MS);
   }, []);

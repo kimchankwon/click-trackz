@@ -12,6 +12,6 @@ export const forgetStoredHome = home.forget;
 export function useKeepHomeOnDevice(groups: MyGroups | undefined, isAnonymous: boolean | undefined) {
   useEffect(() => {
     if (groups === undefined || isAnonymous === undefined) return;
-    home.save({ format: HOME_FORMAT, isAnonymous, groups });
+    void home.save({ format: HOME_FORMAT, isAnonymous, groups });
   }, [groups, isAnonymous]);
 }

@@ -1,4 +1,5 @@
 import { entryScriptIn } from "./stale-app";
+import { wallClockNow } from "@/lib/device-clock";
 
 const RELOADED_AT_KEY = "click-trackz:stale-reload-at";
 const RELOAD_AGAIN_AFTER_MS = 60_000;
@@ -25,7 +26,7 @@ export function reloadApp() {
 
 export function canReloadForStaleApp(): boolean {
   try {
-    return Date.now() - Number(window.sessionStorage.getItem(RELOADED_AT_KEY) ?? 0) >= RELOAD_AGAIN_AFTER_MS;
+    return wallClockNow() - Number(window.sessionStorage.getItem(RELOADED_AT_KEY) ?? 0) >= RELOAD_AGAIN_AFTER_MS;
   } catch {
     return false;
   }
@@ -33,7 +34,7 @@ export function canReloadForStaleApp(): boolean {
 
 export function reloadForStaleApp() {
   try {
-    window.sessionStorage.setItem(RELOADED_AT_KEY, String(Date.now()));
+    window.sessionStorage.setItem(RELOADED_AT_KEY, String(wallClockNow()));
   } catch {
     return;
   }

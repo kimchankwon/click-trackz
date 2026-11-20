@@ -6,6 +6,7 @@ import { LOCK_SCREEN_CONTROLS, type LockScreenCommand, type LockScreenControl, t
 
 import { onHeadsetPlayPause, setHeadsetPlayPause } from "./headset-play-pause";
 import { nowPlayingArtwork } from "./now-playing-artwork";
+import { monotonicNow } from "@/lib/device-clock";
 
 export const lockScreenAvailable = Platform.OS === "ios";
 
@@ -49,10 +50,10 @@ async function setControl(control: PlaybackControlName, enabled: boolean) {
 
 export function showOnLockScreen(info: LockScreenInfo): Promise<void> {
   if (!lockScreenAvailable) return Promise.resolve();
-  const queuedAt = performance.now();
+  const queuedAt = monotonicNow();
   return inTurn(async () => {
     const path = await artworkPath();
-    const waitedS = info.speed > 0 ? (performance.now() - queuedAt) / 1000 : 0;
+    const waitedS = info.speed > 0 ? (monotonicNow() - queuedAt) / 1000 : 0;
     const elapsedTime = info.duration > 0 ? Math.min(info.duration, info.elapsedTime + waitedS) : info.elapsedTime + waitedS;
     await PlaybackNotificationManager.show({ ...info, elapsedTime, state: info.speed > 0 ? "playing" : "paused", ...(path === null ? {} : { artwork: path }) });
   });
