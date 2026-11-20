@@ -142,6 +142,33 @@ export async function ensureBuild({ env, logsDir, log }: { env: NodeJS.ProcessEn
   return { app: path.join(keyed, built), key, cached: false };
 }
 
+export const pinStatusBar = (udid: string) =>
+  simctl(
+    "status_bar",
+    udid,
+    "override",
+    "--time",
+    "9:41",
+    "--dataNetwork",
+    "wifi",
+    "--wifiMode",
+    "active",
+    "--wifiBars",
+    "3",
+    "--batteryState",
+    "charged",
+    "--batteryLevel",
+    "100",
+  );
+
+export function clearStatusBar(udid: string) {
+  try {
+    simctl("status_bar", udid, "clear");
+  } catch {
+    return;
+  }
+}
+
 export function uninstall(udid: string) {
   try {
     simctl("terminate", udid, BUNDLE_ID);

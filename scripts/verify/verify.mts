@@ -4,7 +4,18 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 
 import { SEED, startBackend, type Backend } from "./backend.mts";
-import { bootDevice, ensureBuild, installFresh, resolveDevice, restoreAfterPrebuild, runMaestroFlow, shutDownIfWeBooted, uninstall } from "./ios.mts";
+import {
+  bootDevice,
+  clearStatusBar,
+  ensureBuild,
+  installFresh,
+  resolveDevice,
+  pinStatusBar,
+  restoreAfterPrebuild,
+  runMaestroFlow,
+  shutDownIfWeBooted,
+  uninstall,
+} from "./ios.mts";
 import { planFor, type FeatureMap, type Plan } from "./plan.mts";
 import {
   beginStopping,
@@ -257,6 +268,7 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
     device.udid = simulator.udid;
     say(`    simulator ${simulator.name} (${simulator.udid})`);
     bootDevice(simulator);
+    pinStatusBar(simulator.udid);
     startBundler("metro-ios", ports.metro, "VERIFY_METRO_PORT", backend, logsDir);
     const build = await ensureBuild({ env, logsDir, log: (line) => say(`    ${line}`) });
     say(`    dev build ${build.cached ? "from cache" : "built"}: ${build.key}`);
@@ -341,7 +353,10 @@ async function main() {
   takeLock();
   const teardown = async () => {
     await stopAll();
-    if (context.device.udid) uninstall(context.device.udid);
+    if (context.device.udid) {
+      uninstall(context.device.udid);
+      clearStatusBar(context.device.udid);
+    }
     shutDownIfWeBooted();
     releaseLock();
   };
@@ -395,7 +410,12 @@ function playwrightResults(report: string) {
   const visit = (suite: PlaywrightSuite) => {
     for (const spec of suite.specs ?? []) {
       const result = spec.tests[0]?.results.at(-1);
-      if (result) results.set(spec.title, { ok: result.status === "passed", durationMs: result.duration, error: result.error?.message?.replace(/\u001b\[[0-9;]*m/g, "").split("\n")[0] });
+      if (result)
+        results.set(spec.title, {
+          ok: result.status === "passed",
+          durationMs: result.duration,
+          error: result.error?.message?.replace(/\u001b\[[0-9;]*m/g, "").split("\n")[0],
+        });
     }
     for (const child of suite.suites ?? []) visit(child);
   };
