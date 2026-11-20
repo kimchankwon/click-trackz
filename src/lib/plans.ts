@@ -4,7 +4,7 @@ export type Plan = (typeof PLANS_LOW_TO_HIGH)[number];
 
 export type PaidPlan = Exclude<Plan, "free">;
 
-export type PlanLimits = { groups: number | null; songs: number | null; librarySongs: number };
+type PlanLimits = { groups: number | null; songs: number | null; librarySongs: number };
 
 const LIMITS: Record<Plan, PlanLimits> = {
   free: { groups: 0, songs: 0, librarySongs: 10 },

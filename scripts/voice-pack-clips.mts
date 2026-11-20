@@ -1,3 +1,5 @@
+import { wordKey } from "../src/audio/clip-choice.ts";
+
 export type Speaker = { id: string; name: string; voiceId: string; voice: "female" | "male"; cloned?: boolean; normalVoiceId?: string };
 
 export const speakers: Speaker[] = [
@@ -29,16 +31,15 @@ export const comparable = (text: string) =>
 
 export const spokenAs: Record<string, string> = { Outro: "Outtro" };
 
-export const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 const say = (word: string) => spokenAs[word] ?? word;
 
 export type Clip = { key: string; text: string; heard: string };
 
 export const clips: Clip[] = [
-  ...sectionTypes.map((type) => ({ key: slug(type), text: `${say(type)}.`, heard: type })),
+  ...sectionTypes.map((type) => ({ key: wordKey(type), text: `${say(type)}.`, heard: type })),
   ...numberedTypes.flatMap((type) =>
-    [1, 2, 3, 4].map((n) => ({ key: `${slug(type)}-${n}`, text: `${say(type)} ${numberWords[n]}.`, heard: `${type} ${numberWords[n]}` })),
+    [1, 2, 3, 4].map((n) => ({ key: `${wordKey(type)}-${n}`, text: `${say(type)} ${numberWords[n]}.`, heard: `${type} ${numberWords[n]}` })),
   ),
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ key: `count-${n}`, text: `${numberWords[n]}.`, heard: numberWords[n] })),
 ];

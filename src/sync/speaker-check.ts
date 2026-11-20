@@ -13,7 +13,7 @@ export type SpeakerCheck = {
   comparedWith: string;
 };
 
-export type SpeakerCheckPlan = { song: Song; playback: Playback };
+type SpeakerCheckPlan = { song: Song; playback: Playback };
 
 export const speakerCheckBars = (check: Pick<SpeakerCheck, "startsAt" | "stopsAt">) =>
   Math.min(MAX_BARS, Math.max(1, Math.ceil((check.stopsAt - check.startsAt) / BAR_MS)));

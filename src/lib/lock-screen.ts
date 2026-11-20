@@ -2,7 +2,7 @@ import { beatsBetween, longestBeatMs, playbackEndsAt, type Beat, type Playback, 
 
 const RECENT_BEATS_MS = 10_000;
 
-export type LivePlayback = { playing: boolean; latest: Beat | null };
+type LivePlayback = { playing: boolean; latest: Beat | null };
 
 export function livePlayback(song: Song, playback: Playback | null, nowMs: number | null): LivePlayback {
   if (playback === null || nowMs === null || song.sections.length === 0) return { playing: false, latest: null };
@@ -19,7 +19,7 @@ export const LOCK_SCREEN_COMMANDS = [...LOCK_SCREEN_CONTROLS, "togglePlayPause"]
 
 export type LockScreenCommand = (typeof LOCK_SCREEN_COMMANDS)[number];
 
-export type LockScreenAction =
+type LockScreenAction =
   | { kind: "start" }
   | { kind: "stop" }
   | { kind: "mute" }

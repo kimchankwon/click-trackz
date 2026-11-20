@@ -1,12 +1,6 @@
-import { notifyDeviceSetting } from "./device-setting-events";
+import { readLocalValue } from "@/lib/device-store.web";
 
-const readLocal = (key: string): string | null => {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
+import { notifyDeviceSetting } from "./device-setting-events";
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
@@ -15,8 +9,8 @@ if (typeof window !== "undefined") {
 }
 
 export const deviceStore = {
-  get: async (key: string): Promise<string | null> => readLocal(key),
-  getSync: readLocal,
+  get: async (key: string): Promise<string | null> => readLocalValue(key),
+  getSync: readLocalValue,
   set: async (key: string, value: string): Promise<void> => {
     notifyDeviceSetting(key, value);
     window.localStorage.setItem(key, value);

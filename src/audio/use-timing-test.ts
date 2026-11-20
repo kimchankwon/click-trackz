@@ -12,7 +12,7 @@ const noClock = () => null;
 
 type TimingOffsets = { latencyNudgeMs: number; voiceOffsetMs: number };
 
-export type TimingTestOptions = TimingOffsets & {
+type TimingTestOptions = TimingOffsets & {
   intervalMs: number;
   volumes: CueVolumes;
   sides?: CueSides;

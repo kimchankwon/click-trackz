@@ -9,9 +9,9 @@ import { OPTION_HEIGHT, placeMenu, type Anchor } from "@/lib/menu-placement";
 
 const MENU_MAX_HEIGHT = 320;
 
-export type DropdownOption<T extends string> = { value: T; label: string };
+type DropdownOption<T extends string> = { value: T; label: string };
 
-export type DropdownLook = "plain" | "field";
+type DropdownLook = "plain" | "field";
 
 export function Dropdown<T extends string>({
   label,

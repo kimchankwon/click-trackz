@@ -1,8 +1,7 @@
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, useColorScheme, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initialsOf } from "@/lib/initials";
 
 const palette = [
@@ -20,7 +19,7 @@ function avatarColorsFor(name: string, scheme: "light" | "dark", position?: numb
   return { background, text };
 }
 
-export type AvatarColors = { background: string; text: string };
+type AvatarColors = { background: string; text: string };
 
 export function Avatar({ name, size = 40, position, colors: chosen }: { name: string; size?: number; position?: number; colors?: AvatarColors }) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";

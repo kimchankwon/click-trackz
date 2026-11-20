@@ -1,4 +1,4 @@
-export type PickedSong<SongId extends string> = {
+type PickedSong<SongId extends string> = {
   songId: SongId | null;
   fromSetlist: boolean;
   orderAt: number | null;
