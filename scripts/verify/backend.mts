@@ -11,7 +11,7 @@ import { httpOk, requireFreePort, root, run, start, stateDir, waitFor } from "./
 
 export const SEED = {
   email: "admin@example.com",
-  groupName: "Verify Band",
+  groupName: "Verify Group",
   displayName: "Admin",
   songTitle: "Send Me Out",
 } as const;
