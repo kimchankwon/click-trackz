@@ -53,3 +53,10 @@ describe("client clock reads", () => {
   });
 });
 
+describe("route files", () => {
+  it("holds only the screen", async () => {
+    const extra = "function Extra() { return null; }\nexport default function Screen() { return <Extra />; }\n";
+    expect(await rulesHit("src/app/probe.tsx", extra)).toContain("no-restricted-syntax");
+    expect(await rulesHit("src/app/probe.tsx", "export default function Screen() { return null; }\n")).toEqual([]);
+  });
+});

@@ -7,6 +7,13 @@ const house = require("./lint/house-rules");
 const typedFiles = ["**/*.ts", "**/*.tsx", "scripts/**/*.mts"];
 const testFiles = ["**/*.test.ts", "**/*.test.tsx"];
 
+const routeFilesWithExtraComponents = [
+  "src/app/index.tsx",
+  "src/app/group/[[]groupId]/index.tsx",
+  "src/app/group/[[]groupId]/song/[[]songId].tsx",
+  "src/app/group/[[]groupId]/setlist/[[]setlistId].tsx",
+];
+
 const clockMessage =
   "Beat timing comes from the Convex server clock (AGENTS.md). Use serverNow or useServerNow for anything compared with server time; for device-local timing call wallClockNow or monotonicNow from @/lib/device-clock.";
 
@@ -52,6 +59,19 @@ module.exports = defineConfig([
         "error",
         { object: "Date", property: "now", message: clockMessage },
         { object: "performance", property: "now", message: clockMessage },
+      ],
+    },
+  },
+  {
+    files: ["src/app/**/*.tsx"],
+    ignores: routeFilesWithExtraComponents,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Program > FunctionDeclaration[id.name=/^[A-Z]/], Program > ExportNamedDeclaration > FunctionDeclaration[id.name=/^[A-Z]/][id.name!='ErrorBoundary']",
+          message: "A route file holds only its screen (AGENTS.md). Move this component to src/components.",
+        },
       ],
     },
   },
