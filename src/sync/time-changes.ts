@@ -2,7 +2,7 @@ import { BEAT_UNITS, MAX_TIME_CHANGES, type Section, type TimeChange } from "./t
 
 type ChangeableSection = Pick<Section, "bars" | "beatsPerBar" | "beatUnit" | "timeChanges">;
 
-const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
+export const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 
 export const byBar = (changes: readonly TimeChange[]) => [...changes].sort((a, b) => a.bar - b.bar);
 

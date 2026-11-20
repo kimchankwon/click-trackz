@@ -92,7 +92,7 @@ import {
   type CommandResult,
   type StartedPlayback,
 } from "@/sync/commands";
-import { aheadWindowMs, beatsBetween, letterAfterNumber, longestBeatMs, playbackEndsAt, playsOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, sectionTitleOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
 import { drawLeadMs, FRAMES_PER_MEASURE, shownTimeMs } from "@/sync/frame-lead";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { commonBpm } from "@/sync/song-tempo";
@@ -135,9 +135,6 @@ function KeepAwake() {
   }, []);
   return <ScreenWakeLock key={returns} />;
 }
-
-const titleOf = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
-  `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
 const passText = (start: Pick<SectionStart, "pass" | "passes"> | null | undefined) => (start && start.passes > 1 ? ` (${start.pass} of ${start.passes})` : "");
 
@@ -736,7 +733,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   };
 
   const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
-  const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? titleOf(beatSection) : "Ready";
+  const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? sectionTitleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong, startSection);
   const queuedSections = queuedKey === "" ? [] : queuedKey.split(",").map(Number);
   const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
@@ -747,17 +744,17 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const lead = playing ? (beat?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
   const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
-  const vampTitle = vampSection === null ? null : titleOf(song.sections[vampSection]);
+  const vampTitle = vampSection === null ? null : sectionTitleOf(song.sections[vampSection]);
   const vamping = vampTitle !== null && !upcoming;
   const nextLabel = upcoming ? (lead?.barsLeft === 2 ? "Next, in two bars" : "Next, in one bar") : vamping ? "Vamping" : "Next";
   const nextLine = !playing
     ? null
     : upcoming
-      ? `${titleOf(upcoming)}${passText(lead)}`
+      ? `${sectionTitleOf(upcoming)}${passText(lead)}`
       : vamping
         ? vampTitle
         : followingSection
-        ? `${titleOf(followingSection)}${passText(nextStart)}`
+        ? `${sectionTitleOf(followingSection)}${passText(nextStart)}`
         : "End of Song";
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
   const sideNextLabel = upcoming ? (lead?.barsLeft === 2 ? "In 2 bars" : "In 1 bar") : vamping ? "Vamping" : "Next";
@@ -913,7 +910,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   };
 
   const pickedTitle =
-    pickedSection !== null && startSong ? `${titleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
+    pickedSection !== null && startSong ? `${sectionTitleOf(startSong.sections[pickedSection])}${pickedBar ? `, bar ${pickedBar}` : ""}` : null;
 
   const onlineMembers: OnlineMember[] = (offline ? [] : (members ?? []))
     .map((member, position) => ({
@@ -948,7 +945,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     const liveMuted = live.playing && playback !== null && mutedStart === playback.startsAt;
     const liveStopping = live.playing && (stopPending || (playback?.stopsAt ?? null) !== null);
     const liveSection = live.latest?.sectionIndex ?? null;
-    const sectionTitle = !live.playing || live.latest === null ? "Ready" : liveSection === null ? "Count-in" : song.sections[liveSection] ? titleOf(song.sections[liveSection]) : "Ready";
+    const sectionTitle = !live.playing || live.latest === null ? "Ready" : liveSection === null ? "Count-in" : song.sections[liveSection] ? sectionTitleOf(song.sections[liveSection]) : "Ready";
     const showsPlayback = playback !== null && (live.playing || selectedSongId === null);
     const shownSongId = showsPlayback ? playback.songId : selectedSongId;
     const loadedTitle = showsPlayback ? playingSong?.title : selectedSong?.title;
@@ -1146,7 +1143,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               </View>
             </View>
             <SectionCarousel
-              previous={previousSection && seenSection.previous !== null ? { index: seenSection.previous, title: titleOf(previousSection) } : null}
+              previous={previousSection && seenSection.previous !== null ? { index: seenSection.previous, title: sectionTitleOf(previousSection) } : null}
               current={{ index: nowIndex, title: currentSection, pass: passKey }}
               next={nextLine ? { index: upcomingIndex ?? (vamping ? vampSection : (nextStart?.sectionIndex ?? null)), title: nextLine } : null}
               nextLabel={sideNextLabel}
@@ -1221,9 +1218,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           <Card>
             <SectionList
               rows={shownSections.map((section, index) => ({
-                title: titleOf(section),
+                title: sectionTitleOf(section),
                 plays: playsOf(section),
-                accessibleName: playsOf(section) > 1 ? `${titleOf(section)}, plays ${playsOf(section)} times` : titleOf(section),
+                accessibleName: playsOf(section) > 1 ? `${sectionTitleOf(section)}, plays ${playsOf(section)} times` : sectionTitleOf(section),
                 testID: `play-section-${index}`,
               }))}
               current={listCurrent}

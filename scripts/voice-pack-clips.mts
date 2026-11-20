@@ -20,6 +20,13 @@ export const sectionTypes = [
 const numberedTypes = ["Verse", "Pre-Chorus", "Chorus", "Bridge"];
 export const numberWords = ["", "one", "two", "three", "four", "five", "six", "seven", "eight"];
 
+const digits = Object.fromEntries(numberWords.map((word, n) => [String(n), word]));
+export const comparable = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/\d+/g, (n) => digits[n] ?? n)
+    .replace(/[^a-z]/g, "");
+
 export const spokenAs: Record<string, string> = { Outro: "Outtro" };
 
 export const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-");

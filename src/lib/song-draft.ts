@@ -1,4 +1,4 @@
-import { byBar, timeChangesProblem } from "@/sync/time-changes";
+import { byBar, timeChangesProblem, wholeBetween } from "@/sync/time-changes";
 import { MAX_BARS, playsOf, type Section } from "@/sync/timeline";
 
 import { MAX_SONG_TITLE } from "./copy-title";
@@ -42,7 +42,6 @@ export const MAX_KEY = 8;
 export const MIN_BPM = 30;
 export const MAX_BPM = 300;
 
-const wholeBetween = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
 const bpmOk = (bpm: number) => Number.isFinite(bpm) && bpm >= MIN_BPM && bpm <= MAX_BPM;
 
 export function draftProblem(draft: Pick<SongDraft, "title" | "key" | "bpm" | "sections">): string | null {

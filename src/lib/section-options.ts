@@ -1,4 +1,4 @@
-import type { Section } from "@/sync/timeline";
+import { timeSignatureOf, type Section } from "@/sync/timeline";
 
 export const MAX_SECTION_NUMBER = 9;
 
@@ -20,11 +20,10 @@ const COMMON_TIME_SIGNATURES: readonly (readonly [number, number])[] = [
   [12, 8],
 ];
 
-export const timeKeyOf = (section: Pick<Section, "beatsPerBar" | "beatUnit">) => `${section.beatsPerBar}/${section.beatUnit ?? 4}`;
 
 export function timeOptions(current: Pick<Section, "beatsPerBar" | "beatUnit">): Option<string>[] {
-  const keys = COMMON_TIME_SIGNATURES.map(([beatsPerBar, beatUnit]) => timeKeyOf({ beatsPerBar, beatUnit }));
-  const picked = timeKeyOf(current);
+  const keys = COMMON_TIME_SIGNATURES.map(([beatsPerBar, beatUnit]) => timeSignatureOf({ beatsPerBar, beatUnit }));
+  const picked = timeSignatureOf(current);
   return (keys.includes(picked) ? keys : [picked, ...keys]).map((key) => ({ value: key, label: key }));
 }
 

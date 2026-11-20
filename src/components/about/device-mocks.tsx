@@ -7,14 +7,12 @@ import { Icon } from "@/components/ui/icon";
 import { Colors, Fonts } from "@/constants/theme";
 import { DEMO_SONGS, type DemoFrame } from "@/lib/demo-playback";
 import { shortTitleOf } from "@/sync/section-short";
-import { letterAfterNumber, type Section } from "@/sync/timeline";
+import { sectionTitleOf } from "@/sync/timeline";
 import { accentPalettes } from "@/theme/accents";
 
 import { demoActions, useDemoPlayback } from "./use-demo-playback";
 
 const screen = { ...Colors.dark, ...accentPalettes.red.dark };
-
-const titleOf = (section: Section) => `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
 
 function usePulse(frame: DemoFrame, peak: number) {
   const still = useReducedMotion();
@@ -112,10 +110,10 @@ export function PlayScreenMock({ width = 280 }: { width?: number }) {
         <View style={{ gap: 2 * s }}>
           <Text numberOfLines={1} style={[styles.screenCaption, { fontSize: 12 * s, lineHeight: 16 * s }]}>{`${frame.song.title} · ${frame.song.bpm} BPM · 4/4`}</Text>
           <Text numberOfLines={1} style={[styles.screenTitle, { fontSize: 28 * s, lineHeight: 34 * s }]}>
-            {live ? titleOf(current) : "Ready to start"}
+            {live ? sectionTitleOf(current) : "Ready to start"}
           </Text>
           <Text numberOfLines={1} style={[styles.screenCaption, { fontSize: 13 * s, lineHeight: 18 * s }]}>
-            {frame.jumpingTo !== null ? `Jumping to ${titleOf(sections[frame.jumpingTo])} at the bar line` : live ? (next ? `Next: ${titleOf(next)}` : "Last Section") : `From ${titleOf(sections[0])}`}
+            {frame.jumpingTo !== null ? `Jumping to ${sectionTitleOf(sections[frame.jumpingTo])} at the bar line` : live ? (next ? `Next: ${sectionTitleOf(next)}` : "Last Section") : `From ${sectionTitleOf(sections[0])}`}
           </Text>
         </View>
         <View style={[styles.center, { gap: 12 * s }]} aria-live="polite">
@@ -130,7 +128,7 @@ export function PlayScreenMock({ width = 280 }: { width?: number }) {
               <Pressable
                 key={index}
                 role="button"
-                aria-label={live ? `Jump to ${titleOf(section)}` : `Start from ${titleOf(section)}`}
+                aria-label={live ? `Jump to ${sectionTitleOf(section)}` : `Start from ${sectionTitleOf(section)}`}
                 hitSlop={6}
                 testID={`demo-section-${index}`}
                 disabled={stopping}

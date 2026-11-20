@@ -83,6 +83,9 @@ export type VoiceCue = {
 
 export const letterAfterNumber = (section: Pick<Section, "number" | "letter">) => (section.number === undefined ? "" : (section.letter ?? ""));
 
+export const sectionTitleOf = (section: Pick<Section, "sectionType" | "number" | "letter">) =>
+  `${section.sectionType}${section.number ? ` ${section.number}${letterAfterNumber(section)}` : ""}`;
+
 export type Lead = {
   cue: VoiceCue | null;
   barsLeft: number;

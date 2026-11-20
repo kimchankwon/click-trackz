@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { beatGroupSize, beatsBetween, MAX_SPOKEN_COUNT, offbeatsOf, playbackEndsAt, subdivisionOf, timeSignatureOf, type Song } from "./timeline";
+import { beatGroupSize, beatsBetween, MAX_SPOKEN_COUNT, offbeatsOf, playbackEndsAt, sectionTitleOf, subdivisionOf, timeSignatureOf, type Song } from "./timeline";
 
 const intro = { sectionType: "Intro", bars: 1, beatsPerBar: 4, bpm: 120 };
 
@@ -318,5 +318,14 @@ describe("Subdivision", () => {
     const plain = beatsBetween(waltz, { startsAt: 0, startSection: 0 }, 0, 60_000);
     expect(beatsBetween({ ...waltz, subdivision: 2 }, { startsAt: 0, startSection: 0 }, 0, 60_000)).toEqual(plain);
     expect(plain.flatMap((beat) => [beat.accent ? `${beat.beatInBar}!` : String(beat.beatInBar), ...offbeatsOf(beat, 2).map(() => ".")]).join(" ")).toBe("1! . 2 . 3 .");
+  });
+});
+
+describe("sectionTitleOf", () => {
+  it("adds the number, and the letter only after a number", () => {
+    expect(sectionTitleOf({ sectionType: "Chorus" })).toBe("Chorus");
+    expect(sectionTitleOf({ sectionType: "Verse", number: 2 })).toBe("Verse 2");
+    expect(sectionTitleOf({ sectionType: "Verse", number: 2, letter: "B" })).toBe("Verse 2B");
+    expect(sectionTitleOf({ sectionType: "Verse", letter: "B" })).toBe("Verse");
   });
 });

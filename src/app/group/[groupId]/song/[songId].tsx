@@ -37,8 +37,8 @@ import { insertAt, newSectionAfter } from "@/sync/new-section";
 import { commonBpm, DEFAULT_BPM, markOwnTempos, withSongTempo } from "@/sync/song-tempo";
 import { markOwnTimes, sameTime, startingSongTime, withSongTime, type SongTimeSignature, type TimeSignature } from "@/sync/song-time";
 import { newTimeChange } from "@/sync/time-changes";
-import { MAX_SECTION_NUMBER, timeKeyOf, timeOfKey, timeOptions } from "@/lib/section-options";
-import { CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
+import { MAX_SECTION_NUMBER, timeOfKey, timeOptions } from "@/lib/section-options";
+import { CUE_LEAD_BARS, MAX_BARS, MAX_PLAYS, playsOf, SUBDIVISIONS, timeSignatureOf, type Section, type SectionLetter, type TimeChange } from "@/sync/timeline";
 import { useGuestStaysWhileEditing } from "@/presence/use-presence";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -82,7 +82,7 @@ function TimeSignatureField({ section, testID, onChange }: { section: TimeSignat
         testID={testID}
         menuMinWidth={MENU_MIN_WIDTH}
         options={timeOptions(section)}
-        value={timeKeyOf(section)}
+        value={timeSignatureOf(section)}
         onChange={(key) => onChange(timeOfKey(key))}
       />
     </LabeledField>
@@ -223,12 +223,12 @@ function SectionRow({
             testID={`section-${index}-time`}
             muted={!ownTime}
             menuMinWidth={MENU_MIN_WIDTH}
-            options={[{ value: FOLLOW_SONG, label: `Song (${timeKeyOf(songTime)})` }, ...timeOptions(section)]}
-            value={ownTime ? timeKeyOf(section) : FOLLOW_SONG}
+            options={[{ value: FOLLOW_SONG, label: `Song (${timeSignatureOf(songTime)})` }, ...timeOptions(section)]}
+            value={ownTime ? timeSignatureOf(section) : FOLLOW_SONG}
             onChange={followTime}
             shown={
               <ThemedText themeColor={ownTime ? "text" : "textSecondary"} style={styles.typeText} numberOfLines={1}>
-                {timeKeyOf(ownTime ? section : songTime)}
+                {timeSignatureOf(ownTime ? section : songTime)}
               </ThemedText>
             }
           />
