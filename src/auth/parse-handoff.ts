@@ -1,4 +1,4 @@
-export type StoredHandoff = { token: string };
+type StoredHandoff = { token: string };
 
 export function parseHandoff(json: string | null): StoredHandoff | null {
   if (json === null) return null;

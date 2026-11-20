@@ -1,4 +1,4 @@
-export type OrderStep<T> = { item: T; at: number };
+type OrderStep<T> = { item: T; at: number };
 
 export function neighbourSong<T>(order: readonly T[], current: T | null, by: -1 | 1, at: number | null = null): OrderStep<T> | null {
   if (order.length === 0) return null;

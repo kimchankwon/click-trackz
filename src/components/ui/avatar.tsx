@@ -20,7 +20,7 @@ function avatarColorsFor(name: string, scheme: "light" | "dark", position?: numb
   return { background, text };
 }
 
-export type AvatarColors = { background: string; text: string };
+type AvatarColors = { background: string; text: string };
 
 export function Avatar({ name, size = 40, position, colors: chosen }: { name: string; size?: number; position?: number; colors?: AvatarColors }) {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
