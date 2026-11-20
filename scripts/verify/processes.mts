@@ -196,16 +196,24 @@ export async function run(
   name: string,
   command: string,
   args: string[],
-  options: { logFile: string; env?: NodeJS.ProcessEnv; cwd?: string; timeoutMs: number },
+  options: { logFile: string; env?: NodeJS.ProcessEnv; cwd?: string; timeoutMs: number; abortWhen?: () => boolean },
 ) {
   const started = start(name, command, args, options);
-  let timer: NodeJS.Timeout | undefined;
-  const timedOut = new Promise<number>((resolve) => {
-    timer = setTimeout(() => void stop(name).then(() => resolve(124)), options.timeoutMs);
-  });
-  const code = await Promise.race([started.exited, timedOut]);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    void stop(name);
+  }, options.timeoutMs);
+  const { abortWhen } = options;
+  const watcher = abortWhen
+    ? setInterval(() => {
+        if (abortWhen()) void stop(name);
+      }, 2000)
+    : undefined;
+  const code = await started.exited;
   clearTimeout(timer);
-  return code;
+  clearInterval(watcher);
+  return timedOut ? 124 : code;
 }
 
 export async function waitFor(what: string, check: () => Promise<boolean>, timeoutMs: number) {

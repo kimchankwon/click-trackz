@@ -112,10 +112,10 @@ If the base commit has no `scripts/verify/`, give the base worktree the harness 
 
 - Maestro on iOS cannot see the deeper sections of the long About page, so the iOS About flow scrolls by two fixed swipes and its screenshot frames a different part of the page than web's.
 - Maestro's iOS driver can be slow to start right after a long build while the machine is busy, so the driver start timeout is raised to 240 seconds.
+- Maestro's iOS driver sometimes crashes with `Exception in thread "main"` (for example `kAXErrorInvalidUIElement`) and then hangs. verify stops the flow as soon as the log shows it, runs the flow once more, and prints that it did. An assertion failure is never retried. A flow that hangs for another reason fails as "timed out after 8 minutes".
 - `.verify/convex/` and `.verify/maestro/` stay after a run for debugging and are wiped by the next run.
-
-- The Group join code and the times in Activity differ every run, so screenshots of the Group screen are not pixel-identical between runs.
-- Adding an npm script or editing `.gitignore` changes the native fingerprint, because `@expo/fingerprint` hashes both. That costs one local rebuild here, and it also changes the runtime version that EAS Update matches against.
+- The Group join code and the times in Activity differ every run, so screenshots of the Group screen are not pixel-identical between runs. The About scroll position, the animated beat ring and the ping time also vary.
+- `fingerprint.config.js` keeps npm scripts and `.gitignore` out of the native fingerprint, on top of Expo's default skips, so editing them never forces a rebuild or a new runtime version. Changing `fingerprint.config.js` itself does change the fingerprint once.
 
 ## Decisions
 

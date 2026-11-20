@@ -294,10 +294,12 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
     const shot = path.join(shotsDir, flow.screen);
     const log = path.join(logsDir, `ios-${flow.id}.log`);
     await timed(steps, { id: flow.id, kind: "flow", platform: "ios", log }, async () => {
-      const code = await runMaestroFlow({ id: flow.id, udid, shot, vars, env, logFile: log });
+      const { code, retried } = await runMaestroFlow({ id: flow.id, udid, shot, vars, env, logFile: log });
+      if (retried) say("    Maestro's iOS driver crashed, so the flow ran once more");
       if (servedBeforeFirstFlow !== null && bundlesServed() <= servedBeforeFirstFlow)
         throw new Error(`the app did not load its bundle from Metro on port ${ports.metro}, so it may be running other code; see ${relative(metroLog)}`);
       servedBeforeFirstFlow = null;
+      if (code === 124) throw new Error(`maestro timed out after 8 minutes; log: ${relative(log)}`);
       if (code !== 0) throw new Error(`maestro exited ${code}; log: ${relative(log)}`);
       if (!existsSync(`${shot}.png`)) throw new Error(`flow passed but wrote no screenshot at ${relative(shot)}.png`);
     });
