@@ -57,7 +57,9 @@ function codeRabbitActivity(pr) {
   const reviews = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/pulls/${pr}/reviews`])).flat();
   const head = gh(["pr", "view", String(pr), "--json", "headRefOid", "-q", ".headRefOid"]).trim();
   const ours = reviews.filter((r) => isCodeRabbit(r.user?.login));
-  const reviewedHead = ours.some((r) => r.commit_id === head);
+  const checkRuns = JSON.parse(gh(["api", `repos/${owner}/${name}/commits/${head}/check-runs`])).check_runs;
+  const checkPassed = checkRuns.some((run) => run.app?.slug === "coderabbitai" && run.conclusion === "success");
+  const reviewedHead = checkPassed || ours.some((r) => r.commit_id === head);
   const draftSkipped = !reviewedHead && comments.some((c) => isCodeRabbit(c.user?.login) && /Draft PR not reviewed/i.test(c.body));
   return { head, reviewedHead, draftSkipped, fileLimit: fileLimit(comments, ours), rateLimit: rateLimit(comments, ours) };
 }
