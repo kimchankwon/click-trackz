@@ -73,6 +73,8 @@ describe("route files", () => {
     expect(await rulesHit("src/app/probe.tsx", "export default function Screen() { return null; }\n")).toEqual([]);
     expect(await rulesHit("src/app/probe.tsx", "function Screen() { return null; }\nexport default Screen;\n")).toEqual([]);
     expect(await rulesHit("src/app/probe.tsx", "const Screen = () => null;\nexport default Screen;\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "function Screen() { return null; }\nexport { Screen as default };\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "function Extra() { return null; }\nfunction Screen() { return <Extra />; }\nexport { Screen as default };\n")).toContain("house/route-only-screen");
     expect(await rulesHit("src/app/probe.tsx", "export function ErrorBoundary() { return null; }\nexport default function Screen() { return null; }\n")).toEqual([]);
     expect(await rulesHit("src/app/probe.tsx", "function ErrorBoundary() { return null; }\nexport { ErrorBoundary };\nexport default function Screen() { return null; }\n")).toEqual([]);
     expect(await rulesHit("src/app/probe.tsx", "function ErrorBoundary() { return null; }\nexport default function Screen() { return null; }\n")).toContain("house/route-only-screen");
