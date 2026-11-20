@@ -60,7 +60,7 @@ module.exports = defineConfig([
   },
   {
     files: ["src/**/*.tsx", "convex/**/*.ts"],
-    ignores: [...testFiles, "src/components/about/**"],
+    ignores: testFiles,
     rules: { "house/glossary-terms": "error" },
   },
   {
