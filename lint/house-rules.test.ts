@@ -1,5 +1,11 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
+
+const ignoredProbe = `${__dirname}/../design-shots/lint-probe.ts`;
+mkdirSync(`${__dirname}/../design-shots`, { recursive: true });
+writeFileSync(ignoredProbe, "// generated\n");
+afterAll(() => rmSync(ignoredProbe, { force: true }));
 
 const eslint = new ESLint({
   cwd: `${__dirname}/..`,
@@ -62,5 +68,12 @@ describe("route files", () => {
     const arrow = "const Extra = () => null;\nexport default function Screen() { return <Extra />; }\n";
     expect(await rulesHit("src/app/probe.tsx", arrow)).toContain("no-restricted-syntax");
     expect(await rulesHit("src/app/probe.tsx", "export default function Screen() { return null; }\n")).toEqual([]);
+  });
+});
+
+describe("gitignored files", () => {
+  it("are not linted, so generated files like expo-env.d.ts never fail lint", async () => {
+    expect(await eslint.isPathIgnored("design-shots/lint-probe.ts")).toBe(true);
+    expect(await eslint.isPathIgnored("src/lib/device-clock.ts")).toBe(false);
   });
 });

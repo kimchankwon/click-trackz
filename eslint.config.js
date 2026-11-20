@@ -1,4 +1,5 @@
-const { defineConfig } = require("eslint/config");
+const { execFileSync } = require("node:child_process");
+const { defineConfig, globalIgnores } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
 const tsPlugin = require("@typescript-eslint/eslint-plugin");
 const tsParser = require("@typescript-eslint/parser");
@@ -13,6 +14,17 @@ const routeFilesWithExtraComponents = [
   "src/app/group/[[]groupId]/song/[[]songId].tsx",
   "src/app/group/[[]groupId]/setlist/[[]setlistId].tsx",
 ];
+
+const gitIgnored = () => {
+  try {
+    return execFileSync("git", ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"], { cwd: __dirname, encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean)
+      .map((entry) => (entry.endsWith("/") ? `${entry}**` : entry));
+  } catch {
+    return [];
+  }
+};
 
 const clockMessage =
   "Beat timing comes from the Convex server clock (AGENTS.md). Use serverNow or useServerNow for anything compared with server time; for device-local timing call wallClockNow or monotonicNow from @/lib/device-clock.";
@@ -88,7 +100,5 @@ module.exports = defineConfig([
     files: ["*.config.js", "lint/**/*.js"],
     languageOptions: { globals: { __dirname: "readonly", require: "readonly", module: "writable", process: "readonly" } },
   },
-  {
-    ignores: ["dist/**", "convex/_generated/**", ".expo/**"],
-  },
+  globalIgnores(["dist/**", "convex/_generated/**", ".expo/**", ...gitIgnored()]),
 ]);
