@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-const CODERABBIT = "coderabbitai";
+const CODERABBIT_LOGINS = new Set(["coderabbitai", "coderabbitai[bot]"]);
 const DEFAULT_WAIT_SECONDS = 60 * 60;
 
 function gh(args) {
@@ -41,7 +41,7 @@ function reviewThreads(pr) {
 }
 
 function isCodeRabbit(login) {
-  return typeof login === "string" && login.startsWith(CODERABBIT);
+  return CODERABBIT_LOGINS.has(login);
 }
 
 function parseWaitSeconds(body) {
