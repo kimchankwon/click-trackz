@@ -51,17 +51,33 @@ function parseWaitSeconds(body) {
   return (minutes ? Number(minutes[1]) * 60 : 0) + (seconds ? Number(seconds[1]) : 0);
 }
 
-function rateLimit(pr) {
+function codeRabbitActivity(pr) {
   const { owner, name } = repoParts();
   const comments = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/issues/${pr}/comments`])).flat();
   const reviews = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/pulls/${pr}/reviews`])).flat();
+  const head = gh(["pr", "view", String(pr), "--json", "headRefOid", "-q", ".headRefOid"]).trim();
+  const ours = reviews.filter((r) => isCodeRabbit(r.user?.login));
+  const reviewedHead = ours.some((r) => r.commit_id === head);
+  const draftSkipped = !reviewedHead && comments.some((c) => isCodeRabbit(c.user?.login) && /Draft PR not reviewed/i.test(c.body));
+  return { head, reviewedHead, draftSkipped, fileLimit: fileLimit(comments, ours), rateLimit: rateLimit(comments, ours) };
+}
+
+const FILE_LIMIT = /contains (\d+) files, which is \d+ over the limit of (\d+)/i;
+
+function fileLimit(comments, reviews) {
+  const notice = comments.filter((c) => isCodeRabbit(c.user?.login) && FILE_LIMIT.test(c.body)).at(-1);
+  if (!notice || reviews.some((r) => Date.parse(r.submitted_at) > Date.parse(notice.updated_at))) return null;
+  const [, files, limit] = FILE_LIMIT.exec(notice.body);
+  return { url: notice.html_url, files: Number(files), limit: Number(limit) };
+}
+
+function rateLimit(comments, reviews) {
   const notices = comments
-    .filter((c) => isCodeRabbit(c.user?.login) && /rate limit|review limit/i.test(c.body))
+    .filter((c) => isCodeRabbit(c.user?.login) && /rate limit|review limit/i.test(c.body) && !FILE_LIMIT.test(c.body))
     .map((c) => ({ at: Date.parse(c.updated_at), body: c.body, url: c.html_url }));
   if (notices.length === 0) return null;
   const latest = notices.reduce((a, b) => (b.at > a.at ? b : a));
-  const reviewedSince = reviews.some((r) => isCodeRabbit(r.user?.login) && Date.parse(r.submitted_at) > latest.at);
-  if (reviewedSince) return null;
+  if (reviews.some((r) => Date.parse(r.submitted_at) > latest.at)) return null;
   const readyAt = latest.at + parseWaitSeconds(latest.body) * 1000;
   return { url: latest.url, readyAt: new Date(readyAt).toISOString(), waitSeconds: Math.max(0, Math.ceil((readyAt - Date.now()) / 1000)) };
 }
@@ -82,7 +98,7 @@ function status(pr) {
       };
     });
   const checks = JSON.parse(gh(["pr", "checks", String(pr), "--json", "name,state,link"]).trim() || "[]");
-  return { pr, checks, unresolvedCodeRabbitThreads: open, rateLimit: rateLimit(pr) };
+  return { pr, checks, unresolvedCodeRabbitThreads: open, codeRabbit: codeRabbitActivity(pr) };
 }
 
 function resolve(threadId) {
