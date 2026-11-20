@@ -56,7 +56,7 @@ function codeRabbitActivity(pr) {
   const comments = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/issues/${pr}/comments`])).flat();
   const reviews = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/pulls/${pr}/reviews`])).flat();
   const head = gh(["pr", "view", String(pr), "--json", "headRefOid", "-q", ".headRefOid"]).trim();
-  const ours = reviews.filter((r) => isCodeRabbit(r.user?.login));
+  const ours = reviews.filter((r) => isCodeRabbit(r.user?.login) && r.body.trim() !== "");
   const passedRuns = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/commits/${head}/check-runs`]))
     .flatMap((page) => page.check_runs)
     .filter((run) => run.app?.slug === "coderabbitai" && run.conclusion === "success" && new RegExp(`/pull/${pr}(\\?|$)`).test(run.details_url ?? ""));
