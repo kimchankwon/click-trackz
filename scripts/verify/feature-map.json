@@ -28,7 +28,7 @@
   "core": [
     { "rule": "Navigation", "globs": ["src/app/_layout.tsx", "src/app/**/_layout.tsx", "src/lib/back-or.ts"] },
     { "rule": "Auth", "globs": ["src/auth/**", "convex/auth.ts", "convex/auth.config.ts", "convex/devLogin.ts", "convex/devLogin.test.ts", "convex/http.ts"] },
-    { "rule": "Data layer", "globs": ["src/lib/convex.ts", "convex/schema.ts", "convex/access.ts", "convex/_generated/**", "src/lib/device-*.ts"] },
+    { "rule": "Data layer", "globs": ["src/lib/convex.ts", "convex/schema.ts", "convex/access.ts", "convex/_generated/**", "src/lib/device-*.ts", "src/lib/is-record*.ts"] },
     {
       "rule": "App shell",
       "globs": [
@@ -37,6 +37,7 @@
         "src/lib/stale-app*.ts",
         "src/lib/use-stale-app-recovery.ts",
         "src/lib/use-update-available*.ts",
+        "src/lib/use-newer-version-live*.ts",
         "src/lib/restart-hold*.ts",
         "src/lib/error-text*.ts",
         "src/lib/use-connected.ts",
