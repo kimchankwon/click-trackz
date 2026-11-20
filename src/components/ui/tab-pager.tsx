@@ -11,7 +11,7 @@ const EDGE_FOLLOW = 0.3;
 const SETTLE = { duration: 260, easing: Easing.out(Easing.cubic) };
 const CLICK_AFTER_SWIPE_MS = 300;
 
-export type TabPage<T extends string> = { key: T; content: ReactNode };
+type TabPage<T extends string> = { key: T; content: ReactNode };
 
 export function TabPager<T extends string>({ pages, active, onChange }: { pages: readonly TabPage<T>[]; active: T; onChange: (tab: T) => void }) {
   const index = Math.max(0, pages.findIndex((page) => page.key === active));

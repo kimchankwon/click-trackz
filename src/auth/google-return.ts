@@ -1,8 +1,8 @@
 export type PendingGoogleSignIn = { startedAt: number; retried: boolean; codeClaimed?: boolean };
 
-export type GoogleReturnAction = "none" | "clear" | "retry" | "explain";
+type GoogleReturnAction = "none" | "clear" | "retry" | "explain";
 
-export type ReturnedCodeClaim = { exchange: true; pending: PendingGoogleSignIn } | { exchange: false };
+type ReturnedCodeClaim = { exchange: true; pending: PendingGoogleSignIn } | { exchange: false };
 
 const PENDING_FOR_MS = 10 * 60_000;
 

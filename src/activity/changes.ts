@@ -17,7 +17,7 @@ export type ChangedSong = {
 
 type SetlistEntry = { songId: string; key?: string; leader?: string };
 
-export type ChangedSetlist = { name: string; entries: readonly SetlistEntry[] };
+type ChangedSetlist = { name: string; entries: readonly SetlistEntry[] };
 
 export const MAX_DETAILS = 20;
 

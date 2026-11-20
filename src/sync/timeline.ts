@@ -151,7 +151,7 @@ type Segment = {
   endsAt: number;
 };
 
-export type Meter = { beatsPerBar: number; beatUnit: number; beatMs: number };
+type Meter = { beatsPerBar: number; beatUnit: number; beatMs: number };
 
 const beatMsOf = (section: Section) => 60_000 / section.bpm;
 
@@ -416,7 +416,7 @@ export function beatsBetween(song: Song, playback: Playback, fromMs: number, toM
   return beats.filter((b) => b.at >= fromMs && b.at < endsAt);
 }
 
-export type CommandTiming = {
+type CommandTiming = {
   nowMs: number;
   minLeadMs: number;
   mode: "nextBar" | "endOfSection";
@@ -444,7 +444,7 @@ export function playbackEndsAt(song: Song, playback: Playback): number {
   return Math.min(songEndOf(barsOfPlayback(song, playback)) ?? playback.startsAt, playback.stopsAt ?? Infinity);
 }
 
-export type SectionPass = { sectionIndex: number; pass: number };
+type SectionPass = { sectionIndex: number; pass: number };
 
 export function sectionPassBefore(song: Song, playback: Playback, atMs: number): SectionPass | null {
   const bars = barsOfPlayback(song, playback, atMs, atMs);

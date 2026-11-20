@@ -17,7 +17,7 @@ const deviceEpoch = epochNow();
 export const deviceNow = () => deviceEpoch + clientNow();
 const isHidden = () => AppState.currentState !== "active";
 
-export type ServerClock = {
+type ServerClock = {
   estimate: ClockEstimate | null;
   serverNow: () => number | null;
 };
