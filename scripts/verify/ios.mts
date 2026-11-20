@@ -107,6 +107,8 @@ export async function ensureBuild({ env, logsDir, log }: { env: NodeJS.ProcessEn
   if (!workspace) throw new Error("expo prebuild did not create an .xcworkspace in ios/");
   const scheme = workspace.replace(/\.xcworkspace$/, "");
   const derivedData = path.join(stateDir, "DerivedData");
+  const products = path.join(derivedData, "Build", "Products", "Debug-iphonesimulator");
+  rmSync(products, { recursive: true, force: true });
   const xcodebuild = await run(
     "xcodebuild",
     "xcodebuild",
@@ -128,9 +130,9 @@ export async function ensureBuild({ env, logsDir, log }: { env: NodeJS.ProcessEn
     { logFile: path.join(logsDir, "xcodebuild.log"), env, timeoutMs: 60 * 60_000 },
   );
   if (xcodebuild !== 0) throw new Error(`xcodebuild exited ${xcodebuild}; see ${path.join(logsDir, "xcodebuild.log")}`);
-  const products = path.join(derivedData, "Build", "Products", "Debug-iphonesimulator");
   const built = readdirSync(products).find((entry) => entry.endsWith(".app"));
   if (!built) throw new Error(`xcodebuild produced no .app in ${products}`);
+  mkdirSync(path.dirname(keyed), { recursive: true });
   for (const entry of readdirSync(path.dirname(keyed))) {
     const owner = Number(entry.match(/\.partial-(\d+)$/)?.[1]);
     if (owner && !isAlive(owner)) rmSync(path.join(path.dirname(keyed), entry), { recursive: true, force: true });
