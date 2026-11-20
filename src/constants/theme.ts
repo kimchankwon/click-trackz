@@ -111,7 +111,6 @@ export const ControlHeight = {
   large: 56,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 640;
 
 export const MaxFontScale = 1.35;

@@ -41,5 +41,3 @@ export function assignableRoles(caller: Role): Role[] {
 }
 
 export const canAssignRole = (caller: Role, current: Role, next: Role) => outranks(caller, current) && assignableRoles(caller).includes(next);
-
-export const isRole = (value: unknown): value is Role => typeof value === "string" && (ROLES_LOW_TO_HIGH as readonly string[]).includes(value);
