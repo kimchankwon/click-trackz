@@ -1,4 +1,4 @@
-const PRAGMA = /^\s*(@ts-(expect-error|ignore|nocheck|check)|@vitest-environment|prettier-ignore|@license|@preserve|istanbul ignore|c8 ignore|#__PURE__|@__PURE__)/;
+const PRAGMA = /^\s*(@ts-(expect-error|ignore|nocheck|check)|@vitest-environment|prettier-ignore|@license|@preserve|SPDX-License-Identifier:|@generated\b|istanbul ignore|c8 ignore|#__PURE__|@__PURE__)/;
 const TRIPLE_SLASH = /^\/\s*<(reference|amd-module)\b/;
 const DISABLE = /^\s*eslint-disable/;
 
@@ -40,6 +40,8 @@ const AVOIDED_WORDS = [
   [/\bpre-?roll\b/i, "Count-in or Cue lead"],
 ];
 
+const IDENTIFIER_ATTRIBUTES = new Set(["testID", "key", "nativeID", "id", "name", "href", "src", "role", "accessibilityRole", "type"]);
+
 const glossaryTerms = {
   meta: {
     type: "suggestion",
@@ -57,7 +59,7 @@ const glossaryTerms = {
     const isPeopleFacing = (node) => {
       const parent = node.parent;
       if (!parent) return false;
-      if (parent.type === "JSXAttribute") return parent.name.name !== "testID" && parent.name.name !== "key";
+      if (parent.type === "JSXAttribute") return !IDENTIFIER_ATTRIBUTES.has(parent.name.name);
       if (parent.type === "JSXExpressionContainer") return parent.parent.type === "JSXElement" || parent.parent.type === "JSXFragment" || isPeopleFacing(parent);
       if (parent.type === "NewExpression" && parent.callee.name === "ConvexError") return true;
       if (parent.type === "CallExpression" && parent.callee.type === "Identifier" && /^(showToast|toast)$/.test(parent.callee.name)) return true;
@@ -72,4 +74,44 @@ const glossaryTerms = {
   },
 };
 
-module.exports = { meta: { name: "house" }, rules: { "no-comments": noComments, "glossary-terms": glossaryTerms } };
+const ROUTE_EXPORTS = new Set(["ErrorBoundary"]);
+
+const isComponentName = (name) => /^[A-Z]/.test(name);
+
+const isFunction = (node) => node?.type === "ArrowFunctionExpression" || node?.type === "FunctionExpression";
+
+const routeOnlyScreen = {
+  meta: {
+    type: "problem",
+    docs: { description: "AGENTS.md: a route file holds only its screen; other components live in src/components." },
+    schema: [],
+    messages: { extra: "A route file holds only its screen (AGENTS.md). Move {{name}} to src/components." },
+  },
+  create(context) {
+    return {
+      Program(program) {
+        const exportDefault = program.body.find((node) => node.type === "ExportDefaultDeclaration");
+        const screen = exportDefault?.declaration.type === "Identifier" ? exportDefault.declaration.name : null;
+        const report = (id, exported) => {
+          if (id.name === screen || (exported && ROUTE_EXPORTS.has(id.name))) return;
+          context.report({ node: id, messageId: "extra", data: { name: id.name } });
+        };
+        for (const statement of program.body) {
+          const exported = statement.type === "ExportNamedDeclaration";
+          const declaration = exported ? statement.declaration : statement;
+          if (declaration?.type === "FunctionDeclaration" && declaration.id && isComponentName(declaration.id.name)) report(declaration.id, exported);
+          if (declaration?.type === "VariableDeclaration") {
+            for (const declarator of declaration.declarations) {
+              if (declarator.id.type === "Identifier" && isComponentName(declarator.id.name) && isFunction(declarator.init)) report(declarator.id, exported);
+            }
+          }
+        }
+      },
+    };
+  },
+};
+
+module.exports = {
+  meta: { name: "house" },
+  rules: { "no-comments": noComments, "glossary-terms": glossaryTerms, "route-only-screen": routeOnlyScreen },
+};

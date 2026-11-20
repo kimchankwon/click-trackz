@@ -32,6 +32,8 @@ describe("house/no-comments", () => {
     expect(await rulesHit("src/lib/probe.ts", "export const a = 1;\n// explains a\n")).toContain("house/no-comments");
     expect(await rulesHit("src/lib/probe.ts", "export const a = 1;\n// eslint is slow, so this is cached\n")).toContain("house/no-comments");
     expect(await rulesHit("src/lib/probe.ts", "/// <reference types=\"expo/types\" />\n// @ts-expect-error\nexport const a: string = 1;\n")).not.toContain("house/no-comments");
+    expect(await rulesHit("src/lib/probe.ts", "// SPDX-License-Identifier: MIT\n/* @generated */\nexport const a = 1;\n")).not.toContain("house/no-comments");
+    expect(await rulesHit("src/lib/probe.ts", "// generated from the schema, do not edit\nexport const a = 1;\n")).toContain("house/no-comments");
   });
 
   it("wants a reason after an eslint-disable", async () => {
@@ -48,6 +50,7 @@ describe("house/glossary-terms", () => {
     expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text>{\"Invite the band\"}</Text>;\n")).toContain("house/glossary-terms");
     expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text accessibilityLabel={`Remove user ${1}`} />;\n")).toContain("house/glossary-terms");
     expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text testID=\"user-row\">Members</Text>;\n")).not.toContain("house/glossary-terms");
+    expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text nativeID=\"user-name\">Members</Text>;\n")).not.toContain("house/glossary-terms");
     expect(await rulesHit("convex/probe.ts", "import { ConvexError } from \"convex/values\";\nexport const f = () => { throw new ConvexError(\"Only musicians can join\"); };\n")).toContain("house/glossary-terms");
   });
 });
@@ -64,10 +67,14 @@ describe("client clock reads", () => {
 describe("route files", () => {
   it("holds only the screen", async () => {
     const extra = "function Extra() { return null; }\nexport default function Screen() { return <Extra />; }\n";
-    expect(await rulesHit("src/app/probe.tsx", extra)).toContain("no-restricted-syntax");
+    expect(await rulesHit("src/app/probe.tsx", extra)).toContain("house/route-only-screen");
     const arrow = "const Extra = () => null;\nexport default function Screen() { return <Extra />; }\n";
-    expect(await rulesHit("src/app/probe.tsx", arrow)).toContain("no-restricted-syntax");
+    expect(await rulesHit("src/app/probe.tsx", arrow)).toContain("house/route-only-screen");
     expect(await rulesHit("src/app/probe.tsx", "export default function Screen() { return null; }\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "function Screen() { return null; }\nexport default Screen;\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "const Screen = () => null;\nexport default Screen;\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "export function ErrorBoundary() { return null; }\nexport default function Screen() { return null; }\n")).toEqual([]);
+    expect(await rulesHit("src/app/probe.tsx", "function Extra() { return null; }\nfunction Screen() { return <Extra />; }\nexport default Screen;\n")).toContain("house/route-only-screen");
   });
 });
 
