@@ -13,13 +13,23 @@ A PR is ready for a human only when all three hold:
 
 Never merge, never deploy, never run EAS builds or submits, never push to Convex production.
 
-## Open the PR as a draft
+## Open the PR ready for review
 
-Push the branch, then `gh pr create --draft --base main` with a body that holds the change report below. Dependency upgrades and `.github/` workflow changes go in their own PRs.
+Push the branch, then `gh pr create --base main` with a body that holds the change report below. Open it ready for review, not as a draft, once CodeRabbit can review it. If a PR is a draft and is ready for CodeRabbit, run `gh pr ready <pr>`. Ready for review means ready for CodeRabbit, not ready for a human; the loop below still decides that. Dependency upgrades and `.github/` workflow changes go in their own PRs.
+
+A PR that an agent proposed (a new feature, enhancement or idea nobody asked for) is still shepherded to green and marked ready, but it is not for auto-merge. Start its body with exactly `Not auto-merge: proposed by agent` and add the `needs-daniel` label (`gh pr create --label needs-daniel`). Follow-up PRs and PRs Daniel asked for need neither.
 
 CodeRabbit skips a PR with more than 100 changed files. Check `git diff --name-only <base>...HEAD | wc -l` before opening. Over 100, split the branch into stacked PRs, each under the limit, the lower one based on `main` and each next one based on the branch below it. CodeRabbit reviews any base branch here.
 
-CodeRabbit also skips drafts (`drafts: false` in `.coderabbit.yaml`). After opening, comment `@coderabbitai review` once.
+`.coderabbit.yaml` turns on automatic review for every base branch and skips drafts (`drafts: false`), so a ready PR is reviewed on its own. If `status` still shows `reviewedHead: false` with no rate limit some minutes after the PR opens, is marked ready or gets a push, comment `@coderabbitai review` once.
+
+Several agents share one CodeRabbit budget of about one review per hour per repo, so only one request may be in flight at a time:
+
+- Request only when `reviewedHead` is false. CodeRabbit does not re-review a commit it already reviewed, and the request wastes the slot.
+- Before requesting, check that no `@coderabbitai review` comment from a person or agent was posted on any PR in the repo in the last hour, and that no CodeRabbit check run is still running on any open PR's head.
+- Post a short comment first saying a request is pending and for which commit, without the command text, so other agents see it.
+- After a rate limit notice, wait for the reset time it gives. Then request on that PR only if its head is still unreviewed; otherwise the slot goes to the next PR in merge order.
+- Go in merge order, bases first, and spread the slots across PRs.
 
 ## The change report
 
@@ -43,8 +53,8 @@ Repeat until the three conditions hold. Each round ends with the verification ga
 3. **Rate limit.** If `status` reports `codeRabbit.rateLimit`, CodeRabbit has not reviewed the latest push. Wait for real until `rateLimit.readyAt` (the script reads the wait from the notice, 60 minutes when it names none): one `sleep` or one scheduled wakeup, not a polling loop. Then comment `@coderabbitai review` on the PR and go back to step 2 once its review lands.
 4. **Verification gate.** After every round of fixes: `npm run verify` (it scopes itself to the diff and prints the tier and the flows it runs), which includes typecheck, lint and vitest. Refresh the after screenshots if a screen changed.
 
-When all three conditions hold, update the description (`gh pr edit <pr> --body-file <file>`) so every section matches the final head, then `gh pr ready <pr>`.
+When all three conditions hold, update the description (`gh pr edit <pr> --body-file <file>`) so every section matches the final head, and report the PR as ready for a human.
 
 ## When stuck
 
-After two honest attempts at the same failure, stop. Put the blocker at the top of the PR description and of any report you were asked to write: what fails, the exact error, what you tried. Leave the PR as a draft.
+After two honest attempts at the same failure, stop. Put the blocker at the top of the PR description and of any report you were asked to write: what fails, the exact error, what you tried. Do not report the PR as ready for a human.
