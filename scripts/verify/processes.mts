@@ -63,11 +63,14 @@ const records = (): Tracked[] =>
         .map((file) => JSON.parse(readFileSync(path.join(pidDir, file), "utf8")) as Tracked)
     : [];
 
+const readRecord = (name: string) => (existsSync(pidFile(name)) ? (JSON.parse(readFileSync(pidFile(name), "utf8")) as Tracked) : null);
+
 export async function stop(name: string) {
-  const file = pidFile(name);
-  if (!existsSync(file)) return;
-  await stopGroup(JSON.parse(readFileSync(file, "utf8")) as Tracked);
-  rmSync(file, { force: true });
+  const record = readRecord(name);
+  if (!record) return;
+  await stopGroup(record);
+  const current = readRecord(name);
+  if (current?.pid === record.pid && current.started === record.started) rmSync(pidFile(name), { force: true });
 }
 
 export async function stopAll() {
