@@ -41,6 +41,7 @@ const AVOIDED_WORDS = [
 ];
 
 const IDENTIFIER_ATTRIBUTES = new Set(["testID", "key", "nativeID", "id", "name", "href", "src", "role", "accessibilityRole", "type"]);
+const COPY_KEYS = new Set(["title", "subtitle", "body", "label", "message", "description", "caption", "hint", "placeholder", "text", "accessibilityLabel"]);
 
 const glossaryTerms = {
   meta: {
@@ -61,6 +62,7 @@ const glossaryTerms = {
       if (!parent) return false;
       if (parent.type === "JSXAttribute") return !IDENTIFIER_ATTRIBUTES.has(parent.name.name);
       if (parent.type === "JSXExpressionContainer") return parent.parent.type === "JSXElement" || parent.parent.type === "JSXFragment" || isPeopleFacing(parent);
+      if (parent.type === "Property" && parent.value === node) return COPY_KEYS.has(parent.key.name ?? parent.key.value);
       if (parent.type === "NewExpression" && parent.callee.name === "ConvexError") return true;
       if (parent.type === "CallExpression" && parent.callee.type === "Identifier" && /^(showToast|toast)$/.test(parent.callee.name)) return true;
       if (parent.type === "TemplateLiteral" || parent.type === "ConditionalExpression" || parent.type === "LogicalExpression") return isPeopleFacing(parent);
