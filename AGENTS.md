@@ -50,7 +50,9 @@ Click Trackz: every Member of a Group hears the same Click, Count and Voice cue 
 
 ## Invariants
 
-- Every instant that decides when a beat sounds comes from the Convex server clock. Never schedule from a client's `Date.now()` alone; use the measured server offset. Offline and Offline play are the exceptions (ADR 0004).
+- Every instant that decides when a beat sounds comes from the Convex server clock. Never schedule from a client's `Date.now()` alone; use the measured server offset. Two things play on the device's own clock instead:
+  - My Library and Offline play (ADR 0004).
+  - The timing test on the Latency nudge and Voice cue offset screens (`src/audio/use-timing-test.ts`). It plays a steady beat on this device alone, outside any Playback, so the Member can tap along or listen to set this device's own offsets. No other device has to land with it, so it never needs the server clock.
 - Beats are never sent over the network. Start, Jump and Stop store a future instant; clients compute beats locally.
 - Admin commands target a future instant, never "now": Start and Jump a bar line, Stop `STOP_LEAD_MS` after it is pressed.
 
