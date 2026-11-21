@@ -9,9 +9,7 @@ const typedFiles = ["**/*.ts", "**/*.tsx", "scripts/**/*.mts"];
 const testFiles = ["**/*.test.ts", "**/*.test.tsx"];
 
 const routeFilesWithExtraComponents = [
-  "src/app/index.tsx",
   "src/app/group/[[]groupId]/index.tsx",
-  "src/app/group/[[]groupId]/setlist/[[]setlistId].tsx",
 ];
 
 const gitIgnored = () => {
@@ -59,7 +57,7 @@ module.exports = defineConfig([
   },
   {
     files: ["src/**/*.tsx", "convex/**/*.ts"],
-    ignores: [...testFiles, "src/components/about/**"],
+    ignores: testFiles,
     rules: { "house/glossary-terms": "error" },
   },
   {

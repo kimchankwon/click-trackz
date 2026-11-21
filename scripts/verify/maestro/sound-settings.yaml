@@ -1,0 +1,8 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: sign-in.yaml
+- tapOn: "Sound"
+- extendedWaitUntil:
+    visible: "Mix"
+    timeout: 15000
+- takeScreenshot: ${SHOT}

@@ -1,0 +1,17 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: sign-in.yaml
+- tapOn: ".*${GROUP_NAME}.*"
+- extendedWaitUntil:
+    visible:
+      id: "tab-songs"
+    timeout: 30000
+- tapOn:
+    id: "tab-songs"
+- tapOn:
+    id: "edit-setlist"
+- extendedWaitUntil:
+    visible: "Edit Setlist"
+    timeout: 30000
+- assertVisible: "This is the Current setlist"
+- takeScreenshot: ${SHOT}
