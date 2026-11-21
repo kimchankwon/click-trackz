@@ -5,7 +5,11 @@ appId: com.kimchankwon.cuetracker
 - extendedWaitUntil:
     visible: "Open|Dev login"
     timeout: 30000
-- runFlow: accept-open-prompt.yaml
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Dev login"
     timeout: 30000
