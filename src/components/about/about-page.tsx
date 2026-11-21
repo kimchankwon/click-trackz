@@ -40,7 +40,7 @@ const FEATURES: readonly { icon: IconName; title: string; body: string }[] = [
   { icon: "vamp", title: "Steer it live", body: "Jump, Repeat or Vamp a Section. Every change lands on a bar line, for everyone at once." },
   { icon: "library", title: "Setlists", body: "Line up the Songs for the night, with each Song's Key and Leader." },
   { icon: "headphones", title: "Stereo split", body: "Click in one ear and Voice cues in the other, for split in-ear monitors." },
-  { icon: "speed", title: "Latency nudge", body: "Line your speaker or headphones up with the rest of the band in a few taps." },
+  { icon: "speed", title: "Latency nudge", body: "Line your speaker or headphones up with the rest of the Group in a few taps." },
   { icon: "group", title: "Roles", body: "Give each Member the Role they need, from following along to running Playback and editing Songs." },
   { icon: "phone", title: "My Library", body: "Your own Songs on your own device, for practising alone with no connection." },
 ];
@@ -89,7 +89,7 @@ function CountBand({ onGetStarted, label }: { onGetStarted: () => void; label: s
           ))}
         </View>
         <ThemedText role="heading" aria-level={2} style={[styles.h2, styles.centered, { color: theme.onAccent }]}>
-          Count the band in together.
+          Count everyone in together.
         </ThemedText>
         <ActionButton large variant="inverse" label={label} testID="about-get-started-bottom" onPress={onGetStarted} />
       </View>
@@ -200,7 +200,7 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
 
       <Section tinted>
         <View style={styles.sectionHead}>
-          <Eyebrow>Everything the band needs</Eyebrow>
+          <Eyebrow>Everything the Group needs</Eyebrow>
           <Heading wide={wide}>From rehearsals to the stage</Heading>
         </View>
         <View style={styles.features}>
