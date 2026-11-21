@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cropRect, maskRects, shapeMask, type HierarchyNode } from "./mask.mts";
+import { cropRect, maskRects, screenPoints, shapeMask, type HierarchyNode } from "./mask.mts";
 
 const node = (bounds: string, id = "", children: HierarchyNode[] = []): HierarchyNode => ({ attributes: { "resource-id": id, bounds }, children });
 
@@ -44,11 +44,14 @@ describe("maskRects", () => {
     expect(maskRects(tree, ["copy-join-code", "stage-member-Admin"], 402).missing).toEqual(["stage-member-Admin"]);
   });
 
-  it("does not count an optional test ID that is off screen as missing", () => {
-    expect(maskRects(tree, ["copy-join-code", { testId: "stage-ping-Admin", optional: true }], 402)).toEqual({
-      rects: [{ x: 10, y: 20, width: 100, height: 20 }],
-      missing: [],
-    });
+  it("grows a padded mask on every side", () => {
+    expect(maskRects(tree, [{ testId: "copy-join-code", pad: 6 }], 402).rects).toEqual([{ x: 4, y: 14, width: 112, height: 32 }]);
+  });
+
+  it("takes the screen width from the outermost element, not one that overflows it", () => {
+    const wide = node("[0,0][0,0]", "", [node("[0,0][402,874]", "", [node("[100,20][130,40]", "copy-join-code"), node("[0,700][804,800]", "carousel")])]);
+    expect(screenPoints(wide)).toBe(402);
+    expect(maskRects(wide, ["copy-join-code"], 1206).rects).toEqual([{ x: 300, y: 60, width: 90, height: 60 }]);
   });
 
   it("finds nothing in a tree without bounds", () => {

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { maskIsOptional, maskTestId, scaleRect, shapeMask, type MaskEntry } from "./mask.mts";
+import { maskTestId, scaleRect, shapeMask, type MaskEntry } from "./mask.mts";
 import type { FeatureMap } from "./plan.mts";
 import { decodePng, encodePng, fillRects, type Rect } from "./png.mts";
 
@@ -110,7 +110,6 @@ const maskBoxes = async (page: Page, mask: readonly MaskEntry[]) => {
   for (const entry of mask) {
     const found = await page.getByTestId(maskTestId(entry)).all();
     const boxes = (await Promise.all(found.map((element) => element.boundingBox()))).filter((box) => box !== null && box.width > 0 && box.height > 0);
-    if (boxes.length === 0 && maskIsOptional(entry)) continue;
     if (boxes.length === 0) throw new Error(`could not mask ${maskTestId(entry)}: no element with that testID is on screen`);
     for (const box of boxes) if (box) rects.push(shapeMask(entry, box, width));
   }

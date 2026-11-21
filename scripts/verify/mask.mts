@@ -1,17 +1,16 @@
 import type { Rect } from "./png.mts";
 
-export type MaskEntry = string | { testId: string; x?: number; width?: number; optional?: boolean };
+export type MaskEntry = string | { testId: string; x?: number; width?: number; pad?: number };
 export type CropEntry = { text: string; top: number; height: number };
 export type HierarchyNode = { attributes?: Record<string, string>; children?: HierarchyNode[] };
 
 export const maskTestId = (entry: MaskEntry) => (typeof entry === "string" ? entry : entry.testId);
 
-export const maskIsOptional = (entry: MaskEntry) => typeof entry !== "string" && entry.optional === true;
-
 export function shapeMask(entry: MaskEntry, element: Rect, screenWidth: number): Rect {
   if (typeof entry === "string") return element;
   const x = entry.x === undefined ? element.x : entry.x < 0 ? screenWidth + entry.x : entry.x;
-  return { x, y: element.y, width: entry.width ?? element.width, height: element.height };
+  const pad = entry.pad ?? 0;
+  return { x: x - pad, y: element.y - pad, width: (entry.width ?? element.width) + 2 * pad, height: element.height + 2 * pad };
 }
 
 export const scaleRect = (rect: Rect, scale: number): Rect => ({ x: rect.x * scale, y: rect.y * scale, width: rect.width * scale, height: rect.height * scale });
@@ -31,26 +30,24 @@ function* walk(node: HierarchyNode): Generator<HierarchyNode> {
 }
 
 export function screenPoints(tree: HierarchyNode) {
-  let width = 0;
   for (const node of walk(tree)) {
     const rect = parseBounds(node.attributes?.bounds);
-    if (rect) width = Math.max(width, rect.x + rect.width);
+    if (rect && rect.width > 0 && rect.height > 0) return rect.x + rect.width;
   }
-  return width;
+  return 0;
 }
 
 export function maskRects(tree: HierarchyNode, entries: readonly MaskEntry[], imageWidth: number) {
-  let screenWidth = 0;
+  const screenWidth = screenPoints(tree);
   const found = new Map<string, Rect[]>();
   const wanted = new Set(entries.map(maskTestId));
   for (const node of walk(tree)) {
     const rect = parseBounds(node.attributes?.bounds);
     if (!rect) continue;
-    screenWidth = Math.max(screenWidth, rect.x + rect.width);
     const id = node.attributes?.["resource-id"];
     if (id && wanted.has(id) && rect.width > 0 && rect.height > 0) found.set(id, [...(found.get(id) ?? []), rect]);
   }
-  const missing = entries.filter((entry) => !maskIsOptional(entry)).map(maskTestId).filter((id) => !found.has(id));
+  const missing = entries.map(maskTestId).filter((id) => !found.has(id));
   if (screenWidth === 0) return { rects: [], missing };
   const scale = imageWidth / screenWidth;
   const rects = entries.flatMap((entry) => (found.get(maskTestId(entry)) ?? []).map((rect) => scaleRect(shapeMask(entry, rect, screenWidth), scale)));
@@ -58,12 +55,11 @@ export function maskRects(tree: HierarchyNode, entries: readonly MaskEntry[], im
 }
 
 export function cropRect(tree: HierarchyNode, crop: CropEntry, imageWidth: number): Rect | null {
-  let screenWidth = 0;
+  const screenWidth = screenPoints(tree);
   let anchor: Rect | null = null;
   for (const node of walk(tree)) {
     const rect = parseBounds(node.attributes?.bounds);
     if (!rect) continue;
-    screenWidth = Math.max(screenWidth, rect.x + rect.width);
     const label = (node.attributes?.text || node.attributes?.accessibilityText || "").trim();
     if (!anchor && label === crop.text && rect.height > 0) anchor = rect;
   }
