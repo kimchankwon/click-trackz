@@ -3,6 +3,10 @@ appId: com.kimchankwon.cuetracker
 - runFlow: launch-signed-out.yaml
 - openLink: clicktrackz://dev-login
 - extendedWaitUntil:
+    visible: "Open|Dev login"
+    timeout: 30000
+- runFlow: accept-open-prompt.yaml
+- extendedWaitUntil:
     visible: "Dev login"
     timeout: 30000
 - tapOn:

@@ -7,5 +7,9 @@ appId: com.kimchankwon.cuetracker
       RCT_jsLocation: "localhost:${METRO_PORT}"
       RCT_enableDev: "NO"
 - extendedWaitUntil:
-    visible: "Multiple devices, one beat"
+    visible: "Open|Multiple devices, one beat"
     timeout: 180000
+- runFlow: accept-open-prompt.yaml
+- extendedWaitUntil:
+    visible: "Multiple devices, one beat"
+    timeout: 30000
