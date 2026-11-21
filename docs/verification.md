@@ -75,16 +75,16 @@ Every tracked file in the repo matches a rule today, so a dry run on a clean `ma
 | --- | --- | --- |
 | smoke | `01-signed-out-home` | The app launches against the local backend and the signed-out home (the About page) renders |
 | home-signed-out | `02-sign-in-choices` | Get started leads to Continue as guest and Sign in with Google |
-| about | `03-about` | The About link opens `/about` and it scrolls to the features |
+| about | `03-about` | The About link opens `/about`. Web scrolls "From rehearsals to the stage" to the top; iOS crops to the "Every device starts on the same timing" heading and its paragraph |
 | dev-login | `04-dev-login` | Dev login takes the per-run secret and signs in to the seeded account |
 | home-signed-in | `05-home-signed-in` | The signed-in home lists the seeded Group under Your Groups |
-| group | `06-group` | The Group opens on Play |
+| group | `06-group` | The Group opens on Play. On iOS and web the flow taps Enable if the sound prompt shows and waits for it to go, so the screen does not depend on whether the tap that opened the Group woke the audio. The join code, the ping pill and the Admin's stage avatar are masked |
 | song | `07-song` | Songs, then the library row, opens the Song editor with its Sections |
 | sound-settings | `08-sound-settings` | The Sound tab shows the Mix and Speaker settings |
 | setlist | `09-setlist` | Songs, then Edit on the Setlist, opens the seeded First Setlist as the Current setlist |
 | join | `10-join` | The seeded Group's join link shows the invite to a signed-out person, who joins as a Guest with the code filled in and lands on Play |
 
-Each flow starts from a clean app (Maestro `clearState` and `clearKeychain`, a fresh Playwright browser context) and signs in itself when it needs to, so any subset runs on its own. Tier b and tier c run every selected flow on iOS (Maestro, `scripts/verify/maestro/`) and web (Playwright, `scripts/verify/web.spec.ts`). `--platform` narrows a manual run. There is no Android verification, ever, unless someone asks for it.
+Each flow starts from a clean app (Maestro `clearState` and `clearKeychain`, a fresh Playwright browser context) and signs in itself when it needs to, so any subset runs on its own. Tier b and tier c run every selected flow on iOS (Maestro, `scripts/verify/maestro/`) and web (Playwright, `scripts/verify/web.spec.mts`). `--platform` narrows a manual run. There is no Android verification, ever, unless someone asks for it.
 
 The smoke flow runs whenever a tier launches the app.
 
@@ -110,11 +110,12 @@ If the base commit has no `scripts/verify/`, give the base worktree the harness 
 
 ## Known limits
 
-- Maestro on iOS cannot see the deeper sections of the long About page, so the iOS About flow scrolls by two fixed swipes and its screenshot frames a different part of the page than web's.
+- Maestro on iOS cannot see the deeper sections of the long About page, and its scrolls land a little differently each run. The iOS About flow scrolls to "Every device starts on the same timing", and verify crops the screenshot to a fixed window measured from that heading, so it frames a different part of the page than web's. The window stops above the device mocks and the timing diagram, which animate.
 - Maestro's iOS driver can be slow to start right after a long build while the machine is busy, so the driver start timeout is raised to 240 seconds.
 - Maestro's iOS driver sometimes crashes with `Exception in thread "main"` (for example `kAXErrorInvalidUIElement`) and then hangs. verify stops the flow as soon as the log shows it, runs the flow once more, and prints that it did. An assertion failure is never retried. A flow that hangs for another reason fails as "timed out after 8 minutes".
 - `.verify/convex/` and `.verify/maestro/` stay after a run for debugging and are wiped by the next run.
-- The Group join code and the times in Activity differ every run, so screenshots of the Group screen are not pixel-identical between runs. The About scroll position, the animated beat ring and the ping time also vary.
+- The About and Group screenshots are pixel-identical run to run, so a pixel diff between their `before` and `after` is a real change. Other screenshots are not held to that yet: the iOS smoke screenshot can differ by a few thousand pixels between runs of the same code, so check a diff there by eye. Live values are masked in magenta (`#FF00FF`): `mask` in a flow's feature map entry lists test IDs, optionally with a fixed `width`, or an `x` counted from the right edge when negative (in points), so a mask does not change size with the text under it. `pad` grows a mask by that many points on every side, so the Member's mask also covers the ping badge that overhangs its box, whether or not the bars are drawn yet. iOS takes the screen width from the outermost element in the hierarchy, so an element that overflows the screen does not change the scale. Web waits up to 30 seconds for each masked element to show, then reads the element boxes before the screenshot. iOS reads Maestro's view hierarchy, retakes the screenshot with `simctl`, and reads the hierarchy again, and uses the screenshot only if both reads agree. `iosCrop` crops an iOS screenshot to `height` points starting `top` points from an anchor text, then aligns the window to the first row of content, kept inside the screenshot. Masking and cropping add 20 to 40 seconds per iOS flow that uses them.
+- The times in Activity differ every run. No flow screenshots Activity.
 - `fingerprint.config.js` keeps npm scripts and `.gitignore` out of the native fingerprint, on top of Expo's default skips, so editing them never forces a rebuild or a new runtime version. Changing `fingerprint.config.js` itself does change the fingerprint once.
 
 ## Decisions

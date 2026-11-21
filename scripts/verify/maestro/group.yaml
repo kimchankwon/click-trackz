@@ -5,4 +5,12 @@ appId: com.kimchankwon.cuetracker
 - extendedWaitUntil:
     visible: "Pick a Song"
     timeout: 30000
+- tapOn:
+    id: "enable-sound"
+    optional: true
+- extendedWaitUntil:
+    notVisible:
+      id: "enable-sound"
+    timeout: 15000
+- waitForAnimationToEnd
 - takeScreenshot: ${SHOT}

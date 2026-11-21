@@ -1,6 +1,9 @@
 import { matchesGlob } from "node:path";
 
-export type FlowEntry = { id: string; screen: string };
+import type { CropEntry, MaskEntry } from "./mask.mts";
+import type { Rect } from "./png.mts";
+
+export type FlowEntry = { id: string; screen: string; mask?: MaskEntry[]; iosMaskRegions?: Rect[]; iosCrop?: CropEntry };
 export type CoreRule = { rule: string; globs: string[] };
 export type Area = { area: string; globs: string[]; flows: string[]; note?: string };
 export type FeatureMap = { flows: FlowEntry[]; smoke: string; static: string[]; core: CoreRule[]; areas: Area[] };

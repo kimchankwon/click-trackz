@@ -7,7 +7,14 @@ appId: com.kimchankwon.cuetracker
 - extendedWaitUntil:
     visible: "Multiple devices, one beat"
     timeout: 15000
-- scroll
-- scroll
+- scrollUntilVisible:
+    element: "Every device starts on the same timing"
+    direction: DOWN
+    waitToSettleTimeoutMs: 500
+    timeout: 30000
+- swipe:
+    start: "50%, 60%"
+    end: "50%, 30%"
+    duration: 3000
 - waitForAnimationToEnd
 - takeScreenshot: ${SHOT}

@@ -1,6 +1,13 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
 import { expect, test, type Page } from "@playwright/test";
 
-import featureMap from "./feature-map.json";
+import { maskTestId, scaleRect, shapeMask, type MaskEntry } from "./mask.mts";
+import type { FeatureMap } from "./plan.mts";
+import { decodePng, encodePng, fillRects, type Rect } from "./png.mts";
+
+const featureMap = JSON.parse(readFileSync(path.join(import.meta.dirname, "feature-map.json"), "utf8")) as FeatureMap;
 
 const required = (value: string | undefined, name: string) => {
   if (!value) throw new Error(`${name} is not set; run this through npm run verify`);
@@ -54,7 +61,14 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
     await page.getByTestId("about-get-started").click();
     await page.getByText("About Click Trackz").click();
     await expect(page).toHaveURL(/\/about$/);
-    await page.getByText("From rehearsals to the stage").scrollIntoViewIfNeeded();
+    await page.evaluate(() => document.fonts.ready);
+    const heading = page.getByText("From rehearsals to the stage");
+    await expect(async () => {
+      await heading.evaluate((element) => element.scrollIntoView({ block: "start" }));
+      await page.waitForTimeout(300);
+      const settled = await heading.boundingBox();
+      expect(Math.abs(settled?.y ?? Number.NaN)).toBeLessThan(1);
+    }).toPass({ timeout: 20_000 });
     await shot();
   },
   "dev-login": async (page, shot) => {
@@ -72,6 +86,9 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
     await signIn(page);
     await page.getByText(groupName).click();
     await expect(page.getByText("Pick a Song", { exact: true })).toBeVisible();
+    const enableSound = page.getByTestId("enable-sound");
+    if (await enableSound.isVisible()) await enableSound.click();
+    await expect(enableSound).toBeHidden();
     await shot();
   },
   song: async (page, shot) => {
@@ -113,14 +130,39 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
   },
 };
 
-for (const { id, screen } of featureMap.flows) {
+const MASK_TARGET_TIMEOUT_MS = 30_000;
+
+const maskBoxes = async (page: Page, mask: readonly MaskEntry[]) => {
+  const width = page.viewportSize()?.width ?? 0;
+  const rects: Rect[] = [];
+  for (const entry of mask) {
+    const target = page.getByTestId(maskTestId(entry));
+    await target.first().waitFor({ state: "visible", timeout: MASK_TARGET_TIMEOUT_MS }).catch(() => undefined);
+    const found = await target.all();
+    const boxes = (await Promise.all(found.map((element) => element.boundingBox()))).filter((box) => box !== null && box.width > 0 && box.height > 0);
+    if (boxes.length === 0) throw new Error(`could not mask ${maskTestId(entry)}: no element with that testID is on screen`);
+    for (const box of boxes) if (box) rects.push(shapeMask(entry, box, width));
+  }
+  return { rects, width };
+};
+
+const paintMasks = (file: string, rects: readonly Rect[], viewportWidth: number) => {
+  const image = decodePng(readFileSync(file));
+  const scale = image.width / viewportWidth;
+  writeFileSync(file, encodePng(fillRects(image, rects.map((rect) => scaleRect(rect, scale)))));
+};
+
+for (const { id, screen, mask = [] } of featureMap.flows) {
   if (!selected.has(id)) continue;
   test(id, async ({ page }) => {
     const flow = flows[id];
     if (!flow) throw new Error(`No web flow for ${id}`);
     await flow(page, async () => {
       await page.waitForLoadState("networkidle").catch(() => undefined);
-      await page.screenshot({ path: `${shotsDir}/${screen}.png`, animations: "disabled" });
+      const file = `${shotsDir}/${screen}.png`;
+      const masks = mask.length > 0 ? await maskBoxes(page, mask) : null;
+      await page.screenshot({ path: file, animations: "disabled" });
+      if (masks) paintMasks(file, masks.rects, masks.width);
     });
   });
 }

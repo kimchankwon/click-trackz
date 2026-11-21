@@ -3,6 +3,8 @@ import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSyn
 import os from "node:os";
 import path from "node:path";
 
+import { cropRect, maskRects, scaleRect, screenPoints, type CropEntry, type HierarchyNode, type MaskEntry } from "./mask.mts";
+import { alignCropToContent, cropImage, decodePng, encodePng, fillRects, type Rect } from "./png.mts";
 import { cacheDir, root, run, stateDir } from "./processes.mts";
 
 export const BUNDLE_ID = "com.kimchankwon.cuetracker";
@@ -239,6 +241,65 @@ export async function runMaestroFlow({
   appendFileSync(logFile, "\nverify: Maestro's iOS driver crashed, so the flow runs once more\n");
   const second = await attempt();
   return { code: second.code, retried: true };
+}
+
+async function hierarchy(udid: string, json: string, env: NodeJS.ProcessEnv, logFile: string) {
+  rmSync(json, { force: true });
+  const code = await run("maestro-hierarchy", "/bin/sh", ["-c", 'exec maestro --device "$1" hierarchy > "$2"', "sh", udid, json], {
+    logFile,
+    env: maestroEnv(env),
+    timeoutMs: 4 * 60_000,
+  });
+  if (code !== 0 || !existsSync(json)) throw new Error(`maestro hierarchy exited ${code}, so the screenshot could not be masked; log: ${logFile}`);
+  const tree = JSON.parse(readFileSync(json, "utf8")) as HierarchyNode;
+  rmSync(json, { force: true });
+  return tree;
+}
+
+const MASK_ATTEMPTS = 3;
+
+const CROP_MARGIN_POINTS = 8;
+
+export async function finishScreenshot({
+  udid,
+  png,
+  mask,
+  regions,
+  crop,
+  env,
+  logFile,
+}: {
+  udid: string;
+  png: string;
+  mask: readonly MaskEntry[];
+  regions: readonly Rect[];
+  crop?: CropEntry;
+  env: NodeJS.ProcessEnv;
+  logFile: string;
+}) {
+  const json = `${png}.hierarchy.json`;
+  const retaken = `${png}.retaken.png`;
+  const measure = (tree: HierarchyNode, width: number) => ({ ...maskRects(tree, mask, width), crop: crop ? cropRect(tree, crop, width) : null });
+  for (let attempt = 1; attempt <= MASK_ATTEMPTS; attempt++) {
+    const before = await hierarchy(udid, json, env, logFile);
+    simctl("io", udid, "screenshot", "--type=png", retaken);
+    const after = await hierarchy(udid, json, env, logFile);
+    const image = decodePng(readFileSync(retaken));
+    const first = measure(before, image.width);
+    const second = measure(after, image.width);
+    if (second.missing.length > 0) throw new Error(`could not mask ${second.missing.join(", ")}: no element with that testID is on screen`);
+    if (crop && !second.crop) throw new Error(`could not crop: no element with the text "${crop.text}" is on screen`);
+    if (JSON.stringify(first) === JSON.stringify(second)) {
+      const scale = image.width / screenPoints(after);
+      const masked = fillRects(image, [...second.rects, ...regions.map((region) => scaleRect(region, scale))]);
+      writeFileSync(png, encodePng(second.crop ? cropImage(masked, alignCropToContent(masked, second.crop, Math.round(CROP_MARGIN_POINTS * scale))) : masked));
+      rmSync(retaken, { force: true });
+      return;
+    }
+    appendFileSync(logFile, `\nverify: the screen moved while it was being measured for the screenshot (attempt ${attempt} of ${MASK_ATTEMPTS})\n`);
+  }
+  rmSync(retaken, { force: true });
+  throw new Error(`the screen kept moving, so the screenshot could not be masked or cropped; log: ${logFile}`);
 }
 
 const DRIVER_CRASH = /Exception in thread "main"[^\n]*(UnknownFailure|XCTestDriver)/;
