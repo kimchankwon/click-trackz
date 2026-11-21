@@ -61,4 +61,13 @@ Click Trackz: every Member of a Group hears the same Click, Count and Voice cue 
 - No code comments of any kind (no JSDoc, no TODOs, no section banners). Rename or restructure instead. Machine pragmas, triple-slash type references and license headers are fine.
 - No em dash characters anywhere, including docs and commit messages.
 - Every change lands through a pull request. `.github/` workflow changes and dependency upgrades go in their own PRs, never folded into a feature PR.
-- Open and finish every PR with the `pr-shepherd` skill (`.claude/skills/pr-shepherd/SKILL.md`): a change report with before/after screenshots, then CI, CodeRabbit and `npm run verify` driven to green before it is handed to a human. Open it ready for review, not as a draft, once CodeRabbit can review it. Never merge.
+- Open and finish every PR with the `pr-shepherd` skill (`.claude/skills/pr-shepherd/SKILL.md`): a change report with before/after screenshots, then CI and `npm run verify` driven to green before it is handed to a human. Request a CodeRabbit review only for a big PR (see CodeRabbit reviews below). Open it ready for review, not as a draft. Never merge.
+
+## CodeRabbit reviews
+
+Automatic CodeRabbit reviews are off. Comment `@coderabbitai review` only when the PR is **big**:
+
+- more than 300 changed lines in app source or Convex code, not counting tests, scripts, docs, config, or pure moves, or
+- it touches the Convex schema, data deletion or migration, auth or permissions, or push or email notification sending.
+
+Do not request a review on any other PR. A commit that only merges `main` in cleanly, without conflicts and without `main` changing the same files or functions as the PR, does not need a new review. Non-big PRs are ready once CI and `npm run verify` are green and no CodeRabbit threads are left open.
