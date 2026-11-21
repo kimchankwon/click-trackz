@@ -8,9 +8,7 @@ const house = require("./lint/house-rules");
 const typedFiles = ["**/*.ts", "**/*.tsx", "scripts/**/*.mts"];
 const testFiles = ["**/*.test.ts", "**/*.test.tsx"];
 
-const routeFilesWithExtraComponents = [
-  "src/app/group/[[]groupId]/song/[[]songId].tsx",
-];
+const routeFilesWithExtraComponents = [];
 
 const gitIgnored = () => {
   try {
