@@ -1,0 +1,6 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: sign-in.yaml
+- assertVisible: "Your Groups"
+- assertVisible: "Join a Group"
+- takeScreenshot: ${SHOT}

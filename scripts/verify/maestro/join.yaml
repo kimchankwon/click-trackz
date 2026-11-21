@@ -1,0 +1,24 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: launch-signed-out.yaml
+- openLink: clicktrackz://join/${JOIN_CODE}
+- extendedWaitUntil:
+    visible: "You have an invite to join a Group."
+    timeout: 30000
+- takeScreenshot: ${SHOT}
+- tapOn:
+    id: "guest-sign-in"
+- scrollUntilVisible:
+    element:
+      id: "join-group"
+    timeout: 30000
+- assertVisible: "${JOIN_CODE}"
+- tapOn:
+    id: "display-name"
+- inputText: ${GUEST_NAME}
+- pressKey: Enter
+- tapOn:
+    id: "join-group"
+- extendedWaitUntil:
+    visible: "Waiting for Playback"
+    timeout: 30000

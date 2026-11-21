@@ -1,0 +1,169 @@
+{
+  "flows": [
+    { "id": "smoke", "screen": "01-signed-out-home" },
+    { "id": "home-signed-out", "screen": "02-sign-in-choices" },
+    { "id": "about", "screen": "03-about" },
+    { "id": "dev-login", "screen": "04-dev-login" },
+    { "id": "home-signed-in", "screen": "05-home-signed-in" },
+    { "id": "group", "screen": "06-group" },
+    { "id": "song", "screen": "07-song" },
+    { "id": "sound-settings", "screen": "08-sound-settings" },
+    { "id": "setlist", "screen": "09-setlist" },
+    { "id": "join", "screen": "10-join" }
+  ],
+  "smoke": "smoke",
+  "static": [
+    "**/*.md",
+    "docs/**",
+    ".github/**",
+    ".coderabbit.yaml",
+    ".vscode/**",
+    "eslint.config.js",
+    ".gitignore",
+    "LICENSE",
+    "design-refs/**",
+    ".claude/**",
+    "vercel.json",
+    "lint/**",
+    "scripts/pr-shepherd.mjs"
+  ],
+  "core": [
+    { "rule": "Navigation", "globs": ["src/app/_layout.tsx", "src/app/**/_layout.tsx", "src/lib/back-or.ts"] },
+    { "rule": "Auth", "globs": ["src/auth/**", "convex/auth.ts", "convex/auth.config.ts", "convex/devLogin.ts", "convex/devLogin.test.ts", "convex/http.ts"] },
+    { "rule": "Data layer", "globs": ["src/lib/convex.ts", "convex/schema.ts", "convex/access.ts", "convex/_generated/**", "src/lib/device-*.ts", "src/lib/is-record*.ts"] },
+    {
+      "rule": "App shell",
+      "globs": [
+        "src/components/app-updates*.tsx",
+        "src/lib/app-version*.ts",
+        "src/lib/stale-app*.ts",
+        "src/lib/use-stale-app-recovery.ts",
+        "src/lib/use-update-available*.ts",
+        "src/lib/use-newer-version-live*.ts",
+        "src/lib/restart-hold*.ts",
+        "src/lib/error-text*.ts",
+        "src/lib/use-connected.ts",
+        "src/lib/browser-online.ts",
+        "src/lib/connection-status*.ts",
+        "src/types/**",
+        "public/**",
+        "public/.well-known/**"
+      ]
+    },
+    {
+      "rule": "Design system",
+      "globs": [
+        "src/components/ui/**",
+        "src/components/themed-*.tsx",
+        "src/components/action-button.tsx",
+        "src/constants/theme.ts",
+        "src/theme/**",
+        "src/hooks/**",
+        "src/global.css",
+        "src/lib/initials*.ts",
+        "src/lib/menu-placement*.ts",
+        "src/lib/stepper*.ts",
+        "src/lib/swipe-step*.ts"
+      ]
+    },
+    {
+      "rule": "Dependencies and native config",
+      "globs": [
+        "package.json",
+        "package-lock.json",
+        "app.json",
+        "app.config.js",
+        "eas.json",
+        "metro.config.js",
+        "tsconfig.json",
+        "vitest.config.ts",
+        "fingerprint.config.js",
+        "modules/**",
+        "assets/**"
+      ]
+    },
+    { "rule": "Sync and audio core", "globs": ["src/sync/clock.ts", "src/sync/use-server-clock.ts", "src/audio/engine.ts"] },
+    { "rule": "Verify harness", "globs": ["scripts/verify/**"] }
+  ],
+  "areas": [
+    { "area": "Signed-out home", "globs": ["src/app/index.tsx", "src/home/**", "src/components/home/**", "src/components/group/group-list.tsx", "src/lib/use-server-now.ts"], "flows": ["home-signed-out", "home-signed-in"] },
+    { "area": "About", "globs": ["src/app/about.tsx", "src/components/about/**", "src/lib/demo-*.ts"], "flows": ["about"] },
+    { "area": "Sign in", "globs": ["src/app/dev-login.tsx"], "flows": ["dev-login", "home-signed-in"] },
+    { "area": "My Library", "globs": ["src/library/**"], "flows": ["home-signed-in", "group"] },
+    {
+      "area": "Group",
+      "globs": [
+        "src/app/group/*/index.tsx",
+        "src/components/group/**",
+        "src/components/audio-debug.tsx",
+        "src/presence/**",
+        "src/chat/**",
+        "src/activity/**",
+        "src/lib/roles*.ts",
+        "src/lib/invite*.ts",
+        "src/lib/activity-when*.ts",
+        "src/lib/chat*.ts",
+        "src/lib/time-ago*.ts",
+        "src/lib/picked-song*.ts",
+        "src/lib/reorder*.ts",
+        "src/lib/use-app-active.ts",
+        "src/lib/use-idle-without-playback.ts",
+        "src/lib/site-url*.ts",
+        "src/lib/lock-screen*.ts",
+        "convex/groups.ts",
+        "convex/presence.ts",
+        "convex/chat.ts",
+        "convex/activity.ts"
+      ],
+      "flows": ["group"]
+    },
+    {
+      "area": "Song and playback",
+      "globs": [
+        "src/app/group/*/song/**",
+        "src/components/song/**",
+        "src/components/playback/**",
+        "src/lib/song-*.ts",
+        "src/lib/section-*.ts",
+        "src/lib/copy-title*.ts",
+        "src/lib/tap-tempo*.ts",
+        "src/sync/**",
+        "convex/songs.ts",
+        "convex/playback.ts"
+      ],
+      "flows": ["song"]
+    },
+    { "area": "Setlist", "globs": ["src/app/group/*/setlist/**", "src/components/setlist/**", "src/lib/setlist-next*.ts", "convex/setlists.ts"], "flows": ["setlist"] },
+    {
+      "area": "Sound settings",
+      "globs": [
+        "src/components/sound/**",
+        "src/settings/**",
+        "src/app/latency.tsx",
+        "src/app/voice-offset.tsx",
+        "src/audio/**",
+        "src/lib/timing-strip*.ts",
+        "src/lib/timing-test*.ts",
+        "src/lib/browser-label*.ts",
+        "convex/sound.ts",
+        "convex/speakerCheck.ts"
+      ],
+      "flows": ["sound-settings"]
+    },
+    { "area": "Join", "globs": ["src/app/join/**", "src/lib/pending-join*.ts", "convex/guestHandoff.ts"], "flows": ["join"] },
+    {
+      "area": "Plans",
+      "globs": ["src/app/subscribe.tsx", "src/billing/**", "src/lib/plans*.ts", "convex/plans.ts", "convex/subscriptions.ts", "convex/revenuecat.ts"],
+      "flows": [],
+      "note": "Plans and billing (RevenueCat) are covered by unit tests only: purchases cannot run against a local backend, so no flow exercises them."
+    },
+    {
+      "area": "Screens without a flow",
+      "globs": ["src/app/+not-found.tsx", "src/app/sync-check.tsx"],
+      "flows": [],
+      "note": "No flow covers /sync-check or the not-found screen yet, so they get typecheck, lint and unit tests only."
+    },
+    { "area": "Backend only", "globs": ["convex/*.ts"], "flows": [] },
+    { "area": "Scripts", "globs": ["scripts/*.mts", "scripts/*.mjs", "scripts/tsconfig.json"], "flows": [] }
+  ]
+}

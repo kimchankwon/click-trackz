@@ -1,0 +1,4 @@
+appId: com.kimchankwon.cuetracker
+---
+- runFlow: open-dev-login.yaml
+- runFlow: submit-dev-login.yaml

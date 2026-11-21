@@ -31,6 +31,8 @@ npm run typecheck
 npm test
 ```
 
+To check a change end to end on the iOS simulator and web, run `npm run verify`; see [docs/verification.md](docs/verification.md).
+
 ## Sign-in with Google
 
 Members can join as guests; creating a Group or holding any Role above Member needs a Google account.

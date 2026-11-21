@@ -1,0 +1,19 @@
+appId: com.kimchankwon.cuetracker
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      RCT_jsLocation: "localhost:${METRO_PORT}"
+      RCT_enableDev: "NO"
+- extendedWaitUntil:
+    visible: "Open|Multiple devices, one beat"
+    timeout: 180000
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Cancel"
+- extendedWaitUntil:
+    visible: "Multiple devices, one beat"
+    timeout: 30000

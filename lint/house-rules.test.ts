@@ -53,6 +53,12 @@ describe("house/glossary-terms", () => {
     expect(await rulesHit("src/components/probe.tsx", "export const A = () => <Text nativeID=\"user-name\">Members</Text>;\n")).not.toContain("house/glossary-terms");
     expect(await rulesHit("convex/probe.ts", "import { ConvexError } from \"convex/values\";\nexport const f = () => { throw new ConvexError(\"Only musicians can join\"); };\n")).toContain("house/glossary-terms");
   });
+
+  it("flags copy kept in data objects, not their ids", async () => {
+    expect(await rulesHit("src/components/probe.tsx", "export const FEATURES = [{ title: \"Nudge\", body: \"Line up with the band\" }];\n")).toContain("house/glossary-terms");
+    expect(await rulesHit("src/components/probe.tsx", "export const STEPS = [{ label: `For every user` }];\n")).toContain("house/glossary-terms");
+    expect(await rulesHit("src/components/probe.tsx", "export const ROWS = [{ id: \"user-row\", icon: \"band\", title: \"Members\" }];\n")).not.toContain("house/glossary-terms");
+  });
 });
 
 describe("client clock reads", () => {
