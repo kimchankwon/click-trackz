@@ -11,6 +11,8 @@ const selected = new Set(required(process.env.VERIFY_FLOWS, "VERIFY_FLOWS").spli
 const shotsDir = required(process.env.VERIFY_SHOTS_DIR, "VERIFY_SHOTS_DIR");
 const groupName = required(process.env.VERIFY_GROUP_NAME, "VERIFY_GROUP_NAME");
 const songTitle = required(process.env.VERIFY_SONG_TITLE, "VERIFY_SONG_TITLE");
+const joinCode = required(process.env.VERIFY_JOIN_CODE, "VERIFY_JOIN_CODE");
+const guestName = required(process.env.VERIFY_GUEST_NAME, "VERIFY_GUEST_NAME");
 
 const openSignedOut = async (page: Page) => {
   await page.goto("/");
@@ -87,6 +89,27 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
     await page.getByRole("tab", { name: "Sound" }).click();
     await expect(page.getByText("Mix")).toBeVisible();
     await shot();
+  },
+  setlist: async (page, shot) => {
+    await signIn(page);
+    await page.getByText(groupName).click();
+    await page.getByRole("tab", { name: "Songs" }).click();
+    await page.getByRole("button", { name: "Edit this Setlist" }).click();
+    await expect(page).toHaveURL(/\/setlist\//);
+    await expect(page.getByText("Edit Setlist")).toBeVisible();
+    await expect(page.getByText("This is the Current setlist")).toBeVisible();
+    await shot();
+  },
+  join: async (page, shot) => {
+    await page.goto(`/join/${joinCode}`);
+    await expect(page.getByText("You have an invite to join a Group.")).toBeVisible({ timeout: 90_000 });
+    await shot();
+    await page.getByTestId("guest-sign-in").click();
+    await expect(page.getByTestId("join-code-input")).toHaveValue(joinCode);
+    await page.getByTestId("display-name").fill(guestName);
+    await page.getByTestId("join-group").click();
+    await expect(page).toHaveURL(/\/group\//);
+    await expect(page.getByText("Waiting for Playback", { exact: true })).toBeVisible();
   },
 };
 

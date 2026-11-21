@@ -31,6 +31,13 @@ describe("planFor", () => {
     expect(plan(["src/app/group/[groupId]/song/[songId].tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "song"] });
   });
 
+  it("runs the setlist and join flows for their routes", () => {
+    expect(plan(["src/app/group/[groupId]/setlist/[setlistId].tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "setlist"] });
+    expect(plan(["src/app/join/[code].tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "join"] });
+    expect(plan(["src/components/setlist/setlist-form.tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "setlist"] });
+    expect(plan(["src/components/home/groups-tab.tsx"])).toMatchObject({ tier: "localized", flows: ["smoke", "home-signed-out", "home-signed-in"] });
+  });
+
   it("escalates to every flow when a core file changes, and names the rule", () => {
     const result = plan(["src/components/group/songs-card.tsx", "src/app/group/[groupId]/_layout.tsx"]);
     expect(result).toMatchObject({ kind: "run", tier: "full", flows: allFlows });
