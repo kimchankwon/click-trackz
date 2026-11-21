@@ -14,9 +14,10 @@ export const SEED = {
   groupName: "Verify Group",
   displayName: "Admin",
   songTitle: "Send Me Out",
+  guestName: "Verify Guest",
 } as const;
 
-export type Backend = { url: string; siteUrl: string; devSecret: string; groupId: string; songId: string; binary: string };
+export type Backend = { url: string; siteUrl: string; devSecret: string; groupId: string; joinCode: string; songId: string; binary: string };
 
 const INSTANCE_NAME = "click-trackz-verify";
 const binariesDir = path.join(os.homedir(), ".cache", "convex", "binaries");
@@ -113,7 +114,7 @@ export async function startBackend({ port, webUrl, logsDir }: { port: number; we
   const member = new ConvexHttpClient(url);
   const signedIn = await member.action(anyApi.auth.signIn, { provider: "dev", params: { email: SEED.email, secret: devSecret } });
   member.setAuth(signedIn.tokens.token);
-  const { groupId } = await member.mutation(anyApi.groups.createGroup, { name: SEED.groupName, displayName: SEED.displayName });
+  const { groupId, joinCode } = await member.mutation(anyApi.groups.createGroup, { name: SEED.groupName, displayName: SEED.displayName });
   await cli("convex-seed", ["run", "seed:firstSetlistForGroup", JSON.stringify({ groupId })]);
   const songs: { songId: string; title: string }[] = await member.query(anyApi.songs.list, { groupId });
   const song = songs.find((entry) => entry.title === SEED.songTitle);
@@ -129,5 +130,5 @@ export async function startBackend({ port, webUrl, logsDir }: { port: number; we
       { sectionType: "Outro", bars: 4, beatsPerBar: 4, bpm },
     ],
   });
-  return { url, siteUrl, devSecret, groupId, songId: song.songId, binary };
+  return { url, siteUrl, devSecret, groupId, joinCode, songId: song.songId, binary };
 }

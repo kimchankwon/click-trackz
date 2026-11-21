@@ -236,6 +236,8 @@ async function runWeb({ plan, outDir, logsDir, steps }: Run, backend: Backend) {
         VERIFY_DEV_SECRET: backend.devSecret,
         VERIFY_GROUP_NAME: SEED.groupName,
         VERIFY_SONG_TITLE: SEED.songTitle,
+        VERIFY_JOIN_CODE: backend.joinCode,
+        VERIFY_GUEST_NAME: SEED.guestName,
         VERIFY_PLAYWRIGHT_REPORT: report,
         VERIFY_PLAYWRIGHT_OUTPUT: path.join(logsDir, "playwright-output"),
       },
@@ -287,7 +289,14 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
   });
   const udid = device.udid;
   if (!ready || !udid) return;
-  const vars = { DEV_SECRET: backend.devSecret, GROUP_NAME: SEED.groupName, SONG_TITLE: SEED.songTitle, METRO_PORT: String(ports.metro) };
+  const vars = {
+    DEV_SECRET: backend.devSecret,
+    GROUP_NAME: SEED.groupName,
+    SONG_TITLE: SEED.songTitle,
+    JOIN_CODE: backend.joinCode,
+    GUEST_NAME: SEED.guestName,
+    METRO_PORT: String(ports.metro),
+  };
   const metroLog = path.join(logsDir, "metro-ios.log");
   const bundlesServed = () => (readFileSync(metroLog, "utf8").match(/iOS Bundled/g) ?? []).length;
   let servedBeforeFirstFlow: number | null = bundlesServed();
