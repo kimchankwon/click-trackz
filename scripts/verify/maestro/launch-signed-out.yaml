@@ -9,7 +9,11 @@ appId: com.kimchankwon.cuetracker
 - extendedWaitUntil:
     visible: "Open|Multiple devices, one beat"
     timeout: 180000
-- runFlow: accept-open-prompt.yaml
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Cancel"
 - extendedWaitUntil:
     visible: "Multiple devices, one beat"
     timeout: 30000

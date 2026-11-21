@@ -1,7 +1,0 @@
-appId: com.kimchankwon.cuetracker
----
-- runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
