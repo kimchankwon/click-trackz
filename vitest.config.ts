@@ -13,6 +13,7 @@ export default defineConfig({
       { extends: true, test: { name: "app", include: ["src/**/*.test.ts"], environment: "node" } },
       { extends: true, test: { name: "convex", include: ["convex/**/*.test.ts"], environment: "edge-runtime" } },
       { extends: true, test: { name: "lint", include: ["lint/**/*.test.ts"], environment: "node", testTimeout: 60_000 } },
+      { extends: true, test: { name: "scripts", include: ["scripts/**/*.test.mts"], environment: "node" } },
     ],
   },
 });

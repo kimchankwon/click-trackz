@@ -61,3 +61,4 @@ Click Trackz: every Member of a Group hears the same Click, Count and Voice cue 
 - No code comments of any kind (no JSDoc, no TODOs, no section banners). Rename or restructure instead. Machine pragmas, triple-slash type references and license headers are fine.
 - No em dash characters anywhere, including docs and commit messages.
 - Every change lands through a pull request. `.github/` workflow changes and dependency upgrades go in their own PRs, never folded into a feature PR.
+- Open and finish every PR with the `pr-shepherd` skill (`.claude/skills/pr-shepherd/SKILL.md`): a change report with before/after screenshots, then CI, CodeRabbit and `npm run verify` driven to green before it is handed to a human. Open it ready for review, not as a draft, once CodeRabbit can review it. Never merge.

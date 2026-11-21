@@ -40,3 +40,7 @@ yarn-error.*
 /android
 
 design-shots/
+
+# verify
+.verify/
+artifacts/
