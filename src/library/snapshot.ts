@@ -3,12 +3,12 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { summaryOfView, type SongSummary, type SongView } from "./song-views";
+import { isRecord } from "@/lib/is-record";
 
 export const SNAPSHOT_FORMAT = 1;
 
 export type LibrarySnapshot = FunctionReturnType<typeof api.library.snapshot> & { savedAt: number; format: typeof SNAPSHOT_FORMAT };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isSong = (value: unknown) => isRecord(value) && typeof value.songId === "string" && typeof value.title === "string" && Array.isArray(value.sections);
 

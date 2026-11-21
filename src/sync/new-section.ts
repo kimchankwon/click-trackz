@@ -1,6 +1,6 @@
 import type { Section } from "./timeline";
 
-export type TempoHint = { bpm: number; beatsPerBar: number } | null | undefined;
+type TempoHint = { bpm: number; beatsPerBar: number } | null | undefined;
 
 const FOLLOWING_TYPE: ReadonlyMap<string, string> = new Map([
   ["Intro", "Verse"],

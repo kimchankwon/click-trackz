@@ -401,7 +401,6 @@ const styles = StyleSheet.create({
   stepCell: { flex: 1, flexDirection: "row" },
   preset: { gap: Spacing.one, padding: Spacing.three, borderRadius: Radius.md, borderWidth: 2, minHeight: 64 },
   intro: { fontSize: 15, lineHeight: 22, fontWeight: 400 },
-  buttons: { flexDirection: "row", gap: Spacing.two },
   step: { gap: Spacing.two },
   pad: { height: 200, borderRadius: Radius.lg, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: Spacing.two },
   dock: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: Spacing.four, paddingVertical: Spacing.three },
