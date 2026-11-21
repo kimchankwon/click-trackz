@@ -135,3 +135,10 @@ export function firstContentRow(image: Image, fromRow: number, threshold = 40) {
   }
   return null;
 }
+
+export function alignCropToContent(image: Image, crop: Rect, margin: number): Rect {
+  const content = firstContentRow(image, crop.y);
+  if (content === null) return crop;
+  const lowest = image.height - Math.round(crop.height);
+  return { ...crop, y: Math.max(0, Math.min(lowest, content - margin)) };
+}

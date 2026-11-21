@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { cropRect, maskRects, scaleRect, screenPoints, type CropEntry, type HierarchyNode, type MaskEntry } from "./mask.mts";
-import { cropImage, decodePng, encodePng, fillRects, firstContentRow, type Image, type Rect } from "./png.mts";
+import { alignCropToContent, cropImage, decodePng, encodePng, fillRects, type Rect } from "./png.mts";
 import { cacheDir, root, run, stateDir } from "./processes.mts";
 
 export const BUNDLE_ID = "com.kimchankwon.cuetracker";
@@ -260,12 +260,6 @@ const MASK_ATTEMPTS = 3;
 
 const CROP_MARGIN_POINTS = 8;
 
-function snapToContent(image: Image, crop: Rect, scale: number): Rect {
-  const content = firstContentRow(image, crop.y);
-  if (content === null) return crop;
-  return { ...crop, y: content - Math.round(CROP_MARGIN_POINTS * scale) };
-}
-
 export async function finishScreenshot({
   udid,
   png,
@@ -298,7 +292,7 @@ export async function finishScreenshot({
     if (JSON.stringify(first) === JSON.stringify(second)) {
       const scale = image.width / screenPoints(after);
       const masked = fillRects(image, [...second.rects, ...regions.map((region) => scaleRect(region, scale))]);
-      writeFileSync(png, encodePng(second.crop ? cropImage(masked, snapToContent(masked, second.crop, scale)) : masked));
+      writeFileSync(png, encodePng(second.crop ? cropImage(masked, alignCropToContent(masked, second.crop, Math.round(CROP_MARGIN_POINTS * scale))) : masked));
       rmSync(retaken, { force: true });
       return;
     }

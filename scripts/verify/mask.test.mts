@@ -44,6 +44,13 @@ describe("maskRects", () => {
     expect(maskRects(tree, ["copy-join-code", "stage-member-Admin"], 402).missing).toEqual(["stage-member-Admin"]);
   });
 
+  it("does not count an optional test ID that is off screen as missing", () => {
+    expect(maskRects(tree, ["copy-join-code", { testId: "stage-ping-Admin", optional: true }], 402)).toEqual({
+      rects: [{ x: 10, y: 20, width: 100, height: 20 }],
+      missing: [],
+    });
+  });
+
   it("finds nothing in a tree without bounds", () => {
     expect(maskRects({ attributes: {} }, ["copy-join-code"], 1206)).toEqual({ rects: [], missing: ["copy-join-code"] });
   });

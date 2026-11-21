@@ -1,7 +1,7 @@
 import { crc32, deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
-import { cropImage, decodePng, differingPixels, encodePng, fillRects, firstContentRow, MASK_COLOR, type Image } from "./png.mts";
+import { alignCropToContent, cropImage, decodePng, differingPixels, encodePng, fillRects, firstContentRow, MASK_COLOR, type Image } from "./png.mts";
 
 const gradient = (width: number, height: number, channels: 3 | 4): Image => {
   const pixels = Buffer.alloc(width * height * channels);
@@ -93,6 +93,16 @@ describe("png", () => {
     fillRects(image, [{ x: 2, y: 3, width: 1, height: 1 }], [10, 10, 10]);
     expect(firstContentRow(image, 0)).toBe(3);
     expect(firstContentRow(image, 4)).toBeNull();
+  });
+
+  it("aligns a crop to the first content row and keeps it inside the image", () => {
+    const image: Image = { width: 4, height: 20, channels: 3, pixels: Buffer.alloc(4 * 20 * 3, 240) };
+    fillRects(image, [{ x: 2, y: 3, width: 1, height: 1 }], [10, 10, 10]);
+    expect(alignCropToContent(image, { x: 0, y: 0, width: 4, height: 10 }, 5).y).toBe(0);
+    fillRects(image, [{ x: 2, y: 18, width: 1, height: 1 }], [10, 10, 10]);
+    expect(alignCropToContent(image, { x: 0, y: 15, width: 4, height: 10 }, 1).y).toBe(10);
+    expect(alignCropToContent(image, { x: 0, y: 4, width: 4, height: 10 }, 2).y).toBe(10);
+    expect(alignCropToContent(image, { x: 0, y: 2, width: 4, height: 10 }, 0).y).toBe(3);
   });
 
   it("treats images of different sizes as entirely different", () => {

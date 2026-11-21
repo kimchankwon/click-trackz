@@ -1,10 +1,12 @@
 import type { Rect } from "./png.mts";
 
-export type MaskEntry = string | { testId: string; x?: number; width?: number };
+export type MaskEntry = string | { testId: string; x?: number; width?: number; optional?: boolean };
 export type CropEntry = { text: string; top: number; height: number };
 export type HierarchyNode = { attributes?: Record<string, string>; children?: HierarchyNode[] };
 
 export const maskTestId = (entry: MaskEntry) => (typeof entry === "string" ? entry : entry.testId);
+
+export const maskIsOptional = (entry: MaskEntry) => typeof entry !== "string" && entry.optional === true;
 
 export function shapeMask(entry: MaskEntry, element: Rect, screenWidth: number): Rect {
   if (typeof entry === "string") return element;
@@ -48,7 +50,7 @@ export function maskRects(tree: HierarchyNode, entries: readonly MaskEntry[], im
     const id = node.attributes?.["resource-id"];
     if (id && wanted.has(id) && rect.width > 0 && rect.height > 0) found.set(id, [...(found.get(id) ?? []), rect]);
   }
-  const missing = entries.map(maskTestId).filter((id) => !found.has(id));
+  const missing = entries.filter((entry) => !maskIsOptional(entry)).map(maskTestId).filter((id) => !found.has(id));
   if (screenWidth === 0) return { rects: [], missing };
   const scale = imageWidth / screenWidth;
   const rects = entries.flatMap((entry) => (found.get(maskTestId(entry)) ?? []).map((rect) => scaleRect(shapeMask(entry, rect, screenWidth), scale)));
