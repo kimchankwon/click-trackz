@@ -86,6 +86,9 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
     await signIn(page);
     await page.getByText(groupName).click();
     await expect(page.getByText("Pick a Song", { exact: true })).toBeVisible();
+    const enableSound = page.getByTestId("enable-sound");
+    if (await enableSound.isVisible()) await enableSound.click();
+    await expect(enableSound).toBeHidden();
     await shot();
   },
   song: async (page, shot) => {
@@ -127,11 +130,15 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
   },
 };
 
+const MASK_TARGET_TIMEOUT_MS = 30_000;
+
 const maskBoxes = async (page: Page, mask: readonly MaskEntry[]) => {
   const width = page.viewportSize()?.width ?? 0;
   const rects: Rect[] = [];
   for (const entry of mask) {
-    const found = await page.getByTestId(maskTestId(entry)).all();
+    const target = page.getByTestId(maskTestId(entry));
+    await target.first().waitFor({ state: "visible", timeout: MASK_TARGET_TIMEOUT_MS }).catch(() => undefined);
+    const found = await target.all();
     const boxes = (await Promise.all(found.map((element) => element.boundingBox()))).filter((box) => box !== null && box.width > 0 && box.height > 0);
     if (boxes.length === 0) throw new Error(`could not mask ${maskTestId(entry)}: no element with that testID is on screen`);
     for (const box of boxes) if (box) rects.push(shapeMask(entry, box, width));
