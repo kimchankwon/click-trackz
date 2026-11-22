@@ -92,27 +92,27 @@ export async function reconcile(log: (line: string) => void) {
   }
 }
 
-type Lock = { pid: number; started: string };
+export type Owner = { pid: number; started: string };
 
-const lockText = () => {
+const readText = (file: string) => {
   try {
-    return readFileSync(lockFile, "utf8");
+    return readFileSync(file, "utf8");
   } catch {
     return "";
   }
 };
 
-const parseLock = (text: string): Lock | null => {
+const parseOwner = (text: string): Owner | null => {
   try {
-    return JSON.parse(text) as Lock;
+    return JSON.parse(text) as Owner;
   } catch {
     return null;
   }
 };
 
-const claimLock = () => {
+const createExclusive = (file: string, text: string) => {
   try {
-    writeFileSync(lockFile, JSON.stringify({ pid: process.pid, started: startedAt(process.pid) }), { flag: "wx" });
+    writeFileSync(file, text, { flag: "wx" });
     return true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
@@ -120,48 +120,71 @@ const claimLock = () => {
   }
 };
 
-export function takeLock() {
-  mkdirSync(stateDir, { recursive: true });
-  if (claimLock()) return;
-  const heldText = lockText();
-  const held = parseLock(heldText);
-  if (held && isSameProcess(held)) throw new Error(`Another verify run is active (pid ${held.pid}). Stop it first.`);
-  const stale = `${lockFile}.stale-${process.pid}`;
+export type Claim = { claimed: true } | { claimed: false; holder: Owner | null };
+
+export function claimFile(file: string, details: Record<string, unknown> = {}): Claim {
+  const text = JSON.stringify({ pid: process.pid, started: startedAt(process.pid), ...details });
+  if (createExclusive(file, text)) return { claimed: true };
+  const heldText = readText(file);
+  const held = parseOwner(heldText);
+  if (held && isSameProcess(held)) return { claimed: false, holder: held };
+  const stale = `${file}.stale-${process.pid}`;
   try {
-    renameSync(lockFile, stale);
+    renameSync(file, stale);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   if (existsSync(stale)) {
     if (readFileSync(stale, "utf8") !== heldText) {
-      renameSync(stale, lockFile);
-      throw new Error("Another verify run took the lock at the same moment. Stop it first.");
+      renameSync(stale, file);
+      return { claimed: false, holder: null };
     }
     rmSync(stale, { force: true });
   }
-  if (!claimLock()) throw new Error("Another verify run took the lock at the same moment. Stop it first.");
+  return createExclusive(file, text) ? { claimed: true } : { claimed: false, holder: null };
 }
 
-export const releaseLock = () => {
-  if (parseLock(lockText())?.pid === process.pid) rmSync(lockFile, { force: true });
+export const releaseFile = (file: string) => {
+  if (parseOwner(readText(file))?.pid === process.pid) rmSync(file, { force: true });
 };
 
-export function listener(port: number) {
+export function takeLock() {
+  mkdirSync(stateDir, { recursive: true });
+  const claim = claimFile(lockFile);
+  if (claim.claimed) return;
+  throw new Error(
+    claim.holder ? `Another verify run is active (pid ${claim.holder.pid}). Stop it first.` : "Another verify run took the lock at the same moment. Stop it first.",
+  );
+}
+
+export const releaseLock = () => releaseFile(lockFile);
+
+export function listeners(port: number) {
   try {
-    const pids = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8" }).trim();
-    if (!pids) return null;
-    const pid = Number(pids.split("\n")[0]);
-    const command = execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" }).trim();
-    return { pid, command };
+    return execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8" })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map(Number);
+  } catch {
+    return [];
+  }
+}
+
+export function processGroup(pid: number) {
+  try {
+    return Number(execFileSync("ps", ["-o", "pgid=", "-p", String(pid)], { encoding: "utf8" }).trim()) || null;
   } catch {
     return null;
   }
 }
 
-export function requireFreePort(port: number, setting: string) {
-  const taken = listener(port);
-  if (taken)
-    throw new Error(`Port ${port} is in use by pid ${taken.pid} (${taken.command.slice(0, 120)}), which verify did not start. Free it or set ${setting}.`);
+export function describeProcess(pid: number) {
+  try {
+    return `pid ${pid} (${execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" }).trim().slice(0, 120)})`;
+  } catch {
+    return `pid ${pid}`;
+  }
 }
 
 let stopping = false;

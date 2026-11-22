@@ -18,6 +18,7 @@ import {
   uninstall,
 } from "./ios.mts";
 import { planFor, type FeatureMap, type Plan } from "./plan.mts";
+import { describePorts, portRegistry, type PortNeed, type Reservation } from "./ports.mts";
 import {
   beginStopping,
   cacheDir,
@@ -25,7 +26,6 @@ import {
   killAllNow,
   reconcile,
   releaseLock,
-  requireFreePort,
   root,
   run,
   start,
@@ -155,16 +155,27 @@ type Run = {
   logsDir: string;
   steps: Step[];
   device: { udid: string | null };
+  ports: Partial<Record<Service, number>>;
 };
 
-const ports = {
-  metro: Number(process.env.VERIFY_METRO_PORT ?? 8091),
-  web: Number(process.env.VERIFY_WEB_PORT ?? 8191),
-  convex: Number(process.env.VERIFY_CONVEX_PORT ?? 3290),
-};
+type Service = "convex" | "web" | "metro";
+
+const registry = portRegistry();
+
+function portNeed(service: Service): PortNeed {
+  const { name, setting, value, fallback, span } = {
+    convex: { name: "Convex", setting: "VERIFY_CONVEX_PORT", value: process.env.VERIFY_CONVEX_PORT, fallback: 3290, span: 2 },
+    web: { name: "web Metro", setting: "VERIFY_WEB_PORT", value: process.env.VERIFY_WEB_PORT, fallback: 8191, span: 1 },
+    metro: { name: "iOS Metro", setting: "VERIFY_METRO_PORT", value: process.env.VERIFY_METRO_PORT, fallback: 8091, span: 1 },
+  }[service];
+  if (value !== undefined && !/^\d+$/.test(value)) throw new UsageError(`${setting} must be a port number, not ${value}`);
+  return { service: name, setting, preferred: value === undefined ? fallback : Number(value), span, explicit: value !== undefined };
+}
+
 const node = process.execPath;
 const bin = (...parts: string[]) => path.join(root, "node_modules", ...parts);
-const webUrl = `http://localhost:${ports.web}`;
+const webUrlFor = (port: number) => `http://localhost:${port}`;
+const sayIndented = (line: string) => say(`    ${line}`);
 const selectedFlows = (plan: RunPlan) => map.flows.filter((entry) => plan.flows.includes(entry.id));
 
 async function runChecks({ steps, logsDir }: Run) {
@@ -185,19 +196,22 @@ const appEnv = (): NodeJS.ProcessEnv => ({
   PLAYWRIGHT_BROWSERS_PATH: path.join(cacheDir, "ms-playwright"),
 });
 
-function startBundler(name: string, port: number, setting: string, backend: Backend, logsDir: string) {
-  requireFreePort(port, setting);
-  start(name, node, [bin("expo", "bin", "cli"), "start", "--port", String(port), "--localhost"], {
-    logFile: path.join(logsDir, `${name}.log`),
-    env: { ...appEnv(), EXPO_PUBLIC_CONVEX_URL: backend.url, EXPO_PUBLIC_DEV_LOGIN: "1" },
-  });
-}
-
-const bundlerReady = (port: number) =>
-  waitFor(
-    `Metro on port ${port}`,
-    httpOk(`http://localhost:${port}/status`, (body) => body.includes("packager-status:running")),
-    120_000,
+const startBundler = (name: string, reservation: Reservation, backend: Backend, logsDir: string) =>
+  registry.serve(
+    reservation,
+    (port) => ({
+      started: start(name, node, [bin("expo", "bin", "cli"), "start", "--port", String(port), "--localhost"], {
+        logFile: path.join(logsDir, `${name}.log`),
+        env: { ...appEnv(), EXPO_PUBLIC_CONVEX_URL: backend.url, EXPO_PUBLIC_DEV_LOGIN: "1" },
+      }),
+      ready: () =>
+        waitFor(
+          `Metro on port ${port}`,
+          httpOk(`http://localhost:${port}/status`, (body) => body.includes("packager-status:running")),
+          120_000,
+        ),
+    }),
+    sayIndented,
   );
 
 async function warm(url: string) {
@@ -206,19 +220,25 @@ async function warm(url: string) {
   return response.text();
 }
 
-async function runWeb({ plan, outDir, logsDir, steps }: Run, backend: Backend) {
+async function runWeb({ plan, outDir, logsDir, steps, ports }: Run, backend: Backend, reserved: Reservation) {
   const shotsDir = path.join(outDir, "web");
   mkdirSync(shotsDir, { recursive: true });
   const installLog = path.join(logsDir, "playwright-install.log");
+  let webUrl = webUrlFor(reserved.port);
   const ready = await timed(steps, { id: "web-bundler", kind: "setup", platform: "web", log: path.join(logsDir, "metro-web.log") }, async () => {
-    startBundler("metro-web", ports.web, "VERIFY_WEB_PORT", backend, logsDir);
-    const installed = await run("playwright-install", node, [bin("@playwright", "test", "cli.js"), "install", "chromium", "--only-shell", "--no-progress"], {
+    const install = run("playwright-install", node, [bin("@playwright", "test", "cli.js"), "install", "chromium", "--only-shell", "--no-progress"], {
       logFile: installLog,
       env: appEnv(),
       timeoutMs: 10 * 60_000,
     });
+    const served = await startBundler("metro-web", reserved, backend, logsDir);
+    ports.web = served.port;
+    if (served.port !== reserved.port) {
+      webUrl = webUrlFor(served.port);
+      await backend.setSiteUrl(webUrl);
+    }
+    const installed = await install;
     if (installed !== 0) throw new Error(`playwright install exited ${installed}; see ${relative(installLog)}`);
-    await bundlerReady(ports.web);
     const script = (await warm(`${webUrl}/`)).match(/<script[^>]+src="([^"]+)"/)?.[1];
     if (script) await warm(new URL(script, webUrl).toString());
   });
@@ -270,21 +290,24 @@ async function runWeb({ plan, outDir, logsDir, steps }: Run, backend: Backend) {
   await stop("metro-web");
 }
 
-async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Backend) {
+async function runIos({ plan, outDir, logsDir, steps, device, ports }: Run, backend: Backend, reserved: Reservation) {
   const shotsDir = path.join(outDir, "ios");
   mkdirSync(shotsDir, { recursive: true });
   const env = appEnv();
+  let metroPort = reserved.port;
   const ready = await timed(steps, { id: "ios-dev-build", kind: "setup", platform: "ios", log: path.join(logsDir, "xcodebuild.log") }, async () => {
     const simulator = resolveDevice(process.env.VERIFY_IOS_DEVICE ?? "iPhone 17");
     device.udid = simulator.udid;
     say(`    simulator ${simulator.name} (${simulator.udid})`);
     bootDevice(simulator);
     pinStatusBar(simulator.udid);
-    startBundler("metro-ios", ports.metro, "VERIFY_METRO_PORT", backend, logsDir);
-    const build = await ensureBuild({ env, logsDir, log: (line) => say(`    ${line}`) });
+    const served = startBundler("metro-ios", reserved, backend, logsDir);
+    void served.catch(() => undefined);
+    const build = await ensureBuild({ env, logsDir, log: sayIndented });
     say(`    dev build ${build.cached ? "from cache" : "built"}: ${build.key}`);
-    await bundlerReady(ports.metro);
-    await warm(`http://localhost:${ports.metro}/.expo/.virtual-metro-entry.bundle?platform=ios&dev=false&minify=false`);
+    metroPort = (await served).port;
+    ports.metro = metroPort;
+    await warm(`http://localhost:${metroPort}/.expo/.virtual-metro-entry.bundle?platform=ios&dev=false&minify=false`);
     installFresh(simulator.udid, build.app);
   });
   const udid = device.udid;
@@ -295,7 +318,7 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
     SONG_TITLE: SEED.songTitle,
     JOIN_CODE: backend.joinCode,
     GUEST_NAME: SEED.guestName,
-    METRO_PORT: String(ports.metro),
+    METRO_PORT: String(metroPort),
   };
   const metroLog = path.join(logsDir, "metro-ios.log");
   const bundlesServed = () => (readFileSync(metroLog, "utf8").match(/iOS Bundled/g) ?? []).length;
@@ -307,7 +330,7 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
       const { code, retried } = await runMaestroFlow({ id: flow.id, udid, shot, vars, env, logFile: log });
       if (retried) say("    Maestro's iOS driver crashed, so the flow ran once more");
       if (servedBeforeFirstFlow !== null && bundlesServed() <= servedBeforeFirstFlow)
-        throw new Error(`the app did not load its bundle from Metro on port ${ports.metro}, so it may be running other code; see ${relative(metroLog)}`);
+        throw new Error(`the app did not load its bundle from Metro on port ${metroPort}, so it may be running other code; see ${relative(metroLog)}`);
       servedBeforeFirstFlow = null;
       if (code === 124) throw new Error(`maestro timed out after 8 minutes; log: ${relative(log)}`);
       if (code !== 0) throw new Error(`maestro exited ${code}; log: ${relative(log)}`);
@@ -319,16 +342,32 @@ async function runIos({ plan, outDir, logsDir, steps, device }: Run, backend: Ba
   }
 }
 
+async function reservePorts(services: Service[]) {
+  const reserved: Partial<Record<Service, Reservation>> = {};
+  for (const service of services) reserved[service] = await registry.reserve(portNeed(service), sayIndented);
+  return reserved;
+}
+
 async function runApp(context: Run) {
   say("app");
   let backend: Backend | undefined;
+  let reserved: Partial<Record<Service, Reservation>> = {};
   await timed(context.steps, { id: "local-backend", kind: "setup", log: path.join(context.logsDir, "convex-backend.log") }, async () => {
-    backend = await startBackend({ port: ports.convex, webUrl, logsDir: context.logsDir });
+    const services: Service[] = ["convex"];
+    if (context.platforms.includes("web")) services.push("web");
+    if (context.platforms.includes("ios")) services.push("metro");
+    reserved = await reservePorts(services);
+    say(`    ports: ${describePorts(Object.values(reserved))}`);
+    const convex = reserved.convex;
+    if (!convex) throw new Error("no Convex port was reserved");
+    const webUrl = webUrlFor(reserved.web?.port ?? portNeed("web").preferred);
+    backend = await startBackend({ ports: registry, reservation: convex, webUrl, logsDir: context.logsDir, log: sayIndented });
+    context.ports.convex = backend.reservation.port;
     say(`    Convex ${backend.url}, seeded Group "${SEED.groupName}" for ${SEED.email}`);
   });
   if (!backend) return;
-  if (context.platforms.includes("web")) await runWeb(context, backend);
-  if (context.platforms.includes("ios")) await runIos(context, backend);
+  if (reserved.web) await runWeb(context, backend, reserved.web);
+  if (reserved.metro) await runIos(context, backend, reserved.metro);
 }
 
 function writeSummary(context: Run, label: string, began: Date) {
@@ -345,6 +384,7 @@ function writeSummary(context: Run, label: string, began: Date) {
     notes: plan.notes,
     flows: plan.flows,
     platforms: context.platforms,
+    ports: context.ports,
     steps,
   };
   mkdirSync(context.outDir, { recursive: true });
@@ -369,6 +409,7 @@ async function main() {
     logsDir: path.join(outDir, "logs"),
     steps: [],
     device: { udid: null },
+    ports: {},
   };
   const began = new Date();
 
@@ -380,6 +421,7 @@ async function main() {
       clearStatusBar(context.device.udid);
     }
     shutDownIfWeBooted();
+    registry.releaseAll();
     releaseLock();
   };
   for (const [signal, code] of [
@@ -395,6 +437,7 @@ async function main() {
   }
   process.once("exit", () => {
     killAllNow();
+    registry.releaseAll();
     releaseLock();
   });
 
