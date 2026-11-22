@@ -7,7 +7,8 @@ import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import { anyApi } from "convex/server";
 
-import { httpOk, requireFreePort, root, run, start, stateDir, waitFor } from "./processes.mts";
+import type { PortRegistry, Reservation } from "./ports.mts";
+import { httpOk, root, run, start, stateDir, waitFor } from "./processes.mts";
 
 export const SEED = {
   email: "admin@example.com",
@@ -17,7 +18,17 @@ export const SEED = {
   guestName: "Verify Guest",
 } as const;
 
-export type Backend = { url: string; siteUrl: string; devSecret: string; groupId: string; joinCode: string; songId: string; binary: string };
+export type Backend = {
+  url: string;
+  siteUrl: string;
+  devSecret: string;
+  groupId: string;
+  joinCode: string;
+  songId: string;
+  binary: string;
+  reservation: Reservation;
+  setSiteUrl: (webUrl: string) => Promise<void>;
+};
 
 const INSTANCE_NAME = "click-trackz-verify";
 const binariesDir = path.join(os.homedir(), ".cache", "convex", "binaries");
@@ -49,47 +60,63 @@ function authKeys() {
 
 const quoted = (value: string) => `'${value.replace(/'/g, "")}'`;
 
-export async function startBackend({ port, webUrl, logsDir }: { port: number; webUrl: string; logsDir: string }): Promise<Backend> {
-  const sitePort = port + 1;
-  requireFreePort(port, "VERIFY_CONVEX_PORT");
-  requireFreePort(sitePort, "VERIFY_CONVEX_PORT");
-  const dir = path.join(stateDir, "convex");
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+const urlsFor = (port: number) => ({ url: `http://127.0.0.1:${port}`, siteUrl: `http://127.0.0.1:${port + 1}` });
 
+export async function startBackend({
+  ports,
+  reservation: reserved,
+  webUrl,
+  logsDir,
+  log,
+}: {
+  ports: PortRegistry;
+  reservation: Reservation;
+  webUrl: string;
+  logsDir: string;
+  log: (line: string) => void;
+}): Promise<Backend> {
+  const dir = path.join(stateDir, "convex");
   const binary = backendBinary(logsDir);
   const instanceSecret = randomBytes(32).toString("hex");
   const adminKey = execFileSync(binary, ["keygen", "admin-key", "--instance-name", INSTANCE_NAME, "--instance-secret", instanceSecret], {
     encoding: "utf8",
   }).trim();
-  const url = `http://127.0.0.1:${port}`;
-  const siteUrl = `http://127.0.0.1:${sitePort}`;
-  start(
-    "convex-backend",
-    binary,
-    [
-      "--interface",
-      "127.0.0.1",
-      "--port",
-      String(port),
-      "--site-proxy-port",
-      String(sitePort),
-      "--convex-origin",
-      url,
-      "--convex-site",
-      siteUrl,
-      "--instance-name",
-      INSTANCE_NAME,
-      "--instance-secret",
-      instanceSecret,
-      "--local-storage",
-      path.join(dir, "storage"),
-      "--disable-beacon",
-      path.join(dir, "db.sqlite3"),
-    ],
-    { logFile: path.join(logsDir, "convex-backend.log"), cwd: dir },
+  const reservation = await ports.serve(
+    reserved,
+    (port) => {
+      const { url, siteUrl } = urlsFor(port);
+      rmSync(dir, { recursive: true, force: true });
+      mkdirSync(dir, { recursive: true });
+      const started = start(
+        "convex-backend",
+        binary,
+        [
+          "--interface",
+          "127.0.0.1",
+          "--port",
+          String(port),
+          "--site-proxy-port",
+          String(port + 1),
+          "--convex-origin",
+          url,
+          "--convex-site",
+          siteUrl,
+          "--instance-name",
+          INSTANCE_NAME,
+          "--instance-secret",
+          instanceSecret,
+          "--local-storage",
+          path.join(dir, "storage"),
+          "--disable-beacon",
+          path.join(dir, "db.sqlite3"),
+        ],
+        { logFile: path.join(logsDir, "convex-backend.log"), cwd: dir },
+      );
+      return { started, ready: () => waitFor(`the local Convex backend on ${url}`, httpOk(`${url}/version`), 30_000) };
+    },
+    log,
   );
-  await waitFor(`the local Convex backend on ${url}`, httpOk(`${url}/version`), 30_000);
+  const { url, siteUrl } = urlsFor(reservation.port);
 
   const selector = path.join(dir, "deployment.env");
   writeFileSync(selector, `CONVEX_SELF_HOSTED_URL=${url}\nCONVEX_SELF_HOSTED_ADMIN_KEY=${adminKey}\n`);
@@ -130,5 +157,6 @@ export async function startBackend({ port, webUrl, logsDir }: { port: number; we
       { sectionType: "Outro", bars: 4, beatsPerBar: 4, bpm },
     ],
   });
-  return { url, siteUrl, devSecret, groupId, joinCode, songId: song.songId, binary };
+  const setSiteUrl = (nextWebUrl: string) => cli("convex-site-url", ["env", "set", "SITE_URL", nextWebUrl]);
+  return { url, siteUrl, devSecret, groupId, joinCode, songId: song.songId, binary, reservation, setSiteUrl };
 }
