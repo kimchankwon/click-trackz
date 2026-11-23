@@ -17,6 +17,7 @@ import {
   shutDownIfWeBooted,
   uninstall,
 } from "./ios.mts";
+import { metroTmpDir } from "./metro-cache.mts";
 import { planFor, type FeatureMap, type Plan } from "./plan.mts";
 import { describePorts, portRegistry, type PortNeed, type Reservation } from "./ports.mts";
 import {
@@ -29,6 +30,7 @@ import {
   root,
   run,
   start,
+  stateDir,
   stop,
   stopAll,
   takeLock,
@@ -196,21 +198,30 @@ const appEnv = (): NodeJS.ProcessEnv => ({
   PLAYWRIGHT_BROWSERS_PATH: path.join(cacheDir, "ms-playwright"),
 });
 
+const bundlerTmpDir = (appVars: Record<string, string>) => {
+  const dir = metroTmpDir(stateDir, appVars);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+};
+
 const startBundler = (name: string, reservation: Reservation, backend: Backend, logsDir: string) =>
   registry.serve(
     reservation,
-    (port) => ({
-      started: start(name, node, [bin("expo", "bin", "cli"), "start", "--port", String(port), "--localhost"], {
-        logFile: path.join(logsDir, `${name}.log`),
-        env: { ...appEnv(), EXPO_PUBLIC_CONVEX_URL: backend.url, EXPO_PUBLIC_DEV_LOGIN: "1" },
-      }),
-      ready: () =>
-        waitFor(
-          `Metro on port ${port}`,
-          httpOk(`http://localhost:${port}/status`, (body) => body.includes("packager-status:running")),
-          120_000,
-        ),
-    }),
+    (port) => {
+      const appVars = { EXPO_PUBLIC_CONVEX_URL: backend.url, EXPO_PUBLIC_DEV_LOGIN: "1" };
+      return {
+        started: start(name, node, [bin("expo", "bin", "cli"), "start", "--port", String(port), "--localhost"], {
+          logFile: path.join(logsDir, `${name}.log`),
+          env: { ...appEnv(), ...appVars, TMPDIR: bundlerTmpDir(appVars) },
+        }),
+        ready: () =>
+          waitFor(
+            `Metro on port ${port}`,
+            httpOk(`http://localhost:${port}/status`, (body) => body.includes("packager-status:running")),
+            120_000,
+          ),
+      };
+    },
     sayIndented,
   );
 
