@@ -328,9 +328,12 @@ async function runIos({ plan, outDir, logsDir, steps, device, ports }: Run, back
     const log = path.join(logsDir, `ios-${flow.id}.log`);
     await timed(steps, { id: flow.id, kind: "flow", platform: "ios", log }, async () => {
       const { code, retried } = await runMaestroFlow({ id: flow.id, udid, shot, vars, env, logFile: log });
-      if (retried) say("    Maestro's iOS driver crashed, so the flow ran once more");
-      if (servedBeforeFirstFlow !== null && bundlesServed() <= servedBeforeFirstFlow)
+      if (retried) say("    Maestro's iOS driver crashed or did not start, so the flow ran once more");
+      if (servedBeforeFirstFlow !== null && bundlesServed() <= servedBeforeFirstFlow) {
+        if (code !== 0)
+          throw new Error(`${code === 124 ? "maestro timed out after 8 minutes" : `maestro exited ${code}`} before the app loaded its bundle from Metro on port ${metroPort}; log: ${relative(log)}`);
         throw new Error(`the app did not load its bundle from Metro on port ${metroPort}, so it may be running other code; see ${relative(metroLog)}`);
+      }
       servedBeforeFirstFlow = null;
       if (code === 124) throw new Error(`maestro timed out after 8 minutes; log: ${relative(log)}`);
       if (code !== 0) throw new Error(`maestro exited ${code}; log: ${relative(log)}`);
