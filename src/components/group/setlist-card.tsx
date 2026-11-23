@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { memo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
@@ -43,7 +43,9 @@ export const SetlistCard = memo(function SetlistCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const setlists = liveOr(useQuery(api.setlists.list, { groupId }), () => stored?.setlists);
+  const liveSetlists = useQuery(api.setlists.list, { groupId });
+  const storedSetlists = stored?.setlists;
+  const setlists = useMemo(() => liveOr(liveSetlists, () => storedSetlists), [liveSetlists, storedSetlists]);
   const createSetlist = useMutation(api.setlists.createSetlist);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const setCurrent = useMutation(api.setlists.setCurrent);
