@@ -169,6 +169,7 @@ export function SongForm({
         library.map((other) => (other.songId === songId ? title : other.title)),
       )
     : null;
+  const saveEdits = changed ? () => updateSong({ songId, ...draft }) : null;
   const confirmDuplicate = async () => {
     if (duplicatePending) return;
     if (changed && problem !== null) {
@@ -179,8 +180,9 @@ export function SongForm({
     setDuplicatePending(true);
     const mine = beginAttempt();
     try {
-      const copy = await saveThen(changed ? () => updateSong({ songId, ...draft }) : null, () => duplicateSong({ songId }), () => mine === attempt.current).finally(() => setDuplicatePending(false));
-      if (copy === null || mine !== attempt.current) return;
+      const copy = await saveThen(saveEdits, () => duplicateSong({ songId }), () => mine === attempt.current).finally(() => setDuplicatePending(false));
+      if (copy === null) return;
+      if (mine !== attempt.current) return;
       setConfirmingDuplicate(false);
       setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
     } catch (error) {
@@ -202,7 +204,7 @@ export function SongForm({
     setCopyPending(true);
     const mine = beginAttempt();
     try {
-      const copy = await saveThen(changed ? () => updateSong({ songId, ...draft }) : null, () => copyToGroup({ songId, toGroupId: copyTarget }), () => mine === attempt.current).finally(() => setCopyPending(false));
+      const copy = await saveThen(saveEdits, () => copyToGroup({ songId, toGroupId: copyTarget }), () => mine === attempt.current).finally(() => setCopyPending(false));
       if (copy === null) return;
       toast.show(`${copy.title} is now in ${copy.groupName}`);
       if (mine === attempt.current) setCopyOpen(false);
