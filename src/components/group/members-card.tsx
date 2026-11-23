@@ -79,15 +79,15 @@ export function MembersCard({
     if (nameEdit === null || nameSaving) return;
     setNameError(null);
     setNameSaving(true);
+    const ownName = nameEdit.userId === viewer?.id;
     try {
-      if (nameEdit.userId === viewer?.id) await setDisplayName({ groupId, displayName: nameEdit.draft });
+      if (ownName) await setDisplayName({ groupId, displayName: nameEdit.draft });
       else await setMemberName({ groupId, userId: nameEdit.userId, displayName: nameEdit.draft });
       setNameEdit(null);
     } catch (error) {
       setNameError(errorText(error));
-    } finally {
-      setNameSaving(false);
     }
+    setNameSaving(false);
   };
   const [action, setAction] = useState<MemberAction | null>(null);
   const [actionPending, setActionPending] = useState(false);
@@ -107,9 +107,8 @@ export function MembersCard({
       setAction((current) => (current === target ? null : current));
     } catch (error) {
       setActionError(errorText(error));
-    } finally {
-      setActionPending(false);
     }
+    setActionPending(false);
   };
   const dialog = dialogFor(action, groupName);
   const theme = useTheme();

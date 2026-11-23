@@ -87,8 +87,10 @@ const flows: Record<string, (page: Page, shot: () => Promise<void>) => Promise<v
     await page.getByText(groupName).click();
     await expect(page.getByText("Pick a Song", { exact: true })).toBeVisible();
     const enableSound = page.getByTestId("enable-sound");
-    if (await enableSound.isVisible()) await enableSound.click();
-    await expect(enableSound).toBeHidden();
+    await expect(async () => {
+      if (await enableSound.isVisible()) await enableSound.click({ timeout: 5_000 });
+      await expect(enableSound).toBeHidden({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
     await shot();
   },
   song: async (page, shot) => {

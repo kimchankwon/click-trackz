@@ -24,9 +24,8 @@ export function RenameGroup({ groupId, name }: { groupId: Id<"groups">; name: st
       setDraft(null);
     } catch (failure) {
       setError(errorText(failure));
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
   if (draft === null) {
     return (
