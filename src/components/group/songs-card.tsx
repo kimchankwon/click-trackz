@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Keyboard, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
@@ -15,7 +15,7 @@ import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-export function SongsCard({
+export const SongsCard = memo(function SongsCard({
   groupId,
   canEdit,
   canPlay,
@@ -110,7 +110,7 @@ export function SongsCard({
       ) : null}
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   list: { marginHorizontal: -Spacing.two, gap: 2 },

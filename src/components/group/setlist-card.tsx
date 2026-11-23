@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
@@ -25,7 +25,7 @@ const CHANGED_ELSEWHERE = "Someone else changed this Setlist just now, so your m
 
 type SetlistEntry = { songId: Id<"songs">; title: string; key: string | null; leader: string | null; needsStructure: boolean };
 
-export function SetlistCard({
+export const SetlistCard = memo(function SetlistCard({
   groupId,
   canEdit,
   canPick,
@@ -279,7 +279,7 @@ export function SetlistCard({
       />
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.one },
