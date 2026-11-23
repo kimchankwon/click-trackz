@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { memo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { Keyboard, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
@@ -31,7 +31,9 @@ export const SongsCard = memo(function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const songs = liveOr(useQuery(api.songs.list, { groupId }), () => stored?.songs);
+  const liveSongs = useQuery(api.songs.list, { groupId });
+  const storedSongs = stored?.songs;
+  const songs = useMemo(() => liveOr(liveSongs, () => storedSongs), [liveSongs, storedSongs]);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const adding = useRef(false);
