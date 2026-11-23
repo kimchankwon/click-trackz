@@ -41,9 +41,8 @@ const groupLimitShown = ({ limits, enforced }: Pick<Usage, "limits" | "enforced"
 const counted = (count: number, singular: string, plural: string, limit: number | null, enforced: boolean) =>
   enforced && limit !== null ? `${count} of ${limit} ${plural}` : `${count} ${count === 1 ? singular : plural}`;
 
-export const usageSummary = ({ groups, songs, librarySongs, limits, enforced }: Usage) =>
-  [
-    counted(groups, "Group", "Groups", groupLimitShown({ limits, enforced }), true),
-    counted(songs, "Group Song", "Group Songs", limits.songs, enforced),
-    counted(librarySongs, "My Library Song", "My Library Songs", limits.librarySongs, enforced),
-  ].join(" · ");
+export const usageCounts = ({ groups, songs, librarySongs, limits, enforced }: Usage) => [
+  counted(groups, "Group", "Groups", groupLimitShown({ limits, enforced }), true),
+  counted(songs, "Group Song", "Group Songs", limits.songs, enforced),
+  counted(librarySongs, "My Library Song", "My Library Songs", limits.librarySongs, enforced),
+];

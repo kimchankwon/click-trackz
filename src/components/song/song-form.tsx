@@ -22,6 +22,7 @@ import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/the
 import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
+import { saveThen } from "@/lib/save-then";
 import { errorText } from "@/lib/error-text";
 import { useHoldRestart } from "@/lib/restart-hold";
 import { canEditSongs } from "@/lib/roles";
@@ -175,9 +176,8 @@ export function SongForm({
     setDuplicatePending(true);
     const mine = beginAttempt();
     try {
-      if (changed) await updateSong({ songId, ...draft });
-      const copy = await duplicateSong({ songId });
-      if (mine !== attempt.current) return;
+      const copy = await saveThen(changed ? () => updateSong({ songId, ...draft }) : null, () => duplicateSong({ songId }), () => mine === attempt.current);
+      if (copy === null || mine !== attempt.current) return;
       setConfirmingDuplicate(false);
       setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
     } catch (error) {
@@ -201,8 +201,8 @@ export function SongForm({
     setCopyPending(true);
     const mine = beginAttempt();
     try {
-      if (changed) await updateSong({ songId, ...draft });
-      const copy = await copyToGroup({ songId, toGroupId: copyTarget });
+      const copy = await saveThen(changed ? () => updateSong({ songId, ...draft }) : null, () => copyToGroup({ songId, toGroupId: copyTarget }), () => mine === attempt.current);
+      if (copy === null) return;
       toast.show(`${copy.title} is now in ${copy.groupName}`);
       if (mine === attempt.current) setCopyOpen(false);
     } catch (error) {
@@ -464,6 +464,7 @@ export function SongForm({
                 icon={target.offline ? "library" : "group"}
                 label={target.name}
                 testID={`copy-target-${target.name}`}
+                disabled={copyPending}
                 onPress={() => setCopyTarget(target.groupId)}
               />
             ))}

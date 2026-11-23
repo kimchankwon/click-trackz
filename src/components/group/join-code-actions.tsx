@@ -72,7 +72,7 @@ export function JoinCodeActions({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: Spacing.three, rowGap: Spacing.half },
+  actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: Spacing.two + Spacing.one, rowGap: Spacing.half },
   row: { flexDirection: "row", alignItems: "center", gap: Spacing.one },
   code: { fontWeight: 700, letterSpacing: 0.5 },
   share: { flexDirection: "row", alignItems: "center", gap: Spacing.one },

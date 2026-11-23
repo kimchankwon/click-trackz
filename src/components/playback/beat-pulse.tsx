@@ -118,9 +118,11 @@ export function BeatPulse({ beat, playing, idle, onPressIdle, idleActionLabel }:
               >
                 {idle?.value ?? "--"}
               </ThemedText>
-              <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={MIN_FONT_SCALE} themeColor="textSecondary" style={styles.idleUnit}>
-                {idle?.unit ?? "No Song picked"}
-              </ThemedText>
+              {idle ? (
+                <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={MIN_FONT_SCALE} themeColor="textSecondary" style={styles.idleUnit}>
+                  {idle.unit}
+                </ThemedText>
+              ) : null}
             </View>
           )}
         </Animated.View>

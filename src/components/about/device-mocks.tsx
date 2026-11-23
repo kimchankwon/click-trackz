@@ -49,7 +49,7 @@ function BeatDisc({ frame, size }: { frame: DemoFrame; size: number }) {
       <Text numberOfLines={1} style={[styles.count, { fontSize, lineHeight: Math.round(fontSize * 1.1), color: downbeat ? screen.accent : screen.text }]}>
         {label}
       </Text>
-      {live ? null : <Text style={[styles.unit, { fontSize: Math.max(9, Math.round(size * 0.09)) }]}>{frame.status === "starting" ? "Starting" : "BPM · 4/4"}</Text>}
+      {live ? null : <Text style={[styles.unit, { fontSize: Math.max(9, Math.round(size * 0.09)) }]}>{frame.status === "starting" ? "Starting" : "BPM"}</Text>}
     </Animated.View>
   );
 }
@@ -108,7 +108,7 @@ export function PlayScreenMock({ width = 280 }: { width?: number }) {
       <View style={[styles.phoneScreen, { borderRadius: 38 * s, paddingHorizontal: 16 * s, paddingTop: 50 * s, paddingBottom: 18 * s, gap: 16 * s }]}>
         <View style={[styles.island, { width: 86 * s, height: 26 * s, borderRadius: 13 * s, top: 12 * s }]} />
         <View style={{ gap: 2 * s }}>
-          <Text numberOfLines={1} style={[styles.screenCaption, { fontSize: 12 * s, lineHeight: 16 * s }]}>{`${frame.song.title} · ${frame.song.bpm} BPM · 4/4`}</Text>
+          <Text numberOfLines={1} style={[styles.screenCaption, { fontSize: 12 * s, lineHeight: 16 * s }]}>{`${frame.song.title}  4/4  ${frame.song.bpm} BPM`}</Text>
           <Text numberOfLines={1} style={[styles.screenTitle, { fontSize: 28 * s, lineHeight: 34 * s }]}>
             {live ? sectionTitleOf(current) : "Ready to start"}
           </Text>

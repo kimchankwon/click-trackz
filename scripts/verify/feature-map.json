@@ -126,6 +126,7 @@
         "src/lib/song-*.ts",
         "src/lib/section-*.ts",
         "src/lib/copy-title*.ts",
+        "src/lib/save-then*.ts",
         "src/lib/tap-tempo*.ts",
         "src/sync/**",
         "convex/songs.ts",

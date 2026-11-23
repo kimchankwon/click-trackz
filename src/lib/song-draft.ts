@@ -37,6 +37,9 @@ const shapeOf = (draft: SongDraft) =>
 
 export const sameDraft = (a: SongDraft, b: SongDraft) => shapeOf(a) === shapeOf(b);
 
+export const sectionWithSongTime = <S extends DraftSection>(section: S, songTime: Pick<Section, "beatsPerBar" | "beatUnit">): S =>
+  section.ownTime === true ? section : { ...section, ...songTime };
+
 const MAX_SECTIONS = 64;
 const MAX_KEY = 8;
 export const MIN_BPM = 30;

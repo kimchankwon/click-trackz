@@ -61,7 +61,7 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
       return next;
     });
   return (
-    <Card title="Activity">
+    <Card>
       <View style={styles.controls}>
         <View style={styles.grow}>
           <Dropdown
@@ -94,9 +94,14 @@ export function ActivityCard({ groupId, opened }: { groupId: Id<"groups">; opene
                 <ThemedText style={styles.summary} testID={`activity-${index}-summary`}>
                   {row.summary}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary" testID={`activity-${index}-by`}>
-                  {row.actorName} · {activityWhen(row.at, Math.max(nowMs, row.at))}
-                </ThemedText>
+                <View style={styles.byline} testID={`activity-${index}-by`}>
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.actor}>
+                    {row.actorName}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {activityWhen(row.at, Math.max(nowMs, row.at))}
+                  </ThemedText>
+                </View>
                 {expanded && row.details.length > 0 ? (
                   <View style={styles.details} testID={`activity-${index}-details`}>
                     {row.details.map((line, lineIndex) => (
@@ -146,6 +151,8 @@ const styles = StyleSheet.create({
   item: { gap: 2 },
   separator: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.two },
   summary: { fontWeight: 600 },
+  byline: { flexDirection: "row", gap: Spacing.two },
+  actor: { flexShrink: 1 },
   details: { gap: 2, marginTop: Spacing.one, paddingLeft: Spacing.two },
   toggle: { flexDirection: "row", marginTop: Spacing.one },
 });
