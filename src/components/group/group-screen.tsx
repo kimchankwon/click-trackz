@@ -450,28 +450,31 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     [],
   );
 
-  useEffect(() => {
-    if (!lockScreenLoaded) return;
+  const enableEngine = useEffectEvent((cancelled: () => boolean) => {
     setOwnsNowPlaying(lockScreenOn, { applyNow: false });
-    let cancelled = false;
     if (!engine.current) engine.current = new CueAudioEngine();
     engine.current
       .enable(playNow, speaker, voiceSpeed)
       .then((running) => {
-        if (cancelled) return;
+        if (cancelled()) return;
         setSoundOn(running);
         setSoundBlocked(!running);
         setSoundProblem(running ? null : (engine.current?.failure ?? null));
       })
       .catch((error: unknown) => {
-        if (cancelled) return;
+        if (cancelled()) return;
         setSoundBlocked(true);
         setSoundProblem(describeAudioError(error));
       });
+  });
+
+  useEffect(() => {
+    if (!lockScreenLoaded) return;
+    let cancelled = false;
+    enableEngine(() => cancelled);
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- enables the engine once the lock screen setting loads; the speaker effect above applies later changes
   }, [lockScreenLoaded]);
 
   const wakeEngine = useCallback(() => {
@@ -742,14 +745,10 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         });
       } else {
         if (startPending) return;
+        const pressedAt = serverNow();
+        if (pressedAt === null) throw new Error("This device is still measuring the clock. Try again in a moment.");
         setStartPending(true);
-        try {
-          const pressedAt = serverNow();
-          if (pressedAt === null) throw new Error("This device is still measuring the clock. Try again in a moment.");
-          await start({ groupId, songId: startSongId, ...from, ...position, pressedAt });
-        } finally {
-          setStartPending(false);
-        }
+        await start({ groupId, songId: startSongId, ...from, ...position, pressedAt }).finally(() => setStartPending(false));
       }
     });
 
@@ -801,11 +800,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       if (monotonicNow() < stopHeldUntil.current) return;
       if (onDevice) return stopOnDevice();
       setStopPending(true);
-      try {
-        await stop({ groupId, startsAt: playback?.startsAt });
-      } finally {
-        setStopPending(false);
-      }
+      await stop({ groupId, startsAt: playback?.startsAt }).finally(() => setStopPending(false));
     });
 
   const mute = () => setMutedStart(playback?.startsAt ?? null);
@@ -1282,7 +1277,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     setDuplicatePending(true);
     const mine = ++attempt.current;
     try {
-      const copy = await duplicateGroup({ groupId });
+      const copy = await duplicateGroup({ groupId }).finally(() => setDuplicatePending(false));
       if (mine !== attempt.current) {
         showToast(`${copy.name} is ready in Your Groups`);
         return;
@@ -1293,8 +1288,6 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     } catch (error) {
       if (mine !== attempt.current) showToast(errorText(error), "error");
       else setDuplicateError(errorText(error));
-    } finally {
-      setDuplicatePending(false);
     }
   };
 
@@ -1310,14 +1303,12 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     setLeavingGroup(true);
     const mine = ++attempt.current;
     try {
-      await deleteGroup({ groupId, pressedAt });
+      await deleteGroup({ groupId, pressedAt }).finally(() => setDeletePending(false));
       router.dismissTo("/");
     } catch (error) {
       setLeavingGroup(false);
       if (mine !== attempt.current) showToast(errorText(error), "error");
       else setDeleteError(errorText(error));
-    } finally {
-      setDeletePending(false);
     }
   };
 
