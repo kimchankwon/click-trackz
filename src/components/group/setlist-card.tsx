@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Card } from "@/components/group/card";
@@ -25,7 +25,7 @@ const CHANGED_ELSEWHERE = "Someone else changed this Setlist just now, so your m
 
 type SetlistEntry = { songId: Id<"songs">; title: string; key: string | null; leader: string | null; needsStructure: boolean };
 
-export function SetlistCard({
+export const SetlistCard = memo(function SetlistCard({
   groupId,
   canEdit,
   canPick,
@@ -43,7 +43,9 @@ export function SetlistCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const setlists = liveOr(useQuery(api.setlists.list, { groupId }), () => stored?.setlists);
+  const liveSetlists = useQuery(api.setlists.list, { groupId });
+  const storedSetlists = stored?.setlists;
+  const setlists = useMemo(() => liveOr(liveSetlists, () => storedSetlists), [liveSetlists, storedSetlists]);
   const createSetlist = useMutation(api.setlists.createSetlist);
   const deleteSetlist = useMutation(api.setlists.deleteSetlist);
   const setCurrent = useMutation(api.setlists.setCurrent);
@@ -99,9 +101,8 @@ export function SetlistCard({
       setDeleting((current) => (current === target ? null : current));
     } catch (error) {
       setDeleteError(errorText(error));
-    } finally {
-      setDeletePending(false);
     }
+    setDeletePending(false);
   };
   const makeCurrent = async (setlistId: Id<"setlists">) => {
     if (makingCurrent !== null) return;
@@ -111,20 +112,17 @@ export function SetlistCard({
       await setCurrent({ groupId, setlistId });
     } catch (error) {
       setCurrentError({ setlistId, message: errorText(error) });
-    } finally {
-      setMakingCurrent(null);
     }
+    setMakingCurrent(null);
   };
   const createAndOpen = () => {
     if (creating.current) return;
     creating.current = true;
     run(async () => {
-      try {
-        const setlistId = await createSetlist({ groupId, name: "New Setlist" });
-        router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
-      } finally {
+      const setlistId = await createSetlist({ groupId, name: "New Setlist" }).finally(() => {
         creating.current = false;
-      }
+      });
+      router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
     });
   };
   return (
@@ -283,7 +281,7 @@ export function SetlistCard({
       />
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.two, marginBottom: Spacing.one },

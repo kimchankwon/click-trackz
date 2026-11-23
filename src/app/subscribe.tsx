@@ -67,9 +67,8 @@ export default function SubscribeScreen() {
       setMessage(await action());
     } catch (error) {
       setFailure(errorText(error));
-    } finally {
-      setPending(null);
     }
+    setPending(null);
   };
 
   const purchase = (offer: PlanOffer<PurchasesPackage>) =>

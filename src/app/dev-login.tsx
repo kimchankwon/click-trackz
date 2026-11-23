@@ -24,7 +24,7 @@ export default function DevLoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="subtitle">Dev login</ThemedText>
         <TextInput testID="dev-email" style={input} value={email} onChangeText={setEmail} autoCapitalize="none" />
-        <TextInput testID="dev-secret" style={input} value={secret} onChangeText={setSecret} secureTextEntry />
+        <TextInput testID="dev-secret" style={input} value={secret} onChangeText={setSecret} secureTextEntry textContentType="oneTimeCode" autoComplete="off" />
         <Pressable
           role="button"
           testID="dev-submit"

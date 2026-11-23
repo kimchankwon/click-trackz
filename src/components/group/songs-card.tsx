@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { Keyboard, StyleSheet, View } from "react-native";
 
 import { ActionButton } from "@/components/action-button";
@@ -15,7 +15,7 @@ import { summaryParts } from "@/sync/song-summary";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-export function SongsCard({
+export const SongsCard = memo(function SongsCard({
   groupId,
   canEdit,
   canPlay,
@@ -31,7 +31,9 @@ export function SongsCard({
   run: (action: () => Promise<unknown>) => void;
 }) {
   const stored = useStoredLibraryFor(groupId);
-  const songs = liveOr(useQuery(api.songs.list, { groupId }), () => stored?.songs);
+  const liveSongs = useQuery(api.songs.list, { groupId });
+  const storedSongs = stored?.songs;
+  const songs = useMemo(() => liveOr(liveSongs, () => storedSongs), [liveSongs, storedSongs]);
   const createSong = useMutation(api.songs.createSong);
   const [title, setTitle] = useState("");
   const adding = useRef(false);
@@ -98,13 +100,11 @@ export function SongsCard({
               adding.current = true;
               Keyboard.dismiss();
               run(async () => {
-                try {
-                  const songId = await createSong({ groupId, title });
-                  setTitle("");
-                  router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
-                } finally {
+                const songId = await createSong({ groupId, title }).finally(() => {
                   adding.current = false;
-                }
+                });
+                setTitle("");
+                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
               });
             }}
           />
@@ -112,7 +112,7 @@ export function SongsCard({
       ) : null}
     </Card>
   );
-}
+});
 
 const styles = StyleSheet.create({
   list: { marginHorizontal: -Spacing.two, gap: 2 },
