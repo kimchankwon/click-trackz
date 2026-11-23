@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, usePreventRemove } from "expo-router";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -113,7 +113,10 @@ export function SongForm({
     markOwnTimes(markOwnTempos(song.sections, startingBpmOf(song)), startingSongTime(song)).map((section, id) => ({ id, section })),
   );
   const [nextRowId, setNextRowId] = useState(song.sections.length);
-  const sections = withSongTime(withSongTempo(rows.map((row) => (row.section.number === undefined ? { ...row.section, letter: undefined } : row.section)), songBpm), songTime);
+  const sections = useMemo(
+    () => withSongTime(withSongTempo(rows.map((row) => (row.section.number === undefined ? { ...row.section, letter: undefined } : row.section)), songBpm), songTime),
+    [rows, songBpm, songTime],
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
