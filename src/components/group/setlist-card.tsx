@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { keysWithRepeats, moveItem } from "@/lib/reorder";
+import { changedOrder, keysWithRepeats } from "@/lib/reorder";
 import { liveOr, useStoredLibraryFor } from "@/library/use-my-library";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -71,7 +71,8 @@ export const SetlistCard = memo(function SetlistCard({
   const canReorder = canEdit && liveSetlist !== undefined && liveSetlist !== null && moved === null && entries.length > 1;
   const reorder = (from: number, to: number) => {
     if (!canReorder || !liveSetlist) return;
-    const next = moveItem(liveSetlist.entries, from, to);
+    const next = changedOrder(liveSetlist.entries, from, to, (entry) => entry.songId);
+    if (next === null) return;
     const target = { setlistId: liveSetlist.setlistId, revision: liveSetlist.revision, entries: next };
     setMoveNote(null);
     setMoved(target);
