@@ -238,7 +238,7 @@ export async function runMaestroFlow({
   };
   const first = await attempt();
   if (!first.driverCrashed) return { code: first.code, retried: false };
-  appendFileSync(logFile, "\nverify: Maestro's iOS driver crashed, so the flow runs once more\n");
+  appendFileSync(logFile, "\nverify: Maestro's iOS driver crashed or did not start, so the flow runs once more\n");
   const second = await attempt();
   return { code: second.code, retried: true };
 }
@@ -302,4 +302,4 @@ export async function finishScreenshot({
   throw new Error(`the screen kept moving, so the screenshot could not be masked or cropped; log: ${logFile}`);
 }
 
-const DRIVER_CRASH = /Exception in thread "main"[^\n]*(UnknownFailure|XCTestDriver)/;
+const DRIVER_CRASH = /Exception in thread "main"[^\n]*(UnknownFailure|XCTestDriver)|IOSDriverTimeoutException/;
