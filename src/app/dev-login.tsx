@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,7 +15,8 @@ export default function DevLoginScreen() {
   const { signIn } = useAuthActions();
   const theme = useTheme();
   const [email, setEmail] = useState("admin@example.com");
-  const [secret, setSecret] = useState("");
+  const { secret: linkedSecret } = useLocalSearchParams<{ secret?: string }>();
+  const [secret, setSecret] = useState(linkedSecret ?? "");
   const [error, setError] = useState<string | null>(null);
   if (!enabled) return null;
   const input = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
