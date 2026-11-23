@@ -99,9 +99,8 @@ export function SetlistCard({
       setDeleting((current) => (current === target ? null : current));
     } catch (error) {
       setDeleteError(errorText(error));
-    } finally {
-      setDeletePending(false);
     }
+    setDeletePending(false);
   };
   const makeCurrent = async (setlistId: Id<"setlists">) => {
     if (makingCurrent !== null) return;
@@ -111,20 +110,17 @@ export function SetlistCard({
       await setCurrent({ groupId, setlistId });
     } catch (error) {
       setCurrentError({ setlistId, message: errorText(error) });
-    } finally {
-      setMakingCurrent(null);
     }
+    setMakingCurrent(null);
   };
   const createAndOpen = () => {
     if (creating.current) return;
     creating.current = true;
     run(async () => {
-      try {
-        const setlistId = await createSetlist({ groupId, name: "New Setlist" });
-        router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
-      } finally {
+      const setlistId = await createSetlist({ groupId, name: "New Setlist" }).finally(() => {
         creating.current = false;
-      }
+      });
+      router.push({ pathname: "/group/[groupId]/setlist/[setlistId]", params: { groupId, setlistId } });
     });
   };
   return (

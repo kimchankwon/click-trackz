@@ -165,6 +165,9 @@ export function SongForm({
         library.map((other) => (other.songId === songId ? title : other.title)),
       )
     : null;
+  const saveIfChanged = async () => {
+    if (changed) await updateSong({ songId, ...draft });
+  };
   const confirmDuplicate = async () => {
     if (duplicatePending) return;
     if (changed && problem !== null) {
@@ -175,16 +178,15 @@ export function SongForm({
     setDuplicatePending(true);
     const mine = beginAttempt();
     try {
-      if (changed) await updateSong({ songId, ...draft });
-      const copy = await duplicateSong({ songId });
+      const copy = await saveIfChanged()
+        .then(() => duplicateSong({ songId }))
+        .finally(() => setDuplicatePending(false));
       if (mine !== attempt.current) return;
       setConfirmingDuplicate(false);
       setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
     } catch (error) {
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setDuplicateError(errorText(error));
-    } finally {
-      setDuplicatePending(false);
     }
   };
   const confirmCopy = async () => {
@@ -201,15 +203,14 @@ export function SongForm({
     setCopyPending(true);
     const mine = beginAttempt();
     try {
-      if (changed) await updateSong({ songId, ...draft });
-      const copy = await copyToGroup({ songId, toGroupId: copyTarget });
+      const copy = await saveIfChanged()
+        .then(() => copyToGroup({ songId, toGroupId: copyTarget }))
+        .finally(() => setCopyPending(false));
       toast.show(`${copy.title} is now in ${copy.groupName}`);
       if (mine === attempt.current) setCopyOpen(false);
     } catch (error) {
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setCopyError(errorText(error));
-    } finally {
-      setCopyPending(false);
     }
   };
   const confirmDelete = async () => {
@@ -219,7 +220,7 @@ export function SongForm({
     const mine = beginAttempt();
     onDeleting(true);
     try {
-      await deleteSong({ songId });
+      await deleteSong({ songId }).finally(() => setDeletePending(false));
       if (mine !== attempt.current) return;
       setConfirmingDelete(false);
       setDeparture(() => toGroup);
@@ -227,8 +228,6 @@ export function SongForm({
       onDeleting(false);
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setDeleteError(errorText(error));
-    } finally {
-      setDeletePending(false);
     }
   };
 
@@ -264,7 +263,7 @@ export function SongForm({
     setLeavePending(true);
     const mine = beginAttempt();
     try {
-      await updateSong({ songId, ...draft });
+      await updateSong({ songId, ...draft }).finally(() => setLeavePending(false));
       if (mine !== attempt.current) {
         toast.show("Song saved");
         return;
@@ -273,20 +272,14 @@ export function SongForm({
     } catch (error) {
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setLeaveError(errorText(error));
-    } finally {
-      setLeavePending(false);
     }
   };
 
   const save = () =>
     run(async () => {
       setSaving(true);
-      try {
-        await Promise.all([updateSong({ songId, ...draft }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
-        toast.show("Song saved");
-      } finally {
-        setSaving(false);
-      }
+      await Promise.all([updateSong({ songId, ...draft }), new Promise((done) => setTimeout(done, MIN_SAVING_MS))]).finally(() => setSaving(false));
+      toast.show("Song saved");
     });
 
   return (
