@@ -69,7 +69,7 @@ export function useTimingTest() {
       voiceKey.current = options.voice;
       setRunning(true);
       setTested(live.current);
-      try {
+      const begin = async () => {
         const current = engine.current ?? new CueAudioEngine();
         engine.current = current;
         const sounding = current.enabled ? await current.wake() : await current.enable(noClock, options.voice?.speaker ?? null, options.voice?.voiceSpeed);
@@ -94,14 +94,15 @@ export function useTimingTest() {
           frame.current = requestAnimationFrame(draw);
         };
         frame.current = requestAnimationFrame(draw);
-      } catch (error) {
+      };
+      await begin().catch((error: unknown) => {
         if (attempt.current !== mine) return;
         halt();
         busy.current = false;
         setRunning(false);
         setTested(null);
         throw error;
-      }
+      });
     },
     [halt, phase],
   );

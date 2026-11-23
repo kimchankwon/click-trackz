@@ -98,13 +98,11 @@ export const SongsCard = memo(function SongsCard({
               adding.current = true;
               Keyboard.dismiss();
               run(async () => {
-                try {
-                  const songId = await createSong({ groupId, title });
-                  setTitle("");
-                  router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
-                } finally {
+                const songId = await createSong({ groupId, title }).finally(() => {
                   adding.current = false;
-                }
+                });
+                setTitle("");
+                router.push({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId } });
               });
             }}
           />

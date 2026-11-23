@@ -93,7 +93,7 @@ export function SetlistForm({
     const mine = ++attempt.current;
     onDeleting(true);
     try {
-      await deleteSetlist({ setlistId });
+      await deleteSetlist({ setlistId }).finally(() => setDeletePending(false));
       if (mine !== attempt.current) return;
       setConfirmingDelete(false);
       setDeparture(() => toGroup);
@@ -101,8 +101,6 @@ export function SetlistForm({
       onDeleting(false);
       if (mine !== attempt.current) toast.show(errorText(error), "error");
       else setDeleteError(errorText(error));
-    } finally {
-      setDeletePending(false);
     }
   };
   const addedCount = songs.filter((song) => entries.some((entry) => entry.songId === song.songId)).length;
@@ -129,19 +127,17 @@ export function SetlistForm({
     saveInFlight.current = true;
     setSaving(true);
     run(async () => {
-      try {
-        const saved = save({
-          setlistId,
-          revision,
-          name,
-          entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
-        }).then(() => setRevision(revision + 1));
-        await Promise.all([saved, new Promise((done) => setTimeout(done, MIN_SAVING_MS))]);
-        toast.show("Setlist saved");
-      } finally {
+      const saved = save({
+        setlistId,
+        revision,
+        name,
+        entries: entries.map((e) => ({ songId: e.songId, key: e.key, leader: e.leader })),
+      }).then(() => setRevision(revision + 1));
+      await Promise.all([saved, new Promise((done) => setTimeout(done, MIN_SAVING_MS))]).finally(() => {
         saveInFlight.current = false;
         setSaving(false);
-      }
+      });
+      toast.show("Setlist saved");
     });
   };
 
