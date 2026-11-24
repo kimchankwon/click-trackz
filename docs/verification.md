@@ -76,7 +76,7 @@ Every tracked file in the repo matches a rule today, so a dry run on a clean `ma
 | smoke | `01-signed-out-home` | The app launches against the local backend and the signed-out home (the About page) renders |
 | home-signed-out | `02-sign-in-choices` | Get started leads to Continue as guest and Sign in with Google |
 | about | `03-about` | The About link opens `/about`. Web scrolls "From rehearsals to the stage" to the top; iOS crops to the "Every device starts on the same timing" heading and its paragraph |
-| dev-login | `04-dev-login` | Dev login takes the per-run secret and signs in to the seeded account |
+| dev-login | `04-dev-login` | Dev login takes the per-run secret and signs in to the seeded account. On iOS the secret comes in the `clicktrackz://dev-login?secret=` link that opens the screen, since Maestro's typing dropped characters under load; web fills the field |
 | home-signed-in | `05-home-signed-in` | The signed-in home lists the seeded Group under Your Groups |
 | group | `06-group` | The Group opens on Play. On iOS and web the flow taps Enable if the sound prompt shows and waits for it to go, so the screen does not depend on whether the tap that opened the Group woke the audio. The join code, the ping pill and the Admin's stage avatar are masked |
 | song | `07-song` | Songs, then the library row, opens the Song editor with its Sections |

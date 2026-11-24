@@ -1,7 +1,7 @@
 appId: com.kimchankwon.cuetracker
 ---
 - runFlow: launch-signed-out.yaml
-- openLink: clicktrackz://dev-login
+- openLink: clicktrackz://dev-login?secret=${DEV_SECRET}
 - extendedWaitUntil:
     visible: "Open|Dev login"
     timeout: 30000
@@ -13,6 +13,3 @@ appId: com.kimchankwon.cuetracker
 - extendedWaitUntil:
     visible: "Dev login"
     timeout: 30000
-- tapOn:
-    id: "dev-secret"
-- inputText: ${DEV_SECRET}
