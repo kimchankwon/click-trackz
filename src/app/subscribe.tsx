@@ -10,12 +10,14 @@ import { ActionButton } from "@/components/action-button";
 import { Card } from "@/components/group/card";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Icon } from "@/components/ui/icon";
 import { PinnedHeader, PINNED_CONTENT_TOP, usePinnedHeader } from "@/components/ui/pinned-header";
 import { ScreenHeader } from "@/components/ui/screen-header";
-import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { MaxContentWidth, Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { errorText } from "@/lib/error-text";
-import { LAUNCH_LIMITS, PLAN_NAMES, usageSummary, type PaidPlan } from "@/lib/plans";
+import { LAUNCH_LIMITS, PLAN_NAMES, usageCounts, type PaidPlan } from "@/lib/plans";
 import { api } from "../../convex/_generated/api";
 
 const PLAN_PERKS: Record<PaidPlan, readonly string[]> = {
@@ -28,6 +30,7 @@ const BILLING_LABEL = { monthly: "a month", annual: "a year" } as const;
 
 export default function SubscribeScreen() {
   const pinned = usePinnedHeader();
+  const theme = useTheme();
   const viewer = useQuery(api.users.viewer, {});
   const signedIn = viewer !== undefined && viewer !== null && !viewer.isAnonymous;
   const usage = useQuery(api.subscriptions.mine, signedIn ? {} : "skip");
@@ -114,9 +117,15 @@ export default function SubscribeScreen() {
             </ThemedText>
           ) : null}
           {usage ? (
-            <ThemedText type="small" themeColor="textSecondary" testID="plan-usage">
-              {usageSummary(usage)}
-            </ThemedText>
+            <View style={styles.counts} testID="plan-usage">
+              {usageCounts(usage).map((count) => (
+                <View key={count} style={[styles.count, { backgroundColor: theme.backgroundElement }]}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {count}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
           ) : null}
           {(["plus", "pro"] as const).map((plan) => {
             const planOffers = (offers ?? []).filter((offer) => offer.plan === plan);
@@ -125,9 +134,12 @@ export default function SubscribeScreen() {
               <Card key={plan} title={current ? "Your plan" : undefined} heading={PLAN_NAMES[plan]}>
                 <View style={styles.perks}>
                   {PLAN_PERKS[plan].map((perk) => (
-                    <ThemedText key={perk} type="small">
-                      {`• ${perk}`}
-                    </ThemedText>
+                    <View key={perk} style={styles.perk}>
+                      <Icon name="check" size={16} color="accent" />
+                      <ThemedText type="small" style={styles.perkText}>
+                        {perk}
+                      </ThemedText>
+                    </View>
                   ))}
                 </View>
                 {signedIn && !current && available ? (
@@ -197,5 +209,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   perks: { gap: Spacing.one },
+  perk: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  perkText: { flex: 1 },
+  counts: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  count: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Radius.pill },
   buttons: { gap: Spacing.two },
 });

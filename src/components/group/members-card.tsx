@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { errorText } from "@/lib/error-text";
-import { assignableRoles, canManageGroup, canSteerPlayback, guestCanHold, outranks, ROLE_NAMES, type Role } from "@/lib/roles";
+import { assignableRoles, canManageGroup, canSteerPlayback, guestCanHold, outranks, ROLE_NAMES, roleLabel, type Role } from "@/lib/roles";
 import { timeAgo } from "@/lib/time-ago";
 import { lastSeenOf, memberPresence, otherMemberPing, type MemberPresence, type PresenceRow } from "@/presence/online";
 import { api } from "../../../convex/_generated/api";
@@ -119,7 +119,7 @@ export function MembersCard({
   return (
     <Card title={`Members (${list.length}, ${onlineCount} online)`}>
       {list.map((member, index) => {
-        const roleName = !member.isGuest ? ROLE_NAMES[member.role] : member.role === "member" ? "Guest" : `Guest · ${ROLE_NAMES[member.role]}`;
+        const roleName = roleLabel(member.role, member.isGuest);
         const isYou = member.userId === viewer?.id;
         const canChange = managing && !isYou && outranks(myRole, member.role);
         const editingName = nameEdit !== null && nameEdit.userId === member.userId;

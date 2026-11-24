@@ -1,7 +1,12 @@
 const SIDE_FONT = 14;
 const SIDE_DROP = -4;
+const SIDE_MARGIN = 4;
 
-export const sideScaleFor = (fontSize: number) => SIDE_FONT / fontSize;
+export function sideScaleFor(fontSize: number, titleWidth: number, sideWidth: number) {
+  const readable = SIDE_FONT / fontSize;
+  if (titleWidth <= 0) return readable;
+  return Math.min(readable, Math.max(0, sideWidth - SIDE_MARGIN) / titleWidth);
+}
 
 export function carouselSlot(position: number, width: number, sideWidth: number, sideScale: number) {
   "worklet";

@@ -10,7 +10,7 @@ import { LetterStepper, NumberStepper } from "@/components/ui/stepper-input";
 import { Switch } from "@/components/ui/switch";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
-import { MAX_BPM, MIN_BPM } from "@/lib/song-draft";
+import { MAX_BPM, MIN_BPM, sectionWithSongTime } from "@/lib/song-draft";
 import { MoveHandle } from "@/components/song/move-handle";
 import { sameTime, type TimeSignature } from "@/sync/song-time";
 import { newTimeChange } from "@/sync/time-changes";
@@ -133,7 +133,7 @@ export function SectionRow({
   const theme = useTheme();
   const plays = playsOf(section);
   const changes = section.timeChanges ?? [];
-  const addedChange = newTimeChange(section);
+  const addedChange = newTimeChange(sectionWithSongTime(section, songTime));
   const updateChanges = (timeChanges: TimeChange[]) => onChange({ ...section, timeChanges: timeChanges.length > 0 ? timeChanges : undefined });
   const ownTempo = section.ownTempo === true;
   const ownTime = section.ownTime === true;

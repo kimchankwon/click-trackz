@@ -10,6 +10,8 @@ export const ROLE_NAMES: Record<Role, string> = {
   member: "Member",
 };
 
+export const roleLabel = (role: Role, isGuest: boolean) => (!isGuest ? ROLE_NAMES[role] : role === "member" ? "Guest" : `Guest ${ROLE_NAMES[role]}`);
+
 const rankOf = (role: Role) => ROLES_LOW_TO_HIGH.indexOf(role);
 
 export const outranks = (role: Role, other: Role) => rankOf(role) > rankOf(other);

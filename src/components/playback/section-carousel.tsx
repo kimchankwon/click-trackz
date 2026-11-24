@@ -42,8 +42,8 @@ function Title({
   testID?: string;
 }) {
   const fontSize = entry.title.length > 9 ? 32 : 40;
-  const sideScale = sideScaleFor(fontSize);
   const centreWidth = Math.max(0, width - 2 * (SIDE_WIDTH + Spacing.two));
+  const sideScale = sideScaleFor(fontSize, centreWidth, SIDE_WIDTH);
   const shift = useSharedValue(enter);
   useEffect(() => {
     if (shift.get() !== 0) shift.set(withTiming(0, { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) }));

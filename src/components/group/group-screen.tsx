@@ -59,7 +59,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { copyBaseOf, copyTitle, MAX_GROUP_NAME } from "@/lib/copy-title";
 import { errorText } from "@/lib/error-text";
 import { useHoldRestart } from "@/lib/restart-hold";
-import { canEditSongs, canManageGroup, canSteerPlayback, ROLE_NAMES, seesSongLibrary } from "@/lib/roles";
+import { canEditSongs, canManageGroup, canSteerPlayback, roleLabel, seesSongLibrary } from "@/lib/roles";
 import { useAppActive } from "@/lib/use-app-active";
 import { useIdleWithoutPlayback } from "@/lib/use-idle-without-playback";
 import { useConnected } from "@/lib/use-connected";
@@ -706,15 +706,13 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   }, [nextAnnouncement]);
 
   const startHint =
-    startBlocker === "noSong"
-      ? "Pick a Song to start"
-      : startBlocker === "needsSections"
-        ? "Add Sections before this Song can start"
-        : startBlocker === null && startWaitsForClock
-          ? "Measuring the clock"
-          : startBlocker === null && startWaitsForConnection
-            ? "Waiting for a connection"
-            : null;
+    startBlocker === "needsSections"
+      ? "No Sections yet"
+      : startBlocker === null && startWaitsForClock
+        ? "Measuring the clock"
+        : startBlocker === null && startWaitsForConnection
+          ? "Waiting for a connection"
+          : null;
 
   const startPlayback = () =>
     run(async () => {
@@ -845,7 +843,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
       userId: member.userId,
       name: member.displayName,
       position,
-      roleName: !member.isGuest ? ROLE_NAMES[member.role] : member.role === "member" ? "Guest" : `Guest ${ROLE_NAMES[member.role]}`,
+      roleName: roleLabel(member.role, member.isGuest),
       status: memberPresence(presence.rows, member.userId, presence.nowMs, viewer?.id),
       pingMs:
         member.userId === viewer?.id
@@ -860,7 +858,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     .map(({ status, ...member }) => ({ ...member, onPlay: status === "onPlay" }));
   const onlineButton = useRef<ComponentRef<typeof Pressable>>(null);
   const [onlineList, setOnlineList] = useState<OnlineListAnchor | null>(null);
-  const startLabel = startHint ?? "Start";
+  const startLabel = startBlocker === null ? (startHint ?? "Start") : "Start";
   const songTempo = startSong ? (startSong.bpm ?? commonBpm(startSong.sections)) : null;
   const canChangeTempo = editsSongs && !playing && !unclocked && startBlocker === null && songTempo !== null;
   const tempoOpen = canChangeTempo && editingTempo !== null && editingTempo === startSongId;
@@ -924,52 +922,51 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           "Just you, on this device"
         ) : group.joinCode ? (
           <JoinCodeActions code={group.joinCode} groupName={group.name} onDone={toast.show} />
-        ) : group.guest ? (
-          group.role === "member" ? "Guest" : `Guest · ${ROLE_NAMES[group.role]}`
         ) : (
-          ROLE_NAMES[group.role]
+          roleLabel(group.role, group.guest)
         )
       }
       onBack={() => (tab !== "play" ? setTab("play") : playing && !leaving ? setAskLeave(true) : router.dismissTo("/"))}
       backLabel={tab === "play" ? "Your Groups" : "Play"}
       backTestID="groups-back"
-      right={
-        <View style={styles.headerRight}>
-          {tempo ? (
-            <View testID="tempo" aria-label={`${tempo.time}, ${tempo.bpm}`} style={styles.tempoRow}>
-              <ThemedText numberOfLines={1} style={styles.tempo}>
-                {tempo.time}
+      titleEnd={
+        tempo ? (
+          <View testID="tempo" aria-label={`${tempo.time}, ${tempo.bpm}`} style={styles.tempoRow}>
+            <ThemedText numberOfLines={1} style={styles.tempo}>
+              {tempo.time}
+            </ThemedText>
+            <ThemedText numberOfLines={1} style={styles.tempo}>
+              {tempo.bpm}
+            </ThemedText>
+          </View>
+        ) : null
+      }
+      subtitleEnd={
+        offline ? null : (
+          <View style={styles.pill}>
+            <SignalBars roundTripMs={connected ? (estimate?.roundTripMs ?? null) : null} />
+            <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
+              {!connected ? "Connecting…" : estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
+            </ThemedText>
+            <Pressable
+              ref={onlineButton}
+              role="button"
+              aria-label={`${onlineMembers.length} online. Show who is online`}
+              aria-haspopup="dialog"
+              aria-expanded={onlineList !== null}
+              testID="open-online-list"
+              hitSlop={8}
+              onPress={() => onlineButton.current?.measureInWindow((x, y, width, height) => setOnlineList({ x, y, width, height }))}
+              style={({ pressed, hovered }) => [styles.onlineButton, hovered ? { backgroundColor: theme.backgroundSelected } : null, pressed ? styles.pressed : null]}
+            >
+              <Icon name="group" size={14} color="textSecondary" />
+              <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
+                {onlineMembers.length}
               </ThemedText>
-              <ThemedText numberOfLines={1} style={styles.tempo}>
-                {tempo.bpm}
-              </ThemedText>
-            </View>
-          ) : null}
-          {offline ? null : (
-            <View style={styles.pill}>
-              <SignalBars roundTripMs={connected ? (estimate?.roundTripMs ?? null) : null} />
-              <ThemedText type="caption" themeColor="textSecondary" testID="clock-status" numberOfLines={1} style={styles.pillText}>
-                {!connected ? "Connecting…" : estimate ? `${Math.round(estimate.roundTripMs)} ms${estimate.roundTripMs > WEAK_PING_MS ? " weak" : ""}` : "Measuring…"}
-              </ThemedText>
-              <Pressable
-                ref={onlineButton}
-                role="button"
-                aria-label={`${onlineMembers.length} online. Show who is online`}
-                aria-haspopup="dialog"
-                aria-expanded={onlineList !== null}
-                testID="open-online-list"
-                hitSlop={8}
-                onPress={() => onlineButton.current?.measureInWindow((x, y, width, height) => setOnlineList({ x, y, width, height }))}
-                style={({ pressed, hovered }) => [styles.onlineButton, hovered ? { backgroundColor: theme.backgroundSelected } : null, pressed ? styles.pressed : null]}
-              >
-                <ThemedText type="caption" themeColor="textSecondary" testID="online-count" numberOfLines={1} style={styles.pillText}>
-                  {onlineMembers.length} online
-                </ThemedText>
-                <Icon name="expand" size={12} color="textSecondary" />
-              </Pressable>
-            </View>
-          )}
-        </View>
+              <Icon name="expand" size={12} color="textSecondary" />
+            </Pressable>
+          </View>
+        )
       }
     />
   );
@@ -1366,9 +1363,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               { value: "offline", label: "Offline" },
             ]}
           />
-          <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
-            {offlinePlay ? (groupPlaying ? "Start plays only on this device. The Group is playing now" : "Start plays only on this device") : steersGroup ? "Start plays for everyone in the Group" : "You follow the Group's Playback"}
-          </ThemedText>
+          {offlinePlay ? (
+            <ThemedText type="caption" themeColor="textSecondary" testID="offline-play-note">
+              {groupPlaying ? "Start plays only on this device. The Group is playing now" : "Start plays only on this device"}
+            </ThemedText>
+          ) : null}
         </Card>
       ) : null}
       <MembersCard groupId={groupId} groupName={group.name} role={group.role} presence={presence} />
@@ -1528,9 +1527,11 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
             <ThemedText numberOfLines={1} style={styles.miniTitle}>
               {shownTitle ?? "No Song picked"}
             </ThemedText>
-            <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-              {stopping ? "Stopping…" : playing ? currentSection : (startHint ?? (pickedTitle ? `Ready to start from ${pickedTitle}` : "Ready to start"))}
-            </ThemedText>
+            {startBlocker === "noSong" && !playing ? null : (
+              <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+                {stopping ? "Stopping…" : playing ? currentSection : (startHint ?? (pickedTitle ? `Ready to start from ${pickedTitle}` : "Ready to start"))}
+              </ThemedText>
+            )}
           </View>
         </Pressable>
         {playing ? (
@@ -1677,12 +1678,11 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
   },
-  headerRight: { alignItems: "flex-end", flexShrink: 0 },
   tempo: { fontSize: 15, lineHeight: 20, fontWeight: 700, fontVariant: ["tabular-nums"] },
-  tempoRow: { flexDirection: "row", gap: Spacing.two },
-  pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one, height: 24 },
+  tempoRow: { flexDirection: "row", gap: Spacing.two, flexShrink: 0 },
+  pill: { flexDirection: "row", alignItems: "center", gap: Spacing.one, height: 24, flexShrink: 0 },
   pillText: { fontSize: 13, fontWeight: 500, fontVariant: ["tabular-nums"] },
-  onlineButton: { flexDirection: "row", alignItems: "center", gap: 2, marginLeft: Spacing.one, paddingHorizontal: Spacing.one, minHeight: 24, borderRadius: Radius.sm },
+  onlineButton: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: Spacing.one, minHeight: 24, borderRadius: Radius.sm },
   stageHead: { alignItems: "center", gap: Spacing.one, width: "100%" },
   playColumn: { width: "100%", alignItems: "center", gap: Spacing.two },
   checkBadge: { alignSelf: "stretch", paddingVertical: Spacing.one },

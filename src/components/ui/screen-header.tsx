@@ -11,31 +11,42 @@ export function ScreenHeader({
   onBack,
   backLabel = "Back",
   backTestID = "back",
-  right,
+  titleEnd,
+  subtitleEnd,
 }: {
   title: string;
   subtitle?: ReactNode;
   onBack?: () => void;
   backLabel?: string;
   backTestID?: string;
-  right?: ReactNode;
+  titleEnd?: ReactNode;
+  subtitleEnd?: ReactNode;
 }) {
+  const shownSubtitle =
+    typeof subtitle !== "string" ? (
+      subtitle
+    ) : subtitle.length > 0 ? (
+      <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
+        {subtitle}
+      </ThemedText>
+    ) : null;
   return (
     <View style={styles.header}>
       {onBack ? <IconButton icon="back" label={backLabel} testID={backTestID} onPress={onBack} filled round /> : null}
       <View style={styles.titles}>
-        <ThemedText type="heading" numberOfLines={1} role="heading">
-          {title}
-        </ThemedText>
-        {typeof subtitle !== "string" ? (
-          subtitle
-        ) : subtitle.length > 0 ? (
-          <ThemedText type="caption" themeColor="textSecondary" numberOfLines={1}>
-            {subtitle}
+        <View style={styles.line}>
+          <ThemedText type="heading" numberOfLines={1} role="heading" style={styles.grow}>
+            {title}
           </ThemedText>
+          {titleEnd}
+        </View>
+        {shownSubtitle || subtitleEnd ? (
+          <View style={styles.line}>
+            <View style={styles.grow}>{shownSubtitle}</View>
+            {subtitleEnd}
+          </View>
         ) : null}
       </View>
-      {right}
     </View>
   );
 }
@@ -43,4 +54,6 @@ export function ScreenHeader({
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: Spacing.three, width: "100%", minHeight: 48 },
   titles: { flex: 1, minWidth: 0 },
+  line: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
+  grow: { flex: 1, minWidth: 0 },
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { draftProblem, sameDraft, type SongDraft } from "./song-draft";
+import { draftProblem, sameDraft, sectionWithSongTime, type SongDraft } from "./song-draft";
 
 const verse = { sectionType: "Verse", number: 1, bars: 8, beatsPerBar: 4, bpm: 72, ownTempo: false };
 
@@ -36,5 +36,17 @@ describe("draftProblem", () => {
     expect(draftProblem({ ...saved, sections: [verse, { ...verse, bars: 4.5 }] })).toBe("Section 2: Bars must be a whole number from 1 to 100");
     expect(draftProblem({ ...saved, sections: [{ ...verse, ownTempo: true, bpm: 500 }] })).toBe("Section 1: BPM must be from 30 to 300");
     expect(draftProblem({ ...saved, sections: [{ ...verse, ownTempo: false, bpm: 500 }] })).toBeNull();
+  });
+});
+
+describe("sectionWithSongTime", () => {
+  const section = { sectionType: "Verse", bars: 4, beatsPerBar: 4, beatUnit: 4, bpm: 100 };
+
+  it("gives a Section that follows the Song the Song's current time", () => {
+    expect(sectionWithSongTime(section, { beatsPerBar: 2, beatUnit: 4 })).toMatchObject({ beatsPerBar: 2, beatUnit: 4 });
+  });
+
+  it("keeps a Section's own time", () => {
+    expect(sectionWithSongTime({ ...section, beatsPerBar: 6, beatUnit: 8, ownTime: true }, { beatsPerBar: 2, beatUnit: 4 })).toMatchObject({ beatsPerBar: 6, beatUnit: 8 });
   });
 });
