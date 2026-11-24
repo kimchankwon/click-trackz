@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { showsSectionsDot } from "@/lib/sections-dot";
 
 export function SongRow({
   index,
@@ -73,28 +74,26 @@ export function SongRow({
           <ThemedText type="default" themeColor={selected ? "accent" : "text"} style={styles.title} numberOfLines={1}>
             {title}
           </ThemedText>
-          {shownParts.length > 0 || needsSections ? (
+          {shownParts.length > 0 ? (
             <View style={styles.metaRow}>
-              {needsSections ? (
+              {showsSectionsDot(needsSections, shownParts) ? (
                 <View role="img" aria-label="No Sections yet" style={[styles.dot, { backgroundColor: theme.warning }]} />
               ) : null}
-              {shownParts.length > 0 ? (
-                <View style={styles.metaParts} accessible={groupsMeta} aria-label={groupsMeta ? spokenMeta : undefined}>
-                  {narratesMeta ? <ThemedText style={styles.screenReaderOnly}>{spokenMeta}</ThemedText> : null}
-                  {shownParts.map((part, index) => (
-                    <ThemedText
-                      key={index}
-                      type="small"
-                      themeColor="textSecondary"
-                      numberOfLines={1}
-                      aria-hidden={narratesMeta ? true : undefined}
-                      style={index === shownParts.length - 1 ? styles.meta : null}
-                    >
-                      {part}
-                    </ThemedText>
-                  ))}
-                </View>
-              ) : null}
+              <View style={styles.metaParts} accessible={groupsMeta} aria-label={groupsMeta ? spokenMeta : undefined}>
+                {narratesMeta ? <ThemedText style={styles.screenReaderOnly}>{spokenMeta}</ThemedText> : null}
+                {shownParts.map((part, index) => (
+                  <ThemedText
+                    key={index}
+                    type="small"
+                    themeColor="textSecondary"
+                    numberOfLines={1}
+                    aria-hidden={narratesMeta ? true : undefined}
+                    style={index === shownParts.length - 1 ? styles.meta : null}
+                  >
+                    {part}
+                  </ThemedText>
+                ))}
+              </View>
             </View>
           ) : null}
         </View>

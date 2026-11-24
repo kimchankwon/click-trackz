@@ -11,7 +11,7 @@ import { Fonts, Radius, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 
 import { ControlCenterMock } from "./control-center-mock";
-import { PageScroll } from "./page-scroll";
+import { HEADER_EDGES, PageScroll } from "./page-scroll";
 import { MiniDevice, PlayScreenMock } from "./device-mocks";
 import { TimingDiagram } from "./timing-diagram";
 import { useDemoBeat } from "./use-demo-beat";
@@ -106,7 +106,7 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
   const miniWidth = wide ? 150 : Math.max(84, Math.floor((width - Spacing.four * 2 - Spacing.three * 2) / 3.4));
   return (
     <PageScroll style={[styles.page, { backgroundColor: theme.background }]} testID="about-page">
-      <SafeAreaView edges={["top", "left", "right"]}>
+      <SafeAreaView edges={HEADER_EDGES}>
         <View style={[styles.inner, styles.header]}>
           <View style={styles.brandRow}>
             <LogoMark size={36} />

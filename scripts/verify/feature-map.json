@@ -106,6 +106,8 @@
         "src/lib/time-ago*.ts",
         "src/lib/picked-song*.ts",
         "src/lib/reorder*.ts",
+        "src/lib/drag-session*.ts",
+        "src/lib/sections-dot*.ts",
         "src/lib/use-app-active.ts",
         "src/lib/use-idle-without-playback.ts",
         "src/lib/site-url*.ts",

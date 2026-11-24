@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   lanes: { gap: Spacing.three },
   lane: { flexDirection: "row", alignItems: "center", gap: Spacing.two },
   laneName: { width: LABEL_WIDTH - Spacing.two },
-  track: { flex: 1, height: 30, borderBottomWidth: 1, borderStyle: "dashed" },
+  track: { flex: 1, height: 30, borderBottomWidth: 1 },
   gridLine: { position: "absolute", top: 0, bottom: 0, width: 1 },
   tick: { position: "absolute", bottom: 0, width: 6, height: 24, borderRadius: 3 },
   playheadArea: { position: "absolute", top: -6, bottom: -6, left: LABEL_WIDTH, right: 0 },

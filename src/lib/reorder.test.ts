@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dropSlot, keysWithRepeats, moveItem, slotsWhileDragging } from "./reorder";
+import { changedOrder, dropSlot, keysWithRepeats, moveItem, slotsWhileDragging } from "./reorder";
 
 describe("moveItem", () => {
   it("moves an item down or up and shifts the ones between", () => {
@@ -11,6 +11,22 @@ describe("moveItem", () => {
   it("leaves the order alone for a drop in place or out of range", () => {
     expect(moveItem(["a", "b"], 1, 1)).toEqual(["a", "b"]);
     expect(moveItem(["a", "b"], 0, 5)).toEqual(["a", "b"]);
+  });
+});
+
+describe("changedOrder", () => {
+  const id = (entry: { songId: string }) => entry.songId;
+
+  it("returns the new order when the move changes it", () => {
+    expect(changedOrder([{ songId: "a" }, { songId: "b" }], 1, 0, id)).toEqual([{ songId: "b" }, { songId: "a" }]);
+  });
+
+  it("returns nothing to save for a drop in place", () => {
+    expect(changedOrder([{ songId: "a" }, { songId: "b" }], 1, 1, id)).toBeNull();
+  });
+
+  it("returns nothing to save when a Song swaps with its own repeat", () => {
+    expect(changedOrder([{ songId: "a" }, { songId: "a" }, { songId: "b" }], 0, 1, id)).toBeNull();
   });
 });
 

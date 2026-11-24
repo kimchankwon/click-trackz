@@ -51,6 +51,6 @@ Look at the screenshots of the screens you changed before calling the change don
 
 ## What it touches
 
-It starts its own local Convex backend (port 3290 and 3291, state in `.verify/convex/`, wiped per run), Metro on 8091 for iOS and 8191 for web, and installs a fresh dev build on the simulator named by `VERIFY_IOS_DEVICE` (default `iPhone 17`). It never talks to a cloud Convex deployment, never edits `.env.local`, and only stops processes it recorded in `.verify/pids/`. If a port is taken by something else it fails and names the process; it does not kill it. A rerun after a crash or `kill -9` cleans up what the last run left.
+It starts its own local Convex backend (port 3290 and 3291, state in `.verify/convex/`, wiped per run), Metro on 8091 for iOS and 8191 for web with its own cache under `.verify/metro/`, and installs a fresh dev build on the simulator named by `VERIFY_IOS_DEVICE` (default `iPhone 17`). It never talks to a cloud Convex deployment, never edits `.env.local`, and only stops processes it recorded in `.verify/pids/`. If a port is taken by something else it fails and names the process; it does not kill it. A rerun after a crash or `kill -9` cleans up what the last run left.
 
 The dev build is built locally (prebuild plus xcodebuild, no EAS) and cached by native fingerprint under `~/Library/Caches/click-trackz-verify/`, so only native changes pay for a rebuild.
