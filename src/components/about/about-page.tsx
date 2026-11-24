@@ -143,9 +143,9 @@ export function AboutPage({ signedIn, onGetStarted }: { signedIn: boolean; onGet
           </ThemedText>
         </View>
         <View style={styles.devices}>
-          <MiniDevice kind="phone" label="Drums · iPhone" width={miniWidth} />
-          <MiniDevice kind="tablet" label="Keys · iPad" width={Math.round(miniWidth * 1.45)} />
-          <MiniDevice kind="phone" label="Bass · Android" width={miniWidth} />
+          <MiniDevice kind="phone" label="Drums on iPhone" width={miniWidth} />
+          <MiniDevice kind="tablet" label="Keys on iPad" width={Math.round(miniWidth * 1.45)} />
+          <MiniDevice kind="phone" label="Bass on Android" width={miniWidth} />
         </View>
         <TimingDiagram />
         <View style={styles.steps}>

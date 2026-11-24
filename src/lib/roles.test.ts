@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assignableRoles, canAssignRole, canEditSongs, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES } from "./roles";
+import { assignableRoles, canAssignRole, canEditSongs, canManageGroup, canSteerPlayback, outranks, ROLE_NAMES, roleLabel } from "./roles";
 
 describe("roles", () => {
   it("ranks Admin over Group Manager over Song Manager over Playback Manager over Member", () => {
@@ -54,5 +54,11 @@ describe("roles", () => {
       playbackManager: "Playback Manager",
       member: "Member",
     });
+  });
+
+  it("labels a guest by Role without a separator", () => {
+    expect(roleLabel("songManager", false)).toBe("Song Manager");
+    expect(roleLabel("member", true)).toBe("Guest");
+    expect(roleLabel("playbackManager", true)).toBe("Guest Playback Manager");
   });
 });

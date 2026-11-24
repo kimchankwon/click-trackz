@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { router, useIsFocused } from "expo-router";
 import { useState } from "react";
-import { Keyboard, StyleSheet, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { useGoogleSignIn } from "@/auth/use-google-sign-in";
 import { AboutLink } from "@/components/home/about-link";
@@ -12,9 +12,11 @@ import { Card } from "@/components/group/card";
 import { GroupList } from "@/components/group/group-list";
 import { ThemedText } from "@/components/themed-text";
 import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icon";
 import { GoogleMark } from "@/components/ui/google-mark";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
-import { Spacing } from "@/constants/theme";
+import { Radius, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import { clearPendingJoin, readPendingJoin } from "@/lib/pending-join";
 import { useConnected } from "@/lib/use-connected";
 import { useServerNow } from "@/lib/use-server-now";
@@ -28,6 +30,7 @@ import { api } from "../../../convex/_generated/api";
 const ONLINE_REFRESH_MS = 15_000;
 
 export function GroupsTab({ run, active }: { run: Run; active: boolean }) {
+  const theme = useTheme();
   const viewer = useQuery(api.users.viewer, {});
   const liveGroups = useQuery(api.groups.myGroups, viewer === null ? "skip" : {});
   const storedHome = useStoredHome();
@@ -70,28 +73,36 @@ export function GroupsTab({ run, active }: { run: Run; active: boolean }) {
         </Card>
       ) : null}
 
-      <Card title="My Library">
-        <ThemedText type="caption" themeColor="textSecondary">
-          {`Plays offline, just for you.${usage?.enforced ? " Free holds 10 Songs; Plus and Pro hold 1000." : ""}`}
-        </ThemedText>
-        <ActionButton
-          variant="outline"
-          icon="library"
-          label="Open My Library"
-          testID="open-offline"
-          onPress={() => {
-            primeAudio();
-            if (!connected && storedLibrary) {
-              router.push({ pathname: "/group/[groupId]", params: { groupId: storedLibrary.groupId } });
-              return;
-            }
-            run(async () => {
-              const groupId = await openOffline({});
-              router.push({ pathname: "/group/[groupId]", params: { groupId } });
-            });
-          }}
-        />
-      </Card>
+      <Pressable
+        role="link"
+        aria-label="Open My Library"
+        testID="open-offline"
+        onPress={() => {
+          primeAudio();
+          if (!connected && storedLibrary) {
+            router.push({ pathname: "/group/[groupId]", params: { groupId: storedLibrary.groupId } });
+            return;
+          }
+          run(async () => {
+            const groupId = await openOffline({});
+            router.push({ pathname: "/group/[groupId]", params: { groupId } });
+          });
+        }}
+        style={({ pressed }) => [styles.libraryRow, { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement }]}
+      >
+        <View style={[styles.libraryMark, { backgroundColor: theme.accentTint }]}>
+          <Icon name="library" size={20} color="accent" />
+        </View>
+        <View style={styles.grow}>
+          <ThemedText style={styles.libraryName} numberOfLines={1}>
+            My Library
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.libraryDetail} numberOfLines={1}>
+            {usage?.enforced ? `${usage.librarySongs} of ${usage.limits.librarySongs} Songs` : "Just you, on this device"}
+          </ThemedText>
+        </View>
+        <Icon name="forward" size={22} color="textTertiary" />
+      </Pressable>
 
       <Card title="Join a Group">
         <Field
@@ -190,4 +201,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.two },
   inline: { flexDirection: "row", gap: Spacing.two, alignItems: "flex-end" },
   grow: { flex: 1, minWidth: 0 },
+  libraryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.three, minHeight: 68, paddingHorizontal: Spacing.three, borderRadius: Radius.lg },
+  libraryMark: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  libraryName: { fontWeight: 600, fontSize: 17 },
+  libraryDetail: { fontSize: 15, lineHeight: 20 },
 });

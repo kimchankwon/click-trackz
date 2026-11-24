@@ -22,6 +22,7 @@ import { ControlHeight, MaxContentWidth, Radius, Spacing } from "@/constants/the
 import { useTheme } from "@/hooks/use-theme";
 import { backOr } from "@/lib/back-or";
 import { copyBaseOf, copyTitle } from "@/lib/copy-title";
+import { saveThen } from "@/lib/save-then";
 import { errorText } from "@/lib/error-text";
 import { useHoldRestart } from "@/lib/restart-hold";
 import { canEditSongs } from "@/lib/roles";
@@ -168,9 +169,7 @@ export function SongForm({
         library.map((other) => (other.songId === songId ? title : other.title)),
       )
     : null;
-  const saveIfChanged = async () => {
-    if (changed) await updateSong({ songId, ...draft });
-  };
+  const saveEdits = changed ? () => updateSong({ songId, ...draft }) : null;
   const confirmDuplicate = async () => {
     if (duplicatePending) return;
     if (changed && problem !== null) {
@@ -181,9 +180,8 @@ export function SongForm({
     setDuplicatePending(true);
     const mine = beginAttempt();
     try {
-      const copy = await saveIfChanged()
-        .then(() => duplicateSong({ songId }))
-        .finally(() => setDuplicatePending(false));
+      const copy = await saveThen(saveEdits, () => duplicateSong({ songId }), () => mine === attempt.current).finally(() => setDuplicatePending(false));
+      if (copy === null) return;
       if (mine !== attempt.current) return;
       setConfirmingDuplicate(false);
       setDeparture(() => () => router.replace({ pathname: "/group/[groupId]/song/[songId]", params: { groupId, songId: copy.songId } }));
@@ -206,9 +204,8 @@ export function SongForm({
     setCopyPending(true);
     const mine = beginAttempt();
     try {
-      const copy = await saveIfChanged()
-        .then(() => copyToGroup({ songId, toGroupId: copyTarget }))
-        .finally(() => setCopyPending(false));
+      const copy = await saveThen(saveEdits, () => copyToGroup({ songId, toGroupId: copyTarget }), () => mine === attempt.current).finally(() => setCopyPending(false));
+      if (copy === null) return;
       toast.show(`${copy.title} is now in ${copy.groupName}`);
       if (mine === attempt.current) setCopyOpen(false);
     } catch (error) {
@@ -460,6 +457,7 @@ export function SongForm({
                 icon={target.offline ? "library" : "group"}
                 label={target.name}
                 testID={`copy-target-${target.name}`}
+                disabled={copyPending}
                 onPress={() => setCopyTarget(target.groupId)}
               />
             ))}
