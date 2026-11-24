@@ -24,9 +24,19 @@ function fontCodepoints(file: string) {
     const segments = font.readUInt16BE(subtable + 6) / 2;
     const ends = subtable + 14;
     const starts = ends + segments * 2 + 2;
+    const deltas = starts + segments * 2;
+    const rangeOffsets = deltas + segments * 2;
     for (let segment = 0; segment < segments; segment++) {
       const end = font.readUInt16BE(ends + segment * 2);
-      for (let code = font.readUInt16BE(starts + segment * 2); code <= end && code !== 0xffff; code++) codes.add(code);
+      const start = font.readUInt16BE(starts + segment * 2);
+      const delta = font.readUInt16BE(deltas + segment * 2);
+      const rangeOffsetAt = rangeOffsets + segment * 2;
+      const rangeOffset = font.readUInt16BE(rangeOffsetAt);
+      for (let code = start; code <= end && code !== 0xffff; code++) {
+        const indexed = rangeOffset === 0 ? code : font.readUInt16BE(rangeOffsetAt + rangeOffset + (code - start) * 2);
+        const glyph = rangeOffset !== 0 && indexed === 0 ? 0 : (indexed + delta) & 0xffff;
+        if (glyph !== 0) codes.add(code);
+      }
     }
   }
   return codes;
