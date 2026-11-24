@@ -141,7 +141,6 @@ export function PlayScreenMock({ width = 280 }: { width?: number }) {
                     borderRadius: 10 * s,
                     backgroundColor: now ? screen.accentTint : screen.backgroundElement,
                     borderColor: now || pending ? screen.accent : screen.border,
-                    borderStyle: pending ? "dashed" : "solid",
                     opacity: pressed ? 0.6 : 1,
                   },
                 ]}

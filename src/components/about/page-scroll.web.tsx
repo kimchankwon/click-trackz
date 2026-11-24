@@ -1,5 +1,8 @@
 import { useLayoutEffect, useRef, type ComponentRef, type ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
+import type { Edge } from "react-native-safe-area-context";
+
+export const HEADER_EDGES: Edge[] = ["top", "left", "right"];
 
 const FREED = { height: "auto", minHeight: "0", flex: "0 0 auto", width: "100%", overflow: "visible", position: "relative" } as const;
 

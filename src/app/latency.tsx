@@ -151,7 +151,7 @@ export default function LatencyScreen() {
         </PinnedHeader>
         <ScrollView contentContainerStyle={styles.content} {...pinned.scrollProps}>
           <ThemedText themeColor="textSecondary" style={styles.intro}>
-            Minus plays this device earlier to make up for the delay of its speaker or headphones. Plus plays it later
+            Minus plays this device earlier to make up for the delay of its speaker or headphones. Plus plays it later.
           </ThemedText>
           {output ? (
             <ThemedText type="small" themeColor="textSecondary" testID="latency-output-note">

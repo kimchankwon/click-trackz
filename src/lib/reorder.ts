@@ -6,6 +6,11 @@ export function moveItem<T>(items: readonly T[], from: number, to: number): T[] 
   return next;
 }
 
+export function changedOrder<T>(items: readonly T[], from: number, to: number, keyOf: (item: T) => string): T[] | null {
+  const next = moveItem(items, from, to);
+  return next.every((item, index) => keyOf(item) === keyOf(items[index])) ? null : next;
+}
+
 export function slotsWhileDragging(count: number, from: number, to: number): number[] {
   return Array.from({ length: count }, (_, index) => {
     if (index === from) return to;
