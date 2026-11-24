@@ -14,6 +14,7 @@ import { allClipKeys } from "@/audio/voice-clips";
 import { onUserGesture } from "@/audio/user-gesture";
 import { ActionButton } from "@/components/action-button";
 import { BeatPulse, type IdleReadout } from "@/components/playback/beat-pulse";
+import { LiveBeat } from "@/components/playback/live-beat";
 import { SectionCarousel } from "@/components/playback/section-carousel";
 import { SectionList } from "@/components/playback/section-list";
 import { SectionProgress } from "@/components/playback/section-progress";
@@ -91,8 +92,9 @@ import {
   type CommandResult,
   type StartedPlayback,
 } from "@/sync/commands";
-import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, sectionTitleOf, timeSignatureOf, vampingSection, type Beat, type Playback, type Section, type Song } from "@/sync/timeline";
+import { aheadWindowMs, beatsBetween, longestBeatMs, playbackEndsAt, playsOf, sectionTitleOf, timeSignatureOf, vampingSection, type Playback, type Section, type Song } from "@/sync/timeline";
 import { drawLeadMs, FRAMES_PER_MEASURE, shownTimeMs } from "@/sync/frame-lead";
+import { createShownBeat, placeOf, samePlace, type BeatPlace } from "@/sync/shown-beat";
 import { nextSectionStart, type SectionStart } from "@/sync/next-section";
 import { commonBpm } from "@/sync/song-tempo";
 import { playbackSpan, songLengthMs } from "@/sync/song-span";
@@ -105,20 +107,6 @@ import { monotonicNow } from "@/lib/device-clock";
 const STOP_AFTER_START_MS = 700;
 
 type JumpMode = "endOfSection" | "nextBar";
-
-const sameCue = (a: Beat["voiceCue"], b: Beat["voiceCue"]) =>
-  a === b || (a !== null && b !== null && a.sectionType === b.sectionType && a.number === b.number && a.letter === b.letter);
-
-const sameBeat = (a: Beat | null, b: Beat | null) =>
-  a === b ||
-  (a !== null &&
-    b !== null &&
-    a.at === b.at &&
-    a.sectionIndex === b.sectionIndex &&
-    a.lead?.barsLeft === b.lead?.barsLeft &&
-    a.lead?.beats === b.lead?.beats &&
-    a.lead?.pass === b.lead?.pass &&
-    sameCue(a.lead?.cue ?? null, b.lead?.cue ?? null));
 
 const passText = (start: Pick<SectionStart, "pass" | "passes"> | null | undefined) => (start && start.passes > 1 ? ` (${start.pass} of ${start.passes})` : "");
 
@@ -289,7 +277,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const { nudgeMs: latencyNudgeMs, output: audioOutput, setNudge: setLatencyNudge } = useLatencyNudge();
   const [voiceOffset] = useDeviceSetting("voiceOffsetMs", "0", isVoiceOffsetSetting);
   const [jumpMode, setJumpMode] = useState<JumpMode>("endOfSection");
-  const [beat, setBeat] = useState<Beat | null>(null);
+  const [shownBeat] = useState(createShownBeat);
+  const [place, setPlace] = useState<BeatPlace | null>(null);
   const [nextStart, setNextStart] = useState<SectionStart | null>(null);
   const [queuedKey, setQueuedKey] = useState("");
   const [tab, setTab] = useState<GroupTab>("play");
@@ -559,7 +548,9 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         const recent = beatsBetween(song, playback, shownAt - Math.max(RECENT_BEATS_MS, longestBeatMs(song)), shownAt + 1);
         const ahead = beatsBetween(song, playback, now, now + aheadWindowMs(song));
         const latest = recent.at(-1) ?? null;
-        setBeat((previous) => (sameBeat(previous, latest) ? previous : latest));
+        shownBeat.set(latest);
+        const latestPlace = placeOf(latest);
+        setPlace((previous) => (samePlace(previous, latestPlace) ? previous : latestPlace));
         const following = nextSectionStart(ahead);
         setNextStart((previous) => (sameStart(previous, following) ? previous : following));
         const queued = (playback.jumps ?? []).filter((j) => j.at > now).map((j) => j.toSection).join(",");
@@ -569,7 +560,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         setUnclocked(false);
       } else {
         setUnclocked(now === null && playback !== null);
-        setBeat(null);
+        shownBeat.set(null);
+        setPlace(null);
         setNextStart(null);
         setQueuedKey("");
         setPlaying(false);
@@ -578,7 +570,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     };
     handle = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(handle);
-  }, [appActive, playNow, playback, song]);
+  }, [appActive, playNow, playback, song, shownBeat]);
 
   useEffect(() => {
     if (playback === null || song.sections.length === 0) return;
@@ -676,16 +668,16 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
     });
   };
 
-  const beatSection = beat?.sectionIndex == null ? undefined : song.sections[beat.sectionIndex];
-  const currentSection = !playing || !beat ? "Ready" : beat.sectionIndex === null ? "Count-in" : beatSection ? sectionTitleOf(beatSection) : "Ready";
+  const beatSection = place?.sectionIndex == null ? undefined : song.sections[place.sectionIndex];
+  const currentSection = !playing || !place ? "Ready" : place.sectionIndex === null ? "Count-in" : beatSection ? sectionTitleOf(beatSection) : "Ready";
   const idle = idleReadoutFor(startSong, startSection);
   const queuedSections = queuedKey === "" ? [] : queuedKey.split(",").map(Number);
   const songFacts = startSong?.key ? `Key of ${startSong.key}` : null;
-  const tempoSection = playing && playback ? song.sections[beat?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
-  const barTempo = playing && beat !== null && beat.sectionIndex !== null && tempoSection ? { bpm: tempoSection.bpm, beatsPerBar: beat.beatsPerBar, beatUnit: beat.beatUnit } : tempoSection;
+  const tempoSection = playing && playback ? song.sections[place?.sectionIndex ?? playback.startSection] : startSong?.sections[startSection];
+  const barTempo = playing && place !== null && place.sectionIndex !== null && tempoSection ? { bpm: tempoSection.bpm, beatsPerBar: place.beatsPerBar, beatUnit: place.beatUnit } : tempoSection;
   const tempo = tempoText(barTempo ?? (playing ? null : startSong?.tempoHint));
   const followingSection = nextStart === null ? undefined : song.sections[nextStart.sectionIndex];
-  const lead = playing ? (beat?.lead ?? null) : null;
+  const lead = playing ? (place?.lead ?? null) : null;
   const upcoming = lead?.cue ?? null;
   const vampSection = playing && playback !== null && song.sections.length > 0 ? vampingSection(song, playback) : null;
   const vampTitle = vampSection === null ? null : sectionTitleOf(song.sections[vampSection]);
@@ -703,8 +695,8 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
   const nextAnnouncement = nextLine ? `${nextLabel}: ${nextLine}` : null;
   const sideNextLabel = upcoming ? (lead?.barsLeft === 2 ? "In 2 bars" : "In 1 bar") : vamping ? "Vamping" : "Next";
   const upcomingIndex = upcoming ? (nextStart?.sectionIndex ?? null) : null;
-  const nowIndex = playing ? (beat?.sectionIndex ?? null) : null;
-  const passKey = nowIndex === null || beat === null ? null : `${nowIndex}@${Math.round(beat.at - beat.msIntoPass)}`;
+  const nowIndex = playing ? (place?.sectionIndex ?? null) : null;
+  const passKey = nowIndex === null || place === null ? null : `${nowIndex}@${place.passStartAt}`;
   const [seenSection, setSeenSection] = useState<{ pass: string | null; now: number | null; previous: number | null }>({ pass: null, now: null, previous: null });
   if (seenSection.pass !== passKey) setSeenSection({ pass: passKey, now: nowIndex, previous: nowIndex === null ? null : (seenSection.now ?? seenSection.previous) });
   const previousSection = seenSection.previous === null ? undefined : song.sections[seenSection.previous];
@@ -998,6 +990,17 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
 
   const showTab = (next: GroupTab) => setTab(next);
 
+  const sectionRows = shownSections.map((section, index) => ({
+    title: sectionTitleOf(section),
+    plays: playsOf(section),
+    accessibleName: playsOf(section) > 1 ? `${sectionTitleOf(section)}, plays ${playsOf(section)} times` : sectionTitleOf(section),
+    testID: `play-section-${index}`,
+  }));
+  const shownQueue = playing ? queuedSections : [];
+  const stageMembers = offlinePlay ? [] : onlineMembers;
+  const pressIdle = canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined;
+  const idleActionLabel = songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`;
+
   const playTab = (
     <View style={styles.playColumn}>
       <AudioDebug engine={engine} soundOn={soundOn} />
@@ -1047,7 +1050,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
                     testID="repeat-section"
                     round
                     filled
-                    disabled={beat?.sectionIndex == null || stopping || vampTitle !== null}
+                    disabled={place?.sectionIndex == null || stopping || vampTitle !== null}
                     onPress={() => repeatNow(false)}
                   />
                 ) : null}
@@ -1068,7 +1071,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               <View style={styles.headSide}>
                 {steers ? (
                   vampTitle === null ? (
-                    <IconButton icon="vamp" label="Vamp this Section" testID="vamp-section" round filled disabled={beat?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
+                    <IconButton icon="vamp" label="Vamp this Section" testID="vamp-section" round filled disabled={place?.sectionIndex == null || stopping} onPress={() => repeatNow(true)} />
                   ) : (
                     <IconButton icon="vamp" label="End vamp" testID="end-vamp" round filled active disabled={stopping} onPress={endVampNow} />
                   )
@@ -1083,7 +1086,7 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
               nextAccent={upcoming !== null || vamping}
               nextFlashes={playing && !vamping && nextLine !== null}
             />
-            {beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null}
+            {place ? <LiveBeat shownBeat={shownBeat}>{(beat) => (beat ? <SectionProgress beat={beat} serverNow={playNow} /> : null)}</LiveBeat> : null}
           </View>
         ) : (
           <View style={[styles.stageHead, styles.titleBlock]}>
@@ -1106,14 +1109,14 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
           </View>
         )}
         <View style={styles.stageRow}>
-          <BeatPulse
-            beat={beat}
-            playing={playing}
-            idle={idle}
-            onPressIdle={canChangeTempo ? () => setEditingTempo(editingTempo === startSongId ? null : startSongId) : undefined}
-            idleActionLabel={songTempo === null ? undefined : `Change the Song tempo, ${songTempo} BPM`}
-          />
-          <StageMembers members={offlinePlay ? [] : onlineMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} onOpen={setOnlineList} />
+          <LiveBeat shownBeat={shownBeat}>
+            {(beat) => (
+              <>
+                <BeatPulse beat={beat} playing={playing} idle={idle} onPressIdle={pressIdle} idleActionLabel={idleActionLabel} />
+                <StageMembers members={stageMembers} beat={beat} playing={playing} visible={tab === "play"} bubbles={chat.bubbles} onOpen={setOnlineList} />
+              </>
+            )}
+          </LiveBeat>
           {offline || tab !== "play" ? null : <ReactionFloats reactions={chat.reactions} now={chat.now} />}
         </View>
         {tempoOpen && startSong && songTempo !== null && startSongId ? (
@@ -1149,20 +1152,19 @@ function GroupScreenContent({ group, groupNames }: { group: MyGroup; groupNames:
         )}
         {shownSections.length > 0 ? (
           <Card>
-            <SectionList
-              rows={shownSections.map((section, index) => ({
-                title: sectionTitleOf(section),
-                plays: playsOf(section),
-                accessibleName: playsOf(section) > 1 ? `${sectionTitleOf(section)}, plays ${playsOf(section)} times` : sectionTitleOf(section),
-                testID: `play-section-${index}`,
-              }))}
-              current={listCurrent}
-              upcoming={upcomingIndex}
-              queued={playing ? queuedSections : []}
-              beat={beat}
-              playing={playing}
-              onPress={tapSection}
-            />
+            <LiveBeat shownBeat={shownBeat}>
+              {(beat) => (
+                <SectionList
+                  rows={sectionRows}
+                  current={listCurrent}
+                  upcoming={upcomingIndex}
+                  queued={shownQueue}
+                  beat={beat}
+                  playing={playing}
+                  onPress={tapSection}
+                />
+              )}
+            </LiveBeat>
             {steers ? (
               <View
                 style={[styles.jumpMode, picksBar ? null : styles.reserved]}
