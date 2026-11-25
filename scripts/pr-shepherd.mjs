@@ -51,11 +51,13 @@ function parseWaitSeconds(body) {
   return (minutes ? Number(minutes[1]) * 60 : 0) + (seconds ? Number(seconds[1]) : 0);
 }
 
+const headOf = (pr) => gh(["pr", "view", String(pr), "--json", "headRefOid", "-q", ".headRefOid"]).trim();
+
 function codeRabbitActivity(pr) {
   const { owner, name } = repoParts();
   const comments = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/issues/${pr}/comments`])).flat();
   const reviews = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/pulls/${pr}/reviews`])).flat();
-  const head = gh(["pr", "view", String(pr), "--json", "headRefOid", "-q", ".headRefOid"]).trim();
+  const head = headOf(pr);
   const ours = reviews.filter((r) => isCodeRabbit(r.user?.login) && r.body.trim() !== "");
   const passedRuns = JSON.parse(gh(["api", "--paginate", "--slurp", `repos/${owner}/${name}/commits/${head}/check-runs`]))
     .flatMap((page) => page.check_runs)
@@ -86,7 +88,7 @@ function rateLimit(comments, finishedAt) {
   return { url: latest.url, readyAt: new Date(readyAt).toISOString(), waitSeconds: Math.max(0, Math.ceil((readyAt - Date.now()) / 1000)) };
 }
 
-function status(pr) {
+function status(pr, attempts = 3) {
   const codeRabbit = codeRabbitActivity(pr);
   const open = reviewThreads(pr)
     .filter((t) => !t.isResolved && isCodeRabbit(t.comments.nodes[0]?.author?.login))
@@ -104,6 +106,10 @@ function status(pr) {
       };
     });
   const checks = JSON.parse(gh(["pr", "checks", String(pr), "--json", "name,state,link"]).trim() || "[]");
+  if (headOf(pr) !== codeRabbit.head) {
+    if (attempts > 1) return status(pr, attempts - 1);
+    return { pr, checks, unresolvedCodeRabbitThreads: open, codeRabbit: { ...codeRabbit, reviewedHead: false, headMoved: true } };
+  }
   return { pr, checks, unresolvedCodeRabbitThreads: open, codeRabbit };
 }
 
