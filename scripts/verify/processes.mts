@@ -43,15 +43,21 @@ async function stopGroup(record: Tracked) {
   const leader = startedAt(record.pid);
   if (leader !== null && leader !== record.started) return false;
   const hadMembers = groupMembers(record.pid).length > 0;
-  await reapGroup(record.pid);
+  if (!(await reapGroup(record.pid))) throw new Error(`${record.name} (process group ${record.pid}) is still running after SIGKILL. Stop it by hand, then run verify again.`);
   return hadMembers;
 }
 
+const waitForEmptyGroup = async (pgid: number, ms: number) => {
+  for (let waited = 0; waited < ms && groupMembers(pgid).length > 0; waited += 200) await sleep(200);
+  return groupMembers(pgid).length === 0;
+};
+
 async function reapGroup(pgid: number) {
-  if (groupMembers(pgid).length === 0) return;
+  if (groupMembers(pgid).length === 0) return true;
   signalGroup(pgid, "SIGTERM");
-  for (let waited = 0; waited < 5000 && groupMembers(pgid).length > 0; waited += 200) await sleep(200);
-  if (groupMembers(pgid).length > 0) signalGroup(pgid, "SIGKILL");
+  if (await waitForEmptyGroup(pgid, 5000)) return true;
+  signalGroup(pgid, "SIGKILL");
+  return waitForEmptyGroup(pgid, 5000);
 }
 
 const pidFile = (name: string) => path.join(pidDir, `${name}.json`);
