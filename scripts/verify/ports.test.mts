@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -187,6 +187,39 @@ describe("claimFile", () => {
     const file = path.join(dir, "held.json");
     writeFileSync(file, JSON.stringify({ pid: process.ppid, started: startedOf(process.ppid) }));
     expect(claimFile(file)).toEqual({ claimed: false, holder: expect.objectContaining({ pid: process.ppid }) });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("replaces a claim left by a process that is gone", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "verify-claim-"));
+    const file = path.join(dir, "stale.json");
+    writeFileSync(file, JSON.stringify({ pid: 999_999, started: "long ago" }));
+    expect(claimFile(file)).toEqual({ claimed: true });
+    expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({ pid: process.pid });
+    expect(existsSync(`${file}.break`)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("leaves a stale claim alone while another live run is replacing it", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "verify-claim-"));
+    const file = path.join(dir, "stale.json");
+    const stale = JSON.stringify({ pid: 999_999, started: "long ago" });
+    writeFileSync(file, stale);
+    writeFileSync(`${file}.break`, JSON.stringify({ pid: process.ppid, started: startedOf(process.ppid) }));
+    expect(claimFile(file)).toEqual({ claimed: false, holder: null });
+    expect(readFileSync(file, "utf8")).toBe(stale);
+    expect(existsSync(`${file}.break`)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("clears a replacement left by a run that died, so the next claim can go ahead", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "verify-claim-"));
+    const file = path.join(dir, "stale.json");
+    writeFileSync(file, JSON.stringify({ pid: 999_999, started: "long ago" }));
+    writeFileSync(`${file}.break`, JSON.stringify({ pid: 999_998, started: "long ago" }));
+    expect(claimFile(file)).toEqual({ claimed: false, holder: null });
+    expect(existsSync(`${file}.break`)).toBe(false);
+    expect(claimFile(file)).toEqual({ claimed: true });
     rmSync(dir, { recursive: true, force: true });
   });
 });

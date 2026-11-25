@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type SpawnOptions } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -122,26 +122,30 @@ const createExclusive = (file: string, text: string) => {
 
 export type Claim = { claimed: true } | { claimed: false; holder: Owner | null };
 
+const ownerText = () => JSON.stringify({ pid: process.pid, started: startedAt(process.pid) });
+
+function replaceStale(file: string, staleText: string, text: string): Claim {
+  const breaker = `${file}.break`;
+  if (!createExclusive(breaker, ownerText())) {
+    const breakerOwner = parseOwner(readText(breaker));
+    if (breakerOwner && !isSameProcess(breakerOwner)) rmSync(breaker, { force: true });
+    return { claimed: false, holder: null };
+  }
+  try {
+    if (readText(file) === staleText) rmSync(file, { force: true });
+    return createExclusive(file, text) ? { claimed: true } : { claimed: false, holder: parseOwner(readText(file)) };
+  } finally {
+    rmSync(breaker, { force: true });
+  }
+}
+
 export function claimFile(file: string, details: Record<string, unknown> = {}): Claim {
   const text = JSON.stringify({ pid: process.pid, started: startedAt(process.pid), ...details });
   if (createExclusive(file, text)) return { claimed: true };
   const heldText = readText(file);
   const held = parseOwner(heldText);
   if (held && isSameProcess(held)) return { claimed: false, holder: held };
-  const stale = `${file}.stale-${process.pid}`;
-  try {
-    renameSync(file, stale);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  if (existsSync(stale)) {
-    if (readFileSync(stale, "utf8") !== heldText) {
-      renameSync(stale, file);
-      return { claimed: false, holder: null };
-    }
-    rmSync(stale, { force: true });
-  }
-  return createExclusive(file, text) ? { claimed: true } : { claimed: false, holder: null };
+  return replaceStale(file, heldText, text);
 }
 
 export const releaseFile = (file: string) => {
